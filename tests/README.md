@@ -1,0 +1,12 @@
+# `tests/`
+
+| Directory | Stage | Contents |
+|---|---|---|
+| `probe/` | `program` | the cycle-0.0 language probes; **never deleted** |
+| `conformance/` | `accept` | the public API compiles in a program that only imports it |
+| `unit/` | `program` | behaviour, judged by exit code |
+| `oracle/` | `program` | the naive reference matcher, and the cross-engine agreement runner |
+| `rejection/` | `check` | programs the compiler must refuse, with exactly the expected codes |
+| `fixtures/` | `fixture` | pattern/haystack/expectation triples, including everything the fuzzer found |
+
+Expectations live in the test file. Governed by `../meta/specs/TESTING.md`.

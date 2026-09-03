@@ -1,0 +1,39 @@
+# Proposed GitHub metadata for alternative-intelligence-cp/nitpick-regex
+# (written by the planning session; NOT applied — the parent applies these)
+
+## Description (349 char limit; this is 197)
+
+Regular expressions for Nitpick — linear time guaranteed on every pattern and every input. Automata-based, zero dependency, no libc, no syscalls. Catastrophic backtracking is not slow here; it is impossible.
+
+## Topics (20, lowercase, alphanumeric + hyphen)
+
+regex
+regular-expression
+regex-engine
+pattern-matching
+finite-automata
+nfa
+dfa
+thompson-nfa
+pike-vm
+linear-time
+redos
+redos-protection
+unicode
+utf8
+text-processing
+nitpick
+nitpick-lang
+safety-critical
+zero-dependency
+formal-verification
+
+## Notes for the applier
+
+- "redos" and "redos-protection" are the two that will actually be searched by
+  someone with the problem this library solves.
+- "pike-vm" and "thompson-nfa" are low-traffic but precise: they find the
+  audience that already knows why backtracking is the wrong answer.
+- Deliberately NOT included: "pcre" (we are not PCRE-compatible and the topic
+  would mislead), "backtracking" (we are the opposite), "no-libc" (true, but
+  "zero-dependency" already says it and 20 is the cap).
