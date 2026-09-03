@@ -44,20 +44,20 @@ settled. **Nothing in this cycle is blocked on a question.**
 ## Checklist
 
 ### 0.0.0 — the probes
-- [ ] `probe/01_pod_array.npk` — a `Vec<Inst>` of 100 000 12-byte POD values: fill, read, copy, clear; `#size_of<Inst>()` asserted
-- [ ] `probe/02_payload_enum.npk` — a tagged enum with payloads, destructured in a `pick`, stored in a `Vec`, `#[derive(Eq, Debug)]`, `#size_of` asserted
-- [ ] `probe/03_generic_move.npk` — `move T:v` into a generic container, `T` both scalar and owning
-- [ ] `probe/04_inherent_generic.npk` — `impl:<T>:Vec<T> = { … }` with a `Vec<T>->:self` receiver that mutates, called as `v.push(x)`
-- [ ] `probe/05_explicit_stack.npk` — a nested-structure parser over an explicit `Vec<Frame>`, 250 deep, **no native recursion**, and a 10 000-deep input refused rather than crashing
-- [ ] `probe/06_offsets_not_slices.npk` — a function returning `{lo, hi}` offsets; and one **returning a `uint8[]`**, expected to be **refused**, with the code recorded
-- [ ] `probe/07_string_bytes.npk` — `string_bytes` into a scanner, `.len`/`.ptr`, and the four borrow edges: passed down (legal), returned (refused), stored past the call (refused), held across an `await` (refused)
-- [ ] `probe/08_sparse_set.npk` — two `Vec<int32>` as a sparse set: O(1) insert, membership and clear, over 100 000 keys, with the dense/sparse invariant asserted
-- [ ] `probe/09_comptime_walk.npk` — a `comptime func:` that indexes a pattern string; **expected to be REFUSED**. Record the exact diagnostic: it is O-N1's evidence
-- [ ] `probe/10_comptime_strings.npk` — what `comptime` *can* do: `string_concat`, `string_equals`, `string_byte_length`, `string_is_empty`, a `loop`, a mutable local, a `comptime func:` call. Records the boundary from the other side
-- [ ] `probe/11_bitset_array.npk` — a `uint64[4]` field inside a struct inside a `Vec`, with union/intersect/complement/contains
-- [ ] `probe/12_iterator_trait.npk` — the prelude `Iterator` trait implemented on a struct holding a borrow, driven by `for … in`; O-A1 depends on the answer
-- [ ] `probe/13_verification_rungs.npk` — `prove`, `limit<Rules>`, `requires`/`ensures` each **refused by name** with `NITPICK-RUNG-001` naming "1.5", so the comment-form obligations are known to be inert rather than silently parsed as something else
-- [ ] `probe/14_large_program.npk` — a `Vec<Inst>` at `NREGEX_PROGRAM_INSTRUCTIONS`, built and walked, exiting 0 so a leak is a trap
+- [ ] `probe/probe01_pod_array.npk` — a `Vec<Inst>` of 100 000 12-byte POD values: fill, read, copy, clear; `#size_of<Inst>()` asserted
+- [ ] `probe/probe02_payload_enum.npk` — a tagged enum with payloads, destructured in a `pick`, stored in a `Vec`, `#[derive(Eq, Debug)]`, `#size_of` asserted
+- [ ] `probe/probe03_generic_move.npk` — `move T:v` into a generic container, `T` both scalar and owning
+- [ ] `probe/probe04_inherent_generic.npk` — `impl:<T>:Vec<T> = { … }` with a `Vec<T>->:self` receiver that mutates, called as `v.push(x)`
+- [ ] `probe/probe05_explicit_stack.npk` — a nested-structure parser over an explicit `Vec<Frame>`, 250 deep, **no native recursion**, and a 10 000-deep input refused rather than crashing
+- [ ] `probe/probe06_offsets_not_slices.npk` — a function returning `{lo, hi}` offsets; and one **returning a `uint8[]`**, expected to be **refused**, with the code recorded
+- [ ] `probe/probe07_string_bytes.npk` — `string_bytes` into a scanner, `.len`/`.ptr`, and the four borrow edges: passed down (legal), returned (refused), stored past the call (refused), held across an `await` (refused)
+- [ ] `probe/probe08_sparse_set.npk` — two `Vec<int32>` as a sparse set: O(1) insert, membership and clear, over 100 000 keys, with the dense/sparse invariant asserted
+- [ ] `probe/probe09_comptime_walk.npk` — a `comptime func:` that indexes a pattern string; **expected to be REFUSED**. Record the exact diagnostic: it is O-N1's evidence
+- [ ] `probe/probe10_comptime_strings.npk` — what `comptime` *can* do: `string_concat`, `string_equals`, `string_byte_length`, `string_is_empty`, a `loop`, a mutable local, a `comptime func:` call. Records the boundary from the other side
+- [ ] `probe/probe11_bitset_array.npk` — a `uint64[4]` field inside a struct inside a `Vec`, with union/intersect/complement/contains
+- [ ] `probe/probe12_iterator_trait.npk` — the prelude `Iterator` trait implemented on a struct holding a borrow, driven by `for … in`; O-A1 depends on the answer
+- [ ] `probe/probe13_verification_rungs.npk` — `prove`, `limit<Rules>`, `requires`/`ensures` each **refused by name** with `NITPICK-RUNG-001` naming "1.5", so the comment-form obligations are known to be inert rather than silently parsed as something else
+- [ ] `probe/probe14_large_program.npk` — a `Vec<Inst>` at `NREGEX_PROGRAM_INSTRUCTIONS`, built and walked, exiting 0 so a leak is a trap
 - [ ] a verdict line per probe recorded in `0.0.0.md` §7, with the exact diagnostic where refused
 - [ ] every design consequence written into `meta/specs/` **and** `meta/DECISIONS.md` before 0.0.1 starts
 
