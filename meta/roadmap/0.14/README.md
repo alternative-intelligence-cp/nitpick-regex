@@ -1,5 +1,12 @@
 # Cycle 0.14 — The dogfood consumer
 
+> **Where the consumer lives (RX-101):** `grep`, in [`nitpick-posix`](https://github.com/alternative-intelligence-cp/nitpick-posix) — **not** in this repository's
+> `examples/`. A consumer is a real program with its own lifetime, and
+> `examples/` would make one that outgrows this library move, and one that
+> consumes several pick a parent. The import is by relative path until the
+> compiler's dependency resolution lands, and the repository's GitHub
+> description and topics are set in the same pass that creates it.
+
 **A real program, in `examples/`, written against the library as a consumer.**
 
 ## Why a cycle

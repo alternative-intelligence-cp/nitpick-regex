@@ -19,39 +19,20 @@ question is part of the record of how the answer was reached.
 
 ## Q — for the user
 
-### Q-1 — the Unicode version to pin
-Decided at cycle 0.3 against what is published then. Unlike a grapheme
-segmenter, nothing here needs a property that arrived in a particular release,
-so there is no floor. Recorded because the version becomes a committed constant
-whose movement changes which patterns match.
-**Recommendation:** the latest stable UCD when 0.3 runs, recorded in
-`src/unicode/version.npk`.
+### ~~Q-1 — the Unicode version to pin~~ — **SETTLED, RX-100**
+The latest stable UCD when cycle 0.3 runs, in `src/unicode/version.npk`. No
+floor; a bump regenerates the tables and re-runs the agreement suite.
 
-### Q-2 — the dogfood consumer for cycle 0.14
-The library's own examples are weak evidence: an example is written by the
-person who wrote the API. A real program exercises it honestly.
-**Recommendation:** a `grep`-shaped tool — read a file, search it line by line
-or across lines, report matches with offsets and context. It exercises the
-prefilters (the common case), the `Cache` lifecycle across many searches,
-byte-mode matching over a file that may not be valid UTF-8, and the replacement
-path. `../ARCHIVE/nitpick-grep` exists as a shape reference. Alternative: a
-tokeniser for `nitpick-parse`, which would be a real cross-library consumer but
-needs that library to exist.
+### ~~Q-2 — the dogfood consumer for cycle 0.14~~ — **SETTLED, RX-101 and RX-102**
+`grep`, built in [`nitpick-posix`](https://github.com/alternative-intelligence-cp/nitpick-posix)
+rather than in this repository's `examples/` — consumers are real programs and
+live in the application workbench. **RX-102** records the conformance
+consequence: POSIX basic REs have back-references, this library does not, and
+`grep` refuses such a pattern by name rather than acquiring a backtracker.
 
-### Q-3 — whether `RegexSet` (multi-pattern) lands at 1.0 or 1.1
-The program format supports it from 1.0 (`COMPILE.md` §6) because retrofitting
-a pattern id into `Match` later would change every engine's inner loop and
-every committed fixture; the *API* is deferred.
-**Recommendation:** 1.1. It is a real feature with its own semantics (which
-patterns matched, in what order) and adding it late costs nothing because the
-format already reserves for it.
-
----
-
-## O-N — the compiler's
-
-Requests to be raised in the compiler repository. Neither blocks planning; one
-blocks a feature.
+### ~~Q-3 — whether `RegexSet` lands at 1.0 or 1.1~~ — **SETTLED, RX-103**
+1.1 for the API; the compiled program format reserves a pattern id from 1.0, so
+the deferral costs nothing. Defer the API, not the representation.
 
 ### O-N1 — `comptime` cannot index a string, so a compile-time-validated pattern is not expressible
 **The most valuable thing on this list.** The obvious safety win for this

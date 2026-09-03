@@ -446,3 +446,75 @@ claim; this is the evidence.
 step count does not, so a regression in steps is a real regression and a
 regression in time alone may be the machine. Time is recorded and reported; the
 gate is 20% on steps against the committed baseline.
+
+---
+
+# The second batch — ratified 2026-09-03
+
+The three questions this plan put to the project's author, answered as
+recommended, with one amendment the author made to where a consumer lives.
+
+### RX-100 — the Unicode version is the latest stable UCD at cycle 0.3
+**2026-09-03, settling Q-1.** Recorded in `src/unicode/version.npk` as a single
+`pub fixed string:UNICODE_VERSION`, and in the header of every generated table.
+
+**There is no floor**, unlike a grapheme segmenter's: nothing here depends on a
+property that arrived in a particular release. What the version does control is
+which patterns match — `\p{Script=Han}` gains codepoints between releases — so
+a bump regenerates every table, re-runs the agreement suite, and is a recorded
+decision rather than a refresh.
+
+### RX-101 — the dogfood consumer is `grep`, and it lives in `nitpick-posix`
+**2026-09-03, settling Q-2, with the author's amendment on location.** The
+program is `grep`: it exercises the prefilters (the common case), the `Cache`
+lifecycle across many searches, byte-mode matching over a file that may not be
+valid UTF-8, and the replacement path.
+
+It does **not** live in this repository's `examples/`. Consumers are real
+programs with their own lifetimes, and they live in
+[`nitpick-apps`](https://github.com/alternative-intelligence-cp/nitpick-apps);
+`grep` is a POSIX utility, so it is built in
+[`nitpick-posix`](https://github.com/alternative-intelligence-cp/nitpick-posix)
+alongside the rest of the set rather than in a repository of its own.
+
+*The consequence, which is not a cost:* cycle 0.14 is now gated on a program in
+another repository, and the import is by relative path until the compiler's
+dependency resolution lands (O-N…). That is the same workaround every other
+cross-repository reference uses.
+
+### RX-102 — `grep` will not be a conformant POSIX BRE implementation, and that is the right answer
+**2026-09-03. A consequence of RX-101 and RX-003 meeting, found while settling
+where the consumer lives — before either was written.**
+
+POSIX **basic** regular expressions include back-references (`\(…\)` … `\1`).
+RX-003 has none, because back-references are precisely what force a
+backtracking engine. So a strictly conformant `grep -G` cannot be built on this
+library, and the collision is real rather than a technicality.
+
+*It resolves in this library's favour, and the argument is not "our library
+matters more".* `grep` is the utility in the entire POSIX set **most likely to
+be pointed at input somebody else controls** — that is what it is for. Adding a
+backtracking engine to satisfy a conformance checkbox would put the exact
+denial of service this library was designed to eliminate into the one program
+that most needs it eliminated.
+
+*So:* a pattern containing a back-reference is **refused at compile time, by
+name, with the byte offset and the reason** — never silently accepted, never
+quietly reinterpreted as a literal. `nitpick-posix` documents it as a stated
+conformance departure. It is also the choice `ripgrep` makes, for the same
+reason.
+
+*What this does not change:* RX-009's refusal of a bounded backtracker stands,
+and this is now the second independent argument for it. O-R1 keeps the shape on
+file.
+
+### RX-103 — `RegexSet` lands at 1.1, and the program format reserves for it from 1.0
+**2026-09-03, settling Q-3.** Multi-pattern matching is a real feature with its
+own semantics — which patterns matched, in what order — and it is deferred to
+1.1.
+
+The deferral costs nothing **because the compiled program format carries a
+pattern id from 1.0** (`COMPILE.md` §6). Retrofitting one later would change
+every engine's inner loop and invalidate every committed fixture; reserving the
+field now costs a word nobody reads. This is the general shape worth copying:
+**defer the API, not the representation.**
