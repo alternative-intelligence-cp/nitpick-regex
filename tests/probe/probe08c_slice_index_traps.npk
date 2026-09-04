@@ -1,0 +1,51 @@
+// expect-exit: 94
+//
+// PROBE 08c — THE OTHER HALF OF `probe08b`'S CONTRAST: a slice index out of
+// range TRAPS. Same offset, same program shape, different type.
+//
+// It is a separate file because a trapping read cannot be followed by an
+// assertion in the same program -- `failsafe` runs and `main` never resumes.
+// The pair is the evidence:
+//
+//   probe08b   `wild int64->` block, index 999 -> RETURNS, exit 0
+//   probe08c   `int64[]` slice,      index 999 -> TRAPS,   exit 94
+//
+// `expect-exit: 94` is this file's `OutOfBounds` arm, so the assertion is that
+// the trap happened AND that it was that trap and not another.
+//
+// The consequence is `SAFETY.md` S-23 (RX-111): D-070's guarantee attaches to
+// types that carry a length, and `Vec<T>.items` is a `wild T->` that does not.
+mod:probe08c_slice_index_traps;
+
+func:main = int32(cstring[]:argv) {
+    int64[4]:arr = [200i64, 201i64, 202i64, 203i64];
+    int64[]:view = arr[0i64...4i64];
+
+    // The in-range reads run first, so the guard is shown not to fire on good
+    // input -- the compiler's own `bounds_slice.npk` makes the same point.
+    if (view[0i64] != 200i64)                           { exit 10i32; }
+    if (view[3i64] != 203i64)                           { exit 11i32; }
+    if (view.len != 4i64)                               { exit 12i32; }
+
+    // Computed at run time from `argv.len` (which is 1), so no constant folding
+    // can turn this into a compile-time refusal instead of the run-time trap
+    // the probe is about.
+    int64:far = argv.len + 998i64;      // 999
+
+    int64:bad = view[far];              // traps: OutOfBounds -> failsafe -> 94
+    discard(bad);
+    exit 20i32;                         // NOT REACHED
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

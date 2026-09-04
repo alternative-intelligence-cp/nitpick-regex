@@ -17,7 +17,7 @@ costs a library that compiles and executes patterns.
 | A struct holding a borrow cannot be returned | D-004 | sub-views are built by struct literal at the call site, never returned from a helper |
 | Owning values are move-only | TYPE-046 | **a value stored in an array declares no owning field** — instructions, HIR nodes, thread entries are all POD |
 | Plain integer `+ - *` **traps** on overflow | D-210 | program-size and repetition arithmetic widens explicitly and narrows with `=>!` at a proven point |
-| Indexing is bounds-checked and traps | D-070 | an out-of-range program counter is a **crash**, not a wrong answer — every index goes through one accessor pair. §5 |
+| Indexing **a type that carries a length** is bounds-checked and traps | D-070 | a slice `T[]` and a fixed array `T[N]` trap; **a `wild T->` block does not** — and `Vec<T>.items` is one, so every index in this library is unchecked unless the library checks it. §5.3, RX-111 |
 | `/` and `%` by zero trap | D-007 | no divisor is unproven on its path |
 | There are **no closures** | D-018 | replacement is a template string or a bare function value; iteration is a struct with `next`, never a callback. `API.md` §5 |
 | `failsafe`'s `pick` must **name** every reachable error | REACH-002 | **every public `error:` is an arm every consuming program owes.** §4 |
@@ -218,6 +218,50 @@ VM**, which needs no cache and is still linear.
 
 The user never sees this. It changes the time, never the answer, and
 `TESTING.md` §5's cross-engine oracle is what proves that.
+
+### 5.3 Indexing, and what D-070 does not cover
+
+**Rule S-23 (RX-111) — a `wild T->` block is indexed without a bounds check, so
+every `Vec` access in this library is checked by this library or not at all.**
+
+D-070's guarantee attaches to types that carry a length:
+
+| Type | Carries a length | Out-of-range index |
+|---|---|---|
+| slice `T[]` | yes — `{ ptr, len }` | **traps**, `OutOfBounds` |
+| fixed array `T[N]` | yes — in the type | **traps**, `OutOfBounds` |
+| `wild T->` block | **no** — a bare pointer | **reads**, silently |
+
+Measured as a pair, same offset and same program shape:
+`tests/probe/probe08c_slice_index_traps.npk` (a slice, index 999 into four
+elements) exits **94**; `tests/probe/probe08b_wild_index_unchecked.npk` (a
+`wild int64->` block, the same index) exits **0**, having read 7 992 bytes past
+its allocation and returned the result.
+
+**`Vec<T>.items` is a `wild T->`** (RX-006), so `Program.insts`, `Hir.nodes`,
+`Program.classes`, the Pike VM's thread lists and the sparse set are all in the
+second category. This is not a compiler defect — `wild` is the language's
+unchecked primitive and says so in its name. It was an error in this document,
+which read a language guarantee onto a type that never carried it.
+
+**What follows, and it is the reason this rule is in the safety document rather
+than a style note:**
+
+- **The "one accessor pair" is now load-bearing.** Every read and write of a
+  `Vec` goes through `vec_get` / `vec_set`, which check against `count`, and a
+  tree check enforces that no `.items[` appears outside `src/core/vec.npk`.
+  Before this rule that pair was tidiness; it is now the only bounds check.
+- **An unchecked index is a WRONG ANSWER, not a crash.** That inverts the
+  failure mode §1 advertises. A wrong program counter in an engine reads an
+  unrelated heap word as an instruction; a wrong sparse-set probe adds a thread
+  for a state the automaton is not in and the library returns a match that is
+  not there. Both are silent, and both are reachable from bytes the caller does
+  not control.
+- **Signedness is half the check.** An index derived from an `int32` field can
+  be negative, `n < count` accepts it, and a negative index reads backwards off
+  the block. Every accessor checks `0 <= i` as well as `i < count`.
+- **`TESTING.md`'s fuzzer invariants gain one**: no accessor is ever called
+  with an out-of-range index, asserted in the debug build.
 
 ---
 

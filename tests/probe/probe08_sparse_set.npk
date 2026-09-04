@@ -1,0 +1,251 @@
+// expect-exit: 0
+//
+// PROBE 08 — a sparse set over two `Vec<int32>`, including the deliberate read
+// of uninitialised memory.
+//
+// ASKS: O(1) insert, membership and clear over 100 000 keys, with the invariant
+// `dense[sparse[k]] == k` asserted, and the uninitialised-`sparse` trick --
+// reading garbage is safe because `dense` is checked -- exercised on purpose.
+//
+// DEPENDS ON THE ANSWER: `SparseSet` is what makes the Pike VM linear
+// (`ENGINES.md` R-6). Every byte of every haystack costs one clear and up to
+// `m` membership tests, so this structure's per-operation cost IS the engine's
+// inner loop. `0.0.0.md` §4 flagged it as the probe most likely to produce a
+// real finding, and it did -- see §B.
+//
+// ==========================================================================
+// §A — THE UNINITIALISED READ IS LEGAL. D-010 DOES NOT REACH HEAP STORAGE.
+// ==========================================================================
+//
+// `alloc` hands back uninitialised bytes and reading them compiles and runs.
+// Definite-assignment analysis (D-010) governs LOCALS -- a local read before it
+// is written is a compile error -- and says nothing about a `wild` block, which
+// is exactly the distinction this trick needs. So the set costs **no O(n)
+// zeroing at construction**, which is the whole reason it is preferred to a
+// bitmap in an engine that constructs one per search.
+//
+// ==========================================================================
+// §B — THE GUARD IS MANDATORY, AND NOT FOR THE REASON THE PLAN ASSUMED
+// ==========================================================================
+//
+// The textbook membership test is `dense[sparse[k]] == k`, and in C it survives
+// garbage in `sparse[k]` on the strength of the `== k` compare failing after an
+// out-of-bounds read that is undefined but usually silent.
+//
+// THE FIRST DRAFT OF THIS HEADER SAID THAT IN NITPICK THAT READ TRAPS, because
+// D-070 makes indexing bounds-checked, and concluded that an unguarded sparse
+// set is a remote denial of service. **The probe written to prove it disproved
+// it**, and the corrected finding is worse rather than better:
+//
+//   `probe08b_wild_index_unchecked.npk`   `wild int64->` block, index 999 -> exit 0
+//   `probe08c_slice_index_traps.npk`      `int64[]` slice,      index 999 -> exit 94
+//
+// **D-070's check attaches to types that carry a length** -- a slice `T[]` and a
+// fixed array `T[N]`. A `wild T->` block is a bare pointer with no length
+// anywhere, and indexing it is raw pointer arithmetic. **`Vec<T>.items` is a
+// `wild T->`**, so every index in this structure, and in `Program.insts` and
+// `Hir.nodes` and every engine's thread list, is UNCHECKED.
+//
+// So the unguarded test does not crash. It reads some unrelated heap word,
+// compares it to `k`, and occasionally says **true** for a key that is not a
+// member. In the Pike VM that adds a thread for a state the automaton is not
+// in, and the library returns a WRONG MATCH -- silently, from an index derived
+// from attacker-controlled bytes. A trap would have been the good outcome.
+//
+// THE GUARD, therefore, is not belt-and-braces over a language check; it IS the
+// check, and it is written out in `sset_has`:
+//
+//     int32:n = sparse[k];
+//     if (n >= 0 && n < live && dense[n] == k)   ->  member
+//
+// **Both halves are load-bearing.** `n < live` alone accepts a negative `n`
+// -- `int32` garbage is signed and `-1 < 1` -- and `dense[-1]` reads backwards
+// off the block without complaint. The `n >= 0` half is the one a reader
+// porting from C never has to think about, because there the index is
+// `unsigned`.
+//
+// RECORDED AS RX-111 / `SAFETY.md` S-23. It is a defect in this repository's
+// specification and not in the compiler: `wild` is the language's unchecked
+// primitive and says so in its name. What was wrong was reading a language
+// guarantee onto a type that never had it.
+//
+mod:probe08_sparse_set;
+
+struct:Vec<T> = {
+    wild T->:items;
+    int64:count;
+    int64:cap;
+};
+
+// NOTE: no zeroing. The block comes back from `alloc` as whatever was there.
+func:vec_init<T> = Vec<T>(int64:cap) never fails {
+    int64:n = cap;
+    if (n < 1i64) { n = 1i64; }
+    wild int8->:mem = alloc(n * #size_of<T>());
+    pass Vec{ items: mem =>! wild T->, count: 0i64, cap: n };
+};
+
+func:vec_free<T> = NIL(Vec<T>->:v) never fails {
+    dalloc(v.items =>! wild int8->);
+    v.count = 0i64;
+    v.cap = 0i64;
+    pass NIL;
+};
+
+// ---------------------------------------------------------------------------
+// `ENGINES.md` R-6's sparse set.
+// ---------------------------------------------------------------------------
+
+struct:SparseSet = {
+    Vec<int32>:dense;      // the members, in insertion order, `n` of them
+    Vec<int32>:sparse;     // key -> its index in `dense`. NEVER INITIALISED.
+    int64:n;               // how much of `dense` is live
+    int64:bound;           // keys are 0 .. bound-1  (`limit` is reserved)
+};
+
+func:sset_init = SparseSet(int64:bound) never fails {
+    pass SparseSet{
+        dense:  raw vec_init::<int32>(bound),
+        sparse: raw vec_init::<int32>(bound),
+        n: 0i64,
+        bound: bound
+    };
+};
+
+// THE MEMBERSHIP TEST, with §B's guard. `&&` short-circuits, so `dense[n]` is
+// only reached once `n` is known to be a legal index.
+func:sset_has = bool(SparseSet:s, int32:k) never fails {
+    int32:n = s.sparse.items[k => int64];
+    if (n < 0i32)                       { pass false; }
+    if ((n => int64) >= s.n)            { pass false; }
+    pass s.dense.items[n => int64] == k;
+};
+
+func:sset_add = NIL(SparseSet->:s, int32:k) never fails {
+    // Re-adding a member must not grow `dense`, or the set is a multiset and
+    // the Pike VM visits a state twice -- which is how a linear engine stops
+    // being linear.
+    if (raw sset_has(<-s, k)) { pass NIL; }
+    s.dense.items[s.n] = k;
+    s.sparse.items[k => int64] = s.n =>! int32;
+    s.n = s.n + 1i64;
+    pass NIL;
+};
+
+// O(1), and the reason the structure is worth its awkwardness: a clear is one
+// assignment, not a memset. This runs once per haystack byte in the Pike VM.
+func:sset_clear = NIL(SparseSet->:s) never fails {
+    s.n = 0i64;
+    pass NIL;
+};
+
+func:sset_free = NIL(SparseSet->:s) never fails {
+    drop vec_free(@s.dense);
+    drop vec_free(@s.sparse);
+    s.n = 0i64;
+    pass NIL;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int64:bound = 100000i64;
+    SparseSet:s = raw sset_init(bound);
+
+    // ---- §A: membership on a COMPLETELY uninitialised sparse array --------
+
+    // Nothing has been written to `s.sparse` at all. Every one of these reads
+    // whatever `alloc` handed back, and the guard turns all of it into `false`
+    // rather than into a trap. This is the loop that would crash without §B.
+    int64:i = 0i64;
+    int64:spurious = 0i64;
+    while (i < bound) {
+        if (raw sset_has(s, i =>! int32)) { spurious = spurious + 1i64; }
+        i = i + 1i64;
+    }
+    // An empty set contains nothing, whatever the garbage said.
+    if (spurious != 0i64)                               { exit 10i32; }
+    if (s.n != 0i64)                                    { exit 11i32; }
+
+    // ---- insert, and the invariant ----------------------------------------
+
+    drop sset_add(@s, 5i32);
+    drop sset_add(@s, 99999i32);
+    drop sset_add(@s, 0i32);
+    if (s.n != 3i64)                                    { exit 20i32; }
+    if (!(raw sset_has(s, 5i32)))                       { exit 21i32; }
+    if (!(raw sset_has(s, 99999i32)))                   { exit 22i32; }
+    if (!(raw sset_has(s, 0i32)))                       { exit 23i32; }
+    if (raw sset_has(s, 4i32))                          { exit 24i32; }
+
+    // `dense[sparse[k]] == k` for every member, asserted rather than trusted.
+    int64:j = 0i64;
+    while (j < s.n) {
+        int32:k = s.dense.items[j];
+        if (s.sparse.items[k => int64] != (j =>! int32)) { exit 25i32; }
+        if (s.dense.items[s.sparse.items[k => int64] => int64] != k) { exit 26i32; }
+        j = j + 1i64;
+    }
+
+    // Idempotence: re-adding a member leaves `n` alone.
+    drop sset_add(@s, 5i32);
+    if (s.n != 3i64)                                    { exit 27i32; }
+
+    // ---- clear is O(1), and it really does clear --------------------------
+
+    drop sset_clear(@s);
+    if (s.n != 0i64)                                    { exit 30i32; }
+    // The stale `sparse` entries from before the clear are still there. THIS is
+    // the case the trick exists for: `sparse[5]` still says 0, and `dense[0]`
+    // is out of the live range, so the guard rejects it.
+    if (raw sset_has(s, 5i32))                          { exit 31i32; }
+    if (raw sset_has(s, 99999i32))                      { exit 32i32; }
+    if (raw sset_has(s, 0i32))                          { exit 33i32; }
+
+    // And a fresh insert after the clear is not confused by the stale entries.
+    drop sset_add(@s, 7i32);
+    if (s.n != 1i64)                                    { exit 34i32; }
+    if (!(raw sset_has(s, 7i32)))                       { exit 35i32; }
+    if (raw sset_has(s, 5i32))                          { exit 36i32; }
+
+    // ---- fill to the bound ------------------------------------------------
+
+    drop sset_clear(@s);
+    i = 0i64;
+    while (i < bound) {
+        drop sset_add(@s, i =>! int32);
+        i = i + 1i64;
+    }
+    if (s.n != bound)                                   { exit 40i32; }
+
+    // Every key is a member, and the invariant holds across the whole range.
+    i = 0i64;
+    while (i < bound) {
+        if (!(raw sset_has(s, i =>! int32)))            { exit 41i32; }
+        i = i + 1i64;
+    }
+
+    // A full set clears in O(1) and is empty afterwards -- the operation the
+    // Pike VM performs once per input byte.
+    drop sset_clear(@s);
+    if (s.n != 0i64)                                    { exit 42i32; }
+    if (raw sset_has(s, 50000i32))                      { exit 43i32; }
+
+    drop sset_free(@s);
+
+    // `int32` owns nothing, so the two blocks were the whole obligation
+    // (`SAFETY.md` §8b: D-151 counts `wild` blocks and sees no managed body --
+    // here there is none to see).
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

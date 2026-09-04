@@ -1,0 +1,274 @@
+// expect-exit: 0
+//
+// PROBE 11 — a bitset as a fixed-array FIELD of a struct held in a `Vec`.
+//
+// ASKS: does `uint64[4]` work as a struct field -- union, intersection,
+// complement, membership and iteration -- and is `#size_of<ByteSet>()` really
+// 32? And does a struct carrying one go into a `Vec` and come back out?
+//
+// DEPENDS ON THE ANSWER: `ByteSet` is exactly this (`COMPILE.md` §3), a byte
+// class lives inside an instruction operand table, and `Program.classes` is a
+// `Vec<ByteSet>`. The DFA's transition function reads one per byte, so a
+// `ByteSet` that could not be an array element would put a pointer chase in the
+// hottest loop the library has.
+//
+// A NEGATIVE VERDICT COSTS the class representation: a `Vec<uint64>` with a
+// stride computed by hand, and every access an unchecked multiply.
+//
+// `range` IS A RESERVED WORD and a bitset iterator is exactly what wants to be
+// called one. `rng` throughout, per `CLAUDE.md`'s ecosystem-wide table.
+//
+// ==========================================================================
+// THREE THINGS THIS PROBE MEASURED ON THE WAY, ALL ABOUT BIT ARITHMETIC
+// ==========================================================================
+//
+// 1. **`>>>` DOES NOT PARSE.** `TYPE_REFERENCE.md`'s operator table lists it --
+//    "right shift (unsigned) | `lshr`" -- and the lexer does not have it:
+//    `NITPICK-PARSE-002 … expected an expression`, at the `>>>`. Isolated
+//    against the other five bitwise operators, which all compile:
+//
+//      >>> -> NITPICK-PARSE-002       >> & | ^ ~ -> all exit 0
+//
+// 2. **AND IT COSTS NOTHING, BECAUSE `>>` ON AN UNSIGNED TYPE IS ALREADY
+//    LOGICAL.** Measured rather than assumed, because the same table calls
+//    `>>` "right shift (signed) | `ashr`" and a bitset that shifted in sign
+//    bits would give wrong answers only at bit 63 -- the single worst place for
+//    a silent bug to sit. `(1u64 << 63u64) >> 63u64` is **1**, not all-ones.
+//    So this file uses `>>` throughout and needs no unsigned form. That is not
+//    a workaround for a missing operator: `>>` on `uint64` IS the operation,
+//    and `>>>` would be a synonym for it.
+//
+// 3. **A `uint64` ABOVE 2^63-1 CANNOT BE SPELLED AS A LITERAL.** The literal
+//    envelope is 64-bit **signed** (D-148), so `18446744073709551615u64` --
+//    the obvious way to write a full byte class -- is `NITPICK-LEX-004`:
+//    "this literal is outside the 64-bit literal envelope; a type's outermost
+//    values are constructed arithmetically, not spelled". `../PLAYBOOK.md`
+//    records this for `int64`'s MINIMUM; it is the same envelope and it bites
+//    the unsigned MAXIMUM too. `byteset_full` below builds `~0u64` instead.
+mod:probe11_byteset_bitset;
+
+struct:Vec<T> = {
+    wild T->:items;
+    int64:count;
+    int64:cap;
+};
+
+func:vec_init<T> = Vec<T>(int64:cap) never fails {
+    int64:n = cap;
+    if (n < 1i64) { n = 1i64; }
+    wild int8->:mem = alloc(n * #size_of<T>());
+    pass Vec{ items: mem =>! wild T->, count: 0i64, cap: n };
+};
+
+func:vec_push<T> = NIL(Vec<T>->:v, move T:x) never fails {
+    if (v.count >= v.cap) {
+        int64:nc = v.cap * 2i64;
+        wild int8->:bigger = ralloc(v.items =>! wild int8->, nc * #size_of<T>());
+        v.items = bigger =>! wild T->;
+        v.cap = nc;
+    }
+    v.items[v.count] = move(x);
+    v.count = v.count + 1i64;
+    pass NIL;
+};
+
+func:vec_free<T> = NIL(Vec<T>->:v) never fails {
+    dalloc(v.items =>! wild int8->);
+    v.count = 0i64;
+    v.cap = 0i64;
+    pass NIL;
+};
+
+// ---------------------------------------------------------------------------
+// `COMPILE.md` §3's byte class: 256 bits, four words, no owning field.
+// ---------------------------------------------------------------------------
+
+struct:ByteSet = {
+    uint64[4]:w;
+};
+
+// An empty set. There are no static methods (D-185) and `Default` is not
+// derivable (D-123), so construction is a bare function -- and the array
+// literal is written out, because there is no fill form.
+func:byteset_empty = ByteSet() never fails {
+    pass ByteSet{ w: [0u64, 0u64, 0u64, 0u64] };
+};
+
+// All 256 bits. `~0u64` and NOT the spelled-out maximum -- see the header's
+// point 3: the literal is refused `NITPICK-LEX-004`.
+func:byteset_full = ByteSet() never fails {
+    uint64:all = ~0u64;
+    pass ByteSet{ w: [all, all, all, all] };
+};
+
+// The word and bit a byte lands in: `b >> 6` is the word (0..3) and `b & 63`
+// the bit. `>>` and not `>>>` -- see the header's points 1 and 2. The index is
+// a byte widened to `int64`, so it is non-negative and the two shifts would
+// agree here even if `>>` were arithmetic; on the `uint64` word below they also
+// agree, because `>>` on an unsigned type is `lshr`. Measured, not assumed.
+func:byteset_add = NIL(ByteSet->:s, uint8:b) never fails {
+    int64:wi = (b => int64) >> 6i64;
+    int64:bi = (b => int64) & 63i64;
+    s.w[wi] = s.w[wi] | (1u64 << (bi =>! uint64));
+    pass NIL;
+};
+
+func:byteset_has = bool(ByteSet:s, uint8:b) never fails {
+    int64:wi = (b => int64) >> 6i64;
+    int64:bi = (b => int64) & 63i64;
+    pass ((s.w[wi] >> (bi =>! uint64)) & 1u64) == 1u64;
+};
+
+func:byteset_union = ByteSet(ByteSet:a, ByteSet:b) never fails {
+    pass ByteSet{ w: [a.w[0i64] | b.w[0i64], a.w[1i64] | b.w[1i64],
+                      a.w[2i64] | b.w[2i64], a.w[3i64] | b.w[3i64]] };
+};
+
+func:byteset_inter = ByteSet(ByteSet:a, ByteSet:b) never fails {
+    pass ByteSet{ w: [a.w[0i64] & b.w[0i64], a.w[1i64] & b.w[1i64],
+                      a.w[2i64] & b.w[2i64], a.w[3i64] & b.w[3i64]] };
+};
+
+// The one every negated class `[^…]` needs.
+func:byteset_not = ByteSet(ByteSet:a) never fails {
+    pass ByteSet{ w: [~a.w[0i64], ~a.w[1i64], ~a.w[2i64], ~a.w[3i64]] };
+};
+
+// ITERATION, which is where a bitset earns its shape: count the members without
+// testing all 256 bits. No closures (D-018), so it returns a count rather than
+// taking a callback -- the pull shape the playbook prefers.
+func:byteset_count = int64(ByteSet:s) never fails {
+    int64:n = 0i64;
+    int64:i = 0i64;
+    while (i < 256i64) {
+        int64:wi = i >> 6i64;
+        int64:bi = i & 63i64;
+        if (((s.w[wi] >> (bi =>! uint64)) & 1u64) == 1u64) { n = n + 1i64; }
+        i = i + 1i64;
+    }
+    pass n;
+};
+
+// An inclusive byte RANGE added at once -- `[a-z]`'s primitive. `rng`, because
+// `range` does not parse.
+func:byteset_add_rng = NIL(ByteSet->:s, uint8:lo, uint8:hi) never fails {
+    int64:i = lo => int64;
+    int64:stop = hi => int64;
+    while (i <= stop) {
+        drop byteset_add(s, i =>! uint8);
+        i = i + 1i64;
+    }
+    pass NIL;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    // ---- the size, MEASURED ----------------------------------------------
+
+    // Reported by this probe on compiler 950bb1d: 32. A `uint64[4]` field is
+    // FOUR WORDS INLINE and not a pointer to them -- which is the whole
+    // question, because a `Vec<ByteSet>` of pointers would defeat the purpose.
+    if (#size_of<ByteSet>() != 32i64)                   { exit 10i32; }
+
+    // ---- membership ------------------------------------------------------
+
+    ByteSet:s = raw byteset_empty();
+    if ((raw byteset_count(s)) != 0i64)                 { exit 11i32; }
+
+    drop byteset_add(@s, 97u8);                         // 'a'  -> word 1
+    drop byteset_add(@s, 0u8);                          //      -> word 0, bit 0
+    drop byteset_add(@s, 255u8);                        //      -> word 3, bit 63
+    drop byteset_add(@s, 63u8);                         //      -> word 0, bit 63
+    drop byteset_add(@s, 64u8);                         //      -> word 1, bit 0
+
+    // Every word boundary is exercised above, which is what catches a
+    // shift-by-64 or an off-by-one in the word index.
+    if (!(raw byteset_has(s, 97u8)))                    { exit 20i32; }
+    if (!(raw byteset_has(s, 0u8)))                     { exit 21i32; }
+    if (!(raw byteset_has(s, 255u8)))                   { exit 22i32; }
+    if (!(raw byteset_has(s, 63u8)))                    { exit 23i32; }
+    if (!(raw byteset_has(s, 64u8)))                    { exit 24i32; }
+    if (raw byteset_has(s, 98u8))                       { exit 25i32; }
+    if (raw byteset_has(s, 254u8))                      { exit 26i32; }
+    if ((raw byteset_count(s)) != 5i64)                 { exit 27i32; }
+
+    // ---- ranges, union, intersection, complement --------------------------
+
+    ByteSet:lower = raw byteset_empty();
+    drop byteset_add_rng(@lower, 97u8, 122u8);          // [a-z]
+    if ((raw byteset_count(lower)) != 26i64)            { exit 30i32; }
+
+    ByteSet:digits = raw byteset_empty();
+    drop byteset_add_rng(@digits, 48u8, 57u8);          // [0-9]
+    if ((raw byteset_count(digits)) != 10i64)           { exit 31i32; }
+
+    ByteSet:u = raw byteset_union(lower, digits);
+    if ((raw byteset_count(u)) != 36i64)                { exit 32i32; }
+    if (!(raw byteset_has(u, 97u8)))                    { exit 33i32; }
+    if (!(raw byteset_has(u, 48u8)))                    { exit 34i32; }
+
+    // Disjoint classes intersect to nothing; a class intersects itself to
+    // itself. Both directions, because one of them passes by accident.
+    ByteSet:i0 = raw byteset_inter(lower, digits);
+    if ((raw byteset_count(i0)) != 0i64)                { exit 35i32; }
+    ByteSet:i1 = raw byteset_inter(u, lower);
+    if ((raw byteset_count(i1)) != 26i64)               { exit 36i32; }
+
+    // `[^0-9]` is 246 of the 256 bytes -- the operation every negated class
+    // performs, and the one that would silently produce 0 if `~` were logical.
+    ByteSet:nd = raw byteset_not(digits);
+    if ((raw byteset_count(nd)) != 246i64)              { exit 37i32; }
+    if (raw byteset_has(nd, 48u8))                      { exit 38i32; }
+    if (!(raw byteset_has(nd, 97u8)))                   { exit 39i32; }
+
+    // The two extremes, so the word literal is checked at full width.
+    if ((raw byteset_count(raw byteset_full())) != 256i64)  { exit 40i32; }
+    if ((raw byteset_count(raw byteset_not(raw byteset_full()))) != 0i64) { exit 41i32; }
+
+    // ---- a `Vec<ByteSet>`, which is `Program.classes` ---------------------
+
+    Vec<ByteSet>:classes = raw vec_init::<ByteSet>(1i64);
+    drop vec_push(@classes, lower);
+    drop vec_push(@classes, digits);
+    drop vec_push(@classes, u);
+    drop vec_push(@classes, nd);
+    if (classes.count != 4i64)                          { exit 50i32; }
+
+    // Read every one back after two reallocations. The words moved with the
+    // struct because they are INLINE; a pointer field would have survived too,
+    // which is why the size assertion above is the load-bearing one.
+    if ((raw byteset_count(classes.items[0i64])) != 26i64)  { exit 51i32; }
+    if ((raw byteset_count(classes.items[1i64])) != 10i64)  { exit 52i32; }
+    if ((raw byteset_count(classes.items[2i64])) != 36i64)  { exit 53i32; }
+    if ((raw byteset_count(classes.items[3i64])) != 246i64) { exit 54i32; }
+
+    // A COPY out of the array is independent of what stays in it -- the array
+    // field copies by value, which is what makes a class fixture diffable.
+    ByteSet:c = classes.items[1i64];
+    drop byteset_add(@c, 200u8);
+    if ((raw byteset_count(c)) != 11i64)                { exit 55i32; }
+    if ((raw byteset_count(classes.items[1i64])) != 10i64)  { exit 56i32; }
+
+    // And mutation THROUGH the array reaches the stored element.
+    drop byteset_add(@classes.items[1i64], 201u8);
+    if ((raw byteset_count(classes.items[1i64])) != 11i64)  { exit 57i32; }
+
+    drop vec_free(@classes);
+
+    // `ByteSet` owns nothing, so the block was the whole obligation: D-151
+    // counts `wild` blocks and there is no managed body here for it to miss
+    // (`SAFETY.md` §8b).
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

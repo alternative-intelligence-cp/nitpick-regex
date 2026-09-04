@@ -577,3 +577,53 @@ and waited on, not papered over library-side); leaving it and adding a note
 (the wrong statement is in a **specification**, and RX-002 makes the
 specification the authority — an authority known to be wrong and not corrected
 is worse than none).
+
+### RX-111 — D-070's bounds check does not reach a `wild T->` block, so the accessor pair is the check
+**2026-09-03, from probes 08, 08b and 08c.**
+
+`SAFETY.md` §1 said *"Indexing is bounds-checked and traps — an out-of-range
+program counter is a **crash**, not a wrong answer"*. That is true of the
+language and **false of this library's own container**.
+
+D-070's check attaches to types that carry a length — a slice `T[]` and a fixed
+array `T[N]`. A `wild T->` block is a bare pointer, and indexing it is raw
+pointer arithmetic. Measured as a pair, same offset, same program shape:
+
+| Probe | Type | Index | Result |
+|---|---|---|---|
+| `probe08c_slice_index_traps.npk` | `int64[]` slice, 4 elements | 999 | **exit 94**, `OutOfBounds` |
+| `probe08b_wild_index_unchecked.npk` | `wild int64->`, 4 elements | 999 | **exit 0**, value returned |
+
+**`Vec<T>.items` is a `wild T->`** (RX-006), so `Program.insts`, `Hir.nodes`,
+`Program.classes`, every engine's thread list and the sparse set are all
+unchecked.
+
+*How it was found, because the route matters.* Probe 08 was written with a §B
+asserting that the classic sparse-set trick traps in Nitpick where it is merely
+undefined in C, and calling that a denial of service. Probe 08b was then written
+to *prove* that claim and disproved it — it exited 10 where 94 was expected. The
+corrected finding is strictly worse than the one it replaces: an unguarded index
+does not stop the program, it **returns an unrelated heap word**, so a wrong
+program counter is a silently wrong match rather than a controlled stop. This is
+the third time in this ecosystem that a probe written to confirm a specification
+sentence has refuted it, and it is the argument for writing the confirming probe
+even when the sentence looks obvious.
+
+*What changes.* `SAFETY.md` gains §5.3 (S-23) and §1's row is rewritten to name
+the types the guarantee actually covers. The "one accessor pair" in §1 stops
+being a tidiness measure and becomes the library's only bounds check, enforced
+by a tree check that no `.items[` appears outside `src/core/vec.npk`. Every
+accessor checks `0 <= i` **and** `i < count`, because an index derived from an
+`int32` can be negative and a negative index reads backwards off the block
+without complaint — the half a reader porting from C will leave out, since there
+the index is `unsigned`.
+
+*Not a compiler defect, and so not a stop (W-11).* Nothing is under-enforced:
+`wild` is the language's unchecked primitive and says so in its name. The defect
+was in this document.
+
+*Alternatives declined:* making `Vec<T>.items` a slice `T[]` so the language
+checks it — a slice cannot be returned from `vec_init` (D-004 rule 2, and O-N9
+means the compiler would not even say so today), and the container would not
+survive `ralloc`; keeping the accessor pair optional and relying on review — the
+failure is silent, which is precisely the case review does not catch.

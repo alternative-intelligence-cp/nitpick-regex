@@ -34,6 +34,64 @@ consequence: POSIX basic REs have back-references, this library does not, and
 1.1 for the API; the compiled program format reserves a pattern id from 1.0, so
 the deferral costs nothing. Defer the API, not the representation.
 
+### A WARNING ABOUT `O-N` NUMBERING IN THIS FILE
+
+**Two numbering schemes are in this section and they collide.** `O-N1` … `O-N4`
+below were allocated by this repository at planning. `O-N9`, `O-N10` and `O-N11`
+below were allocated by the **workbench registry**
+(`../meta/OPEN_QUESTIONS.md`, §"For the compiler"), which is the ecosystem-wide
+list a compiler request is actually filed under, and they are recorded here only
+so that citations of them from this tree resolve.
+
+*The playbook's rule is that an `O-N` id used outside its repository is the
+workbench's.* This repository predates that rule and its four local ids are
+legacy. **Do not allocate a local `O-N5` and up**: propose the next free number
+in the workbench registry instead, because a local `O-N9` would now mean two
+different things in one file. Renumbering the four legacy ids is a change to
+settled documents and is left to the author — it is raised in cycle 0.0.0's
+report.
+
+### O-N9 — **the workbench registry's**: a `uint8[]` view escapes its owning frame, silently
+**Not ours, not open to us, and already accepted.** D-004's escape rule is
+enforced for `@`-borrows and **not** for slice views: `string_bytes(local)`
+returns a view that outlives its owner and reading it afterwards reads freed
+memory — `170`, the runtime's `0xAA` free-poison (D-183) — at exit 0. Confirmed,
+independently verified, accepted as the compiler's **DEF-3**, and scheduled as
+the second commit of its cycle 1.5.1b. The six-case contrast set is
+`../nitpick-time/tests/probe/defect/view_escape/`.
+
+*What it means here:* RX-050's offsets-not-slices stands, and
+`tests/probe/probe06b_subview_returned.npk` records the acceptance **without
+building on it**. That probe also contributes this library's one addition to the
+report — the *safe* slice return, a subrange of a **parameter**, which a fix
+that refuses every slice in a `pass` would also refuse. The house rule until it
+lands is unchanged: **a view is a parameter, never a return value.**
+
+### O-N10 — **the workbench registry's**: `#[derive(Eq)]` on a payload enum is refused; `#[derive(Ord)]` on one silently compares tags
+**Not ours.** `Eq` fails inside the derive expansion with `NITPICK-TYPE-034`
+pointing at a synthetic `<derived-1>` module the author cannot open; `Ord`
+compiles and its `cmp` ignores the payload entirely.
+
+*Confirmed against this library's own enum, and extended:* the arity makes no
+difference. `tests/probe/probe02b_derive_eq_refused.npk` and
+`probe02c_derive_ord_tag_only.npk` show a **two-field** payload compared no more
+carefully than a one-field one, so `Repeat(2,5).cmp(Repeat(9,9))` is `Equal`.
+Until it lands, no `Eq` or `Ord` derive goes on a payload enum here and the
+comparison is written by hand (`probe02_payload_enum.npk`'s `hir_eq`). 02c is
+green while the compiler is wrong and turns **red** the day it is fixed, which
+is the signal that says the hand-written nesting can go.
+
+### O-N11 — **the workbench registry's**: `npkc` exit 0 does not mean a program is well-formed
+**Not ours.** A root file with `main` and no `failsafe` compiles at exit 0 and is
+refused only by `llc`, a long way from the cause. Accepted as the compiler's
+**DEF-5**.
+
+*What it means here:* every probe in `tests/probe/` is run through **all four**
+steps of `0.0.0.md` §2's recipe — `npkc`, `llc`, `ld.lld`, and the binary — and
+a probe that was only compiled is a probe that has not been run. The transcript
+in `tests/probe/TRANSCRIPT.txt` carries every step's exit code for exactly this
+reason.
+
 ### O-N1 — `comptime` cannot index a string, so a compile-time-validated pattern is not expressible
 **The most valuable thing on this list.** The obvious safety win for this
 library is `#regex("…")` — a form that parses the pattern *while compiling the

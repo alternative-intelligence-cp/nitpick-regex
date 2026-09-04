@@ -1,0 +1,112 @@
+// expect-exit: 0
+//
+// PROBE 08b — INDEXING A `wild T->` BLOCK IS NOT BOUNDS-CHECKED. A SLICE OVER
+// THE SAME MEMORY IS. THE CONTRAST IS THE FINDING.
+//
+// THIS FILE STARTED OUT ASKING SOMETHING ELSE AND IS KEPT BECAUSE IT FAILED.
+// It was written to prove `probe08` §B's claim that an unguarded sparse-set
+// membership test TRAPS on garbage -- `expect-exit: 94`, `OutOfBounds`. It
+// exited 10 instead: the out-of-range read **succeeded**. What follows is the
+// isolation of why, and it matters a great deal more than the original question.
+//
+// ==========================================================================
+// WHAT IS ACTUALLY TRUE
+// ==========================================================================
+//
+// D-070's bounds check belongs to types that CARRY A LENGTH:
+//
+//   * a slice `T[]`      -- `{ ptr, len }`, indexed through the len   -> TRAPS
+//   * a fixed array `T[N]` -- length in the type                      -> TRAPS
+//   * a `wild T->` block -- a bare pointer, no length anywhere        -> DOES NOT
+//
+// `wild T->` indexing is raw pointer arithmetic. `blk[999]` on a four-element
+// block reads whatever is 7 992 bytes past it and returns it, with no
+// diagnostic and no trap.
+//
+// **AND `Vec<T>.items` IS A `wild T->`.** So every index into every `Vec` in
+// this library -- `Program.insts`, `Hir.nodes`, the Pike VM's thread lists, the
+// sparse set -- is unchecked. `SAFETY.md` §1 said "indexing is bounds-checked
+// and traps ... an out-of-range program counter is a **crash**, not a wrong
+// answer". That is true of the LANGUAGE and false of THIS LIBRARY'S CONTAINER,
+// and the gap is exactly where the library keeps its hot data. Corrected as
+// RX-111, `SAFETY.md` S-23.
+//
+// WHY IT IS NOT A COMPILER DEFECT, AND SO NOT A STOP: nothing is
+// under-enforced. A `wild T->` is the language's unchecked primitive and says
+// so in its name; `TYPE_REFERENCE.md` gives the checked behaviour to slices,
+// which have somewhere to keep a length. The defect was in this repository's
+// specification, which read a language guarantee onto a type that never had it.
+//
+// WHAT IT COSTS: the "one accessor pair" in `SAFETY.md` §1 stops being tidiness
+// and becomes the only thing between this library and silent memory corruption.
+// A trap would have been a controlled stop; a silent wrong answer in the Pike
+// VM is a wrong MATCH -- the library's whole output, quietly incorrect, from an
+// index derived from attacker-controlled bytes.
+mod:probe08b_wild_index_unchecked;
+
+func:main = int32(cstring[]:argv) {
+    // Four `int64`s, thirty-two bytes.
+    wild int8->:mem = alloc(4i64 * 8i64);
+    wild int64->:blk = mem =>! wild int64->;
+    int64:i = 0i64;
+    while (i < 4i64) { blk[i] = 100i64 + i; i = i + 1i64; }
+
+    // In range, through the block: the ordinary case still works.
+    if (blk[0i64] != 100i64)                            { exit 10i32; }
+    if (blk[3i64] != 103i64)                            { exit 11i32; }
+
+    // `argv.len` is 1, so these are computed at run time and nothing folds
+    // them away. `_~argv` would make `argv` unreadable (TYPE-007), so the
+    // parameter is spelled out.
+    int64:far = argv.len + 998i64;      // 999
+    int64:neg = 0i64 - argv.len;        // -1
+
+    // ---- (1) THROUGH THE WILD BLOCK: no check ----------------------------
+
+    // 999 elements past a 4-element block. This RETURNS; it does not trap.
+    // The value is meaningless, which is the point -- it is whatever the heap
+    // has there. It is read into a `discard` so nothing depends on it.
+    int64:a = blk[far];
+    discard(a);
+
+    // And backwards, which is the sparse set's actual hazard: a negative
+    // `int32` read out of an uninitialised block, used as an index.
+    int64:b = blk[neg];
+    discard(b);
+
+    // Reaching here at all is the finding.
+
+    // ---- (2) THROUGH A SLICE OVER THE SAME MEMORY: checked ---------------
+
+    // A fixed array, so there is a length for the check to consult. Same
+    // shape, same out-of-range offset, opposite outcome -- the trap arrives in
+    // `failsafe` and `main` never returns, so the assertion is `expect-exit`
+    // on the guarded path below rather than a compare here.
+    int64[4]:arr = [200i64, 201i64, 202i64, 203i64];
+    int64[]:view = arr[0i64...4i64];
+    if (view[0i64] != 200i64)                           { exit 20i32; }
+    if (view.len != 4i64)                               { exit 21i32; }
+
+    // The in-range reads above prove the slice works; `probe08c` is the file
+    // that takes the out-of-range one and records the trap, because a trapping
+    // read cannot be followed by an assertion in the same program.
+
+    dalloc(mem);
+
+    // D-151 counts `wild` blocks: this one is paired on the only path that
+    // reaches here, and that is exactly what exit 0 is entitled to assert.
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};
