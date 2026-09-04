@@ -279,9 +279,22 @@ numbers below are that file's, not this repository's.
      emission failed :183
   2  THE DRIVER COULD NOT PROCEED, and nothing was judged about the program:
      unknown argument :116, a second root file :122, no root file at all :129,
-     any flag given twice :93 :97 :100, `--elide`'s manifest unreadable or
-     unparseable :139 :141 :143, `--obligations`' directory unwritable :191,
-     the output path unwritable :206 :211, stdout unwritable :222
+     any flag given twice :93 :97 :100, a flag missing its argument :89,
+     `--elide`'s manifest unreadable or unparseable :139 :141 :143,
+     `--obligations`' directory unwritable :191, the output path unwritable
+     :206 :211, stdout unwritable :222, and — THE ONE THAT WILL BITE A LIBRARY
+     — A SOURCE FILE IN THE MODULE GRAPH THAT COULD NOT BE LOADED :157, where
+     `front_run` passes 2 up because `graph_load_all` returned < 0
+     (`src/driver/pipeline.npk`:177, the `pass 2i32` at :179). A `use` naming
+     a path that is not there exits 2, NOT 1. This library imports by relative
+     path (B-15, P-8) until O-G3 closes, so a typo'd or moved import is
+     precisely that case, and a
+     harness scoring it as a refusal would report a missing file as a passing
+     rejection test.
+
+     THAT LIST WAS SHORT BY TWO ON ITS FIRST WRITING — :89 and :157 were both
+     missing — which is the third finding of this subcycle and the same shape
+     as the number it was written to correct.
   3  A FAILSAFE TRAP — npkc's own handler, one arm per trap kind :269-:306
 
 The compiler intends the 1/2 split rather than tolerating it: its own cycle
