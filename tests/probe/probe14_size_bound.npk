@@ -1,0 +1,138 @@
+// expect-exit: 0
+//
+// PROBE 14 — a program at the size bound.
+//
+// ASKS: a `Vec<Inst>` built to `NREGEX_PROGRAM_INSTRUCTIONS` (100 000), walked
+// once, freed, exiting 0 — and what it COSTS in time and bytes.
+//
+// DEPENDS ON THE ANSWER: it is the memory and time floor of the whole library.
+// `PERFORMANCE.md` states a budget in bytes, and a budget nobody measured is a
+// guess. Probe 01 established that the shape WORKS; this one establishes what
+// it costs, which is a different question and the reason both exist.
+//
+// WHAT `exit 0` ASSERTS HERE, EXACTLY: that the `wild` block was released on
+// every path. `Inst` is POD — no field of it owns heap storage — so for this
+// program the block IS the whole obligation and the assertion is complete.
+// That is not general: `SAFETY.md` §8b (S-22) has the rule, and D-151 counts
+// `wild` blocks, D-188 counts live drivers, and neither sees a managed body.
+//
+// THE MEASUREMENT IS IN THE COMMITTED TRANSCRIPT, not in this comment, because
+// a number in a comment is a number nobody re-ran. `tests/probe/TRANSCRIPT.txt`
+// carries the wall time and peak RSS with the command that produced them.
+mod:probe14_size_bound;
+
+struct:Vec<T> = {
+    wild T->:items;
+    int64:count;
+    int64:cap;
+};
+
+func:vec_init<T> = Vec<T>(int64:cap) never fails {
+    int64:n = cap;
+    if (n < 1i64) { n = 1i64; }
+    wild int8->:mem = alloc(n * #size_of<T>());
+    pass Vec{ items: mem =>! wild T->, count: 0i64, cap: n };
+};
+
+func:vec_reserve<T> = NIL(Vec<T>->:v, int64:need) never fails {
+    int64:want = v.count + need;
+    if (want <= v.cap) { pass NIL; }
+    int64:nc = v.cap;
+    while (nc < want) { nc = nc * 2i64; }
+    wild int8->:bigger = ralloc(v.items =>! wild int8->, nc * #size_of<T>());
+    v.items = bigger =>! wild T->;
+    v.cap = nc;
+    pass NIL;
+};
+
+func:vec_push<T> = NIL(Vec<T>->:v, move T:x) never fails {
+    drop vec_reserve(v, 1i64);
+    v.items[v.count] = move(x);
+    v.count = v.count + 1i64;
+    pass NIL;
+};
+
+func:vec_free<T> = NIL(Vec<T>->:v) never fails {
+    dalloc(v.items =>! wild int8->);
+    v.count = 0i64;
+    v.cap = 0i64;
+    pass NIL;
+};
+
+enum:InstKind = { ByteRange; Split; Jump; Save; ClassRef; Halt; };
+
+struct:Inst = {
+    InstKind:kind;
+    uint32:a;
+    uint32:b;
+};
+
+// `SAFETY.md` §5's bound.
+fixed int64:NREGEX_PROGRAM_INSTRUCTIONS = 100000i64;
+
+func:main = int32(cstring[]:_~argv) {
+    // Exactly ON the bound — `SAFETY.md` §5 requires a case sitting on every
+    // bound, and this is the program-size one.
+    int64:n = NREGEX_PROGRAM_INSTRUCTIONS;
+
+    // Reserved to the final size up front, so the measurement below is of the
+    // steady state and not of sixteen `ralloc` doublings. A real
+    // `regex_compile` knows its program size only as it emits, so probe 01
+    // measures the doubling path; this one measures the floor.
+    Vec<Inst>:p = raw vec_init::<Inst>(n);
+    if (p.cap != n)                                     { exit 10i32; }
+
+    int64:i = 0i64;
+    while (i < n) {
+        drop vec_push(@p, Inst{ kind: InstKind.ByteRange,
+                                a: (i =>! uint32),
+                                b: ((n - i) =>! uint32) });
+        i = i + 1i64;
+    }
+    if (p.count != n)                                   { exit 11i32; }
+    // No reallocation happened: the reserve was exact.
+    if (p.cap != n)                                     { exit 12i32; }
+
+    // ---- walked once ------------------------------------------------------
+
+    // Every instruction read, with a total that is wrong if a single slot
+    // shifted. Sum of `a` over 0..99999 is 4 999 950 000; sum of `b` is
+    // 100 000 + 99 999 + … + 1 = 5 000 050 000.
+    int64:sa = 0i64;
+    int64:sb = 0i64;
+    i = 0i64;
+    while (i < p.count) {
+        sa = sa + (p.items[i].a => int64);
+        sb = sb + (p.items[i].b => int64);
+        i = i + 1i64;
+    }
+    if (sa != 4999950000i64)                            { exit 20i32; }
+    if (sb != 5000050000i64)                            { exit 21i32; }
+
+    // The block is 100 000 x 12 bytes = 1 200 000. Asserted, because the
+    // memory budget is stated in bytes and `#size_of<Inst>()` is what the
+    // allocation arithmetic multiplies by.
+    if (#size_of<Inst>() != 12i64)                      { exit 22i32; }
+    if ((n * #size_of<Inst>()) != 1200000i64)           { exit 23i32; }
+
+    // ---- freed ------------------------------------------------------------
+
+    drop vec_free(@p);
+    if (p.cap != 0i64)                                  { exit 24i32; }
+
+    // D-151: no `wild` block is live, and here that is the whole obligation.
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

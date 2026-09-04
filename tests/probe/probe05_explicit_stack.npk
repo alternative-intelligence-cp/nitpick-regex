@@ -1,0 +1,292 @@
+// expect-exit: 0
+//
+// PROBE 05 — an explicit-stack parser, and a refusal instead of a crash.
+//
+// ASKS: a parser for a nested bracket language driven by an explicit
+// `Vec<Frame>` rather than by recursion; 250 levels deep succeeds; **10 000
+// levels deep produces a clean refusal, not a segfault.**
+//
+// DEPENDS ON THE ANSWER: `SYNTAX.md` Y-9 and `SAFETY.md` S-18 -- the rule that
+// a pattern's nesting cannot blow the call frames. `NREGEX_NEST_DEPTH` is 250.
+// This probe is the proof that the explicit-stack approach is both writable and
+// sufficient, and it is the load-bearing one for adversarial input: `((((((…`
+// is four bytes per level of an attacker-supplied pattern.
+//
+// A NEGATIVE VERDICT -- if the explicit stack were awkward enough to be
+// unwritable -- costs a language request, because the alternative does NOT
+// close the hazard. Native recursion with a depth counter checks the counter
+// *after* the frame is pushed, so the frame that overflows the stack is the one
+// that would have been refused.
+//
+// ==========================================================================
+// WHY 10 000 IS THE INTERESTING NUMBER AND 250 IS NOT
+// ==========================================================================
+//
+// 250 levels succeeding proves the parser works. It does not prove anything
+// about the hazard, because 250 frames of native recursion would also have
+// worked -- that is the whole reason the bug is easy to ship. The test that
+// distinguishes an explicit stack from a recursive one is the input that WOULD
+// have blown the call frames, and 10 000 nested groups is comfortably that:
+// a recursive descent parser with even a modest frame overflows an 8 MiB stack
+// somewhere in the tens of thousands, and the failure is a SIGSEGV, which this
+// language has no way to turn into a controlled stop.
+//
+// So the assertion below is not "10 000 works". It is **"10 000 is REFUSED, by
+// name, having consumed bounded memory, and the program is still running
+// afterwards to say so"** -- which is only observable because nothing crashed.
+//
+// ==========================================================================
+// `stack` IS A RESERVED WORD, AND IT IS THE OBVIOUS NAME FOR THIS PROBE
+// ==========================================================================
+//
+// `Vec<Frame>:stack = …` does not parse. The diagnostic is
+// `NITPICK-PARSE-002 … expected an expression` pointing at the DECLARATION,
+// which says nothing about the name, and the failure cascades: the function's
+// opening `{` is then reported as "never closed" fifty lines further down, at
+// `main`'s closing brace. Nearly an hour went into bisecting a brace imbalance
+// that did not exist.
+//
+// The reason is in `LEXICAL_REFERENCE.md` line 52:
+//
+//     MemoryQualifier ::= "wild" | "wildx" | "stack" | "defer"
+//
+// `stack` is a MEMORY QUALIFIER, a sibling of `wild`. It is not in
+// `../PLAYBOOK.md` §10's list, not in this repository's `CLAUDE.md` list, and
+// not in `meta/specs/BUILD.md` §7 -- all three of which were read before this
+// file was written. The local is `frames` here.
+//
+// It is worth a line in the ecosystem's shared table for the same reason `end`
+// and `range` are already in it: **the name a domain most wants is the name
+// most likely to be taken.** An explicit-stack parser is `SAFETY.md` S-18's
+// whole mechanism, and "stack" is what every comment in it calls the thing.
+//
+// AND THE STACK IS EXERCISED PAST THE BOUND ON PURPOSE. The refusal happens at
+// depth 251, not at byte 10 000: the parser stops the moment the bound is
+// exceeded and never allocates the remaining 9 749 frames. That is the
+// difference between a bound that refuses and a bound that merely reports.
+mod:probe05_explicit_stack;
+
+struct:Vec<T> = {
+    wild T->:items;
+    int64:count;
+    int64:cap;
+};
+
+func:vec_init<T> = Vec<T>(int64:cap) never fails {
+    int64:n = cap;
+    if (n < 1i64) { n = 1i64; }
+    wild int8->:mem = alloc(n * #size_of<T>());
+    pass Vec{ items: mem =>! wild T->, count: 0i64, cap: n };
+};
+
+func:vec_reserve<T> = NIL(Vec<T>->:v, int64:need) never fails {
+    int64:want = v.count + need;
+    if (want <= v.cap) { pass NIL; }
+    int64:nc = v.cap;
+    while (nc < want) { nc = nc * 2i64; }
+    wild int8->:bigger = ralloc(v.items =>! wild int8->, nc * #size_of<T>());
+    v.items = bigger =>! wild T->;
+    v.cap = nc;
+    pass NIL;
+};
+
+func:vec_push<T> = NIL(Vec<T>->:v, move T:x) never fails {
+    drop vec_reserve(v, 1i64);
+    v.items[v.count] = move(x);
+    v.count = v.count + 1i64;
+    pass NIL;
+};
+
+func:vec_free<T> = NIL(Vec<T>->:v) never fails {
+    dalloc(v.items =>! wild int8->);
+    v.count = 0i64;
+    v.cap = 0i64;
+    pass NIL;
+};
+
+// ---------------------------------------------------------------------------
+// The parser.
+// ---------------------------------------------------------------------------
+
+// `SAFETY.md` §5's bound, as a named constant. In the library this lives in
+// `src/core/limits.npk` and nowhere else (S-12).
+fixed int64:NREGEX_NEST_DEPTH = 250i64;
+
+// A frame is POD -- no owning field -- so it can live in an array (TYPE-046).
+// In the real parser it carries the alternation list head and the group number;
+// here the open offset is enough to prove the stack is doing work.
+struct:Frame = {
+    int32:kind;        // 0 = group
+    int32:open_at;     // byte offset of the '(' that pushed it
+};
+
+// The outcome. One identity in the library (RX-060), with the detail in a value
+// the caller reads -- so this is a code, not an `error:`.
+//   0 = parsed
+//   1 = nesting too deep
+//   2 = unbalanced ')'
+//   3 = unclosed '(' at end
+struct:ParseOutcome = {
+    int32:code;
+    int64:at;           // byte offset the outcome was decided at
+    int64:max_depth;    // the deepest the stack actually got
+};
+
+// THE PARSER. No recursion anywhere: one `while` over the bytes and one
+// explicit `Vec<Frame>`. `src` is a view passed DOWN, never returned (RX-050).
+func:parse_nested = ParseOutcome(uint8[]:src) never fails {
+    Vec<Frame>:frames = raw vec_init::<Frame>(16i64);
+    int64:i = 0i64;
+    int64:deepest = 0i64;
+    int32:code = 0i32;
+    int64:at = 0i64;
+
+    while (i < src.len) {
+        if (src[i] == 40u8) {                       // '('
+            // THE BOUND IS CHECKED BEFORE THE PUSH. This is the line the whole
+            // probe is about: a recursive parser checks a counter after the
+            // frame exists, and by then the stack is already one frame deeper.
+            if (frames.count >= NREGEX_NEST_DEPTH) {
+                code = 1i32;
+                at = i;
+                i = src.len;                        // stop; no `break` exists
+            }
+            else {
+                drop vec_push(@frames, Frame{ kind: 0i32, open_at: i =>! int32 });
+                if (frames.count > deepest) { deepest = frames.count; }
+                i = i + 1i64;
+            }
+        }
+        else {
+            if (src[i] == 41u8) {                   // ')'
+                if (frames.count == 0i64) {
+                    code = 2i32;
+                    at = i;
+                    i = src.len;
+                }
+                else {
+                    frames.count = frames.count - 1i64;   // pop
+                    i = i + 1i64;
+                }
+            }
+            else { i = i + 1i64; }
+        }
+    }
+
+    if (code == 0i32) {
+        if (frames.count != 0i64) {
+            code = 3i32;
+            at = src.len;
+        }
+    }
+
+    // The stack is freed on EVERY path out, including both refusal paths.
+    // `Frame` owns nothing, so the block is the whole obligation here
+    // (`SAFETY.md` §8b).
+    drop vec_free(@frames);
+    pass ParseOutcome{ code: code, at: at, max_depth: deepest };
+};
+
+// `n` copies of '(' then `n` of ')', as ONE string.
+//
+// `string_repeat` IS DOCUMENTED AND DOES NOT EXIST at this compiler:
+// `BUILTIN_REFERENCE.md`'s string section lists `string_repeat(str, n)`, and
+// `npkc` answers `NITPICK-RESOLVE-002 … cannot find `string_repeat` in this
+// scope`. Same for anything else outside the floor set -- the builtins that are
+// actually present are the ones `BUILTIN_REFERENCE.md` gives an ABI row to.
+// So this is a concat loop.
+//
+// **Every intermediate is BOUND.** `t = string_concat(t, "(")` reassigns a
+// binding, and the overwritten binding frees its old body, so the loop peaks at
+// the size of the string rather than the sum of every version of it. Writing it
+// as `f(string_concat(a, b))` instead would leak the whole concatenation on
+// every iteration -- an owning temporary that is never bound is never dropped
+// (the compiler's D-246 debt), and that is the difference between linear and
+// quadratic MEMORY here. There is no `let`; the bound form names the type.
+func:nest_of = string(int64:n) never fails {
+    string:t = "";
+    int64:i = 0i64;
+    while (i < n) {
+        t = string_concat(t, "(");
+        i = i + 1i64;
+    }
+    i = 0i64;
+    while (i < n) {
+        t = string_concat(t, ")");
+        i = i + 1i64;
+    }
+    pass t;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    // ---- the shallow cases, so the parser is known to work ---------------
+
+    string:s0 = string_concat("(a(b)c)", "");
+    uint8[]:v0 = string_bytes(s0);
+    ParseOutcome:r0 = raw parse_nested(v0);
+    if (r0.code != 0i32)                                { exit 10i32; }
+    if (r0.max_depth != 2i64)                           { exit 11i32; }
+
+    string:s1 = string_concat("(", "");
+    ParseOutcome:r1 = raw parse_nested(string_bytes(s1));
+    if (r1.code != 3i32)                                { exit 12i32; }   // unclosed
+
+    string:s2 = string_concat(")", "");
+    ParseOutcome:r2 = raw parse_nested(string_bytes(s2));
+    if (r2.code != 2i32)                                { exit 13i32; }   // unbalanced
+    if (r2.at != 0i64)                                  { exit 14i32; }
+
+    // ---- 250: exactly ON the bound, which must SUCCEED -------------------
+
+    // `SAFETY.md` §5 requires a case sitting exactly on every bound and one
+    // exceeding it. This is the first.
+    string:deep = raw nest_of(250i64);
+    uint8[]:vd = string_bytes(deep);
+    if (vd.len != 500i64)                               { exit 20i32; }
+    ParseOutcome:rd = raw parse_nested(vd);
+    if (rd.code != 0i32)                                { exit 21i32; }
+    if (rd.max_depth != 250i64)                         { exit 22i32; }
+
+    // ---- 251: one past the bound, which must be REFUSED ------------------
+
+    string:over = raw nest_of(251i64);
+    ParseOutcome:ro = raw parse_nested(string_bytes(over));
+    if (ro.code != 1i32)                                { exit 30i32; }
+    // Refused at the 251st '(' -- byte offset 250, counting from zero. The
+    // parser stopped there rather than reading on.
+    if (ro.at != 250i64)                                { exit 31i32; }
+    if (ro.max_depth != 250i64)                         { exit 32i32; }
+
+    // ---- 10 000: the input that would have blown a call stack ------------
+
+    // THE PROBE'S REASON FOR EXISTING. A recursive-descent parser dies here
+    // with a SIGSEGV, which no `failsafe` can catch and no bound can prevent.
+    // This one refuses at depth 251 and returns, and the fact that the next
+    // line executes at all IS the result.
+    string:huge = raw nest_of(10000i64);
+    uint8[]:vh = string_bytes(huge);
+    if (vh.len != 20000i64)                             { exit 40i32; }
+    ParseOutcome:rh = raw parse_nested(vh);
+    if (rh.code != 1i32)                                { exit 41i32; }
+    // Refused at the SAME offset as the 251 case: the bound stops the parser
+    // where the bound is, not where the input ends. The other 9 749 frames
+    // were never allocated.
+    if (rh.at != 250i64)                                { exit 42i32; }
+    if (rh.max_depth != 250i64)                         { exit 43i32; }
+
+    // And the program is still running, which a segfault would have prevented.
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};
