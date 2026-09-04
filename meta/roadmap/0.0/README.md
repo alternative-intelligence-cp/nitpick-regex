@@ -76,12 +76,35 @@ settled. **Nothing in this cycle is blocked on a question.**
 - [x] every design consequence written into `meta/specs/` **and** `meta/DECISIONS.md` before 0.0.1 starts — RX-110, RX-111, RX-112; `SAFETY.md` §1, §5.3 (S-23) and §8b (S-22)
 
 ### 0.0.1 — the skeleton
-- [ ] `src/lib.npk` exists and `pub use`s nothing yet (`use` is not transitive, so the surface is a deliberate list)
-- [ ] every `src/` subdirectory has a placeholder module that parses, so the `parse` stage has something to sweep
-- [ ] `nitpick.toml`'s `[[test]]` table has its first entries: `probe` and `conformance`
-- [ ] a consumer program under `tests/conformance/` imports `src/lib.npk` by relative path and compiles, with a comment naming O-G3 as the reason the path is relative
-- [ ] CI: a workflow running `harness/run.py` on push, with LLVM 20.1.2 and the compiler built from a **pinned commit**, not a branch
-- [ ] `CLAUDE.md` and `CONTRIBUTING.md` re-read against 0.0.0's verdicts and extended
+- [x] ~~`src/lib.npk` exists and `pub use`s nothing yet~~ — **STRUCK, and it `pub use`s exactly one name.**
+      `ERegexPattern` *is* the public surface today: it is the whole cost of importing this library
+      (RX-060), and re-exporting it is what makes the consumer's `(ERegexPattern)` arm resolve, which
+      is the property `0.0.1.md` §3 step 2 wanted proved. "Nothing yet" would have made the umbrella
+      untestable and left `pub use` unmeasured — and it needed measuring: **RX-113** found that a
+      plain `use` re-exports nothing and that a plain `use` above a `pub use` of the same path
+      cancels the re-export silently.
+- [x] every `src/` subdirectory has a placeholder module that parses, so the `parse` stage has something to sweep  
+      **DONE** — seven, one per layer, each naming the specification that fills it, the cycle that
+      does, and what `BUILD.md` §6 permits it to import. All seven compile at `npkc` exit 0
+      (`tests/conformance/TRANSCRIPT.txt` §A) — and all seven are refused by `llc`, which is **RX-115**.
+- [~] `nitpick.toml`'s `[[test]]` table has its first entries: `probe` and `conformance`  
+      **HALF DONE, deliberately.** `conformance` is declared at `compile`/`positive` and is live.
+      `probe` is **not** declared: 16 of the 23 probes carry `expect-exit:` and 7 carry
+      `expect-error:`, and no single entry can judge both — `run_program` does not skip a file with
+      `expect-error`, and `run_compile`'s `kind` selects the checker, not the file set
+      (`npkg/suites.npk` :779 and :608). **RX-119**; the three-entry shape is in the manifest ready
+      to uncomment and the split is 0.0.2's, above.
+- [x] a consumer program under `tests/conformance/` imports `src/lib.npk` by relative path and compiles, with a comment naming O-G3 as the reason the path is relative  
+      **DONE, and it links and runs** — `npkc` 0, `llc` 0, `ld.lld` 0, binary 0, and the same four
+      through `opt -O2` (rule B-3). Six controls beside it, each failing for the right reason.
+- [x] CI: a workflow running `harness/run.py` on push, with LLVM 20.1.2 and the compiler built from a **pinned commit**, not a branch  
+      **WRITTEN, NOT RUN.** Pins the compiler by full sha (verified present on the public remote) and
+      LLVM by exact patch release, and *asserts* both. It has not executed: that needs a push, and
+      building the compiler from here is refused by W-18. See 0.0.1's acceptance for what is and is
+      not evidence.
+- [x] `CLAUDE.md` and `CONTRIBUTING.md` re-read against 0.0.0's verdicts and extended  
+      **DONE, and the re-read earned its place**: `CLAUDE.md` still said out-of-range indexing traps,
+      which probe 08b refuted at 0.0.0 (RX-111), and its "What this is" section was empty.
 
 ### 0.0.2 — the harness, part 1
 - [ ] `harness/run.py`: the manifest reader, the toolchain pin check, the module-graph walk
