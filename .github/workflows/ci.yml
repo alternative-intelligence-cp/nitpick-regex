@@ -1,0 +1,125 @@
+# nregex CI.
+#
+# EVERY INPUT IS PINNED, AND THE PIN IS ENFORCED RATHER THAN REQUESTED (P-9,
+# D-204: the toolchain is a build input). The compiler is a COMMIT, never a
+# branch: `nitpick` is moving through its cycle 1.5, and a library whose CI
+# tracks another repository's `main` is a library whose CI goes red for reasons
+# that are not its own. Bumping either pin is a deliberate commit, and the
+# commit that bumps it is the one that runs the full suite.
+#
+# WHAT THIS PROVES TODAY IS SMALL AND IS STATED HONESTLY. `harness/run.py` is a
+# STUB until cycle 0.0.2: it checks the toolchain and nothing else, and it says
+# so in its own output. A green run here is evidence that the pinned compiler
+# builds and that LLVM is exactly 20.1.2 — not evidence about this library.
+# When 0.0.2 lands the real runner, this file does not change.
+
+name: nregex
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  # ../BOARD.md's pinned toolchain, by FULL sha. `950bb1d` is the short form
+  # used in the roadmap and the transcripts.
+  NITPICK_COMMIT: 950bb1d8a12fa08a9682a538398c655163c69dd5
+  # nitpick.toml [toolchain] llvm. Exact patch release: a patch may change
+  # instruction selection, which is why the manifest names three digits.
+  LLVM_VERSION: 20.1.2
+
+jobs:
+  build:
+    # Pinned, not `ubuntu-latest`, for the same reason the compiler is pinned by
+    # commit: a runner image that rolls forward is an unpinned build input.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out nregex
+        uses: actions/checkout@v4
+
+      - name: Check out the pinned compiler
+        uses: actions/checkout@v4
+        with:
+          repository: alternative-intelligence-cp/nitpick
+          ref: ${{ env.NITPICK_COMMIT }}
+          path: .nitpick
+
+      # The upstream release tarball, because apt.llvm.org packages by MAJOR
+      # version and would give whatever 20.1.x is current. ~2 GB, so it is
+      # cached on the version alone — the asset is immutable for a given tag.
+      - name: Cache LLVM ${{ env.LLVM_VERSION }}
+        id: llvm-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/llvm
+          key: llvm-${{ env.LLVM_VERSION }}-linux-x64
+
+      - name: Install LLVM ${{ env.LLVM_VERSION }}
+        if: steps.llvm-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p ~/llvm
+          url="https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/LLVM-${LLVM_VERSION}-Linux-X64.tar.xz"
+          curl -fsSL "$url" | tar -xJ --strip-components=1 -C ~/llvm
+
+      - name: Put LLVM on PATH and assert the pin
+        run: |
+          set -euo pipefail
+          echo "$HOME/llvm/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/llvm/bin:$PATH"
+          have="$(llvm-config --version)"
+          # An assertion, not a report. The whole point of naming a patch
+          # release is that a different one fails here rather than silently
+          # producing different code.
+          if [ "$have" != "$LLVM_VERSION" ]; then
+            echo "LLVM is $have; nitpick.toml pins $LLVM_VERSION exactly." >&2
+            exit 1
+          fi
+          echo "llvm-config --version == $have"
+
+      # Keyed on the compiler's commit, so a cache hit is by construction the
+      # right binary. The compiler's own bootstrap ladder is the only supported
+      # way to build it; `quickemit.py` leaves both artefacts this library needs
+      # — `npkc` and `npkrt.o` — in `.internal/quickemit/`.
+      - name: Cache the built compiler
+        id: npkc-cache
+        uses: actions/cache@v4
+        with:
+          path: .nitpick/.internal/quickemit
+          key: npkc-${{ env.NITPICK_COMMIT }}-llvm-${{ env.LLVM_VERSION }}
+
+      - name: Build the compiler from the pinned commit
+        if: steps.npkc-cache.outputs.cache-hit != 'true'
+        working-directory: .nitpick
+        run: |
+          set -euo pipefail
+          python3 bootstrap/harness/quickemit.py --keep npkg/main.npk
+
+      - name: Check the toolchain artefacts exist
+        run: |
+          set -euo pipefail
+          test -f .nitpick/.internal/quickemit/npkc
+          test -f .nitpick/.internal/quickemit/npkrt.o
+          echo "NPKC=$GITHUB_WORKSPACE/.nitpick/.internal/quickemit/npkc"   >> "$GITHUB_ENV"
+          echo "NPKRT=$GITHUB_WORKSPACE/.nitpick/.internal/quickemit/npkrt.o" >> "$GITHUB_ENV"
+
+      - name: Run the harness
+        run: python3 harness/run.py
+
+      # Not part of the harness yet — 0.0.2 owns the stages. Until then this is
+      # the one thing 0.0.1 established, run explicitly so that CI is not green
+      # over nothing: the consumer compiles, links, RUNS and exits 0. `npkc`
+      # exiting 0 does not mean a program is well-formed (registry O-N11), so
+      # all four steps are run and the last one is what is judged.
+      - name: The conformance consumer, all four steps
+        run: |
+          set -euo pipefail
+          "$NPKC" tests/conformance/import.npk -o import.ll
+          llc -O0 -filetype=obj -relocation-model=static import.ll -o import.o
+          ld.lld -static import.o "$NPKRT" -o import
+          ./import
+          echo "tests/conformance/import.npk -> exit 0"
