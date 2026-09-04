@@ -54,7 +54,8 @@
 // note ON O-N9, never as a new defect.
 //
 // The case that WILL change under DEF-3 is a view of a **temporary**:
-// `string_bytes(string_concat(a, b))` returned becomes `NITPICK-BORROW-012`.
+// `string_bytes(string_concat(a, b))` returned, refused as `NITPICK-BORROW-001`
+// -- DEF-3 adds NO new diagnostic code; `BORROW-011` is the highest allocated.
 // Nothing in this file does that, and nothing in `src/` should -- D-246 already
 // requires binding such an intermediate, because the `string_concat` is an
 // owning temporary that leaks today.

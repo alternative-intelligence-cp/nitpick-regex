@@ -7,7 +7,7 @@ chooses an engine.**
 
 RX-043, RX-041, and `ENGINES.md` R-22 … R-24. Settled.
 
-**Open by design:** O-F1 and O-N4 (whether SIMD scanning pays) — a
+**Open by design:** O-F1 and O-G4 (whether SIMD scanning pays) — a
 *measurement*, taken at cycle 0.13. 0.9 ships the scalar version and leaves the
 seam.
 
@@ -68,5 +68,5 @@ strongest correctness statement the library makes.
   Deterministic and inspectable beats fast-on-average for a library whose
   selling point is that you can reason about it.
 - **The SIMD seam is left, not filled.** 0.13 measures; if it loses, that
-  measurement is a consumer's evidence for a movemask intrinsic (O-N4), which
+  measurement is a consumer's evidence for a movemask intrinsic (O-G4), which
   is a better request than a speculative one.

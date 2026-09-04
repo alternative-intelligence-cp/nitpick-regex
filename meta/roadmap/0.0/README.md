@@ -22,7 +22,7 @@ contents:
   suite shaped by the code.
 
 One probe (09) is **expected to fail**, and its failure is the evidence for
-O-N1 — the request that would make a compile-time-validated pattern literal
+O-G1 — the request that would make a compile-time-validated pattern literal
 possible. A probe that fails is a result, not an obstacle.
 
 ## Decisions in
@@ -60,8 +60,8 @@ settled. **Nothing in this cycle is blocked on a question.**
       **DONE** — edges 2–3 are O-N9 and are cited, not re-run. Edge 4 is accepted *and so is the `@`-borrow control*, so it is not reported as a sibling defect.
 - [x] `tests/probe/probe08_sparse_set.npk` + `probe08b_wild_index_unchecked.npk` + `probe08c_slice_index_traps.npk` — two `Vec<int32>` as a sparse set: O(1) insert, membership and clear, over 100 000 keys, with the dense/sparse invariant asserted  
       **DONE, and it found RX-111** — a `wild T->` index is **not** bounds-checked; `SAFETY.md` §5.3 (S-23) added and §1's row corrected.
-- [x] `tests/probe/probe09_comptime_walker.npk` — a `comptime func:` that indexes a pattern string; **expected to be REFUSED**. Record the exact diagnostic: it is O-N1's evidence  
-      **DONE** — `NITPICK-TYPE-004`; the wall is `string_bytes`, not the index. O-N1's ask sharpened to two arms.
+- [x] `tests/probe/probe09_comptime_walker.npk` — a `comptime func:` that indexes a pattern string; **expected to be REFUSED**. Record the exact diagnostic: it is O-G1's evidence  
+      **DONE** — `NITPICK-TYPE-004`; the wall is `string_bytes`, not the index. O-G1's ask sharpened to two arms.
 - [x] `tests/probe/probe10_comptime_capabilities.npk` — what `comptime` *can* do: `string_concat`, `string_equals`, `string_byte_length`, `string_is_empty`, a `loop`, a mutable local, a `comptime func:` call. Records the boundary from the other side  
       **DONE** — all four foldable builtins confirmed; a pattern-length check is buildable today.
 - [x] `tests/probe/probe11_byteset_bitset.npk` — a `uint64[4]` field inside a struct inside a `Vec`, with union/intersect/complement/contains  
@@ -79,7 +79,7 @@ settled. **Nothing in this cycle is blocked on a question.**
 - [ ] `src/lib.npk` exists and `pub use`s nothing yet (`use` is not transitive, so the surface is a deliberate list)
 - [ ] every `src/` subdirectory has a placeholder module that parses, so the `parse` stage has something to sweep
 - [ ] `nitpick.toml`'s `[[test]]` table has its first entries: `probe` and `conformance`
-- [ ] a consumer program under `tests/conformance/` imports `src/lib.npk` by relative path and compiles, with a comment naming O-N3 as the reason the path is relative
+- [ ] a consumer program under `tests/conformance/` imports `src/lib.npk` by relative path and compiles, with a comment naming O-G3 as the reason the path is relative
 - [ ] CI: a workflow running `harness/run.py` on push, with LLVM 20.1.2 and the compiler built from a **pinned commit**, not a branch
 - [ ] `CLAUDE.md` and `CONTRIBUTING.md` re-read against 0.0.0's verdicts and extended
 

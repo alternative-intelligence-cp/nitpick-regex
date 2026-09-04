@@ -39,8 +39,14 @@
 //   * a view of a **frame-local owner** must not escape — that is the bug;
 //   * a view whose root is a **pointer-shaped binding** (a wild pointer, a
 //     slice, a `cstring`) is the POINTEE'S borrow and may travel, so
-//     `string_from_bytes(buf, n)` over an alloc'd block, returned, stays legal;
-//   * a view of a **TEMPORARY** is refused outright, `NITPICK-BORROW-012`:
+//     `string_from_bytes(buf, n)` over an alloc'd block, returned, stays legal.
+//     THAT IS DEF-3'S FUTURE RULE. Today's is narrower and is what accepts the
+//     program below: `borrows_only_param_rooted` (escape.npk:507, called at
+//     :425) asks whether every borrow is rooted at a PARAMETER of the current
+//     function;
+//   * a view of a **TEMPORARY** is refused outright, as `NITPICK-BORROW-001` --
+//     DEF-3 adds NO new diagnostic code, and `BORROW-011` is the highest one
+//     allocated at `950bb1d`:
 //     `string_bytes(string_concat(a, b))` returned must bind the intermediate
 //     first. That composes with D-246 — the `string_concat` is an owning
 //     temporary that leaks today as well — so the shape is doubly wrong and

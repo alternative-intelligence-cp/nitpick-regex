@@ -1,0 +1,257 @@
+TRANSCRIPT — cycle 0.0.1, the skeleton
+======================================
+
+Every command run for this subcycle, with its exit code, committed verbatim.
+A timing or a claim without an exit code is not a measurement, and a summary
+of a transcript is not a transcript.
+
+toolchain : npkc and npkrt.o at compiler commit 950bb1d, from
+            ../.internal/toolchain/950bb1d/, sha256 matched against that
+            directory's SHA256SUMS before anything below was run
+LLVM      : 20.1.2
+date      : 2026-09-03
+cwd       : the nregex tree root. $SP is a scratch directory outside it;
+            $NPKC and $NPKRT are the two pinned artefacts.
+
+=== A. EVERY MODULE IN src/ COMPILED STANDALONE: npkc, THEN llc ===
+
+A module is not a program: it has no `main` and, under D-248, may not have a
+`failsafe`. npkc accepts all eight at exit 0. llc refuses all eight. This is
+the subcycle's largest finding — RX-115, provisional workbench O-N14.
+
+$ $NPKC src/core/core.npk -o $SP/core.ll
+  -> exit 0
+
+$ llc -O0 -filetype=obj -relocation-model=static $SP/core.ll -o $SP/core.o
+  llc: error: llc: $SP/core.ll:4036:19: error: use of undefined value '@npk_failsafe'
+    %t75 = call i32 @npk_failsafe(i32 -4102)
+                    ^
+  -> exit 1
+
+$ $NPKC src/unicode/unicode.npk -o $SP/unicode.ll
+  -> exit 0
+
+$ llc -O0 -filetype=obj -relocation-model=static $SP/unicode.ll -o $SP/unicode.o
+  llc: error: llc: $SP/unicode.ll:4036:19: error: use of undefined value '@npk_failsafe'
+    %t75 = call i32 @npk_failsafe(i32 -4102)
+                    ^
+  -> exit 1
+
+$ $NPKC src/syntax/syntax.npk -o $SP/syntax.ll
+  -> exit 0
+
+$ llc -O0 -filetype=obj -relocation-model=static $SP/syntax.ll -o $SP/syntax.o
+  llc: error: llc: $SP/syntax.ll:4036:19: error: use of undefined value '@npk_failsafe'
+    %t75 = call i32 @npk_failsafe(i32 -4102)
+                    ^
+  -> exit 1
+
+$ $NPKC src/hir/hir.npk -o $SP/hir.ll
+  -> exit 0
+
+$ llc -O0 -filetype=obj -relocation-model=static $SP/hir.ll -o $SP/hir.o
+  llc: error: llc: $SP/hir.ll:4036:19: error: use of undefined value '@npk_failsafe'
+    %t75 = call i32 @npk_failsafe(i32 -4102)
+                    ^
+  -> exit 1
+
+$ $NPKC src/compile/compile.npk -o $SP/compile.ll
+  -> exit 0
+
+$ llc -O0 -filetype=obj -relocation-model=static $SP/compile.ll -o $SP/compile.o
+  llc: error: llc: $SP/compile.ll:4036:19: error: use of undefined value '@npk_failsafe'
+    %t75 = call i32 @npk_failsafe(i32 -4102)
+                    ^
+  -> exit 1
+
+$ $NPKC src/engine/engine.npk -o $SP/engine.ll
+  -> exit 0
+
+$ llc -O0 -filetype=obj -relocation-model=static $SP/engine.ll -o $SP/engine.o
+  llc: error: llc: $SP/engine.ll:4036:19: error: use of undefined value '@npk_failsafe'
+    %t75 = call i32 @npk_failsafe(i32 -4102)
+                    ^
+  -> exit 1
+
+$ $NPKC src/api/api.npk -o $SP/api.ll
+  -> exit 0
+
+$ llc -O0 -filetype=obj -relocation-model=static $SP/api.ll -o $SP/api.o
+  llc: error: llc: $SP/api.ll:4036:19: error: use of undefined value '@npk_failsafe'
+    %t75 = call i32 @npk_failsafe(i32 -4102)
+                    ^
+  -> exit 1
+
+$ $NPKC src/lib.npk -o $SP/lib.ll
+  -> exit 0
+
+$ llc -O0 -filetype=obj -relocation-model=static $SP/lib.ll -o $SP/lib.o
+  llc: error: llc: $SP/lib.ll:4036:19: error: use of undefined value '@npk_failsafe'
+    %t75 = call i32 @npk_failsafe(i32 -4102)
+                    ^
+  -> exit 1
+
+A2. THE CAUSE, COUNTED IN THE EMITTED IR.
+    LLVM requires a `declare` for a function that is called and not defined.
+    npkc emits neither for @npk_failsafe; a program's own `failsafe` supplies
+    the `define`, and a library file has nothing to supply it.
+
+                                      src/lib.npk   import.npk (a program)
+    call sites to @npk_failsafe             7             7
+    `declare` of it                         0             0
+    `define` of it                          0             1
+    `define i32 @main`                      0             1
+
+    npkc's usage line offers no library or module mode:
+$ $NPKC --help
+  unknown argument: --help
+  usage: npkc <root.npk> [-o out.ll] [--obligations DIR] [--elide nitpick.obligations] [--extra-picky=no-wildx]
+  -> exit 1
+
+=== B. THE CONSUMER, ALL FOUR STEPS OF 0.0.0.md §2 ===
+
+$ $NPKC tests/conformance/import.npk -o $SP/import.ll
+  -> exit 0
+
+$ llc -O0 -filetype=obj -relocation-model=static $SP/import.ll -o $SP/import.o
+  -> exit 0
+
+$ ld.lld -static $SP/import.o $NPKRT -o $SP/import
+  -> exit 0
+
+$ $SP/import
+  -> exit 0
+
+=== C. THE SAME PROGRAM THROUGH THE opt -O2 LEG (BUILD.md rule B-3) ===
+
+$ opt -O2 -S $SP/import.ll -o $SP/import.opt.ll
+  -> exit 0
+
+$ llc -O2 -filetype=obj -relocation-model=static $SP/import.opt.ll -o $SP/import.opt.o
+  -> exit 0
+
+$ ld.lld -static $SP/import.opt.o $NPKRT -o $SP/import.opt
+  -> exit 0
+
+$ $SP/import.opt
+  -> exit 0
+
+    Same exit code both legs: 0 and 0. Rule B-3 satisfied.
+
+=== D. THE UNDEFINED-SYMBOL SCAN (rule B-2, RX-008) ===
+
+This is where RX-008's `check_no_syscalls` meets finding A, and the
+specified form of the check turns out not to be runnable. RX-116 replaces it.
+
+$ llvm-nm --undefined-only $SP/import.o        # the consumer, -O0
+                   U __divti3
+                   U npk_alloc
+                   U npk_chain_push
+                   U npk_chain_reset
+                   U npk_dalloc
+                   U npk_exec
+                   U npk_exit
+                   U npk_int_to_string
+                   U npk_io_register
+                   U npk_io_unwatch
+                   U npk_join_deadline
+                   U npk_mono_now
+                   U npk_ofd_close
+                   U npk_open
+                   U npk_park_until
+                   U npk_read
+                   U npk_run_until
+                   U npk_string_concat
+                   U npk_string_equals
+                   U npk_string_from_bytes
+                   U npk_string_slice
+                   U npk_sys6
+                   U npk_thread_join
+                   U npk_to_cstring
+                   U npk_trap
+                   U npk_windup_all
+                   U npk_windup_grace
+                   U npk_windup_note
+                   U npk_write
+  -> 29 undefined symbols
+
+  npk_open, npk_read, npk_write and npk_sys6 are in that list. nregex calls
+  none of them: they are the PRELUDE's, emitted into every translation unit.
+  An absolute allowlist of "the allocator, memcpy/memset, the string
+  primitives" would fail on this object, which contains no library code at all.
+
+  opt -O2 does not remove them either:
+    -O0 undefined: 29
+    -O2 undefined: 28
+
+D2. THE DIFFERENTIAL FORM, WHICH DOES WORK (RX-116).
+    A baseline program — an empty main and a failsafe, importing nothing —
+    against the consumer. Any symbol in the second and not the first was
+    introduced by nregex.
+
+$ $NPKC $SP/base/baseline.npk -o $SP/base/b.ll
+  -> exit 0
+
+$ llc -O0 -filetype=obj -relocation-model=static $SP/base/b.ll -o $SP/base/b.o
+  -> exit 0
+
+    baseline undefined: 29
+    consumer undefined: 29
+$ comm -13 base.txt consumer.txt     # attributable to nregex
+  (nothing) -> exit 0
+$ comm -23 base.txt consumer.txt     # in the baseline only
+  (nothing) -> exit 0
+
+D3. THE LINK IS CLOSED-WORLD AND SATISFIED. npkrt.o defines 201 symbols,
+    including the three a reader would wonder about:
+    0000000000002f70 T __divti3
+    00000000000062a0 T memcpy
+    0000000000006300 T memset
+
+=== E. CONTROLS. Each is a failure mode the skeleton is built to avoid. ===
+
+E1. lib.npk with a PLAIN `use` where it needs `pub use`. The umbrella
+    re-exports nothing, lib.npk is clean, and the CONSUMER is what fails.
+$ $NPKC $SP/ctl/src/lib.npk -o $SP/ctl/lib.ll
+  -> exit 0
+
+$ $NPKC $SP/ctl/tests/conformance/import.npk -o $SP/ctl/a.ll
+  NITPICK-RESOLVE-002 import.npk:68:10: cannot find `ERegexPattern` in this scope
+  -> exit 1
+
+E2. lib.npk that plain-`use`s a path ABOVE its `pub use` of the SAME path.
+    The re-export is silently declined — no diagnostic anywhere — because
+    `symtab_bind_import` returns the prior binding without merging the
+    SYM_PUB flag (src/frontend/symbols.npk). RX-113.
+$ $NPKC $SP/ctl/src/lib.npk -o $SP/ctl/lib.ll
+  -> exit 0
+
+$ $NPKC $SP/ctl/tests/conformance/import.npk -o $SP/ctl/b.ll
+  NITPICK-RESOLVE-002 import.npk:68:10: cannot find `ERegexPattern` in this scope
+  -> exit 1
+
+E3. THE SAME TWO LINES IN THE OTHER ORDER. Correct, and no diagnostic
+    either — so the two files differ in behaviour and not in output.
+$ $NPKC $SP/ctl/tests/conformance/import.npk -o $SP/ctl/c.ll
+  -> exit 0
+
+E4. THE CONSUMER WITHOUT THE (ERegexPattern) ARM: still compiles. Nothing
+    in it can raise one while the surface is empty, so REACH-002 does not
+    demand the arm. It is named in the real file as the contract, not
+    because the compiler forces it — and there is no unreachable-arm
+    diagnostic for naming it.
+$ $NPKC $SP/ctl/tests/conformance/noarm.npk -o $SP/ctl/d.ll
+  -> exit 0
+
+E5. THE CONSUMER WITHOUT THE (*) WILDCARD: refused for EXHAUSTIVENESS.
+$ $NPKC $SP/ctl/tests/conformance/nostar.npk -o $SP/ctl/e.ll
+  NITPICK-PICK-003 nostar.npk:8:5: this selector's type has more values than a `pick` can list, so it needs a `(*)` arm to be exhaustive
+  -> exit 1
+
+E6. THE CONSUMER WITH THE WILDCARD BUT ONE SYSTEM ARM DELETED: refused for
+    REACHABILITY. E5 and E6 are two different rules failing two different
+    ways, and the diagnostic says so: "(*) counts for nothing here".
+$ $NPKC $SP/ctl/tests/conformance/noarm2.npk -o $SP/ctl/f.ll
+  NITPICK-REACH-002 noarm2.npk:8:5: `failsafe` does not name `WildLeak`, which can reach it (D-179): add the arm — `(*)` counts for nothing here, so a new failure mode is always acknowledged before the program compiles again
+  -> exit 1
+

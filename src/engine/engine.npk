@@ -1,0 +1,14 @@
+// `src/engine/` — the engines. PLACEHOLDER: nothing yet.
+//
+// FILLED BY cycles 0.7 to 0.9 and 0.11, governed by `meta/specs/ENGINES.md`.
+// The Pike VM, the lazy DFA with its bounded cache, the literal prefilters and
+// the deterministic meta-engine that chooses between them. NO ENGINE MAY
+// CHANGE AN ANSWER (RX-041): an engine is a performance decision and never a
+// semantic one, and the suite proves it by running every case through every
+// engine with each optimisation disabled in turn.
+//
+// LAYERING (`BUILD.md` §6, rule B-16). May import: `compile`, `hir`,
+// `syntax`, `unicode`, `core`.
+//
+// See `src/core/core.npk` for why a placeholder exists at all (P-6).
+mod:engine;

@@ -74,7 +74,7 @@ Full statement in `meta/specs/SAFETY.md` §1. The ones that bite hardest:
   is a struct with `next`.
 - **Integer overflow, division by zero and out-of-range indexing all trap**.
 - **`comptime` cannot index a string**, so a compile-time-validated pattern is
-  not currently expressible — see O-N1, which is the most valuable request on
+  not currently expressible — see O-G1, which is the most valuable request on
   the list.
 - **There are no static methods** (D-185), so construction is
   `regex_compile(…)`.
@@ -99,7 +99,7 @@ file's `mod:` name must equal its basename.
 
 ## Building and testing
 
-**`npkg` cannot build this yet** (`meta/specs/BUILD.md` §1, O-N3): it is the
+**`npkg` cannot build this yet** (`meta/specs/BUILD.md` §1, O-G3): it is the
 compiler's own bootstrap ladder, and `[dependencies]` resolves to nothing.
 `harness/run.py` is the runner until that changes (RX-004). Until cycle 0.0.2
 lands it, probes are run by hand — `meta/roadmap/0.0/0.0.0.md` §2 has the

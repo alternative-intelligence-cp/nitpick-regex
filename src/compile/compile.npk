@@ -1,0 +1,14 @@
+// `src/compile/` — the program builder. PLACEHOLDER: nothing yet.
+//
+// FILLED BY cycles 0.4 and 0.6, governed by `meta/specs/COMPILE.md`. Codepoint
+// ranges to UTF-8 byte automata, alphabet compression, and the HIR to the NFA
+// instruction program. `Program.insts` is a flat POD array (RX-031, C-1);
+// `tests/probe/probe01_pod_inst_array.npk` measured `#size_of<Inst>` at 12
+// bytes and `probe14_size_bound.npk` built one at the 100 000-instruction
+// bound.
+//
+// LAYERING (`BUILD.md` §6, rule B-16). May import: `hir`, `syntax`,
+// `unicode`, `core`.
+//
+// See `src/core/core.npk` for why a placeholder exists at all (P-6).
+mod:compile;

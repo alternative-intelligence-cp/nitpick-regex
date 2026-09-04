@@ -1,0 +1,34 @@
+// `src/lib.npk` — THE UMBRELLA. A consumer imports this file and nothing else.
+//
+// `use` IS NOT TRANSITIVE (`MODULE_REFERENCE.md` §2.3, measured in 0.0.1): a
+// symbol imported into a module is not re-exported by it. That is why this
+// file exists and why it is a feature — the public surface is a list in ONE
+// file that a reviewer reads in one sitting, rather than whatever the module
+// graph happens to expose. `meta/specs/API.md` §1 is the list it grows into,
+// and `RX-113` records the measurement behind the rules below.
+//
+// THREE RULES, EACH PAID FOR BY A MEASUREMENT IN 0.0.1. Break any of them and
+// the failure appears in the CONSUMER, as `there is no type named X`, with
+// nothing wrong at the line that caused it.
+//
+//   1. EVERY LINE HERE IS `pub use`. A plain `use` re-exports nothing.
+//   2. THIS FILE NEVER PLAIN-`use`s A PATH IT ALSO `pub use`s. The first
+//      import of a name wins and a later one is silently declined
+//      (`symtab_bind_import`, `src/frontend/symbols.npk`), so a plain `use`
+//      written above a `pub use` of the same path downgrades the re-export to
+//      nothing AT NO DIAGNOSTIC. Provisional workbench question O-N13.
+//   3. ONE NAME PER LINE. Several single-name `pub use` lines from one path DO
+//      compose — measured, both orders — so the list stays greppable and a
+//      removal is one line of diff.
+//
+// LAYERING. This file is ABOVE `BUILD.md` §6's diagram, not in it: it imports
+// `api` (and, as the surface grows, the other layers) and nothing imports it
+// except a consumer. `check_layering` (cycle 0.0.3) reads that exception from
+// `BUILD.md` §6 rather than special-casing the filename.
+mod:lib;
+
+// The public surface, one name per line. TODAY IT IS ONE NAME, and that name
+// is the entire cost of importing this library: every consuming program's
+// `failsafe` owes exactly one arm, `(ERegexPattern)` (RX-060, `SAFETY.md` S-8).
+// `tests/conformance/import.npk` is the program that proves it.
+pub use "./api/api.npk".ERegexPattern;

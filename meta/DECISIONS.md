@@ -658,13 +658,22 @@ compiling at the re-pin.
 *What probe 06b contributes instead.* O-N9's six cases all escape a view of a
 frame **local** and dangle, reading the runtime's `0xAA` free-poison. 06b's
 shape is a subrange of a **parameter**, so the storage is the caller's and the
-returned view is correct. DEF-3's checker already distinguishes the two — a view
-rooted in a **pointer-shaped** binding (a wild pointer, a slice, a `cstring`) is
-the pointee's borrow and may travel — so 06b is **confirmation that the naive
-fix was avoided**, not a new request. The shape that will change under DEF-3 is
+returned view is correct. **Today's rule and DEF-3's are different, and the
+difference matters when quoting either.** The live check at `950bb1d` is
+`borrows_only_param_rooted` (`src/frontend/analysis/escape.npk:507`, called at
+:425 as the second look before `BORROW_RETURNED` is raised): *is every borrow
+inside this expression rooted at a **parameter** of the current function*. That
+is what accepts 06b — its view is rooted in a parameter. The **pointer-shaped
+root** formulation (a wild pointer, a slice, a `cstring`) is DEF-3's *future*
+rule, not today's. Under either, 06b is **confirmation that the naive fix was
+avoided**, not a new request. The shape that will change under DEF-3 is
 a view of a **temporary**: `string_bytes(string_concat(a, b))` returned becomes
-`NITPICK-BORROW-012`, and D-246 already requires binding that intermediate
-because the `string_concat` is an owning temporary that leaks today.
+`NITPICK-BORROW-001` — **DEF-3 introduces no new diagnostic code**; every
+refusal it adds is the existing `BORROW_RETURNED`
+(`src/frontend/analysis/analysis_codes.npk:24`, and the highest borrow code
+allocated at `950bb1d` is `NITPICK-BORROW-011`). D-246 already requires binding
+that intermediate because the `string_concat` is an owning temporary that leaks
+today.
 
 *And the house rule is restated at the right strength.* `nitpick-time`'s "a view
 is a parameter, never a return value" was deliberately conservative, written
@@ -678,3 +687,285 @@ instructed (it would break at the re-pin, and it builds the API on a defect);
 recording the acceptance without a decision (§5 gave a standing instruction, and
 an instruction not followed must be overridden in writing or the next reader
 follows it).
+
+---
+
+## Cycle 0.0.1 — what building the skeleton settled
+
+*Appended 2026-09-03 by stream 1, working `meta/roadmap/0.0/0.0.1.md`. Every
+decision here rests on a command in
+[`../tests/conformance/TRANSCRIPT.txt`](../tests/conformance/TRANSCRIPT.txt),
+committed verbatim with its exit code, run against pinned toolchain `950bb1d`
+under LLVM 20.1.2. Three of the four correct a specification; the fourth is
+housekeeping the author asked for.*
+
+### RX-113 — the umbrella re-exports with `pub use`, one name per line, and never plain-`use`s a path it re-exports
+**2026-09-03, from building `src/lib.npk` and measuring what a consumer can
+see.**
+
+`0.0.1.md` §2's **P-7** said `src/lib.npk` re-exports deliberately, one line per
+public name, "because `use` is not transitive". The premise is correct —
+`MODULE_REFERENCE.md` §2.3 says so and the measurement confirms it — but the
+mechanism was never checked, and two of the three ways to write it do not work.
+
+**What was measured**, over a three-consumer matrix (a type, an `error:`
+identity, a function), each consumer isolated so that a resolve-phase failure
+could not mask a type-phase one:
+
+| `src/lib.npk` contains | type | `error:` | function |
+|---|---|---|---|
+| nothing | ✗ | ✗ | ✗ |
+| `use "./api/api.npk".*;` | ✗ | ✗ | ✗ |
+| `pub use "./api/api.npk".*;` | ✓ | ✓ | ✓ |
+| `pub use "./api/api.npk".Match;` | ✓ | ✗ | ✗ |
+| `pub use "./api/api.npk".{Match, ERegexPattern, api_ping};` | ✓ | ✓ | ✓ |
+| three separate `pub use "…".Name;` lines, either order | ✓ | ✓ | ✓ |
+
+*Therefore, three rules, and `src/lib.npk`'s header states all three:*
+
+1. **Every line in the umbrella is `pub use`.** A plain `use` re-exports
+   nothing. An `error:` identity crosses a `pub use` exactly like a type does,
+   so the one public name this library has today is re-exported by the same
+   mechanism as the surface it will grow.
+2. **The umbrella never plain-`use`s a path it also `pub use`s.** This is the
+   sharp one. `symtab_bind_import` (`src/frontend/symbols.npk`) declines any
+   name already bound and, on the "same declaration reached twice" path,
+   **returns the prior binding without merging the new flags** — so the
+   `SYM_PUB` bit a `pub use` carries is dropped whenever a plain `use` bound
+   the name first. The re-export becomes a no-op, `npkc` reports **nothing** at
+   any severity, and the failure appears in the consumer as *"cannot find
+   `ERegexPattern` in this scope"*. Order-dependent, silent, and remote from
+   its cause. Transcript §E2 and §E3 are the same two lines in the two orders:
+   different behaviour, identical output. Raised as provisional workbench
+   **O-N13**.
+3. **One name per line.** Several single-name `pub use` lines from one path do
+   compose, in either order, so the greppable form P-7 wanted is available and
+   a removal is one line of diff. `API.md` §1's list is what it grows into.
+
+*Alternatives declined:* the braced selective form
+`pub use "./api/api.npk".{a, b, c};` — it works, and it makes a one-name change
+a whole-line diff and invites the list to be reformatted, which is exactly what
+a public surface should not invite; the wildcard `pub use "…".*;` — it works
+and it re-exports whatever `api` happens to make public, which is the opposite
+of a deliberate surface and would let an internal helper become part of the
+API by the addition of one `pub`.
+
+*The house rule generalises past the umbrella.* Any module that both consumes
+and re-exports from one path is exposed to rule 2, and the ordering that saves
+it (`pub use` first) is not something a reader can be expected to know.
+`check_layering` at cycle 0.0.3 gains a check: **no file contains both a plain
+`use` and a `pub use` of the same path.** It is a two-line check over the same
+`use`-edge list that check already builds.
+
+### RX-114 — the four legacy local `O-N` ids become `O-G1` … `O-G4`; `O-N` in this repository means the workbench registry
+**2026-09-03, discharging the recommendation cycle 0.0.0's report made to the
+author.**
+
+`meta/OPEN_QUESTIONS.md` carried this repository's own `O-N1` … `O-N4` beside
+the workbench registry's `O-N9` … `O-N12`, so `O-N` meant two different
+numbering schemes in one file and `O-N4` meant two different findings.
+0.0.0's report recommended renumbering the four legacy ids to a local prefix and
+reserving `O-N` for the registry. Done, with one deviation and one refusal.
+
+**The deviation: the recommended `O-C` prefix could not be used.** `O-C1` and
+`O-C2` are already this repository's *compilation* questions — sharing
+instruction suffixes, and reverse programs — cited across five files. Renumbering
+the legacy four onto that prefix would have recreated, exactly, the collision it
+was meant to remove. The prefix is **`O-G`**, for a **G**ap in the compiler, and
+`meta/OPEN_QUESTIONS.md`'s prefix table gains a row saying so. The mapping is
+one-for-one and in order: `O-N1`→`O-G1`, `O-N2`→`O-G2`, `O-N3`→`O-G3`,
+`O-N4`→`O-G4`.
+
+**The refusal: `meta/roadmap/0.0/0.0.0.md` was not renumbered.** It is a closed
+subcycle's execution record, independently verified at `9b80d69`. Renumbering it
+would make it say something that was not true on the day it was written, and a
+verified artifact is not rewritten afterwards — the workbench's own `RECORD.md`
+keeps a compiler-request id that was misnumbered on the day, for precisely this
+reason. Two redirect entries in
+`meta/OPEN_QUESTIONS.md` keep its `O-N1` and `O-N4` citations resolving, and each
+says which registry item shares the number so the two cannot be confused.
+
+**One correction to that file was made, because the author directed it and
+because it moves the record toward its own evidence rather than away from it:**
+the prose said "Five commits" where the same file's `commits:` list and `git log`
+both say six. The correction is marked in place rather than made silently.
+
+*What is left for the author, because this repository does not write the
+workbench:* the registry's entry for the `npkg` gap lists this repository's local
+id under its old number; it is now **`O-G3`**. The redirect table in
+`meta/OPEN_QUESTIONS.md` names both sides.
+
+*Alternatives declined:* `O-C`, as recommended (it collides — see above);
+renumbering the *compilation* questions instead to free `O-C` (they are cited in
+five files against the legacy ids' three, and they are ours by design where the
+legacy four are the compiler's by subject, so the prefix table would still lie);
+leaving the collision with the warning block 0.0.0 added (it made citations
+resolve and did nothing about `O-N4` meaning two findings).
+
+### RX-115 — no module of this library can be assembled on its own; the unit of emission is a program, and `BUILD.md` §2 is amended to say so
+**2026-09-03, from compiling all eight files in `src/` through `npkc` and then
+`llc`.** Transcript §A.
+
+`BUILD.md` §2 drew the build as `src/lib.npk → npkc → build/nregex.ll → llc →
+build/nregex.o`, and `nitpick.toml`'s `[build] output = "build/libnregex"` names
+the artifact. **Neither is achievable at `950bb1d`, and the reason is not
+`npkg`'s.**
+
+Every file in `src/` compiles at `npkc` **exit 0** and every one is refused by
+`llc`:
+
+> `error: use of undefined value '@npk_failsafe'`
+
+**The cause, counted rather than inferred.** `npkc` emits **seven call sites**
+to `@npk_failsafe` into every translation unit — they are the prelude's own trap
+paths — and emits **no `declare` for it, ever**. LLVM requires a `declare` for a
+function that is called and not defined in the module, so the IR is not
+well-formed text. A *program* is saved only because its own `failsafe`
+declaration produces a `define`; a library file has nothing to produce one, and
+under D-248 may not: `main` and `failsafe` are permitted only in a program's
+root file. So **the shape the language mandates for a library is the shape whose
+IR cannot be assembled**, and `npkc`'s usage line offers no library or module
+mode to ask for anything else.
+
+This is the same missing-`failsafe` machinery as the registry's **O-N11** (the
+compiler's DEF-5) seen from the other side, and it sharpens that report: DEF-5
+asks the frontend to refuse a *root* with no handler, and **one emitted
+`declare i32 @npk_failsafe(i32)` would additionally make every library module
+assemblable** and would turn DEF-5's own program case into an honest
+undefined-symbol error at link time instead of an `llc` parse error. Raised as
+provisional workbench **O-N14**, cross-referenced to O-N11.
+
+*Therefore:*
+
+- **`BUILD.md` §2's pipeline is amended**: the unit `npkc` accepts is a
+  **program root**, the library reaches the compiler by being imported from one,
+  and `build/nregex.o` is not a thing that exists today. `[build] output` in
+  `nitpick.toml` is annotated as aspirational rather than removed, because it is
+  the manifest key `npkg` will read the day O-G3 closes.
+- **`tests/conformance/import.npk` is how `src/` is compiled at all**, which is
+  why 0.0.1's acceptance is met by that program's exit code and not by
+  `npkc src/lib.npk`'s. `npkc src/lib.npk` exiting 0 is worth keeping as a
+  parse-and-resolve check; it is **not** evidence that the library builds, and
+  the acceptance list says so now.
+- **`O-B2` — ship as source or as an object — is not merely settled in favour of
+  source; the object does not exist.** The entry gains that sentence.
+
+*Not a stop, and the boundary is worth stating.* **It blocks** a per-module
+object, a `libnregex.o` artifact, and separate compilation as
+`BUILD_REFERENCE.md` §4.1 describes it. **It inconveniences** cycle 0.0.2's
+harness, which must build through a program root rather than over `src/`, and
+cycle 0.0.3's `parse` stage, which is unaffected only because parsing does not
+emit. **It does not touch** the library's shape, its layering, its API, or any
+rule in any specification: nothing is reshaped to dodge it, and the day the
+`declare` is emitted, `BUILD.md` §2's original pipeline works as written.
+
+*Alternatives declined:* giving `src/lib.npk` a `failsafe` so the IR assembles —
+that is the workaround W-11 forbids, it is refused by D-248 in any case, and it
+would put a second `failsafe` in every consuming program; treating `npkc` exit 0
+on `src/lib.npk` as the acceptance and not running `llc` — that is exactly the
+mistake registry O-N11 exists to prevent, and it would have shipped a green
+subcycle over an unbuildable library.
+
+### RX-116 — `check_no_syscalls` is differential against a committed baseline, not an absolute allowlist
+**2026-09-03, from scanning the consumer's object.** Transcript §D.
+
+`BUILD.md` rule B-2 and cycle 0.0.2's checklist specify the no-syscall check as
+an object's undefined symbols *"held to a committed expected list — the
+allocator, `memcpy`/`memset`, the string primitives"*. **A program containing no
+library code at all fails that check.** The consumer's object has **29**
+undefined symbols, among them `npk_open`, `npk_read`, `npk_write` and
+`npk_sys6`. `nregex` calls none of them: they are the prelude's, emitted into
+every translation unit, and `opt -O2` removes exactly one of the twenty-nine.
+
+Combined with RX-115 — there is no library-only object to scan — an absolute
+allowlist cannot express RX-008's rule.
+
+*Therefore the check becomes a difference.* A **baseline** program — an empty
+`main`, a `failsafe`, importing nothing — is built by the harness, and the
+undefined-symbol set of any `nregex` program object must **equal** the
+baseline's. Anything present in one and not the other is attributable to
+`nregex` and is a red run. Measured today: baseline 29, consumer 29, symmetric
+difference empty.
+
+*Why this is better than the allowlist rather than merely possible.* The
+allowlist would have to enumerate the prelude's floor, so every prelude change
+in a moving compiler would fail the check for a reason that is not this
+library's; the difference adapts, and a prelude change instead shows up as a
+deliberate one-line update to the committed baseline, which is visible in review.
+**RX-008's rule is unchanged** — `nregex` makes no syscall — and only its
+enforcement moves.
+
+*Alternatives declined:* scanning the optimised object and allowlisting what
+survives (measured: 28 of 29 survive, so it buys nothing and makes the check
+depend on the optimiser); dropping the check to cycle 1.0 (it is the cheapest
+guard this library has and it belongs where it is).
+
+### RX-117 — the conformance suite runs at stage `compile`, kind `positive`
+**2026-09-03, reconciling `BUILD.md` §3 with the compiler's stage vocabulary and
+with what 0.0.1 actually needs.**
+
+`BUILD.md` §3 put `tests/conformance/` at stage **`accept`**, defined by
+`BUILD_REFERENCE.md` §7.1 as *"accepted by `tools/check` in silence"*. Two
+things are wrong with it. `tools/check` is a **compiler-repository** tool this
+library does not have and, under RX-007, may not import. And `accept` neither
+links nor runs, while 0.0.1's whole point is a consumer that **links and runs**
+— `npkc` exit 0 does not mean a program is well-formed (registry O-N11), and
+RX-115 is a fresh instance of exactly that.
+
+The compiler's own `compile` stage with `kind = "positive"` means *"compiles,
+links, runs, and exits with the expected code"*, which is the property wanted.
+`BUILD.md` §3's table is amended: `accept` is struck, `compile`/`positive` takes
+`tests/conformance/`, and the `program` row names `tests/probe/` beside
+`tests/unit/`, since the probes are `program`-stage entries from 0.0.2. The two
+stages the compiler's vocabulary does not have — `corpus` and `oracle` — are
+marked as this library's own extensions rather than left to look inherited.
+
+*Alternatives declined:* keeping `accept` and writing our own `tools/check`
+(a frontend-only checker is the compiler's, not a regex library's, and
+duplicating it to satisfy a table is the tail wagging the dog); putting
+conformance at `program` stage (that stage additionally requires the `opt -O2`
+re-run, which is right for a unit test and heavier than an import check needs —
+though 0.0.1 ran it anyway, transcript §C, and it passed).
+
+### RX-118 — a `buffer` is unchecked too, so `Bytes` owes the same accessor pair as `Vec`
+**2026-09-03, correcting a claim relayed to this repository during 0.0.0 and
+verified against the compiler's own specification before it was acted on.**
+
+`SAFETY.md` §5.3's rule **S-23** (RX-111) said that indexing is checked on types
+that carry a length and unchecked on a `wild T->` block, and named `Vec<T>` as
+the library's exposure. A relayed claim held that a `buffer` was reached through
+a `uint8[]` view and was therefore in the checked category. **It is not.**
+
+`buffer_bytes` — the accessor that would produce that view — is on
+`TYPE_REFERENCE.md` §23's *"Deliberately NOT landed"* list, beside
+`buffer_resize` and `buffer_free`. §23's own example spells the byte access
+`buf.ptr[0i64]`, and it documents `.ptr` as a **`uint8->`**. So there is no
+slice route to a `buffer` at all, and every byte of one is reached through the
+bare-pointer branch that S-23's third row describes.
+
+*Therefore S-23's table gains a fourth row and its consequence list gains a
+sentence.* **`Bytes` owes `bytes_get` / `bytes_set` exactly as `Vec` owes
+`vec_get` / `vec_set`**, checked against `len`, with the same tree check
+forbidding a raw `.ptr[` outside `src/core/bytes.npk`. This matters more than the
+row count suggests: `Bytes` is B-11's byte sink, **every replacement this library
+performs is composed into one**, and the bytes going into it come from a
+haystack and a template the caller controls. It was the one structure in
+`src/core/` that S-23 did not reach, and the reason it did not was a wrong belief
+about the type rather than an oversight about the design.
+
+*Why this is a new decision rather than an edit to RX-111:* RX-111 is settled and
+its text stands. What changes is the **specification rule** it produced, which is
+amended here — the pattern this repository uses for every correction (RX-002).
+
+*Alternatives declined:* leaving it until cycle 0.0.4 writes `Bytes`, on the
+grounds that no code exists yet (the whole value of finding it now is that the
+accessor pair gets designed in rather than retrofitted, and 0.0.4's checklist
+does not currently ask for one); giving `Bytes` a slice member to make the
+language check it (there is no `buffer_bytes` to build it from, and a slice
+cannot be returned from a constructor anyway — D-004 rule 2).
+
+*And a note on the route, because it is the second time in two subcycles.* RX-111
+was found when a probe written to **confirm** a specification sentence refuted
+it. This one was found when a claim arrived by relay and was checked against
+`TYPE_REFERENCE.md` before being written down. Both times the sentence was
+plausible and wrong, and both times the cost of checking was minutes.

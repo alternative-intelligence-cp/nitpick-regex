@@ -1,0 +1,16 @@
+// `src/core/` — the storage primitives. PLACEHOLDER: it declares nothing yet.
+//
+// FILLED BY cycle 0.0.4, governed by `meta/specs/BUILD.md` §5 (rules B-11 and
+// B-12): `Vec<T>`, `Bytes`, `ByteSet`, `SparseSet` and `limits.npk`. Each of
+// those is its own file beside this one; this module is the layer's entry and
+// will `pub use` them when they exist.
+//
+// LAYERING (`BUILD.md` §6, rule B-16). `core` IMPORTS NOTHING. It is the
+// bottom of the diagram and the only module in the library with no dependency
+// at all — which is what lets `tests/oracle/` import it without sharing code
+// with the engines it judges (B-17).
+//
+// WHY THE FILE EXISTS BEFORE THE CODE (`0.0.1.md` §2, P-6): an empty directory
+// is invisible to the `parse` stage, and the `parse` sweep is what stops the
+// grammar being quietly made partial. A placeholder is replaced, never deleted.
+mod:core;

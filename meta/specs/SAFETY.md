@@ -25,7 +25,7 @@ costs a library that compiles and executes patterns.
 | `exit 0` with live `wild` allocations traps | D-151 | every `wild` byte is paired on every path; the test programs exit 0 so a leaked **`wild` block** is a trap. **It sees nothing else** — D-151 counts `wild` blocks, D-188 counts live drivers, and neither sees a managed body, so a container freed without dropping its owning elements exits 0. §8b, RX-110 |
 | There are no static methods | D-185 | construction is `regex_compile(pattern)`, never `Regex.new(…)` |
 | No operator overloading | OP_REFERENCE | `a.eq(b)`, never `==`, on anything that is not a scalar |
-| `comptime` cannot index a string | measured, §7 | **a compile-time-validated pattern literal is not currently expressible.** §7, O-N1 |
+| `comptime` cannot index a string | measured, §7 | **a compile-time-validated pattern literal is not currently expressible.** §7, O-G1 |
 | `Default` is not derivable | D-123 | there is no default `Regex`; a pattern is always written |
 
 **Read `../../nitpick/meta/specs/` rather than trusting this table.** It is a
@@ -231,6 +231,15 @@ D-070's guarantee attaches to types that carry a length:
 | slice `T[]` | yes — `{ ptr, len }` | **traps**, `OutOfBounds` |
 | fixed array `T[N]` | yes — in the type | **traps**, `OutOfBounds` |
 | `wild T->` block | **no** — a bare pointer | **reads**, silently |
+| `buffer`, through `.ptr` | the *value* carries `.len`; **the index does not use it** | **reads**, silently (RX-118) |
+
+**The `buffer` row is not the exception it looks like** (RX-118). A `buffer`
+does carry `.len` and `.cap`, so it reads like a checked type — but there is no
+route from a `buffer` to a slice: `buffer_bytes` is on the compiler's
+*"deliberately NOT landed"* list (`TYPE_REFERENCE.md` §23), and §23's own
+example gives the byte access as `buf.ptr[0i64]`. `.ptr` is a `uint8->`, so
+every byte of a `buffer` is reached through row three, and `.len` sits beside
+the index doing nothing unless this library compares against it.
 
 Measured as a pair, same offset and same program shape:
 `tests/probe/probe08c_slice_index_traps.npk` (a slice, index 999 into four
@@ -250,6 +259,12 @@ than a style note:**
 - **The "one accessor pair" is now load-bearing.** Every read and write of a
   `Vec` goes through `vec_get` / `vec_set`, which check against `count`, and a
   tree check enforces that no `.items[` appears outside `src/core/vec.npk`.
+  **`Bytes` owes the identical pair over its `buffer`** (RX-118): `bytes_get` /
+  `bytes_set` checking against `len`, and no `.ptr[` outside
+  `src/core/bytes.npk`. `Bytes` is `BUILD.md` B-11's byte sink and every
+  replacement in this library is composed into one, from bytes a caller
+  controls — so it is the second-most exposed accessor here and it was outside
+  this rule until the `buffer` row was added.
   Before this rule that pair was tidiness; it is now the only bounds check.
 - **An unchecked index is a WRONG ANSWER, not a crash.** That inverts the
   failure mode §1 advertises. A wrong program counter in an engine reads an
@@ -318,13 +333,13 @@ therefore neither is compile-time validation.
 
 The gap is small — one more `fold_expr` arm for indexing a string literal, or
 `string_slice` in the foldable set — and the payoff is a property no regex
-library in any language offers. It is raised as **O-N1** and this section is
+library in any language offers. It is raised as **O-G1** and this section is
 the evidence for the request.
 
 *(A related documentation defect found in the same reading:
 `MACRO_REFERENCE.md` §8 says "a `const` global folds", and `const` was retired
 from the language at 1.4.2c by D-222. The implementation is correct — it checks
-`QUAL_FIXED` — so this is stale prose, raised as **O-N2**.)*
+`QUAL_FIXED` — so this is stale prose, raised as **O-G2**.)*
 
 ---
 

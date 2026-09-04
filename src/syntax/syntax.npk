@@ -1,0 +1,13 @@
+// `src/syntax/` — the pattern parser. PLACEHOLDER: nothing yet.
+//
+// FILLED BY cycle 0.1, governed by `meta/specs/SYNTAX.md`. Pattern text to an
+// AST, driven by an EXPLICIT STACK and never by native recursion (RX-032,
+// `SAFETY.md` S-18) so that a deeply nested pattern is a refusal and not a
+// blown call stack. `tests/probe/probe05_explicit_stack.npk` is the evidence
+// that the shape is both writable and sufficient: 10 000 levels deep is
+// refused at depth 251 and the program survives.
+//
+// LAYERING (`BUILD.md` §6, rule B-16). May import: `unicode`, `core`.
+//
+// See `src/core/core.npk` for why a placeholder exists at all (P-6).
+mod:syntax;

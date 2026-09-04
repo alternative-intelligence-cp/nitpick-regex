@@ -1,0 +1,72 @@
+// expect-exit: 0
+//
+// THE CONSUMER. The first program in this repository that is not a probe, and
+// the only one whose subject is the library's PUBLIC SURFACE rather than a
+// language shape. It compiles against an almost-empty surface on purpose: it
+// keeps compiling as the surface grows, and the day it stops, the surface
+// changed in a way a consumer can see (`0.0.1.md` §3 step 2).
+//
+// WHAT IT PROVES, and each of these is a separate failure mode:
+//
+//   1. `src/lib.npk` can be imported by a program by RELATIVE PATH.
+//   2. The umbrella's `pub use` actually re-exports. A plain `use` does not,
+//      and the difference is invisible in `lib.npk` — it surfaces here, as
+//      `cannot find ERegexPattern in this scope`. See RX-113.
+//   3. IMPORTING `nregex` COSTS A PROGRAM'S `failsafe` EXACTLY ONE ARM.
+//      `(ERegexPattern)` below is the whole price of the library (RX-060,
+//      `SAFETY.md` S-8), and it is worth seeing in the first test that exists,
+//      because REACH-002 makes every additional `error:` a compile-time break
+//      in every consuming program — a second identity is a MAJOR version.
+//   4. The program LINKS AND RUNS. `npkc` exiting 0 does not mean a program is
+//      well-formed (registry O-N11, the compiler's DEF-5), so this file is
+//      judged by its exit code and never by `npkc`'s.
+//
+// THE IMPORT PATH IS RELATIVE BECAUSE IT HAS TO BE — `O-G3`. `[dependencies]`
+// is parsed and the loader's dependency-root list is created empty and never
+// populated, so the package form `use "nregex/lib.npk".*;` resolves against an
+// empty set (`BUILD.md` §1, rule B-15; the registry files it as `O-N2`). The
+// day dependency roots work, this line and its siblings are what change, and
+// they are greppable by this comment.
+mod:import;
+
+use "../../src/lib.npk".*;
+
+// Nothing is called. The library has no callable surface yet, and inventing
+// one here to have something to call would test this file rather than the
+// import.
+func:main = int32(int32:argc, cstring[]:argv) {
+    // `_~argv` would mark the parameter DISCARDED and reading it would be
+    // `NITPICK-TYPE-007`; `discard(x)` marks it USED. The parentheses are
+    // mandatory.
+    discard(argc);
+    discard(argv);
+    exit 0i32;
+};
+
+// THE SYSTEM ARMS PLUS EXACTLY ONE OF OURS.
+//
+// `(*)` and the named arms discharge two DIFFERENT obligations and neither
+// covers the other: omitting the wildcard is `NITPICK-PICK-003`
+// (exhaustiveness — `Error` has more values than a `pick` can list), and
+// omitting a reachable identity is `NITPICK-REACH-002`, which says so in as
+// many words: "`(*)` counts for nothing here".
+//
+// `(ERegexPattern)` is named although nothing in this program can raise it —
+// there is no callable surface yet. That is accepted: a `failsafe` may name an
+// error that cannot reach it, and there is no unreachable-arm diagnostic
+// (measured, 0.0.1). It is named deliberately, so that this file states the
+// library's whole cost from the first day and a second identity appearing
+// would have to be added here by hand.
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (ERegexPattern)  { exit 60i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

@@ -13,7 +13,7 @@ that want a stable subject.
 
 RX-080. Settled.
 
-**Open questions to settle:** O-F1 / O-N4 (does SIMD scanning pay?), O-P1 (does
+**Open questions to settle:** O-F1 / O-G4 (does SIMD scanning pay?), O-P1 (does
 the step counter ship?). **Both are measurements**, and this is the cycle that
 takes them.
 
@@ -48,7 +48,7 @@ takes them.
 - [ ] measured against the scalar version on the `literal` benchmark at several haystack sizes
 - [ ] **the known unknown**: `.any()` on a `simd<bool, N>` lowers to an ordered extract-and-fold chain, not a movemask plus count-trailing-zeros, and shuffles are out by decision (D-194). So SIMD may lose here, and that is a legitimate result
 - [ ] whichever wins ships
-- [ ] **if SIMD loses, the measurement is written up as O-N4's evidence** and raised in the compiler repository — a consumer's number is a much better request than a speculative one
+- [ ] **if SIMD loses, the measurement is written up as O-G4's evidence** and raised in the compiler repository — a consumer's number is a much better request than a speculative one
 
 ### 0.13.3 — the step-counter measurement
 - [ ] the cost of the counter measured on `class_scan` and `captures`

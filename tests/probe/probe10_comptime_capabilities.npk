@@ -8,7 +8,7 @@
 //
 // MATTERS BECAUSE a request is stronger when it says what already works.
 // `probe09` records the refusal; this file records how narrow the missing piece
-// is, and the two together are **O-N1**'s evidence. It also answers a question
+// is, and the two together are **O-G1**'s evidence. It also answers a question
 // `0.0.0.md` §4 asked directly: whether a pattern-LENGTH or pattern-EQUALITY
 // check is available at compile time even without indexing — it is, which makes
 // a small `#regex_len_check` form buildable today.
@@ -94,7 +94,7 @@ comptime func:nested = int64(string:s) never fails {
 // `NREGEX_PATTERN_BYTES` is 65536 (`SAFETY.md` §5). A pattern literal that
 // exceeds it can be refused AT COMPILE TIME right now, with no indexing at all
 // — this is the `#regex_len_check` form `0.0.0.md` §4 asked about, and it is
-// buildable. It is a fraction of what O-N1 wants and it is not nothing.
+// buildable. It is a fraction of what O-G1 wants and it is not nothing.
 comptime func:pattern_len_ok = int64(string:pat) never fails {
     if (string_byte_length(pat) > 65536i64) { pass 0i64; }
     if (string_is_empty(pat))               { pass 0i64; }

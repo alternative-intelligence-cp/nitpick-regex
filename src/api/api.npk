@@ -1,0 +1,32 @@
+// `src/api/` — the public surface. PLACEHOLDER, except for the one thing that
+// exists from the first day: the library's single public error identity.
+//
+// FILLED BY cycle 0.10, governed by `meta/specs/API.md`. `Regex`, `Cache`,
+// `Match`, `Captures`, the match iterators and template replacement. A `Match`
+// carries byte offsets and never a slice (RX-050, A-2), because a borrow
+// cannot travel up the call stack (D-004) — `probe06a_offsets_returned.npk`.
+//
+// LAYERING (`BUILD.md` §6, rule B-16). May import: `engine`, `compile`,
+// `hir`, `syntax`, `unicode`, `core`. NOTHING IN `src/` MAY IMPORT `api` —
+// it is the top of the diagram. `src/lib.npk` is the umbrella and sits above
+// it, outside the diagram, re-exporting and never being imported.
+mod:api;
+
+// THE WHOLE ERROR BUDGET, DECLARED (RX-060, `SAFETY.md` §4 rule S-8).
+//
+// REACH-002 makes every `error:` that can reach a `failsafe` a MANDATORY named
+// arm in every consuming program, and `(*)` does not discharge it. So the
+// count of these declarations is the cost of importing this library, it is
+// ONE, and a second is a MAJOR version because it is a compiler-enforced
+// source break in every consumer.
+//
+// It is declared here rather than in `src/lib.npk` because `regex_compile` is
+// what raises it and `regex_compile` is `api`'s. An identity declared in the
+// umbrella would make `api` import `lib` to raise it — an upward edge and a
+// cycle through the one file that is supposed to depend on everything and be
+// depended on by nothing. `lib.npk` re-exports it instead.
+//
+// The detail rides in a `PatternError` value with a closed kind enum (S-9):
+// thirty ways for a pattern to be malformed, one identity, because a shutdown
+// handler does not care which syntax error it was.
+pub error:ERegexPattern;

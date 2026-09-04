@@ -34,28 +34,55 @@ reason.
 ## 2. The build, step by step
 
 ```
-src/lib.npk  (and every module it reaches by `use`)
-   → npkc              →  build/nregex.ll
-   → opt -O2           →  build/nregex.opt.ll     only on the check leg
-   → llc               →  build/nregex.o          at the manifest's flags
-   → undefined-symbol scan against the runtime allowlist
+a PROGRAM ROOT  (and every module it reaches by `use`, including src/lib.npk)
+   → npkc              →  build/<program>.ll
+   → opt -O2           →  build/<program>.opt.ll  only on the check leg
+   → llc               →  build/<program>.o       at the manifest's flags
+   → undefined-symbol scan, differential against the baseline (B-2)
    → ld.lld -static    →  build/<program>         one program object + npkrt.o
 ```
+
+**Rule B-0 (RX-115) — the unit `npkc` accepts is a program root, and there is no
+library object.** This diagram used to start at `src/lib.npk` and produce
+`build/nregex.o`. Neither is achievable at compiler commit `950bb1d`: every file
+in `src/` compiles at **`npkc` exit 0** and every one is then refused by `llc`
+with `use of undefined value '@npk_failsafe'`, because `npkc` emits calls to
+that symbol into every translation unit and never emits a `declare` for it. A
+program is saved by its own `failsafe` producing a `define`; a library file has
+nothing to produce one and, under D-248, may not. So **the library reaches the
+compiler only by being imported from a program root**, and
+`tests/conformance/import.npk` is the smallest such root.
+
+`npkc src/lib.npk` is still worth running — it parses and resolves the whole
+module graph, which is a real check — but **it is not evidence that the library
+builds**, and `npkc` exiting 0 has never meant a program is well-formed
+(registry O-N11). `nitpick.toml`'s `[build] output = "build/libnregex"` is kept
+and annotated: it is the key `npkg` will read the day O-G3 closes, not a
+description of anything that exists. Provisional workbench **O-N14**.
 
 **Rule B-1.** Every tool invocation is built from `nitpick.toml`'s
 `[toolchain]` lists. No tool ever runs at its own defaults — `llc` defaults to
 `-O2` and would optimise a build the manifest declined, which cost the compiler
 project a measured 25× on one module.
 
-**Rule B-2.** The undefined-symbol scan is a **build step, not a test**. Every
-object is scanned and the build fails on any undefined symbol outside the
-allowlist derived from `runtime/npkrt.ll`'s own `define`s plus `main`.
+**Rule B-2 (amended by RX-116).** The undefined-symbol scan is a **build step,
+not a test**, and it is **differential**, not an allowlist.
 
-For `nregex` this check is stronger than it is for most libraries and worth
-stating: **`nregex` makes no syscall at all.** Its only floor symbols are the
-allocator, `memcpy`/`memset`, and the string primitives. A syscall appearing in
-the scan is a defect, not a feature, and the harness asserts the symbol set
-against a committed expected list.
+**`nregex` makes no syscall at all** (RX-008), and that rule is unchanged. What
+changed is how it is checked. An absolute allowlist of *"the allocator,
+`memcpy`/`memset`, the string primitives"* cannot express it, because there is no
+library-only object to scan (B-0) and a whole-program object carries the
+prelude's floor whatever the library contains: the consumer in
+`tests/conformance/` — which calls nothing — has **29** undefined symbols,
+including `npk_open`, `npk_read`, `npk_write` and `npk_sys6`, and `opt -O2`
+removes exactly one of them.
+
+So the harness builds a **baseline**: an empty `main`, a `failsafe`, importing
+nothing. The undefined-symbol set of every `nregex` program object must **equal**
+the baseline's, and anything in one and not the other is attributable to this
+library and fails the run. The baseline's set is committed, so a prelude change
+in a moving compiler is a visible one-line update rather than a mysterious red.
+Measured at `950bb1d`: baseline 29, consumer 29, symmetric difference empty.
 
 **Rule B-3.** The optimised leg runs on every program, every time: the same
 program re-emitted through `opt -O2` + `llc -O2` must produce the **same exit
@@ -79,11 +106,25 @@ runner and not a change of suite.
 | Stage | Directory | Passes when |
 |---|---|---|
 | `parse` | every `.npk` in the tree | accepted by `tools/parse_check` with no diagnostic |
-| `accept` | `tests/conformance/` | accepted by `tools/check` in silence |
+| `compile`, `kind = "positive"` | `tests/conformance/` | compiles, links, runs, and exits with the expected code (RX-117) |
 | `check` | `tests/rejection/` | refused by the frontend with **exactly** the expected codes |
-| `program` | `tests/unit/` | emitted, scanned, assembled, linked, run at -O0 and again under `opt -O2`, the same exit both times |
-| `corpus` | `tests/fixtures/` | every committed pattern/haystack/expectation triple gives the expected answer, **through every engine** |
-| `oracle` | `tests/oracle/` | the naive reference matcher and each real engine agree, over a generated corpus |
+| `program` | `tests/unit/`, `tests/probe/` | emitted, scanned, assembled, linked, run at -O0 and again under `opt -O2`, the same exit both times |
+| `corpus`† | `tests/fixtures/` | every committed pattern/haystack/expectation triple gives the expected answer, **through every engine** |
+| `oracle`† | `tests/oracle/` | the naive reference matcher and each real engine agree, over a generated corpus |
+
+† **`corpus` and `oracle` are this library's own**, not the compiler's. The rest
+of the column is `BUILD_REFERENCE.md` §7.1's vocabulary exactly, so the move to
+`npkg` is a change of runner and not of suite; these two are extensions and will
+need a decision from the compiler, or a translation, when that move happens.
+
+**Rule B-4a (RX-117) — the conformance suite runs at `compile`/`positive`, and
+the `accept` stage is not available to this library.** `accept` is defined as
+*"accepted by `tools/check` in silence"*, and `tools/check` is a
+**compiler-repository** tool `nregex` does not have and, under RX-007, may not
+import. `accept` also neither links nor runs, and linking and running is the
+whole point: `npkc` exit 0 does not mean a program is well-formed (registry
+O-N11), and B-0 is a fresh instance of exactly that — eight files that compile
+at exit 0 and are refused by the next tool in the chain.
 
 **Rule B-5 — expectations live in the test file**, in the compiler's marker
 grammar, marker for marker:
@@ -178,6 +219,27 @@ which is the umbrella that `pub use`s the public surface.
 > deliberately, which is a feature — the public surface is a list in one file a
 > reviewer can read.
 
+**Rule B-15a (RX-113) — how the umbrella re-exports, and the one way it must
+not.** Measured in 0.0.1 over a matrix of a type, an `error:` identity and a
+function:
+
+1. **Every line in `src/lib.npk` is `pub use`.** A plain `use` re-exports
+   nothing, for any kind of symbol.
+2. **No file plain-`use`s a path it also `pub use`s.** `symtab_bind_import`
+   declines a name already bound and, on the "same declaration reached twice"
+   path, returns the prior binding **without merging the new flags** — so a
+   plain `use` above a `pub use` of the same path silently downgrades the
+   re-export to nothing, at **no diagnostic**, and the failure appears in the
+   consumer as *"cannot find X in this scope"*. Provisional workbench
+   **O-N13**. `check_layering` gains this check at cycle 0.0.3.
+3. **One name per line.** Several single-name `pub use` lines from one path do
+   compose, in either order, so `API.md` §1's list stays one name to a line.
+
+**Rule B-16a — `src/lib.npk` is above the layering diagram, not in it.** It
+imports `api` (and, as the surface grows, whichever layers export a public
+name) and nothing in `src/` imports it. `check_layering` reads that exception
+from this rule rather than special-casing a filename.
+
 **Rule B-16 — the layering, and the direction of every arrow.**
 
 ```
@@ -247,7 +309,7 @@ parse.
 - **O-B1 — when `npkg` can build a library.** The trigger to migrate is
   `npkg build` honouring `target = "library"` and `[dependencies]` populating
   the resolver's root list. Neither is on the compiler's 1.5 or 1.6 map, so
-  this is a request to be made, not a date to wait for. Tracked as O-N3.
+  this is a request to be made, not a date to wait for. Tracked as O-G3.
 - **O-B2 — whether `nregex` ships as source or as an object.** Source keeps the
   closed-world link and the whole-program verification story intact.
   **Settled for now in favour of source**; revisit only if build times become a

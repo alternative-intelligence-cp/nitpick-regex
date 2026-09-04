@@ -29,7 +29,7 @@ the exception — it is written up front because there is no previous cycle.
 ## The two constraints that shape everything
 
 **`nregex` cannot be built by `npkg`**, and cross-repository imports do not
-resolve (`specs/BUILD.md` §1, O-N3). So `harness/` is the build and test
+resolve (`specs/BUILD.md` §1, O-G3). So `harness/` is the build and test
 runner and every import is relative, exactly as `bootstrap/harness/` precedes
 `npkg` in the compiler repository. It is the first thing cycle 0.0 builds,
 because everything after it is tested by it.
@@ -78,7 +78,7 @@ The **language probes** first: fourteen small programs asking the compiler
 whether the shapes this design depends on are spellable — a POD instruction
 array, a payload enum in a `pick`, an explicit-stack parser, a `SparseSet` over
 two `Vec`s, offsets-not-slices, `string_bytes`'s borrow edges, and — expected
-to **fail** — a `comptime` pattern walker (O-N1). *A construct that parses is
+to **fail** — a `comptime` pattern walker (O-G1). *A construct that parses is
 not a construct that works*: the compiler's cycle 0.4 was mostly repair, and
 every repair dated to the cycle that had parsed the construct.
 
@@ -179,7 +179,7 @@ actually generates.
 ### 0.13 — Performance
 `harness/bench.py`, the six benchmarks, the committed baselines, the 20% gate
 on **steps**, and the two measurements the plan has been deferring: the SIMD
-memchr against the scalar one (O-F1, O-N4), and the step counter's cost
+memchr against the scalar one (O-F1, O-G4), and the step counter's cost
 (O-P1).
 
 ### 0.14 — The dogfood consumer
@@ -209,7 +209,7 @@ version policy.
 
 - **The probes come first, in 0.0, not last.** Fourteen small programs asking
   the compiler whether the design is spellable. One of them (09) is expected to
-  fail, and its failure is the evidence for O-N1's request.
+  fail, and its failure is the evidence for O-G1's request.
 - **The harness comes first too.** It is how every later cycle is tested, and a
   suite written after the code is a suite shaped by the code.
 - **The oracle precedes every engine** (0.5, before the compiler at 0.6). An

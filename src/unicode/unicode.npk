@@ -1,0 +1,11 @@
+// `src/unicode/` — the generated Unicode tables. PLACEHOLDER: nothing yet.
+//
+// FILLED BY cycle 0.3, governed by `meta/specs/UNICODE.md`. Everything here is
+// GENERATED from a pinned UCD by `tools/gen_unicode.py` and committed as
+// Nitpick source, so a build needs the compiler and nothing else — no Python,
+// no network. The `.gitignore`'s "NOT ignored, deliberately" block says so.
+//
+// LAYERING (`BUILD.md` §6, rule B-16). May import: `core`. Nothing else.
+//
+// See `src/core/core.npk` for why a placeholder exists at all (P-6).
+mod:unicode;

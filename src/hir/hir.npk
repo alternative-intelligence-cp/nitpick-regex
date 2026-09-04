@@ -1,0 +1,12 @@
+// `src/hir/` — the high-level intermediate. PLACEHOLDER: nothing yet.
+//
+// FILLED BY cycle 0.2, governed by `meta/specs/HIR.md`. Desugaring and
+// normalisation, flattened into a POD arena: a node stored in an array
+// declares no owning field (TYPE-046), which is why `HIR.md` H-2 keeps its
+// operands as offsets into a `Bytes` rather than as owned strings.
+//
+// LAYERING (`BUILD.md` §6, rule B-16). May import: `syntax`, `unicode`,
+// `core`.
+//
+// See `src/core/core.npk` for why a placeholder exists at all (P-6).
+mod:hir;
