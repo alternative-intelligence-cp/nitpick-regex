@@ -9,8 +9,11 @@ toolchain : npkc and npkrt.o at compiler commit 950bb1d, from
             ../.internal/toolchain/950bb1d/, sha256 matched against that
             directory's SHA256SUMS before anything below was run
 LLVM      : 20.1.2
-date      : 2026-09-03. ONE CORRECTION SINCE: §A2's exit code, wrong as
-            committed, re-run and fixed 2026-09-04, and §F added with it.
+date      : 2026-09-03. TWO CORRECTIONS SINCE, both dated in place rather
+            than made silently. (1) §A2's exit code, wrong as committed, re-run
+            and fixed 2026-09-04, and §F added with it. (2) §F's claim that a
+            missing `use` exits 2 — FALSE, corrected 2026-09-04 after a
+            verifier FAIL, with §G added to MEASURE what §F had only read.
 cwd       : the nregex tree root. $SP is a scratch directory outside it;
             $NPKC and $NPKRT are the two pinned artefacts.
 
@@ -282,15 +285,39 @@ numbers below are that file's, not this repository's.
      any flag given twice :93 :97 :100, a flag missing its argument :89,
      `--elide`'s manifest unreadable or unparseable :139 :141 :143,
      `--obligations`' directory unwritable :191, the output path unwritable
-     :206 :211, stdout unwritable :222, and — THE ONE THAT WILL BITE A LIBRARY
-     — A SOURCE FILE IN THE MODULE GRAPH THAT COULD NOT BE LOADED :157, where
-     `front_run` passes 2 up because `graph_load_all` returned < 0
-     (`src/driver/pipeline.npk`:177, the `pass 2i32` at :179). A `use` naming
-     a path that is not there exits 2, NOT 1. This library imports by relative
-     path (B-15, P-8) until O-G3 closes, so a typo'd or moved import is
-     precisely that case, and a
-     harness scoring it as a refusal would report a missing file as a passing
-     rejection test.
+     :206 :211, stdout unwritable :222, and THE ROOT FILE NAMED ON THE
+     COMMAND LINE FAILING TO LOAD :157, where `front_run` passes 2 up because
+     `graph_load_all` returned < 0 (`src/driver/pipeline.npk`:177, the
+     `pass 2i32` at :179). Fifteen sites in all.
+
+     CORRECTED 2026-09-04, AND THE CORRECTION IS WORTH MORE THAN THE FACT.
+     :157 was described here as "A SOURCE FILE IN THE MODULE GRAPH THAT COULD
+     NOT BE LOADED", concluding that "a `use` naming a path that is not there
+     exits 2, NOT 1". THAT CONCLUSION WAS FALSE. A missing IMPORT exits 1,
+     with NITPICK-RESOLVE-005; only the ROOT ARGUMENT reaches `pass 2i32`.
+     Measured both ways in §G below rather than argued. The missing-import
+     case has now been run EIGHT times across THREE sessions — three by a
+     verifier, two by the orchestrator, three here — with identical output
+     every time. §G records this session's.
+
+     The mechanism, re-read at the pin because the first reading stopped one
+     call too early: `graph_load_all` (`src/frontend/module_graph.npk`:440)
+     returns < 0 ONLY from its own direct `graph_load` on the command-line
+     root (:441-:444). Its walk over discovered imports is
+     `drop graph_load_imports(...)` (:457) — a NIL-returning call whose result
+     is discarded — and it ends `pass first` (:460), still the ROOT's own
+     result. Every `use` reached transitively goes through `graph_load_import`
+     (:498), where `resolve_use` does its OWN existence check (:507); on
+     not-found it pushes a diagnostic and returns (:508-:511) WITHOUT EVER
+     CALLING `graph_load`. That diagnostic then meets the ordinary
+     "diagnostics exist" gate (`pipeline.npk`:250), which is `pass 1i32`, and
+     `main.npk`:158-:160 turns it into the ordinary refusal.
+
+     THE ENUMERATION ABOVE IS UNTOUCHED BY THIS. :157 IS a real exit-2 site,
+     and the count of fifteen stands — both were re-counted independently and
+     matched site for site. What was wrong was the claim about WHAT REACHES
+     IT. FINDING THE CODE PATH THAT RETURNS 2 IS NOT FINDING OUT WHAT GETS
+     THERE, and that, rather than any exit code, is this entry's real finding.
 
      THAT LIST WAS SHORT BY TWO ON ITS FIRST WRITING — :89 and :157 were both
      missing — which is the third finding of this subcycle and the same shape
@@ -307,3 +334,74 @@ codes and exit codes and never on message text, which is right, and which means
 rejection test expecting 1 that gets 2 has not been refused — it has not been
 COMPILED. The A2 line above is the small version of exactly that confusion, and
 it survived a commit.
+
+AND THE SHARPER HALF, WHICH IS WHAT THE CORRECTION ABOVE BOUGHT. A missing
+import exits 1 — THE VERY CODE A REJECTION FIXTURE EXPECTS. So a rejection test
+whose fixture path is typo'd, or whose file is later moved, PASSES FOR THE WRONG
+REASON: it wanted a refusal, it got a refusal, and the refusal was about the
+path rather than about the thing under test. Nothing anywhere reports it. Exit 1
+alone cannot tell "refused for the reason this test is about" from "the file was
+not there", so A REJECTION FIXTURE MUST ASSERT THE DIAGNOSTIC CODE AS WELL AS
+THE EXIT CODE. This library imports by relative path (B-15, P-8) until O-G3
+closes, so moved and mistyped paths are the ORDINARY case here, not the exotic
+one.
+
+`BUILD.md` ALREADY CARRIES THE RULE THAT CLOSES THIS — rule B-7 (D-237): the set
+of codes a rejection test reports must EQUAL the set its expectations name. The
+false claim's real cost would have been to point 0.0.2's harness author at the
+exit code alone, in the one place where B-7 is what makes the trap unreachable.
+0.0.2 implements B-7 as a load-bearing check and not as a nicety.
+
+=== G. THE TWO EXITS MEASURED, NOT READ ===
+
+Added 2026-09-04, correcting §F. §F is a READING of the compiler's source; this
+is what the binary DOES, which is what §F should have rested on from the start.
+A claim about what a code path causes is evidenced by running it. Same pinned
+npkc, sha256 matched against SHA256SUMS immediately before these runs:
+fbb7d022e6a98ebcc9bc138aa01305310249eff54ddbf1aa0fc307aa52f8419f
+
+$SP/ok and $SP/typo are two scratch trees, each holding a copy of this
+repository's `src/` and one copy of `tests/conformance/import.npk`. The `ok`
+copy is BYTE-IDENTICAL to the committed file — sha256
+40e22be11ce2fb4d76c421a09dcc52cfe806fd7d3088bfe4f921767023ef64d3, matched, not
+assumed — and the `typo` copy differs from it in ONE LINE and nothing else:
+
+    -use "../../src/lib.npk".*;
+    +use "../../src/lib_MISSING.npk".*;
+
+G1. THE CONTROL: the byte-identical copy, so the only variable in G2 is the
+    path. Run from $SP/ok.
+$ $NPKC tests/conformance/import.npk -o $SP/ok.ll
+  -> exit 0
+
+G2. THE TYPO'D IMPORT: A REFUSAL — exit 1, with a diagnostic code naming the
+    cause. Run from $SP/typo, twice.
+$ $NPKC tests/conformance/import.npk -o $SP/typo.ll
+  NITPICK-RESOLVE-005 import.npk:32:1: cannot find `../../src/lib_MISSING.npk`
+  -> exit 1
+
+$ $NPKC tests/conformance/import.npk -o $SP/typo2.ll
+  NITPICK-RESOLVE-005 import.npk:32:1: cannot find `../../src/lib_MISSING.npk`
+  -> exit 1
+
+    THE HAZARD IS THIS BLOCK. Exit 1 is exactly what a rejection fixture
+    expects, and the ONLY thing separating this from a genuine refusal is
+    NITPICK-RESOLVE-005. The message is `report_resolution`'s
+    RESOLVE_NO_SUCH_FILE branch (`src/frontend/resolve_path.npk`:220-:223) and
+    the code string is at `src/frontend/resolve_codes.npk`:19.
+
+G3. THE MISSING ROOT ARGUMENT: NOT a refusal — exit 2, and SILENT. Run from
+    $SP, where no such file exists.
+$ $NPKC no_such_root.npk -o $SP/nsr.ll
+  -> exit 2
+
+$ $NPKC no_such_root.npk
+  -> exit 2
+    stdout 0 bytes, stderr 0 bytes, both counted with `wc -c` rather than by
+    eye. THE SILENCE IS THE POINT: exit 2 arrives with NO DIAGNOSTIC AT ALL, so
+    a harness that logs only what the compiler said shows an empty reason for a
+    failing test. There is no code to assert on here — only the integer 2, and
+    it means THE RUN IS BROKEN rather than the program rejected.
+
+    This is the scenario §F originally attributed to a `use`. It is a malformed
+    command line, and it is reached by the command line alone.
