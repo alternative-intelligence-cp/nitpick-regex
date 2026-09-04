@@ -40,18 +40,29 @@
 // belongs to the CALLER and outlives the call. It compiles, it runs, and it is
 // CORRECT -- exit 0 below, with the bytes read back and checked.
 //
-// That matters to whoever fixes O-N9. The obvious fix -- refuse every slice in
-// a `pass` -- would also refuse this, and this is the single most useful shape
-// a byte-oriented library has: `sub(haystack, lo, hi)` narrowing a view without
-// copying. A fix that distinguishes them needs to ask where the viewed storage
-// came from, which is what the `@`-borrow path already does and what makes
-// case 1 refused and case 6 legal. **Recorded as a note ON O-N9, not as a new
-// defect** -- it is the same missing check seen from the safe side.
+// That matters to whoever fixes O-N9, and the good news arrived while this
+// probe was being written: **DEF-3's checker already draws exactly this
+// distinction.** Its rule is that a view whose root is a POINTER-SHAPED binding
+// -- a wild pointer, a slice, a `cstring` -- is the POINTEE's borrow rather
+// than a frame borrow, and may travel. `src` here is a `uint8[]` parameter,
+// which is pointer-shaped, so **this shape stays legal after the fix**.
 //
-// WHAT THE LIBRARY DOES ABOUT IT TODAY: nothing. `RX-050`'s house rule is "a
-// view is a parameter, never a return value" (`../PLAYBOOK.md`), this file is a
-// probe rather than library code, and no function in `src/` will return a
-// `uint8[]` until the compiler decides which of these two shapes is legal.
+// This file is therefore CONFIRMATION rather than a new ask: the naive fix
+// (refuse every slice in a `pass`) would have cost the single most useful shape
+// a byte-oriented library has -- `sub(haystack, lo, hi)` narrowing a view
+// without copying -- and the fix being written does not take it. Recorded as a
+// note ON O-N9, never as a new defect.
+//
+// The case that WILL change under DEF-3 is a view of a **temporary**:
+// `string_bytes(string_concat(a, b))` returned becomes `NITPICK-BORROW-012`.
+// Nothing in this file does that, and nothing in `src/` should -- D-246 already
+// requires binding such an intermediate, because the `string_concat` is an
+// owning temporary that leaks today.
+//
+// WHAT THE LIBRARY DOES ABOUT IT TODAY: nothing. This file is a probe rather
+// than library code, and no function in `src/` returns a `uint8[]` -- `API.md`
+// reports matches as OFFSETS (RX-050), which is right under every regime and
+// does not depend on how DEF-3 lands.
 mod:probe06b_subview_returned;
 
 // THE SHAPE UNDER TEST. Under D-004 rule 2 as written, this should be refused;

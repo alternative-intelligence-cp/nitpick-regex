@@ -30,9 +30,27 @@
 // WHAT THIS PROBE ADDS is edge 4, which the six cases do not cover, and the
 // answer is not the one the shape of O-N9 predicts. See §4 below.
 //
-// THE HOUSE RULE, MEANWHILE, IS UNCHANGED AND COSTS THIS LIBRARY NOTHING:
-// **a view is a parameter, never a return value.** Every function in §1 obeys
-// it, and §1 is the shape `src/` will actually have.
+// THE HOUSE RULE, STATED AT THE RIGHT STRENGTH. `nitpick-time`'s formulation is
+// "a view is a parameter, never a return value", and it was written
+// deliberately conservatively because at the time there was no way to tell the
+// safe cases from the dangerous ones. **There is now**, because DEF-3's checker
+// is being written and it draws the line in a particular place:
+//
+//   * a view of a **frame-local owner** must not escape — that is the bug;
+//   * a view whose root is a **pointer-shaped binding** (a wild pointer, a
+//     slice, a `cstring`) is the POINTEE'S borrow and may travel, so
+//     `string_from_bytes(buf, n)` over an alloc'd block, returned, stays legal;
+//   * a view of a **TEMPORARY** is refused outright, `NITPICK-BORROW-012`:
+//     `string_bytes(string_concat(a, b))` returned must bind the intermediate
+//     first. That composes with D-246 — the `string_concat` is an owning
+//     temporary that leaks today as well — so the shape is doubly wrong and
+//     both faults have the same fix: bind it.
+//
+// So this file does NOT conclude "a view must never be returned". That is too
+// strong and would be wrong the moment DEF-3 lands. What §1's functions obey is
+// the narrower and permanent rule: **they return VALUES, and they take views as
+// parameters**, which is right under either regime and is the shape `src/` will
+// actually have.
 mod:probe07_string_bytes_edges;
 
 error:E9;

@@ -1,0 +1,198 @@
+// expect-exit: 0
+//
+// PROBE 03 — `move T:v` into a generic container, at a scalar `T` and an owning
+// one, including the container's drop.
+//
+// ASKS: does `vec_push`-shaped code work for `T = int32` and for `T` a struct
+// that owns a `string`, and what does freeing the container actually release?
+//
+// DEPENDS ON THE ANSWER: `Vec<T>` (RX-006) is this library's ONE container.
+// `Vec<Inst>`, `Vec<HirNode>`, `Vec<ByteSet>` and the engines' thread lists are
+// all POD; `Vec<GroupInfo>` is the one that could own a name.
+//
+// ==========================================================================
+// THE ANSWER IS ALREADY KNOWN AND IT IS COUNTER-INTUITIVE. READ THIS FIRST.
+// ==========================================================================
+//
+// **Freeing a generic container's block does NOT drop its elements, and
+// `exit 0` does not notice.** D-151 counts `wild` blocks, D-188 counts live
+// drivers, and neither sees a managed body — so a `Vec<string>` whose block is
+// freed and whose elements are not is a leak that exits 0. `nitpick-time`
+// measured **125 MiB retained over two million elements at exit 0**, and it
+// took a 64 MiB address-space cap to turn that into a `HeapOom`.
+//
+// That measurement is not repeated here. This probe establishes the two things
+// that are THIS library's business:
+//
+//   1. that the container works at both element kinds at all, and
+//   2. that the obligation is DISCHARGEABLE in ordinary code — `free_groups`
+//      below — because a generic `vec_free` cannot do it: moving an element out
+//      needs a destination of type `T`, and a generic function has no scope in
+//      which a `T` may simply die.
+//
+// AND WHY THIS LIBRARY LARGELY DODGES IT: `HIR.md` H-2 puts every group name in
+// ONE `Bytes` and has `GroupInfo` reference it by offset and length, so the real
+// `Vec<GroupInfo>` is POD and the hazard never arises. `OwningGroup` below is
+// the shape the specification DECLINED, written out so that the cost of the
+// alternative is on the record rather than in somebody's memory. If a later
+// cycle is tempted to give `GroupInfo` a `string:name`, this is what it buys.
+mod:probe03_generic_move;
+
+struct:Vec<T> = {
+    wild T->:items;
+    int64:count;
+    int64:cap;
+};
+
+func:vec_init<T> = Vec<T>(int64:cap) never fails {
+    int64:n = cap;
+    if (n < 1i64) { n = 1i64; }
+    wild int8->:mem = alloc(n * #size_of<T>());
+    pass Vec{ items: mem =>! wild T->, count: 0i64, cap: n };
+};
+
+func:vec_reserve<T> = NIL(Vec<T>->:v, int64:need) never fails {
+    int64:want = v.count + need;
+    if (want <= v.cap) { pass NIL; }
+    int64:nc = v.cap;
+    while (nc < want) { nc = nc * 2i64; }
+    wild int8->:bigger = ralloc(v.items =>! wild int8->, nc * #size_of<T>());
+    v.items = bigger =>! wild T->;
+    v.cap = nc;
+    pass NIL;
+};
+
+// `move T:x` — a CONSUMING parameter (D-208). An owning element needs it and a
+// scalar one is indifferent to it, which is what makes one generic function
+// serve both.
+func:vec_push<T> = NIL(Vec<T>->:v, move T:x) never fails {
+    drop vec_reserve(v, 1i64);
+    v.items[v.count] = move(x);
+    v.count = v.count + 1i64;
+    pass NIL;
+};
+
+// Frees THE BLOCK. For an owning `T` the caller must have emptied it first, and
+// nothing here can do that generically — see the header.
+func:vec_free<T> = NIL(Vec<T>->:v) never fails {
+    dalloc(v.items =>! wild int8->);
+    v.count = 0i64;
+    v.cap = 0i64;
+    pass NIL;
+};
+
+// ---------------------------------------------------------------------------
+// The two element types.
+// ---------------------------------------------------------------------------
+
+// What `HIR.md` H-2 ACTUALLY specifies: names live in one `Bytes` and a group
+// references them by offset. No owning field, so this is POD and `vec_free`
+// alone discharges the whole obligation.
+struct:GroupInfo = {
+    int32:number;
+    int32:name_at;      // byte offset into `Hir.names`
+    int32:name_len;
+};
+
+// What the specification DECLINED. It owns a `string`, so it is move-only
+// (TYPE-046) and `vec_free` on a `Vec<OwningGroup>` orphans every name.
+struct:OwningGroup = {
+    int32:number;
+    string:name;
+};
+
+// THE OBLIGATION, DISCHARGED. Each element is moved into a local whose scope
+// ends at the bottom of the loop body, and the `string` dies there. This is
+// ordinary code, not a language gap — but it must be WRITTEN, and it cannot be
+// written once generically.
+func:free_owning = NIL(Vec<OwningGroup>->:v) never fails {
+    int64:i = 0i64;
+    while (i < v.count) {
+        OwningGroup:owned = move(v.items[i]);
+        discard(string_byte_length(owned.name));
+        i = i + 1i64;
+    }
+    v.count = 0i64;
+    drop vec_free(v);
+    pass NIL;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    // ---- T = int32, the scalar case ---------------------------------------
+
+    Vec<int32>:a = raw vec_init::<int32>(2i64);
+    drop vec_push(@a, 10i32);
+    drop vec_push(@a, 20i32);
+    drop vec_push(@a, 30i32);                 // forces the doubling
+    if (a.count != 3i64)                                { exit 10i32; }
+    if (a.cap < 3i64)                                   { exit 11i32; }
+    if (a.items[0i64] != 10i32)                         { exit 12i32; }
+    if (a.items[2i64] != 30i32)                         { exit 13i32; }
+    drop vec_free(@a);
+    if (a.cap != 0i64)                                  { exit 14i32; }
+
+    // ---- T = GroupInfo, the POD case the specification chose --------------
+
+    Vec<GroupInfo>:g = raw vec_init::<GroupInfo>(1i64);
+    drop vec_push(@g, GroupInfo{ number: 1i32, name_at: 0i32,  name_len: 4i32 });
+    drop vec_push(@g, GroupInfo{ number: 2i32, name_at: 4i32,  name_len: 6i32 });
+    drop vec_push(@g, GroupInfo{ number: 3i32, name_at: 10i32, name_len: 3i32 });
+    if (g.count != 3i64)                                { exit 20i32; }
+    if (g.items[1i64].name_at != 4i32)                  { exit 21i32; }
+    // A binding-to-binding COPY, legal because it owns nothing.
+    GroupInfo:one = g.items[1i64];
+    if (one.name_len != 6i32)                           { exit 22i32; }
+    // 12 bytes, three `int32`s, no padding surprise.
+    if (#size_of<GroupInfo>() != 12i64)                 { exit 23i32; }
+    drop vec_free(@g);                                  // the WHOLE obligation
+
+    // ---- T = OwningGroup, the case with a managed body --------------------
+
+    Vec<OwningGroup>:o = raw vec_init::<OwningGroup>(1i64);
+    // `string_concat` allocates, so each element owns a heap body. A
+    // binding-to-binding copy of one is refused (TYPE-046); `move T:x` is how
+    // it gets in, and this is the instantiation that proves the qualifier does
+    // its job at an owning element type.
+    drop vec_push(@o, OwningGroup{ number: 1i32, name: string_concat("year", "") });
+    drop vec_push(@o, OwningGroup{ number: 2i32, name: string_concat("month", "!") });
+    drop vec_push(@o, OwningGroup{ number: 3i32, name: string_concat("day", "s") });
+    if (o.count != 3i64)                                { exit 30i32; }
+    if (o.cap < 3i64)                                   { exit 31i32; }
+
+    // The bodies survived two reallocations: `ralloc` moved the 24-byte string
+    // headers without disturbing what they point at.
+    if (string_byte_length(o.items[0i64].name) != 4i64) { exit 32i32; }
+    if (string_byte_length(o.items[1i64].name) != 6i64) { exit 33i32; }
+    if (string_byte_length(o.items[2i64].name) != 4i64) { exit 34i32; }
+
+    // A `string` is a 24-byte header — MEASURED, not reasoned from a slice's
+    // 16 — so `OwningGroup` is 32 with padding, not 28. The block arithmetic is
+    // `n * #size_of<T>()` and a wrong element size is an overlapping write no
+    // bound check catches (and per `SAFETY.md` S-23, nothing would catch it).
+    if (#size_of<string>() != 24i64)                    { exit 35i32; }
+    if (#size_of<OwningGroup>() != 32i64)               { exit 36i32; }
+
+    // Empty it properly, THEN free the block. Swapping these two operations is
+    // the leak the header describes, and `exit 0` would not notice.
+    drop free_owning(@o);
+    if (o.count != 0i64)                                { exit 37i32; }
+    if (o.cap != 0i64)                                  { exit 38i32; }
+
+    // D-151 asserts no `wild` block is live. It does NOT assert that no managed
+    // body leaked — `SAFETY.md` §8b. The three names above are discharged by
+    // `free_owning` and by nothing the language does automatically.
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

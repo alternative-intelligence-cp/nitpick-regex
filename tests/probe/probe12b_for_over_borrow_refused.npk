@@ -1,0 +1,75 @@
+// expect-error: NITPICK-BORROW-009
+//
+// PROBE 12b — `for … in` OVER A STRUCT THAT HOLDS A BORROW IS REFUSED.
+//
+// THIS FILE MUST NOT COMPILE. It is the other half of `probe12`, which
+// establishes that the `Iterator` impl itself is perfectly legal — so the two
+// files together say exactly where the line is, and neither says it alone.
+//
+// THE DIAGNOSTIC, verbatim, from compiler commit 950bb1d:
+//
+//   NITPICK-BORROW-009 …:57:21: a borrow cannot be iterated over: a `for`
+//   binding is not tracked by the escape analysis, so a borrow reaching one
+//   could not be followed
+//
+// It names the rule and gives the reason, which is what a good refusal does.
+//
+// WHAT IT SETTLES: **O-A1**. `Matches` must borrow its `Regex` — a struct
+// holding a borrow cannot be returned (D-004), and an owning `Matches` would
+// consume the pattern it iterates with. So the only `Matches` this library can
+// have is exactly the one `for` will not drive, and the trait's ergonomic
+// argument evaporates. The explicit `next` form in `probe12` is the driver.
+mod:probe12b_for_over_borrow_refused;
+
+struct:Match = { int64:lo; int64:hi; };
+
+struct:Prog = { uint8:want; int64:calls; };
+
+struct:Matches = {
+    Prog->:re;
+    uint8[]:hay;
+    int64:at;
+};
+
+impl:Matches:Iterator = {
+    assoc:Item = Match;
+    func:next = Match?(Matches->:self) never fails {
+        int64:i = self.at;
+        while (i < self.hay.len) {
+            if (self.hay[i] == self.re.want) {
+                self.at = i + 1i64;
+                pass Match{ lo: i, hi: i + 1i64 };
+            }
+            i = i + 1i64;
+        }
+        self.at = self.hay.len;
+        pass NIL;
+    };
+};
+
+func:main = int32(cstring[]:_~argv) {
+    string:s = string_concat("abcaa", "bXbb");
+    uint8[]:hay = string_bytes(s);
+    Prog:p = Prog{ want: 97u8, calls: 0i64 };
+    Matches:it = Matches{ re: @p, hay: hay, at: 0i64 };
+
+    int64:count = 0i64;
+    for (Match:m in it) {            // <-- NITPICK-BORROW-009
+        count = count + m.lo;
+    }
+    if (count != 7i64) { exit 10i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

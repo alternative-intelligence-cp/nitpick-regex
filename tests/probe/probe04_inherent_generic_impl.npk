@@ -1,0 +1,152 @@
+// expect-exit: 0
+//
+// PROBE 04 — an inherent impl on a generic struct with a mutating pointer
+// receiver, and the free-function form measured beside it.
+//
+// ASKS: does D-171's inherent family impl —
+//
+//     impl:<T>:Vec<T> = {
+//         func:push2 = NIL(Vec<T>->:self, move T:v) never fails { … };
+//     };
+//
+// — work, called as `v.push2(x)`? **And the free-function form in the same
+// probe**, so the fallback is measured rather than assumed, per `0.0.0.md` §4.
+//
+// DEPENDS ON THE ANSWER: the whole of `src/core/` is one of these two shapes,
+// and `BUILD.md` §6's layering reads very differently depending on which. The
+// method form gives `v.push(x)`; the free-function form gives `vec_push(@v, x)`
+// and follows the compiler's own `src/frontend/list.npk` (D-209).
+//
+// WHY BOTH IN ONE FILE: `nitpick-time` settled its container API as free
+// functions and then noted that it had never measured the method form beside
+// it, so "the free-function form is the one that works" was an assumption
+// carried on the strength of one that did. Measuring both costs one file.
+//
+// A NOTE ON THE RECEIVER. `next` is the one prelude trait method that takes
+// `Self->`, because it advances the iterator. An inherent method that MUTATES
+// needs the same thing, and that is the part worth probing: a by-value
+// `Vec<T>:self` receiver would push into a copy and the caller would see
+// nothing — a silent no-op rather than an error.
+mod:probe04_inherent_generic_impl;
+
+struct:Vec<T> = {
+    wild T->:items;
+    int64:count;
+    int64:cap;
+};
+
+// Construction is a BARE FUNCTION. There are no static methods (D-185), so
+// `Vec.new(…)` is unspellable and this stays free whichever form the rest takes.
+func:vec_init<T> = Vec<T>(int64:cap) never fails {
+    int64:n = cap;
+    if (n < 1i64) { n = 1i64; }
+    wild int8->:mem = alloc(n * #size_of<T>());
+    pass Vec{ items: mem =>! wild T->, count: 0i64, cap: n };
+};
+
+// ---- the FREE-FUNCTION form (the compiler's own `list.npk` shape) ---------
+
+func:vec_push = NIL(Vec<int64>->:v, move int64:x) never fails {
+    if (v.count >= v.cap) {
+        int64:nc = v.cap * 2i64;
+        wild int8->:bigger = ralloc(v.items =>! wild int8->, nc * #size_of<int64>());
+        v.items = bigger =>! wild int64->;
+        v.cap = nc;
+    }
+    v.items[v.count] = move(x);
+    v.count = v.count + 1i64;
+    pass NIL;
+};
+
+func:vec_free<T> = NIL(Vec<T>->:v) never fails {
+    dalloc(v.items =>! wild int8->);
+    v.count = 0i64;
+    v.cap = 0i64;
+    pass NIL;
+};
+
+// ---- the INHERENT FAMILY IMPL form (D-171) -------------------------------
+
+// One impl block over the whole `Vec<T>` family. The methods are templates over
+// both the impl's parameter and `Self`, so they are emitted once per
+// instantiation from inside the block — the one place both are bound.
+impl:<T>:Vec<T> = {
+    // A MUTATING method: the receiver is `Vec<T>->`, a pointer.
+    func:push2 = NIL(Vec<T>->:self, move T:v) never fails {
+        if (self.count >= self.cap) {
+            int64:nc = self.cap * 2i64;
+            wild int8->:bigger = ralloc(self.items =>! wild int8->, nc * #size_of<T>());
+            self.items = bigger =>! wild T->;
+            self.cap = nc;
+        }
+        self.items[self.count] = move(v);
+        self.count = self.count + 1i64;
+        pass NIL;
+    };
+
+    // A READING method, by value, to show the two receiver forms side by side.
+    func:len2 = int64(Vec<T>:self) never fails {
+        pass self.count;
+    };
+};
+
+func:main = int32(cstring[]:_~argv) {
+    // ---- the free-function form -------------------------------------------
+
+    Vec<int64>:a = raw vec_init::<int64>(2i64);
+    drop vec_push(@a, 10i64);
+    drop vec_push(@a, 20i64);
+    drop vec_push(@a, 30i64);                  // forces the doubling
+    if (a.count != 3i64)                                { exit 10i32; }
+    if (a.items[2i64] != 30i64)                         { exit 11i32; }
+    drop vec_free(@a);
+
+    // ---- the inherent method form, at a scalar T --------------------------
+
+    Vec<int64>:b = raw vec_init::<int64>(2i64);
+    // `@b` is the receiver borrow. The method MUTATES through it, which is the
+    // question: a by-value receiver would push into a copy and `b.count` would
+    // still be 0 below.
+    drop b.push2(11i64);
+    drop b.push2(22i64);
+    drop b.push2(33i64);                       // forces the doubling
+    if (b.count != 3i64)                                { exit 20i32; }
+    if (b.cap < 3i64)                                   { exit 21i32; }
+    if (b.items[0i64] != 11i64)                         { exit 22i32; }
+    if (b.items[2i64] != 33i64)                         { exit 23i32; }
+    // The by-value reader agrees with the field, so both receiver forms
+    // dispatch to the same object.
+    if ((raw b.len2()) != 3i64)                         { exit 24i32; }
+    drop vec_free(@b);
+
+    // ---- the inherent method form at a SECOND instantiation ---------------
+
+    // A family impl must serve every member of the family, not just the one
+    // that happened to be instantiated first. `int32` is a different width, so
+    // `#size_of<T>()` inside the method is doing real work.
+    Vec<int32>:c = raw vec_init::<int32>(1i64);
+    drop c.push2(7i32);
+    drop c.push2(8i32);
+    if (c.count != 2i64)                                { exit 30i32; }
+    if (c.items[0i64] != 7i32)                          { exit 31i32; }
+    if (c.items[1i64] != 8i32)                          { exit 32i32; }
+    if ((raw c.len2()) != 2i64)                         { exit 33i32; }
+    drop vec_free(@c);
+
+    // BOTH FORMS WORK. The verdict table records which the library adopts and
+    // why; this probe's job was to establish that the choice is a choice.
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

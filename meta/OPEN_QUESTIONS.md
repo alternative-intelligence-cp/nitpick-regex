@@ -63,9 +63,29 @@ the second commit of its cycle 1.5.1b. The six-case contrast set is
 *What it means here:* RX-050's offsets-not-slices stands, and
 `tests/probe/probe06b_subview_returned.npk` records the acceptance **without
 building on it**. That probe also contributes this library's one addition to the
-report — the *safe* slice return, a subrange of a **parameter**, which a fix
-that refuses every slice in a `pass` would also refuse. The house rule until it
-lands is unchanged: **a view is a parameter, never a return value.**
+report — the *safe* slice return, a subrange of a **parameter**. DEF-3's checker
+already distinguishes it, so that note is confirmation rather than a new ask.
+
+**State the house rule at the right strength.** `nitpick-time`'s version — *"a
+view is a parameter, never a return value"* — was deliberately conservative,
+because when it was written nothing could tell the safe cases from the dangerous
+ones. DEF-3 draws the line where it belongs:
+
+- **a view of a FRAME-LOCAL OWNER must not escape.** That is the bug, and it is
+  what O-N9 is.
+- **a view whose root is a POINTER-SHAPED binding is the pointee's borrow and
+  may travel.** A wild pointer, a slice and a `cstring` are pointer-shaped, so
+  `string_from_bytes(buf, n)` over an alloc'd block, returned, **stays legal**.
+  So does `probe06b`'s subrange of a `uint8[]` parameter.
+- **a view of a TEMPORARY is refused outright**, `NITPICK-BORROW-012`:
+  `string_bytes(string_concat(a, b))` returned must bind the intermediate first.
+  That composes with D-246 — the `string_concat` is an owning temporary that
+  leaks today — so the shape is doubly wrong and both faults have one fix.
+
+This library needs none of the permitted shapes today, because `API.md` reports
+matches as **offsets** (RX-050), which is correct under either regime. But a
+later cycle must not adopt the conservative sentence as though it were the whole
+truth.
 
 ### O-N10 — **the workbench registry's**: `#[derive(Eq)]` on a payload enum is refused; `#[derive(Ord)]` on one silently compares tags
 **Not ours.** `Eq` fails inside the derive expansion with `NITPICK-TYPE-034`

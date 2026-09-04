@@ -1,0 +1,180 @@
+// expect-exit: 0
+//
+// PROBE 12 — the prelude `Iterator` trait on a struct that holds a borrow.
+//
+// ASKS: can a struct holding a `Regex->`-shaped borrow implement
+// `Iterator` — `assoc:Item; func:next = Item?(Self->:self);` — and be driven
+// by `for … in`?
+//
+// DEPENDS ON THE ANSWER: **O-A1**, which asks whether `Matches` implements the
+// trait or only exposes `matches_next`. The recommendation on file is "both",
+// and it is only available if the trait admits a second-class struct.
+//
+// A NEGATIVE VERDICT COSTS NOTHING STRUCTURAL — `matches_next` is the explicit
+// form and always works — but it settles O-A1 either way, which is the point.
+//
+// THE CONSTRAINT THAT MAKES THIS A REAL QUESTION: a struct holding a borrow
+// **cannot be returned** (D-004), so there is no `regex_matches(re, hay)`
+// returning a `Matches`. It has to be built by struct literal AT THE CALL SITE.
+//
+// ==========================================================================
+// THE VERDICT, AND IT SPLITS — WHICH IS WHY O-A1 GETS A REAL ANSWER
+// ==========================================================================
+//
+// **The trait impl is LEGAL. `for … in` over it is REFUSED.** Those are two
+// different questions and the plan asked them as one.
+//
+//   * `impl:Matches:Iterator` with `assoc:Item = Match` and
+//     `func:next = Match?(Matches->:self)` — **compiles**, on a struct holding
+//     both a `Prog->` borrow and a `uint8[]` view. Everything below runs.
+//   * `for (Match:m in it)` — **refused**, `NITPICK-BORROW-009`:
+//
+//       a borrow cannot be iterated over: a `for` binding is not tracked by
+//       the escape analysis, so a borrow reaching one could not be followed
+//
+//     recorded in `probe12b_for_over_borrow_refused.npk`. It is an excellent
+//     diagnostic: it names the rule and says why, which is more than the
+//     `stack` collision in probe 05 managed.
+//
+// SO O-A1's RECOMMENDATION SURVIVES, BUT ITS REASON DOES NOT. The file said
+// "implement it *and* keep `matches_next`, because the trait gives `for … in`,
+// which is ergonomic". **The trait does not give `for … in` here** — not for a
+// `Matches` that borrows its `Regex`, which is the only kind D-004 permits. So
+// the trait buys generic code that is written against `Iterator`, and nothing
+// else; the explicit driver is not a fallback but the sole driver. Whether that
+// is worth an impl is a genuine question rather than an obvious yes, and it is
+// cycle 0.10's to settle with this in hand.
+//
+// The loops below are therefore `while` loops calling `next` directly. That is
+// not a workaround for a defect — it is the shape the language permits.
+mod:probe12_iterator_borrowing;
+
+// Stand-ins for the real types. `Match` is `API.md` §2's, offsets and not a
+// slice (RX-050).
+struct:Match = {
+    int64:lo;
+    int64:hi;
+};
+
+// A compiled program, standing in for `Regex`. What matters is that it is a
+// value the iterator BORROWS rather than owns, so that iterating does not
+// consume the regex — a caller searches many haystacks with one pattern.
+struct:Prog = {
+    uint8:want;        // the single byte this toy "program" matches
+    int64:calls;       // mutated through the borrow, to prove it is one
+};
+
+// THE SECOND-CLASS STRUCT. It holds a borrow (`Prog->`) and a view (`uint8[]`),
+// so it can be built, passed down and iterated — and never returned.
+struct:Matches = {
+    Prog->:re;
+    uint8[]:hay;
+    int64:at;
+};
+
+impl:Matches:Iterator = {
+    assoc:Item = Match;
+
+    // `next` takes its receiver BY POINTER — the one trait method that does,
+    // because it advances the iterator's position.
+    func:next = Match?(Matches->:self) never fails {
+        int64:i = self.at;
+        while (i < self.hay.len) {
+            if (self.hay[i] == self.re.want) {
+                self.at = i + 1i64;
+                // Mutating THROUGH the borrow, so the test below can prove the
+                // iterator held a borrow rather than a copy of `Prog`.
+                self.re.calls = self.re.calls + 1i64;
+                pass Match{ lo: i, hi: i + 1i64 };
+            }
+            i = i + 1i64;
+        }
+        self.at = self.hay.len;
+        pass NIL;
+    };
+};
+
+func:main = int32(cstring[]:_~argv) {
+    string:s = string_concat("abcaa", "bXbb");     // "abcaabXbb"
+    uint8[]:hay = string_bytes(s);
+    Prog:p = Prog{ want: 97u8, calls: 0i64 };      // 'a'
+
+    // ---- built by STRUCT LITERAL at the call site -------------------------
+
+    // This is the shape D-004 forces: no helper returns a `Matches`, so the
+    // caller writes the literal. `@p` is the borrow.
+    Matches:it = Matches{ re: @p, hay: hay, at: 0i64 };
+
+    // ---- driven by `for … in` --------------------------------------------
+
+    // `for (Match:m in it)` IS REFUSED — see the header and `probe12b`. The
+    // iterator is driven by calling `next` directly, which is the only form
+    // available to a borrow-holding struct.
+    int64:count = 0i64;
+    int64:total = 0i64;
+    bool:going = true;
+    while (going) {
+        Match?:nx = raw it.next();
+        if (nx == NIL) { going = false; }
+        else {
+            Match:m = nx ?? Match{ lo: -1i64, hi: -1i64 };
+            count = count + 1i64;
+            total = total + m.lo;
+        }
+    }
+    // 'a' is at 0, 3 and 4.
+    if (count != 3i64)                                  { exit 10i32; }
+    if (total != 7i64)                                  { exit 11i32; }
+
+    // The mutation went through the BORROW to the caller's `Prog`, which is
+    // what distinguishes a borrowed field from a copied one.
+    if (p.calls != 3i64)                                { exit 12i32; }
+
+    // ---- and the explicit form, which always works ------------------------
+
+    // `matches_next` is O-A1's alternative: the same `next`, called by name.
+    // Both are available, so the recommendation on file — implement the trait
+    // AND keep the explicit form — is affordable.
+    Matches:it2 = Matches{ re: @p, hay: hay, at: 0i64 };
+    Match?:first = raw it2.next();
+    if (first == NIL)                                   { exit 20i32; }
+    Match:f = first ?? Match{ lo: -1i64, hi: -1i64 };
+    if (f.lo != 0i64)                                   { exit 21i32; }
+    Match?:second = raw it2.next();
+    Match:g = second ?? Match{ lo: -1i64, hi: -1i64 };
+    if (g.lo != 3i64)                                   { exit 22i32; }
+    if (p.calls != 5i64)                                { exit 23i32; }
+
+    // ---- a second haystack through the SAME borrowed program --------------
+
+    // The regex was not consumed by iterating, which is the reason the field is
+    // a borrow rather than an owned copy.
+    string:s2 = string_concat("aa", "");
+    Matches:it3 = Matches{ re: @p, hay: string_bytes(s2), at: 0i64 };
+    int64:n2 = 0i64;
+    bool:go2 = true;
+    while (go2) {
+        Match?:nx2 = raw it3.next();
+        if (nx2 == NIL) { go2 = false; }
+        else            { n2 = n2 + 1i64; }
+    }
+    if (n2 != 2i64)                                     { exit 30i32; }
+    if (p.calls != 7i64)                                { exit 31i32; }
+
+    // No `wild` bytes are taken anywhere in this program, so it cannot trip
+    // D-151 on any exit path (`SAFETY.md` §8b).
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};
