@@ -161,7 +161,7 @@ runner and not a change of suite.
 
 | Stage | Directory | Passes when |
 |---|---|---|
-| `parse` | every `.npk` in the tree | accepted by `tools/parse_check` with no diagnostic |
+| `parse` | every `.npk` in the tree | accepted by **`npkc`** with no diagnostic, each file **as a root** — ~~`tools/parse_check`~~, **B-4b (RX-124)** |
 | `compile`, `kind = "positive"` | `tests/conformance/` | compiles, links, runs, and exits with the expected code (RX-117) |
 | `check` | `tests/rejection/` | refused by the frontend with **exactly** the expected codes |
 | `program` | `tests/unit/`, `tests/probe/` | emitted, scanned, assembled, linked, run at -O0 and again under `opt -O2`, the same exit both times |
@@ -172,6 +172,31 @@ runner and not a change of suite.
 of the column is `BUILD_REFERENCE.md` §7.1's vocabulary exactly, so the move to
 `npkg` is a change of runner and not of suite; these two are extensions and will
 need a decision from the compiler, or a translation, when that move happens.
+
+**Rule B-4b (RX-124) — and neither is `tools/parse_check`, for B-4a's own
+reason.** The `parse` row above said *"accepted by `tools/parse_check`"* until
+cycle 0.0.3, two rows above the `accept` row that B-4a struck for depending on a
+compiler-repository tool. **It is the same tree and the same prohibition.** Read
+at pin `94874ce` rather than assumed: `tools/parse_check.npk` opens with
+`mod:parse_check;` and **nineteen** `use "../src/frontend/…"` imports — lexer,
+parser, AST, diagnostics writer — so having it means compiling the compiler's
+frontend, which RX-007 forbids depending on and W-18 forbids building from here.
+`npkc` has no parse-only flag; its usage line at the pin is
+`npkc <root.npk> [-o out.ll] [--obligations DIR] [--elide …] [--extra-picky=…]`.
+
+So the stage is **`npkc` itself, and it is strictly stronger than parsing** —
+the whole frontend runs and IR is emitted. A file with no `expect-error:` must
+exit 0 **with an empty diagnostic channel**, because a warning on a clean exit is
+still a finding (B-6) and exit 0 is the one place nobody looks for one; a file
+with `expect-error:` is held to its own codes by B-7. **Every file is judged as a
+root**, including one another file imports — "each file once" means once *as
+itself*, and this is what re-checks the six `src/` files that `src/lib.npk` does
+not reach.
+
+*The general lesson, and it is the second instance in this repository within one
+subcycle (see RX-123):* **when a rule strikes one row of a table, read the other
+rows for the same reason.** A correction stops where its author's attention
+stopped.
 
 **Rule B-4a (RX-117) — the conformance suite runs at `compile`/`positive`, and
 the `accept` stage is not available to this library.** `accept` is defined as

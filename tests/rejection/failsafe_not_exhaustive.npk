@@ -1,0 +1,39 @@
+// expect-error: NITPICK-PICK-003
+// expect-error-at: 29:5
+//
+// THE SECOND REJECTION FIXTURE, and it exists because it fails a DIFFERENT
+// rule from its neighbour. `failsafe_missing_system_arm.npk` omits a named arm
+// and is refused for REACHABILITY; this one omits the `(*)` wildcard and is
+// refused for EXHAUSTIVENESS. Two rules, two codes, and neither discharges the
+// other — which is the thing a consumer gets wrong, because "I added a
+// wildcard" reads like "I am covered".
+//
+// Run by hand at cycle 0.0.1 as control E5 (`../conformance/TRANSCRIPT.txt`);
+// committed at 0.0.3. The pair is also what makes rule B-7 observable on real
+// files: swap the two fixtures' `// expect-error:` lines and BOTH must go red,
+// because each would then report a code the other names. A subset rule would
+// have let one of them pass.
+mod:failsafe_not_exhaustive;
+
+use "../../src/lib.npk".*;
+
+func:main = int32(int32:argc, cstring[]:argv) {
+    discard(argc);
+    discard(argv);
+    exit 0i32;
+};
+
+// Every named arm is present and the `(*)` is not. `Error` has more values than
+// a `pick` can list, so exhaustiveness is unmet however many arms are written.
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (ERegexPattern)  { exit 60i32; }
+    }
+    exit 9i32;
+};

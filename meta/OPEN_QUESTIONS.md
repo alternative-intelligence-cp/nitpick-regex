@@ -147,19 +147,38 @@ matches as **offsets** (RX-050), which is correct under either regime. But a
 later cycle must not adopt the conservative sentence as though it were the whole
 truth.
 
-### O-N10 — **the workbench registry's**: `#[derive(Eq)]` on a payload enum is refused; `#[derive(Ord)]` on one silently compares tags
-**Not ours.** `Eq` fails inside the derive expansion with `NITPICK-TYPE-034`
-pointing at a synthetic `<derived-1>` module the author cannot open; `Ord`
-compiles and its `cmp` ignores the payload entirely.
+### ~~O-N10 — **the workbench registry's**: `#[derive(Eq)]` on a payload enum is refused; `#[derive(Ord)]` on one silently compares tags~~ — **DISCHARGED at the re-pin, RX-125**
+**Both halves fixed in the compiler's 1.5.1b, and verified HERE on this
+repository's own measurement at pin `94874ce`, 2026-09-04** — the rule this
+ecosystem applies to a blocking defect: it is discharged on our own measurement,
+not on a landing note.
 
-*Confirmed against this library's own enum, and extended:* the arity makes no
-difference. `tests/probe/probe02b_derive_eq_refused.npk` and
-`probe02c_derive_ord_tag_only.npk` show a **two-field** payload compared no more
-carefully than a one-field one, so `Repeat(2,5).cmp(Repeat(9,9))` is `Equal`.
-Until it lands, no `Eq` or `Ord` derive goes on a payload enum here and the
-comparison is written by hand (`probe02_payload_enum.npk`'s `hir_eq`). 02c is
-green while the compiler is wrong and turns **red** the day it is fixed, which
-is the signal that says the hand-written nesting can go.
+*What it was.* `Eq` failed inside the derive expansion with `NITPICK-TYPE-034`
+pointing at a synthetic `<derived-1>` module the author cannot open; `Ord`
+compiled and its `cmp` ignored the payload entirely, so
+`Repeat(2,5).cmp(Repeat(9,9))` answered `Equal`. Confirmed here at cycle 0.0.0
+and extended: the arity made no difference.
+
+*What it is now.* Both derives compile and both read **every** payload field.
+`Repeat(2,5)` is distinguished from `Repeat(2,9)` and from `Repeat(9,5)`, and
+`Repeat(2,5) < Repeat(2,9)` — the second field breaks the tie, which is the
+property no test in `nitpick-time` can make, because its enum has one payload
+field per variant. Thirteen properties are asserted in
+`tests/probe/probe02b_derive_eq.npk` and `tests/probe/probe02c_derive_ord.npk`
+(renamed from `…_refused` and `…_tag_only`, which had become false claims).
+
+*How it surfaced, which is the part to keep.* `probe02c` was written to assert
+the DEFECT, with a header reserving exit 20 for the day it was fixed. It exited
+20 in this subcycle's first full harness run. A probe asserting the correct
+answer would have been green throughout and would have reported nothing on
+either day.
+
+*The residue.* `.eq()` returns `Result<bool>` and `.cmp()` returns
+`Result<Ordering>` — `if (a.eq(b))` is `NITPICK-TYPE-007` — so replacing
+`probe02_payload_enum.npk`'s hand-written `hir_eq` with a derive threads an
+error channel and charges `SAFETY.md` §4's budget. That is a **cycle 0.2**
+decision with the cost on the table, not an automatic consequence of this
+discharge.
 
 ### O-N11 — **the workbench registry's**: `npkc` exit 0 does not mean a program is well-formed
 **Not ours.** A root file with `main` and no `failsafe` compiles at exit 0 and is
@@ -332,6 +351,45 @@ The compiler session hit the wrap itself writing a DEF-4 regression whose wanted
 value was a sum of comparison results. A measurement channel narrower than the
 thing measured, failing silently, is the shape worth naming even when today's
 instance is empty.
+
+### O-N16 — **PROVISIONAL, awaiting the author's number**: DEF-8's landing note says the workbench does not write the shape the workbench writes
+
+*Catalogued, not raised* (the compiler session is near its usage limit and its
+fix batch is closing). **This is a defect in a NOTE, not in the compiler**, and
+it is registered because the note is a reason a later reader would rely on.
+
+The compiler's `meta/roadmap/OPEN_DECISIONS.md` at pin `94874ce` records DEF-8 —
+*"`pass` of a COPYABLE field cleared the root's drop flag"*, latent since 1.2.3,
+fixed at 1.5.1b step 5 — and closes the entry:
+
+> Blocks nothing of the workbench's: their recipes **pass values, not fields**,
+> out of owning locals.
+
+**That premise is false about this repository.**
+`tests/probe/probe04_inherent_generic_impl.npk` contains
+`func:len2 = int64(Vec<T>:self) never fails { pass self.count; }` — a `pass` of a
+**field**, out of a by-value local — and `probe08_sparse_set.npk`'s `sset_has`
+takes a `SparseSet` by value and reads through two nested `Vec`s. The recipes the
+sentence says the workbench does not write are written here, twice.
+
+**Nothing was harmed, and the reason is not the one the note gives.** These
+programs are unaffected because this library's `Vec<T>` **does not own** —
+D-247's ownership is keyed on a module named `list` holding a struct named `List`
+with fields `items`/`count`/`cap` (`decl_is_list`, read at the pin), and this
+repository has neither. So DEF-8's precondition — an *owning* local — is never
+met here. **RX-126** records the measurement; all three owed probes re-ran at
+exit 0.
+
+*Why it is worth a number rather than a shrug.* The note is the compiler's own
+record of who a defect could have reached, and a future defect in the same family
+will be triaged against it. "Their recipes do not do this" is a claim about the
+workbench's code that will be re-used; "their container does not own, so the
+precondition is unmet" is the true reason and is stable under this library
+growing more `pass field` sites — which cycle 0.0.4 will add, since every `Vec`
+accessor is one.
+
+*Recommendation:* replace the note's reason with the true one. No code change is
+implied and nothing here is blocked.
 
 ---
 

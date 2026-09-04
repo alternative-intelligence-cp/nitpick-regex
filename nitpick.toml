@@ -97,3 +97,43 @@ name  = "probe-refused"
 stage = "compile"
 kind  = "negative"
 path  = "tests/probe/refused"      # the 7 that are refused BY NAME (B-7, D-237)
+
+# CYCLE 0.0.3's TWO ENTRIES.
+#
+# THE PARSE SWEEP, AND IT IS NOT THE STAGE `BUILD.md` §3 FIRST NAMED (RX-124).
+# §3 defined `parse` as "accepted by `tools/parse_check`". That is a
+# COMPILER-repository tool whose own first lines are nineteen
+# `use "../src/frontend/…"` imports, so having it means compiling the
+# compiler's frontend -- which RX-007 forbids depending on and W-18 forbids
+# building from here. It is the same reason rule B-4a already gave for
+# striking `accept`, one row away in the same table, and `parse` was left
+# standing beside it. `npkc` has no parse-only flag (its usage line, read at
+# the pin). So the sweep is `npkc` itself: STRICTLY STRONGER than parsing,
+# because the whole frontend runs and IR is emitted.
+#
+# WHY IT IS WORTH A SUITE. `src/lib.npk` reaches `src/api/api.npk` and nothing
+# else, so SIX of the eight files in `src/` -- core, compile, engine, hir,
+# syntax, unicode -- are reached by no other suite in this manifest. They were
+# compiled once, at cycle 0.0.1, and nothing re-checked them until this entry.
+# `recursive = true` because "every .npk in the tree" is the rule, and these
+# three directories are the whole of it (measured: 37 files, 2026-09-04).
+[[test]]
+name      = "parse"
+stage     = "parse"
+paths     = ["src", "tests", "harness"]
+recursive = true
+
+# THE REJECTION SUITE. `check` is "refused by the frontend with EXACTLY the
+# expected codes" (`BUILD.md` §3, B-7, D-237) and the judging is shared with
+# `compile`/`negative` rather than copied -- two copies of B-7 would be two
+# places for it to weaken.
+#
+# `tests/probe/refused/` holds refusals about the LANGUAGE; this holds refusals
+# about USING THIS LIBRARY. Both fixtures import `src/lib.npk` by a relative
+# path (B-15), which is what makes them the standing instance of the B-7
+# hazard: a typo'd path exits 1 with RESOLVE-005, which is a refusal, and only
+# code-set equality tells it from the refusal the test is about.
+[[test]]
+name  = "rejection"
+stage = "check"
+path  = "tests/rejection"

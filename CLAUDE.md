@@ -7,9 +7,12 @@ Guidance for Claude Code sessions working in this repository.
 `nregex` — a regular-expression library for **Nitpick**, the safety-critical
 systems language at `../../nitpick`. **Status: cycle 0.0, foundations.** The
 specifications, the decisions and the roadmap are complete; `tests/probe/` holds
-23 language probes with recorded verdicts, split 16 / 7 by kind; `harness/`
-builds and judges them; `src/` holds the module skeleton and one public `error:`
-identity, and nothing else. No matching happens yet.
+23 language probes with recorded verdicts, split **17 / 6** by kind (it was 16 / 7
+until the re-pin discharged O-N10 and `probe02b` stopped being refused — RX-125);
+`tests/rejection/` holds two consumer-facing refusals; `harness/` builds, sweeps,
+diffs and judges them, **and proves first that it can fail**; `src/` holds the
+module skeleton and one public `error:` identity, and nothing else. No matching
+happens yet.
 
 ## Before starting a session here
 
@@ -146,9 +149,18 @@ evidence.
 - **`%` and `/` each add two mandatory `failsafe` arms**, `DivByZero` and
   `DivOverflow`. The error budget is charged by arithmetic, not only by a
   declared `error:`.
-- **`#[derive(Eq)]` on a payload enum is refused and `#[derive(Ord)]` on one
-  compares tags only** (registry O-N10) — so `Repeat(2,5).cmp(Repeat(9,9))` is
-  `Equal`. Write the comparison by hand.
+- **`#[derive(Eq)]` and `#[derive(Ord)]` on a payload enum WORK, and read every
+  payload field** — measured here at the re-pin, 2026-09-04 (**RX-125**). This is
+  the reverse of what cycles 0.0.0–0.0.2 recorded: at pin `950bb1d` the `Eq`
+  derive was refused `NITPICK-TYPE-034` and the `Ord` derive compared **tags
+  only**, so `Repeat(2,5).cmp(Repeat(9,9))` answered `Equal`. That was registry
+  **O-N10** and it is **DISCHARGED**. `Repeat(2,5) < Repeat(2,9)` now, so the
+  second payload field breaks the tie.
+  **But `.eq()` returns `Result<bool>` and `.cmp()` returns `Result<Ordering>`** —
+  `if (a.eq(b))` is `NITPICK-TYPE-007`, "there is no truthiness in Nitpick".
+  Unwrap with `?! E`. So replacing a hand-written comparison with a derive
+  threads an error channel and charges `SAFETY.md` §4's budget; it is a cycle 0.2
+  decision, not a free deletion.
 - **Measure `#size_of`, never derive it.** `Inst` is 12, `Match` is 16,
   `ByteSet` is 32, `string` is 24, `HirNode` is 24.
 - **`npkc`'s exit codes are an alphabet, and `2` is not a refusal.** `0`
@@ -182,9 +194,12 @@ NPKC=… NPKRT=… python3 harness/run.py
 builds every declared suite with the pinned `npkc`, assembles, scans, links
 closed-world, runs, and judges by exit code — every `program`-stage file twice,
 at −O0 and through `opt -O2`. It reads `nitpick.toml` for every path and every
-flag and hardcodes none. `harness/README.md` states the boundary; the one that
-matters is that **the self-check proving the runner can fail is cycle 0.0.3**,
-so `TESTING.md` V-21 still applies. CI (`.github/workflows/ci.yml`) pins the
+flag and hardcodes none. **Since 0.0.3 it also sweeps every `.npk` in the tree with the `parse`
+stage, judges `tests/rejection/` at the `check` stage, runs four tree checks, and
+— the one that matters — **runs the self-check FIRST** (`TESTING.md` V-21): eight
+live cases feed it wrong expectations and require a red for each, and three more
+print as PENDING on stages that do not exist until 0.3, 0.5 and 0.8.
+`harness/README.md` states the boundary. CI (`.github/workflows/ci.yml`) pins the
 compiler by full commit sha and LLVM by exact patch release, and **asserts**
 both rather than reporting them.
 

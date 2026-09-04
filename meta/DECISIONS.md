@@ -1188,3 +1188,222 @@ value the run would have to produce (that is guessing what the author meant, and
 the two candidate meanings — 321 and 65 — are both plausible); refusing the
 value at comparison time rather than read time (the message then arrives after a
 build, attached to a run, and reads like the program did something wrong).
+
+---
+
+*Appended 2026-09-04 by stream 1, working `meta/roadmap/0.0/0.0.3.md`, against
+pinned toolchain `94874ce` under LLVM 20.1.2. This is the first subcycle after
+the re-pin from `950bb1d`, and three of the four decisions below exist because
+the compiler moved under measurements this repository had already recorded.*
+
+### RX-123 — the leak gate's correction reached the prose and stopped at the checklists
+
+**2026-09-04.** RX-110 corrected six sites that stated *"the suite's programs
+exit 0, so a missing `free` on any path is a trap rather than a pass"*, which is
+false of every managed body. **It missed two, and both are ACCEPTANCE CHECKLIST
+lines** — the places where the claim stops being description and becomes a
+condition somebody ticks:
+
+- `meta/roadmap/0.0/README.md`, cycle 0.0.4's checklist: *"the leak tests exit
+  0, so a missing `vec_free` is a trap and not a pass"*. It names **`vec_free`**,
+  and so asserts the gate for precisely the managed case D-151 cannot see, in
+  the cycle that builds `Vec<T>` and `Bytes`.
+- `meta/roadmap/0.0/0.0.4.md` §6, the same line without the function name.
+
+Both now carry the correct formulation, which is this repository's own from
+`SAFETY.md` §8b (S-22): **D-151 counts `wild` blocks, D-188 counts live drivers,
+and neither sees a managed body**; where the obligation is managed the gate is a
+**memory cap**, not an exit code.
+
+**Why RX-110's sweep missed them, and this is the durable half.** RX-110 records
+that its site list was *"produced by `git grep -n 'D-151'` and not from recall"*
+— the right instinct, honestly applied, and it was still short by two, **because
+neither checklist line cites D-151**. A generating command is only as wide as
+its pattern, and a claim restated without its citation is invisible to a search
+for the citation. The sweep that found these two was `git grep -in` for the
+CLAIM's own words — *"trap and not a pass"*, *"trap rather than a pass"* — and
+then a third pass on the bare word `leak`, which is what turned up the two
+further sites judged below.
+
+*Two sites checked and deliberately NOT changed*, because a correction applied
+where it is not needed is the next false document:
+
+- `meta/roadmap/0.0/README.md`, cycle 0.0.0's probe-14 line — *"a `Vec<Inst>` at
+  `NREGEX_PROGRAM_INSTRUCTIONS`, built and walked, exiting 0 so a leak is a
+  trap"*. `Inst` is **POD** (TYPE-046), so for that probe the `wild` block **is**
+  the whole obligation and `exit 0` covers it exactly — `SAFETY.md` §8b says so
+  in as many words. The line names its concrete type, which is what makes it
+  narrow rather than sloppy.
+- `meta/DECISIONS.md` RX-110 and `meta/specs/SAFETY.md` §8b both **quote** the
+  false sentence in order to forbid it. Rewriting a quotation of an error would
+  destroy the record of the error.
+
+*Alternatives declined:* fixing the two lines silently, without a number (the
+first correction was numbered, and an unnumbered follow-up would make the second
+miss invisible to exactly the search that would look for it); restating the
+narrow rule inline at both sites rather than citing S-22 (four copies of a rule
+are four things to keep in step — `SAFETY.md` §8b is the one home).
+
+### RX-124 — the `parse` stage cannot use the compiler's tool either, for the reason B-4a already gave about `accept`
+
+**2026-09-04, and it is a residue of exactly RX-123's shape.** `BUILD.md` §3's
+stage table has six rows. Rule **B-4a (RX-117)** struck the `accept` row because
+*"`accept` is defined as 'accepted by `tools/check` in silence', and `tools/check`
+is a **compiler-repository** tool `nregex` does not have and, under RX-007, may
+not import"*. **The `parse` row, two rows above it, says "accepted by
+`tools/parse_check`" — the same tree, the same prohibition — and was left
+standing.**
+
+*Read at the pin rather than assumed.* `tools/parse_check.npk` at `94874ce`
+opens with `mod:parse_check;` and then **nineteen** `use "../src/frontend/…"`
+imports — the lexer, the parser, the AST, the diagnostics writer. Having it
+means compiling the compiler's frontend: RX-007 forbids the dependency and W-18
+forbids building the compiler from here. `npkc` has no parse-only flag either;
+its usage line, read at the pin, is
+`npkc <root.npk> [-o out.ll] [--obligations DIR] [--elide …] [--extra-picky=…]`.
+
+**The decision.** The `parse` stage is `npkc` itself, and it is **strictly
+stronger than parsing**: the whole frontend runs and IR is emitted. A file
+carrying no `expect-error:` must be accepted at exit 0 **with an empty
+diagnostic channel** — a warning on a clean exit is still a finding (B-6), and
+exit 0 is the one place nobody looks for one. A file carrying `expect-error:` is
+held to its own codes by the same equality rule (B-7), because the tree contains
+deliberate refusals and exempting a directory is where a real refusal hides.
+`accept` is now refused **by name** in the runner rather than reported as
+unimplemented, because B-4a struck it — it is a manifest error, not a pending
+feature.
+
+**Every file is judged AS A ROOT**, including one that another file imports:
+"each file once" means once *as itself*, and a file that only ever compiles
+inside somebody else's module graph has never been checked on its own.
+
+*And the stage earns its place rather than duplicating another.* `src/lib.npk`
+`pub use`s exactly one name, from `src/api/api.npk`, so **six of this library's
+eight `src/` files — `core`, `compile`, `engine`, `hir`, `syntax`, `unicode` —
+are reached by no other suite in the manifest.** They compiled at exit 0 once,
+at cycle 0.0.1, and nothing re-checked them until this entry existed.
+
+*Alternatives declined:* vendoring `tools/parse_check.npk` (RX-007, and it would
+be nineteen files of the compiler's frontend, not one); declaring the stage and
+skipping it (a stage that silently does nothing is the green-while-checking-
+nothing failure the manifest's own header exists to prevent); calling the stage
+something other than `parse` (the stage vocabulary is the compiler's so the move
+to `npkg` is a change of runner and not of suite — the name stays and the
+divergence is written down here and in the runner).
+
+### RX-125 — O-N10 is DISCHARGED on this repository's own measurement, and the probe that announced it was built to
+
+**2026-09-04, at the re-pin from `950bb1d` to `94874ce`.** Workbench registry
+**O-N10** had two halves and both are fixed:
+
+| | at `950bb1d` | at `94874ce`, measured here |
+|---|---|---|
+| `#[derive(Eq)]` on a payload enum | **REFUSED**, `NITPICK-TYPE-034` at `<derived-1>:2:82` | **accepted, and correct** |
+| `#[derive(Ord)]`'s `cmp` on one | **accepted and WRONG** — payload ignored, `Repeat(2,5).cmp(Repeat(9,9))` is `Equal` | **reads the payload, lexicographically** |
+
+**How it was found is the part worth keeping.** Nobody went looking. The first
+full harness run of this subcycle came back with two reds, and the second of
+them was `probe02c` exiting 20 — the exit its own header had reserved five weeks
+earlier for this exact event: *"If this line ever exits 20, O-N10 HAS LANDED …
+Do not 'fix' the probe — read the header and delete the nesting."* **A probe
+written to assert what the compiler actually does, rather than what it ought to
+do, reported the fix on the day it arrived.** A probe asserting the correct
+answer would have been green through the defective period and green afterwards
+and would have said nothing on either day. This is the strongest argument in
+this repository for the convention, and it is now paid for.
+
+The other red was `probe02b`, whose `// expect-error: NITPICK-TYPE-034` no
+longer held. It was caught by rule **B-7's** code-set equality reporting
+*"expected NITPICK-TYPE-034, but it compiled cleanly (exit 0)"* — a stale
+expectation surfacing as a failing test rather than a quietly passing one, which
+is what B-7 is for.
+
+*What was measured, before anything was written.* Six `eq` properties and seven
+`cmp` properties, at one payload field and at two. **Two of them are this
+repository's own and no test in `nitpick-time` can make them**: its enum has one
+payload field per variant, so an implementation that read only the FIRST field
+would have passed everything there. `Repeat(2,5)` is now correctly distinguished
+from `Repeat(2,9)` and from `Repeat(9,5)`, and `Repeat(2,5) < Repeat(2,9)` — the
+second field breaks the tie. `tests/probe/probe02b_derive_eq.npk` and
+`tests/probe/probe02c_derive_ord.npk` carry all thirteen.
+
+**A caller-visible fact that came with it: `.eq()` returns `Result<bool>` and
+`.cmp()` returns `Result<Ordering>`.** `if (a.eq(b))` is `NITPICK-TYPE-007` —
+*"this must be a `bool`, and is `Result<bool>`; there is no truthiness in
+Nitpick"*. So the hand-written nesting in `probe02_payload_enum.npk`'s `hir_eq`
+is **not** simply deleted in favour of a derive: the derive threads an error
+channel, and `SAFETY.md` §4's budget is charged by channels. Whether `Hir`
+comparison takes the derive is a cycle 0.2 decision with that cost on the table,
+not a consequence of this one.
+
+*One expired reason, marked rather than deleted.* `probe02b`'s old header argued
+that `HIR.md` H-2's parallel-field node — a plain enum beside `int32` fields — is
+*"the better shape under today's compiler"* **because** the derive was refused.
+That supporting reason is now dead. **H-2 itself stands**, on its primary reason,
+which never involved O-N10: TYPE-046 forbids an owning field in a value stored in
+an array, and a flat POD arena is what makes the whole tree a committable
+fixture. A later cycle must not re-derive H-2 from the dead premise, and must not
+reopen it on the strength of the premise dying.
+
+*The two files were RENAMED, and cycle 0.0.0's record was not rewritten.*
+`probe02b_derive_eq_refused.npk` is not refused and `probe02c_derive_ord_tag_only.npk`
+is not tag-only, so both names had become claims that are false; keeping them
+would be the stale document this repository spends its effort avoiding. The
+redirect table is `meta/roadmap/0.0/0.0.3.md` §6, in the pattern **RX-114** set
+and **0.0.2** reused: a verified execution record and its transcript are
+artifacts of a pin and are never edited to agree with a later one.
+
+### RX-126 — D-247 does not reach this library's `Vec<T>`, so the three re-run probes establish something narrower than the re-pin note supposed
+
+**2026-09-04.** The dispatch that opened this subcycle owed three measurements at
+the re-pin — `probe03`'s `free_owning`, `probe04:89`'s `pass self.count` over a
+`Vec<T>` **by value** (the compiler's DEF-8 shape exactly), and `probe08:121`'s
+nested-container sibling — on the stated ground that *"`Vec<T>` did not own until
+D-247, which landed in the same commit as DEF-8's fix"*.
+
+**All three re-ran clean: `npkc` 0, `llc` 0, `ld.lld` 0, and the binary exited 0
+at −O0 and again through `opt -O2`.** No `WildLeak` trap (exit 96), no
+double-free trap.
+
+**But the premise is false, and a green measurement under a false premise is
+worth stating precisely rather than banking.** D-247 makes the **compiler-known
+`List<T>`** owning, and its recognition is keyed — read in the pinned source,
+`src/frontend/type_layout.npk`'s `decl_is_list` — on **all** of: a file in the
+program whose basename is `list`; the declaration's home scope being that
+module's; the struct being named **`List`**; and its fields being exactly
+`items` (a pointer), `count`, `cap`, in that order, and no others. The predicate's
+own comment settles it: *"A same-named struct anywhere else (a test's own `List`)
+is an ordinary struct."*
+
+**This repository has no file named `list.npk` and its container is named
+`Vec`.** So `Vec<T>` is an ordinary struct holding a `wild T->` block, exactly as
+it was at `950bb1d`, and **D-247 changed nothing about it**. It follows that:
+
+- The three probes are **not** evidence that the DEF-8 fix is correct for this
+  library's shape — they are evidence that the shape is **outside DEF-8's scope
+  entirely**, because DEF-8 is about the drop flag of an **owning** local and
+  `Vec<T>` does not drop.
+- S-26 (a `move` or `pass` out of a field or element leaves the canonical vacant
+  value) likewise does not change `free_owning`'s meaning here.
+- Nothing about the `Vec<T>` design needs revisiting at cycle 0.0.4, and the
+  obligations `SAFETY.md` §8b and `0.0.4.md` P-20 place on it are unchanged.
+- **The 125 MiB managed-body gap is unchanged too.** D-247 would have closed it
+  for a `List<string>`; it does not close it for a `Vec<OwningGroup>`, so
+  RX-110's rule and RX-123's correction both stand at full strength.
+
+*One inaccuracy in the compiler's own note, catalogued and not raised.* DEF-8's
+entry says *"Blocks nothing of the workbench's: their recipes pass values, not
+fields, out of owning locals."* `probe04_inherent_generic_impl.npk`'s `len2` is
+`func:len2 = int64(Vec<T>:self) never fails { pass self.count; }` — a `pass` of a
+**field**, out of a by-value local, which is the shape the sentence says the
+workbench does not write. It is harmless **because** `Vec<T>` does not drop, not
+because the recipe is absent. Registered as **O-N16** so the compiler's fix batch
+can correct the note rather than carry a reason that does not hold.
+
+*Alternatives declined:* recording the three greens as "DEF-8 verified here"
+(they are not — the pin is silent about a defect whose precondition this library
+never meets, and calling that verification is exactly the unfalsifiable green
+this repository has now found four of); renaming `Vec<T>` to `List` to acquire
+D-247's ownership (it would import a compiler-known type's drop semantics into a
+container this library has deliberately specified itself, RX-006, and it would do
+so by matching a filename — a coupling no reader would predict).

@@ -24,8 +24,18 @@ Cycle 0.0.2 picks them up as the harness's first `program`-stage entries.
 
 | Directory | Files | Declared as | Judged by |
 |---|---|---|---|
-| `tests/probe/` | 16, each `// expect-exit: N` | `probe`, stage `program` | it compiles, links, runs, and exits with that code — at −O0 and again under `opt -O2` |
-| `tests/probe/refused/` | 7, each `// expect-error: CODE` | `probe-refused`, stage `compile`, kind `negative` | `npkc` exits **1** and reports **exactly** that code set (B-7, D-237) |
+| `tests/probe/` | **17**, each `// expect-exit: N` | `probe`, stage `program` | it compiles, links, runs, and exits with that code — at −O0 and again under `opt -O2` |
+| `tests/probe/refused/` | **6**, each `// expect-error: CODE` | `probe-refused`, stage `compile`, kind `negative` | `npkc` exits **1** and reports **exactly** that code set (B-7, D-237) |
+
+> **The split was 16 / 7 until 2026-09-04 and is now 17 / 6.** `probe02b` moved
+> **out** of `refused/` at cycle 0.0.3: the re-pin to `94874ce` discharged
+> workbench registry O-N10, `#[derive(Eq)]` on a payload enum stopped being
+> refused, and a probe named `…_refused` that is not refused is a false claim in
+> a filename. **The harness reported it** — rule B-7's code-set equality said
+> *"expected NITPICK-TYPE-034, but it compiled cleanly (exit 0)"*, which is a
+> stale expectation surfacing as a failing test rather than a quietly passing
+> one. **RX-125**; redirect table in
+> [`../../meta/roadmap/0.0/0.0.3.md`](../../meta/roadmap/0.0/0.0.3.md) §6.
 
 **No single entry could judge the mixed directory**, which is why it was split
 rather than declared: `run_program` does not skip a file carrying
@@ -34,7 +44,8 @@ set. What keeps the two entries disjoint without listing a single filename is
 that **`recursive` defaults false**, so `tests/probe/` does not see its own
 subdirectory.
 
-**The seven moved; cycle 0.0.0's execution record did not.** It cites their old
+**The seven moved, and then one of them moved back; cycle 0.0.0's execution
+record did neither.** It cites their old
 paths and is a closed, independently verified artifact, so it is left saying
 what was true on the day it was written and a redirect table in
 [`../../meta/roadmap/0.0/0.0.2.md`](../../meta/roadmap/0.0/0.0.2.md) §4 makes

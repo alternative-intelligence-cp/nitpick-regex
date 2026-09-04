@@ -1,0 +1,142 @@
+// expect-exit: 0
+//
+// PROBE 02c — `#[derive(Ord)]` ON A PAYLOAD ENUM. **WAS WRONG. NOW READS THE
+// PAYLOAD.**
+//
+// THIS FILE WAS `probe02c_derive_ord_tag_only.npk`, AND ITS OLD NAME WAS A
+// CLAIM: at cycle 0.0.0, against pin `950bb1d`, the derived `cmp` compared
+// TAGS ONLY, so `Repeat(2,5).cmp(Repeat(9,9))` answered `Equal`. That was the
+// second half of workbench registry **O-N10** — a wrong answer no diagnostic
+// mentioned, which is worse than the refusal in probe 02b.
+//
+// THE OLD FILE ASSERTED THE DEFECT ON PURPOSE and said so in its header:
+//
+//   "this probe is green while the compiler is wrong, and it turns RED on the
+//    day O-N10 lands ... If this line ever exits 20, O-N10 HAS LANDED: `cmp`
+//    now reads payloads ... Do not 'fix' the probe — read the header and
+//    delete the nesting."
+//
+// **IT EXITED 20 AT PIN `94874ce`, ON 2026-09-04, IN THE FIRST FULL HARNESS RUN
+// OF CYCLE 0.0.3.** The instruction in that header is the reason this file was
+// rewritten rather than patched, and it is the clearest thing in this
+// repository about why a probe should assert what the compiler ACTUALLY does:
+// a probe written to assert the correct answer would have sat green through the
+// whole defective period and again afterwards, and would have told nobody
+// anything on either day.
+//
+// WHAT IS ASSERTED NOW, measured before it was written:
+//
+//   * ACROSS variants, the order is DECLARATION order — unchanged, and it was
+//     always correct, which is what made the defect easy to miss;
+//   * WITHIN a one-field variant, the payload orders: `Literal(7) < Literal(9)`;
+//   * WITHIN the two-field variant, the FIRST field decides;
+//   * and when the first fields are equal the SECOND field breaks the tie —
+//     `Repeat(2,5) < Repeat(2,9)`. This is the assertion that distinguishes a
+//     real lexicographic fix from one that reads only the first payload field,
+//     and no test in `nitpick-time` can make it, because its enum has one
+//     field per variant.
+//   * equal values compare `Equal`.
+//
+// `.cmp()` RETURNS `Result<Ordering>`, so every call is unwrapped with `?! E9`;
+// see probe 02b's header on what that costs a caller that wanted to replace a
+// hand-written comparison with a derive. **RX-125** records the discharge.
+mod:probe02c_derive_ord;
+
+error:E9;
+
+#[derive(Ord)]
+enum:HirKind = {
+    Literal(uint32);
+    ClassRef(int32);
+    Repeat(int32, int32);
+    Empty;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    bool:ok = false;
+
+    // ---- across variants: declaration order. Correct before and after. ----
+
+    ok = false;
+    pick (HirKind.Literal(97u32).cmp(HirKind.ClassRef(3i32)) ?! E9) {
+        (Ordering.Less)    { ok = true; },
+        (*)                { }
+    }
+    if (!ok)                                                     { exit 10i32; }
+
+    ok = false;
+    pick (HirKind.Empty.cmp(HirKind.Literal(0u32)) ?! E9) {
+        (Ordering.Greater) { ok = true; },
+        (*)                { }
+    }
+    if (!ok)                                                     { exit 11i32; }
+
+    // ---- within a ONE-field variant: the payload is read. --------------------
+    // Exit 20 was the old file's "O-N10 has landed" signal. It is now the
+    // ordinary assertion, and its failure would mean a REGRESSION.
+
+    ok = false;
+    pick (HirKind.Literal(7u32).cmp(HirKind.Literal(9u32)) ?! E9) {
+        (Ordering.Less)    { ok = true; },
+        (*)                { }
+    }
+    if (!ok)                                                     { exit 20i32; }
+
+    ok = false;
+    pick (HirKind.Literal(9u32).cmp(HirKind.Literal(7u32)) ?! E9) {
+        (Ordering.Greater) { ok = true; },
+        (*)                { }
+    }
+    if (!ok)                                                     { exit 21i32; }
+
+    // ---- within the TWO-field variant --------------------------------------
+
+    // The first field decides when it differs.
+    ok = false;
+    pick (HirKind.Repeat(2i32, 5i32).cmp(HirKind.Repeat(9i32, 9i32)) ?! E9) {
+        (Ordering.Less)    { ok = true; },
+        (*)                { }
+    }
+    if (!ok)                                                     { exit 30i32; }
+
+    // AND THE SECOND FIELD BREAKS THE TIE. This is the load-bearing line in
+    // the file: an implementation that read only the first payload field would
+    // answer `Equal` here and pass every other assertion above.
+    ok = false;
+    pick (HirKind.Repeat(2i32, 5i32).cmp(HirKind.Repeat(2i32, 9i32)) ?! E9) {
+        (Ordering.Less)    { ok = true; },
+        (*)                { }
+    }
+    if (!ok)                                                     { exit 31i32; }
+
+    ok = false;
+    pick (HirKind.Repeat(2i32, 9i32).cmp(HirKind.Repeat(2i32, 5i32)) ?! E9) {
+        (Ordering.Greater) { ok = true; },
+        (*)                { }
+    }
+    if (!ok)                                                     { exit 32i32; }
+
+    // Equal values.
+    ok = false;
+    pick (HirKind.Repeat(2i32, 5i32).cmp(HirKind.Repeat(2i32, 5i32)) ?! E9) {
+        (Ordering.Equal)   { ok = true; },
+        (*)                { }
+    }
+    if (!ok)                                                     { exit 33i32; }
+
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (E9)             { exit 89i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

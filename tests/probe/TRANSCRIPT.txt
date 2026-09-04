@@ -1,3 +1,23 @@
+NOTE ADDED 2026-09-04 BY CYCLE 0.0.3 -- NOTHING BELOW IS EDITED, AGAIN.
+Two of the verdicts recorded below are NO LONGER THE COMPILER'S ANSWER. They
+were correct against pin 950bb1d, which is what this transcript is a record of;
+the repository is now pinned to 94874ce and workbench registry O-N10 is
+DISCHARGED (RX-125, measured here 2026-09-04).
+
+    probe02b_derive_eq_refused  -> tests/probe/probe02b_derive_eq.npk
+        recorded below: npkc exit 1, NITPICK-TYPE-034
+        at 94874ce:      npkc exit 0 -- `#[derive(Eq)]` on a payload enum WORKS
+
+    probe02c_derive_ord_tag_only -> tests/probe/probe02c_derive_ord.npk
+        recorded below: run exit 0, asserting that `cmp` compares TAGS ONLY
+        at 94874ce:      that program exits 20 -- `cmp` READS THE PAYLOAD, and
+                         exit 20 is the signal its own header reserved for this
+
+Neither line below is altered. A transcript is a record of what a named
+compiler did on a named day; editing it to agree with a later compiler would
+destroy the only evidence that the answer ever changed -- and the change is the
+finding. `meta/roadmap/0.0/0.0.3.md` §3 and §6.
+
 NOTE ADDED 2026-09-04 BY CYCLE 0.0.2 -- NOTHING BELOW IS EDITED.
 Seven of the files this transcript names have MOVED, and the commands below are
 recorded exactly as they were run on the day, with the paths they had then:

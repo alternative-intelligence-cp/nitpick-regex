@@ -136,6 +136,74 @@ def _program_like(c, path, name, exp, with_opt_leg):
                       " (through opt -O2 + llc -O2 -- B-3)")
 
 
+def parse_sweep(c, path, name, exp):
+    """The `parse` stage -- RX-124, and it is NOT the stage `BUILD.md` §3 named.
+
+    §3 defines `parse` as "accepted by `tools/parse_check` with no diagnostic".
+    That tool is the COMPILER's, and reading it at the pin settles the matter:
+    `tools/parse_check.npk` opens with nineteen `use "../src/frontend/..."`
+    lines, so having it means compiling the compiler's frontend -- which RX-007
+    forbids depending on and W-18 forbids building from here. This is EXACTLY
+    the reason rule B-4a already struck the `accept` stage, recorded in the same
+    table, one row away, and left `parse` standing. `npkc` has no parse-only
+    flag either (its usage line, read at the pin, is
+    `npkc <root.npk> [-o out.ll] [--obligations DIR] [--elide ...] [--extra-picky=...]`).
+
+    SO THE STAGE IS `npkc` ITSELF, AND IT IS STRICTLY STRONGER THAN PARSING:
+    the whole frontend runs and IR is emitted. Saying "parse" and doing more
+    than parsing is only safe while it is written down, which is what this
+    paragraph and RX-124 are for.
+
+    WHAT IT ADDS OVER THE OTHER STAGES, and it is not redundancy. `src/lib.npk`
+    reaches `src/api/api.npk` and nothing else, so SIX of this library's eight
+    `src/` files -- core, compile, engine, hir, syntax, unicode -- are reached
+    by NO suite. They compiled at exit 0 once, at cycle 0.0.1, and nothing has
+    re-checked them since. This sweep is what does.
+
+    EVERY FILE IS JUDGED AS A ROOT, including one another file imports: "each
+    file once" means once AS ITSELF, and a file that only ever compiles as part
+    of somebody else's graph has never been checked on its own. So the
+    `imported_by_others` skip that `program` uses does NOT apply here.
+
+    A file carrying `// expect-error:` is held to its own expectation instead,
+    by the same code-set equality rule (B-7) -- the tree contains deliberate
+    refusals and sweeping them as though they should be clean would either fail
+    six honest files or require exempting a directory, and an exemption is where
+    a real refusal hides.
+
+    WHAT A GREEN SWEEP DOES NOT MEAN, AND THIS IS THE IMPORTANT SENTENCE.
+    `npkc` exit 0 IS NOT WELL-FORMEDNESS (registry O-N11, the compiler's DEF-5),
+    and THIS LIBRARY IS THE STANDING EXAMPLE: all eight files in `src/` compile
+    at exit 0 and all eight are refused by `llc`, because a library file cannot
+    define `@npk_failsafe` and `npkc` never emits a `declare` for it (B-0,
+    RX-115). So this stage reports that the FRONTEND accepts each file. It does
+    NOT report that any of them assembles, links or runs, and for the six `src/`
+    files no suite in this manifest reports that, because there is no library
+    object to make one from -- `src/` reaches the compiler only through a
+    program root. The sweep closes the gap that those six were checked by
+    NOTHING; it does not close the gap that they are checked only as far as the
+    frontend. O-N14 is what would change that."""
+    if not exp.ok:
+        return [expect_mod.unreadable_message(name, exp)]
+    if exp.errors:
+        return check_rejection(c, path, name, exp)
+    base = os.path.join(c.tmp, "parse_" + name.replace("/", "_").replace(".", "_"))
+    r = build.emit(c, path, base + ".ll")
+    if r.timed_out or r.code != build.NPKC_OK:
+        return [build.npkc_failure(name, "the parse sweep", r)]
+    # "with no diagnostic" is the specification's word and it is asserted:
+    # exit 0 with a WARNING on stderr is exit 0, and a warning is a finding
+    # (B-6's channel split).
+    got = build.findings_of(r.err)
+    if got:
+        codes = ", ".join(sorted({f["code"] for f in got}))
+        return [f"{name}: npkc accepted it (exit 0) AND reported {codes}. The stage "
+                f"is 'accepted with no diagnostic' (BUILD.md §3): a warning on a "
+                f"clean exit is still a finding (B-6), and exit 0 is the one place "
+                f"nobody looks for one."]
+    return []
+
+
 def check_rejection(c, path, name, exp):
     """Refused, with EXACTLY the expected codes. Rule B-7 (D-237)."""
     if not exp.ok:
@@ -223,7 +291,9 @@ def run_entry(c, entry, only, record):
     if not files:
         record(name, rels[0], [empty_suite(name, rels[0])])
         return 1
-    skip = imported_by_others(files)
+    # `parse` judges every file AS A ROOT, so the "imported by a sibling" skip
+    # does not apply to it -- see `parse_sweep`.
+    skip = set() if stage == "parse" else imported_by_others(files)
     n = 0
     for p in files:
         if os.path.normpath(p) in skip:
@@ -238,13 +308,32 @@ def run_entry(c, entry, only, record):
             fl = _program_like(c, p, rel, exp, with_opt_leg=False)
         elif stage == "compile" and kind == "negative":
             fl = check_rejection(c, p, rel, exp)
+        elif stage == "parse":
+            fl = parse_sweep(c, p, rel, exp)
+        elif stage == "check":
+            # `BUILD.md` §3: "refused by the frontend with EXACTLY the expected
+            # codes" -- the same judging as `compile`/`negative`, over
+            # `tests/rejection/`. One implementation, deliberately: two copies
+            # of rule B-7 would be two places for it to weaken.
+            fl = check_rejection(c, p, rel, exp)
+        elif stage == "accept":
+            # RULE B-4a (RX-117) STRUCK THIS STAGE and it is refused BY NAME
+            # rather than judged, because `accept` is defined as "accepted by
+            # `tools/check` in silence" -- a compiler-repository tool RX-007
+            # forbids importing -- and it neither links nor runs, which is the
+            # whole point (npkc exit 0 is not well-formedness, O-N11).
+            fl = [f"{rel}: stage `accept` is STRUCK for this library by rule B-4a "
+                  f"(RX-117), not merely unimplemented: it is defined as 'accepted "
+                  f"by tools/check in silence', that tool is the compiler's and "
+                  f"RX-007 forbids the dependency, and it neither links nor runs. "
+                  f"Use `compile`/`positive`, which does. Declaring it is a "
+                  f"manifest error, not a pending feature."]
         else:
             fl = [f"{rel}: stage `{stage}`" + (f"/`{kind}`" if kind else "") +
                   " is declared in nitpick.toml and this runner cannot judge it "
                   "yet. A stage that silently does nothing is a suite reporting "
                   "green while checking nothing, so it is a failure and not a skip. "
-                  "`parse`, `accept` and `check` arrive at cycle 0.0.3; `corpus` "
-                  "and `oracle` at 0.5."]
+                  "`corpus` and `oracle` arrive at cycle 0.5."]
         record(name, rel, fl)
         n += 1
     return n

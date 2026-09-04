@@ -25,9 +25,11 @@ reporting it.
 | `elf.py` | an ELF64 symbol table, read with `struct` — no fourth tool |
 | `irscan.py` | the emitted IR's call edges to the floor |
 | `build.py` | the pipeline, and `npkc`'s exit alphabet |
-| `stages.py` | `program`, `compile`/`positive`, `compile`/`negative` |
+| `stages.py` | `program`, `compile`/`positive`, `compile`/`negative`, `parse`, `check` |
+| `treecheck.py` | the four live tree checks — the library diffed against its own documents |
+| `selfcheck.py` | **the harness fed wrong expectations and required to fail**; runs FIRST |
 | `baseline/` | the empty program the two scans are differences against |
-| `selfcheck/` | fixtures that must **fail**; cycle 0.0.3 drives them |
+| `selfcheck/` | fixtures that must **fail**; `selfcheck.py` drives them |
 
 ## What a green run asserts
 
@@ -40,17 +42,40 @@ reporting it.
 - no object gained an undefined symbol the baseline lacks, and no function
   outside the baseline called a floor symbol this library may not (B-2, B-2a);
 - the same tree built from two different working directories produced
-  byte-identical IR (B-4).
+  byte-identical IR (B-4);
+- **every `.npk` in the tree was swept as a root** by the `parse` stage, which
+  is what re-checks the six `src/` files `src/lib.npk` does not reach;
+- the four live **tree checks** agreed with the specifications they diff against;
+- and — the one that makes the rest mean anything — **the runner was shown able
+  to fail before any of it ran** (V-21).
+
+## The self-check, which is the load-bearing half
+
+`selfcheck.py` builds a throwaway tree per case, runs the **real** runner over
+it with the **real** pinned `npkc`, and requires a **failure**. Eight cases are
+live; three are **PENDING** on stages that do not exist yet and print as pending
+rather than as passing, because `8 live, 3 pending` and `11 passing` are
+different claims and only one is true.
+
+A case requires more than a non-zero exit: it requires the runner to **say the
+thing**, naming the case's own file. A non-zero exit alone would also be
+produced by the runner crashing for an unrelated reason — a passing case whose
+red is unreachable, which is the exact failure this file exists to prevent.
+
+**It was mutation-tested at 0.0.3**, and that is the evidence it works: deleting
+B-7's equality half reddens cases 3 and 3a and nothing else; disabling the IR
+call-edge scan reddens case 8 and **not** case 9, which is RX-120's own finding
+reproduced from the other side; comparing exit codes by truthiness instead of by
+value reddens case 1. `../meta/roadmap/0.0/0.0.3.md` §4 has the transcripts.
 
 ## What it does not assert yet
 
-`parse`, `accept` and `check` as stages, the tree checks, and — the one that
-matters — **the self-check that proves this runner can fail**. All of that is
-cycle 0.0.3. Until it exists, `TESTING.md` V-21 applies: a harness that has not
-proven it can fail has not proven anything. Three of the eventual cases were
-run **by hand** at 0.0.2 and their transcripts are in
-`../meta/roadmap/0.0/0.0.2.md` §6; two of them left committed fixtures in
-`selfcheck/`.
+The three pending self-check cases: a generated table off by one line (0.3), a
+corpus fixture off by one (0.5), and **a corpus fixture that passes under one
+engine and fails under another** (0.8) — the last is the most important case in
+`TESTING.md` V-20's list, because it is what proves RX-041 is being *checked*
+rather than assumed. `corpus` and `oracle` are not stages yet. `accept` is not
+pending but **struck** (B-4a), and declaring it is a manifest error.
 
 ## Three things that will trip a reader
 

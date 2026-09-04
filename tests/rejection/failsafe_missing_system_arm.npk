@@ -1,0 +1,54 @@
+// expect-error: NITPICK-REACH-002
+// expect-error-at: 44:5
+//
+// THE FIRST REJECTION FIXTURE, and it is the consumer rather than a language
+// probe on purpose. `tests/probe/refused/` holds seven refusals about the
+// LANGUAGE; this directory holds refusals about USING THIS LIBRARY, which is
+// the thing a consumer can break.
+//
+// WHAT IT PINS. A program that imports `nregex` and drops a system arm from its
+// `failsafe` is refused by name: `(*)` discharges exhaustiveness (PICK-003) and
+// nothing else, and REACH-002 says so in as many words — "`(*)` counts for
+// nothing here". Run by hand at cycle 0.0.1 as control E6
+// (`../conformance/TRANSCRIPT.txt`); committed at 0.0.3 so it is re-run rather
+// than remembered.
+//
+// AND WHY IT IS THE RIGHT FIXTURE FOR RULE B-7. The import below is RELATIVE
+// (B-15, O-G3). If it is ever typo'd or the file moves, `npkc` exits 1 with
+// `NITPICK-RESOLVE-005` — a genuine refusal, and this test wanted a refusal —
+// so without code-set EQUALITY this file would pass having refused the PATH
+// instead of the missing arm. That is the hazard measured in
+// `../conformance/TRANSCRIPT.txt` §G, and this fixture is the standing
+// instance of it rather than a constructed one.
+//
+// NOT THIS, and it is worth writing down because it was the first idea: a
+// consumer missing the `(ERegexPattern)` arm still COMPILES. Control E4
+// measured it — nothing in the program can raise one while the public surface
+// has no callable entry point, so REACH-002 does not demand the arm yet. The
+// day `regex_compile` exists, that changes, and this comment is where a reader
+// looks to find out why there is no such fixture here.
+mod:failsafe_missing_system_arm;
+
+use "../../src/lib.npk".*;
+
+func:main = int32(int32:argc, cstring[]:argv) {
+    discard(argc);
+    discard(argv);
+    exit 0i32;
+};
+
+// `(WildLeak)` is the arm that is missing. Everything else is `import.npk`'s
+// `failsafe` verbatim, so the diff between the two files is the one line the
+// diagnostic is about.
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (ERegexPattern)  { exit 60i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

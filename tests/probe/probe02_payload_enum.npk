@@ -17,16 +17,24 @@
 // `Literal(uint16)`) and nothing with two. `HirKind.Repeat` needs a minimum and
 // a maximum together or the spelling is no use to this library.
 //
-// WHAT THIS PROBE DELIBERATELY DOES NOT ASK. `#[derive(Eq)]` on a payload enum
-// and `#[derive(Ord)]` on one are ALREADY ANSWERED and the answers are O-N10 in
-// the workbench registry: `Eq` is refused `NITPICK-TYPE-034` pointing at a
-// synthetic `<derived-1>` module the author cannot open, and `Ord` compiles and
-// silently compares TAGS ONLY, so `Literal(7).cmp(Literal(9))` is `Equal`.
-// `../nitpick-time/tests/probe/probe05b_derive_eq_refused.npk` is the
-// reproduction. This probe therefore carries NO `Eq` or `Ord` derive and writes
-// its comparison by hand — see `hir_eq` — which is what the library must do
-// until O-N10 lands. `probe02b_derive_on_payload_enum.npk` confirms the two
-// halves against THIS library's enum rather than re-deriving them.
+// WHAT THIS PROBE DELIBERATELY DOES NOT ASK, AND WHY THAT ANSWER HAS SINCE
+// CHANGED. `#[derive(Eq)]` on a payload enum and `#[derive(Ord)]` on one are
+// asked by `probe02b_derive_eq.npk` and `probe02c_derive_ord.npk`, not here.
+//
+// At the pin this file was written against (`950bb1d`) both were BROKEN — that
+// was workbench registry O-N10 — so the comparison below is written by hand.
+// **At pin `94874ce` both work and read every payload field (RX-125, measured
+// 2026-09-04), so O-N10 is DISCHARGED and this file's `hir_eq` is no longer
+// forced.** It is kept rather than replaced, for two reasons that are decisions
+// and not inertia:
+//
+//   1. `.eq()` returns `Result<bool>`, so a derive threads an error channel
+//      through every comparison and `SAFETY.md` §4's budget is charged by
+//      channels. Whether `Hir` comparison pays that is a CYCLE 0.2 decision.
+//   2. This probe's subject is the payload enum itself — `pick` destructuring,
+//      storage in a `Vec`, `#size_of` — and swapping its comparison for a
+//      derive would make it a test of the derive instead, which is what the
+//      other two files are for.
 mod:probe02_payload_enum;
 
 // ---------------------------------------------------------------------------
@@ -112,9 +120,11 @@ func:weight_of = int64(HirKind:k) never fails {
     pass w;
 };
 
-// COMPARISON, WRITTEN BY HAND, because `#[derive(Eq)]` on this shape is refused
-// and `#[derive(Ord)]` on it silently ignores the payload (O-N10). Nested
-// `pick`, because there is no way to destructure two values at once.
+// COMPARISON, WRITTEN BY HAND. It was FORCED when this file was written —
+// `#[derive(Eq)]` on this shape was refused and `#[derive(Ord)]` on it ignored
+// the payload (O-N10) — and it is now KEPT BY CHOICE, because the derive
+// returns `Result<bool>` and costs an error channel (RX-125; see the header).
+// Nested `pick`, because there is no way to destructure two values at once.
 func:hir_eq = bool(HirKind:x, HirKind:y) never fails {
     bool:same = false;
     pick (x) {
@@ -186,9 +196,11 @@ func:main = int32(cstring[]:_~argv) {
     if (!(raw hir_eq(a, HirKind.Literal(97u32))))       { exit 30i32; }
     if (raw hir_eq(a, HirKind.Literal(98u32)))          { exit 31i32; }
     if (raw hir_eq(a, b))                               { exit 32i32; }
-    // The pair that O-N10's derived `Ord` gets WRONG: same tag, different
-    // payloads. A hand-written comparison distinguishes them; a derived one
-    // answers `Equal`.
+    // The pair O-N10's derived `Ord` used to get WRONG: same tag, different
+    // payloads, answered `Equal`. The hand-written comparison always
+    // distinguished them and the derived one now does too (RX-125) — so this
+    // assertion has stopped being a workaround's justification and become an
+    // ordinary correctness check, which is the right thing for it to be.
     if (raw hir_eq(r, HirKind.Repeat(2i32, 6i32)))      { exit 33i32; }
     if (!(raw hir_eq(r, HirKind.Repeat(2i32, 5i32))))   { exit 34i32; }
     if (!(raw hir_eq(e, HirKind.Empty)))                { exit 35i32; }

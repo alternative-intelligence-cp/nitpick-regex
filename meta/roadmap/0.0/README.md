@@ -37,7 +37,7 @@ settled. **Nothing in this cycle is blocked on a question.**
 | [0.0.0](0.0.0.md) | **The language probes** — fourteen programs asking whether the design is spellable | a recorded verdict per probe, and any design change the answers force |
 | [0.0.1](0.0.1.md) | **The skeleton** — the module layout, `src/lib.npk`, the manifest's first test entries, CI | `npkc` compiles an empty library and a program that imports it |
 | [0.0.2](0.0.2.md) | **The harness, part 1** — build, the `program` stage, the toolchain pin, the no-syscall scan | one test program builds, links, runs, and its exit code is judged |
-| [0.0.3](0.0.3.md) | **The harness, part 2** — `parse`, `accept`, `check`; the self-check; the tree checks | the self-check proves the harness can fail, eleven ways |
+| [0.0.3](0.0.3.md) | **The harness, part 2** — `parse`, ~~`accept`~~, `check`; the self-check; the tree checks | the self-check proves the harness can fail, **eight** of eleven ways; the other three need stages that do not exist until 0.3, 0.5 and 0.8 |
 | [0.0.4](0.0.4.md) | **`src/core/`** — `Vec<T>`, `Bytes`, `ByteSet`, `SparseSet`, `limits.npk` | four primitives with their own suites and their obligations written |
 | [0.0.5](0.0.5.md) | **Close** — the findings, the spec amendments the probes forced, the handoff to 0.1 | `done/0.0/`, and 0.1 openable by a fresh session |
 
@@ -46,8 +46,13 @@ settled. **Nothing in this cycle is blocked on a question.**
 ### 0.0.0 — the probes
 - [x] `tests/probe/probe01_pod_inst_array.npk` — a `Vec<Inst>` of 100 000 12-byte POD values: fill, read, copy, clear; `#size_of<Inst>()` asserted  
       **DONE** — `#size_of<Inst>` = 12, confirmed.
-- [x] `tests/probe/probe02_payload_enum.npk` + `probe02b_derive_eq_refused.npk` + `probe02c_derive_ord_tag_only.npk` — a tagged enum with payloads, destructured in a `pick`, stored in a `Vec`, `#[derive(Eq, Debug)]`, `#size_of` asserted  
-      **DONE** — but `#[derive(Eq)]` on a payload enum is **refused** (workbench O-N10), so the comparison is hand-written and 02b/02c record both halves.
+- [x] `tests/probe/probe02_payload_enum.npk` + `probe02b_derive_eq.npk` + `probe02c_derive_ord.npk` — a tagged enum with payloads, destructured in a `pick`, stored in a `Vec`, `#[derive(Eq, Debug)]`, `#size_of` asserted  
+      **DONE at 0.0.0** — and at that pin `#[derive(Eq)]` on a payload enum was **refused** and `#[derive(Ord)]`
+      compared tags only (workbench O-N10), so the comparison was hand-written and 02b/02c recorded both halves.
+      **O-N10 IS DISCHARGED AT THE RE-PIN, measured here 2026-09-04 — RX-125.** Both derives now work and read
+      every payload field; the two probes were rewritten to assert the new behaviour and **renamed**, because
+      `…_refused` and `…_tag_only` had become false claims. 0.0.0's verdict table is not rewritten; the redirect
+      is `0.0.3.md` §6.
 - [x] `tests/probe/probe03_generic_move.npk` — `move T:v` into a generic container, `T` both scalar and owning  
       **DONE** — and the element obligation is the caller's; the specification's offset-into-`Bytes` design avoids it.
 - [x] `tests/probe/probe04_inherent_generic_impl.npk` — `impl:<T>:Vec<T> = { … }` with a `Vec<T>->:self` receiver that mutates, called as `v.push(x)`  
@@ -150,14 +155,41 @@ settled. **Nothing in this cycle is blocked on a question.**
       RX-114 set.
 
 ### 0.0.3 — the harness, part 2
-- [ ] the `parse` stage over every `.npk` in the tree, each file once
-- [ ] the `accept` and `check` stages, with the **exact-code** rule (B-7)
-- [ ] `--only`, and output that says twice that a filtered run concludes nothing
-- [ ] `harness/selfcheck.py` with all **eleven** cases (`0.0.3.md` §3, amended by 0.0.2), three of them pending until the corpus stage exists at 0.5; two already have committed fixtures under `harness/selfcheck/`
-- [ ] the self-check runs **first** in every full invocation
-- [ ] `check_layering` — every `use` edge against `specs/BUILD.md` §6, **including the oracle's restriction** (B-17), which will have nothing to check yet and is the right answer
-- [ ] `check_constants_named` and `check_error_budget` live
-- [ ] `check_specs_current` reporting, not failing
+- [x] the `parse` stage over every `.npk` in the tree, each file once
+      **DONE, and it is `npkc` rather than the compiler's `tools/parse_check` — RX-124.** That tool imports
+      nineteen files of the compiler's frontend, which RX-007 forbids depending on and W-18 forbids building
+      from here; it is the same reason rule B-4a already gave for striking `accept`, one row away in the same
+      table. The stage is **strictly stronger than parsing** and every file is judged **as a root**.
+      **It earns its place:** `src/lib.npk` reaches only `src/api/api.npk`, so six of the eight `src/` files
+      were reached by no suite at all before it existed.
+- [~] ~~the `accept` **and** `check` stages~~ — **`check` DONE; `accept` was already STRUCK.**
+      Rule B-4a (RX-117) struck `accept` before this subcycle began, and the runner now refuses it **by name**
+      rather than reporting it unimplemented — declaring it is a manifest error, not a pending feature.
+      `check` runs over the new `tests/rejection/`, sharing `check_rejection` with `compile`/`negative` so that
+      rule B-7 has one implementation and not two.
+- [x] `--only`, and output that says twice that a filtered run concludes nothing
+- [x] `harness/selfcheck.py` with all **eleven** cases — **EIGHT live, three pending.**
+      The plan said "seven live … and case 4 live with the `parse` stage this subcycle adds", which is eight;
+      the runner's summary says eight. Case 10 was decided in execution: **neither a substituted emitter nor a
+      fixture** — a fixture cannot exist, because a file whose IR differs between two builds is what D-078 says
+      the compiler never produces. It tests the instrument directly. `0.0.3.md` §3.
+      **And the self-check was MUTATION-TESTED** (`0.0.3.md` §4): three defects introduced into the harness,
+      each reddening exactly its own case. Disabling the IR call-edge scan reddens case 8 and **not** case 9,
+      which is RX-120 reproduced from the other side.
+- [x] the self-check runs **first** in every full invocation
+      **DONE** — the only invocation that skips it is `--record-baseline`, which judges nothing and writes a file.
+- [x] `check_layering` — every `use` edge against `specs/BUILD.md` §6, **including the oracle's restriction**
+      (B-17), which has nothing to check yet and is the right answer
+      **DONE, and it carries B-15a too** — the umbrella's plain-`use`-cancels-`pub use` shape (RX-113, O-N13),
+      which produces **no compiler diagnostic at all**. Seen to fail, `0.0.3.md` §5 D2 and D3.
+- [x] `check_constants_named` and `check_error_budget` live — and both **seen to fail**, `0.0.3.md` §5 D1, D4
+- [x] `check_specs_current` reporting, not failing — 42 markdown files, 14 specs, nothing stale
+- [x] **added in execution:** `tests/rejection/` exists, with the repository's first two rejection fixtures —
+      a consumer missing a system `failsafe` arm (`REACH-002`) and one missing the `(*)` wildcard (`PICK-003`).
+      Both import `src/lib.npk` by a relative path, which makes them the **standing** instance of B-7's hazard.
+      A third was planned and abandoned on evidence: a consumer missing the `(ERegexPattern)` arm still
+      **compiles**, because nothing can raise one while the surface has no callable entry point (control E4).
+- [x] **added in execution:** the two O-N10 probes rewritten and renamed at the re-pin — **RX-125**, `0.0.3.md` §3 and §6
 
 ### 0.0.4 — `src/core/`
 - [ ] `src/core/limits.npk` — all nine bounds from `specs/SAFETY.md` §5, each with the specification rule that set it
@@ -167,7 +199,13 @@ settled. **Nothing in this cycle is blocked on a question.**
 - [ ] `src/core/byteset.npk` — `ByteSet` as `uint64[4]`: union, intersect, complement, contains, iterate; exhaustive over all 256 bytes
 - [ ] `src/core/sparseset.npk` — `SparseSet`: O(1) insert, membership, clear; **the invariant `dense[sparse[k]] == k` asserted after every operation** in a property test. This is the structure the linear-time guarantee rests on and it is the easiest to get subtly wrong
 - [ ] every accessor's bounds obligation written as a comment in the `requires`/`ensures` syntax it will take, with a property test standing in
-- [ ] the leak tests exit 0, so a missing `vec_free` is a trap and not a pass
+- [ ] the leak tests exit 0, so a missing **`wild` block** free is a trap — and
+      **that is the whole of what `exit 0` proves** (RX-123). D-151 counts `wild`
+      blocks, D-188 counts live drivers, and neither sees a managed body, so a
+      `Vec` freed without dropping its owning elements exits 0 (`SAFETY.md` §8b,
+      S-22). **Where the obligation is managed the gate is a MEMORY CAP**, and
+      `Vec<T>`'s elements are exactly that case — this line named `vec_free`
+      until 0.0.3 and so asserted the gate for the one case it cannot see
 
 ### 0.0.5 — close
 - [ ] every probe verdict reconciled against the specifications

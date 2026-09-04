@@ -1,0 +1,106 @@
+// expect-exit: 0
+//
+// PROBE 02b — `#[derive(Eq)]` ON A PAYLOAD ENUM. **WAS REFUSED. NOW WORKS.**
+//
+// THIS FILE WAS `tests/probe/refused/probe02b_derive_eq_refused.npk` AND IT
+// CARRIED `// expect-error: NITPICK-TYPE-034`. It was written at cycle 0.0.0
+// against compiler pin `950bb1d`, where `#[derive(Eq)]` on an enum with payload
+// variants failed inside the derive expansion:
+//
+//   NITPICK-TYPE-034 <derived-1>:2:82: `HirKind` has no built-in `==`: derive
+//   or implement `Eq` and compare with `a.eq(b)`
+//
+// — a span in a synthetic module the author cannot open, about code the author
+// did not write. That was the first half of workbench registry **O-N10**.
+//
+// AT PIN `94874ce` IT COMPILES AND IT IS CORRECT. Measured 2026-09-04 by the
+// harness itself: the `check` stage reported `expected NITPICK-TYPE-034, but it
+// compiled cleanly (exit 0)`, which is rule B-7 doing exactly the job it exists
+// for — a stale expectation is a failing test, not a silently passing one. The
+// full behaviour was then measured on its own and is asserted below. **RX-125**
+// records the discharge; cycle 0.0.0's verdict table is NOT rewritten (RX-114),
+// and `meta/roadmap/0.0/0.0.3.md` §6 carries the redirect.
+//
+// WHAT THIS FILE NOW ESTABLISHES, and each line is a separate way the derive
+// could still have been wrong:
+//
+//   1. it compiles at all, on an enum whose variants carry payloads;
+//   2. equal values of a one-field variant are equal;
+//   3. unequal values of a one-field variant are NOT equal — the failure the
+//      old `Ord` had, transplanted to `Eq`;
+//   4. two DIFFERENT variants are never equal, even carrying the same number;
+//   5. a payload-free variant is equal to itself;
+//   6. a TWO-field variant reads BOTH fields — `Repeat(2,5)` differs from
+//      `Repeat(2,9)` and from `Repeat(9,5)`, not merely from `Repeat(9,9)`.
+//      Point 6 is this repository's own contribution: `nitpick-time` found
+//      O-N10 on a single-field payload, and a fix that read only the first
+//      field would have passed every test either repository had.
+//
+// AND ONE THING A CALLER MUST KNOW: **`.eq()` RETURNS `Result<bool>`, NOT
+// `bool`.** Every call below is unwrapped with `?! E9`. Writing `if (a.eq(b))`
+// is `NITPICK-TYPE-007` — "this must be a `bool`, and is `Result<bool>`; there
+// is no truthiness in Nitpick" — which is a clear diagnostic, but it means the
+// hand-written comparison in `probe02_payload_enum.npk` is not replaced by a
+// derive without also threading an error channel, and `SAFETY.md` §4's budget
+// is charged by that channel. It is why RX-125 does not simply delete the
+// hand-written nesting.
+mod:probe02b_derive_eq;
+
+error:E9;
+
+#[derive(Eq)]
+enum:HirKind = {
+    Literal(uint32);
+    ClassRef(int32);
+    Repeat(int32, int32);
+    Empty;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    bool:r = false;
+
+    // (2) and (3): a one-field payload, both ways.
+    r = HirKind.Literal(7u32).eq(HirKind.Literal(7u32)) ?! E9;
+    if (!r)                                                      { exit 10i32; }
+    r = HirKind.Literal(7u32).eq(HirKind.Literal(9u32)) ?! E9;
+    if (r)                                                       { exit 11i32; }
+
+    // (4): different variants carrying the same number. A comparison that
+    // read the payload and forgot the tag would pass everything else here.
+    r = HirKind.Literal(7u32).eq(HirKind.ClassRef(7i32)) ?! E9;
+    if (r)                                                       { exit 12i32; }
+
+    // (5): the payload-free variant.
+    r = HirKind.Empty.eq(HirKind.Empty) ?! E9;
+    if (!r)                                                      { exit 13i32; }
+    r = HirKind.Empty.eq(HirKind.Literal(0u32)) ?! E9;
+    if (r)                                                       { exit 14i32; }
+
+    // (6): TWO payload fields, and each one tested alone. `exit 17` and
+    // `exit 18` are the two that a first-field-only implementation fails, and
+    // they are the reason this probe is worth more than `nitpick-time`'s.
+    r = HirKind.Repeat(2i32, 5i32).eq(HirKind.Repeat(2i32, 5i32)) ?! E9;
+    if (!r)                                                      { exit 15i32; }
+    r = HirKind.Repeat(2i32, 5i32).eq(HirKind.Repeat(9i32, 9i32)) ?! E9;
+    if (r)                                                       { exit 16i32; }
+    r = HirKind.Repeat(2i32, 5i32).eq(HirKind.Repeat(2i32, 9i32)) ?! E9;
+    if (r)                                                       { exit 17i32; }
+    r = HirKind.Repeat(2i32, 5i32).eq(HirKind.Repeat(9i32, 5i32)) ?! E9;
+    if (r)                                                       { exit 18i32; }
+
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (E9)             { exit 89i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

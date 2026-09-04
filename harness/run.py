@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""`nregex`'s build and test runner -- cycle 0.0.2.
+"""`nregex`'s build and test runner -- cycles 0.0.2 and 0.0.3.
 
 WHY PYTHON AND WHY HERE. `npkg build` is the compiler's own bootstrap ladder --
 it assembles `runtime/npkrt.ll` and `bootstrap/seed/stage1.ll`, has the builder
@@ -23,13 +23,23 @@ stub this replaced could assert almost nothing:
     have, and no function outside the baseline called a floor symbol this
     library is not permitted to call (rule B-2, RX-116 and RX-120);
   * the same tree built from two different working directories produced
-    byte-identical IR (rule B-4).
+    byte-identical IR (rule B-4);
+  * EVERY `.npk` IN THE TREE was swept as a ROOT by the `parse` stage -- which
+    is `npkc` and not `tools/parse_check` (B-4b, RX-124), and which is what
+    re-checks the six `src/` files `src/lib.npk` does not reach;
+  * the four live TREE CHECKS agreed with the specifications they diff against
+    (`check_layering`, `check_error_budget`, `check_constants_named`, and
+    `check_specs_current` which reports rather than fails);
+  * AND THE RUNNER WAS SHOWN ABLE TO FAIL FIRST (V-21, cycle 0.0.3): the
+    self-check feeds it eight kinds of wrong expectation and requires a red for
+    each, before any suite runs.
 
-WHAT IT DOES NOT ASSERT YET: `parse`, `accept` and `check` as stages, the
-self-check that proves this runner can FAIL, and the tree checks
-(`check_layering`, `check_error_budget`, ...) are cycle 0.0.3. Until the
-self-check exists, this runner has not been shown to be able to fail, and
-`TESTING.md` V-21 says what that is worth.
+WHAT IT STILL DOES NOT ASSERT: three of V-20's eleven self-check cases are
+PENDING on stages that do not exist -- the generated-table case (0.3), the
+corpus off-by-one (0.5) and the cross-engine disagreement (0.8, and the most
+important one in the list, because it is what proves RX-041 is being checked
+rather than assumed). They print as PENDING and never as passing, so the count
+in the summary is honest about what the green covers.
 
 USAGE
     NPKC=... NPKRT=... python3 harness/run.py [options]
@@ -39,6 +49,12 @@ USAGE
     --verdicts PATH       write one line per unit judged
     --record-baseline     re-record harness/baseline/SYMBOLS.txt and EDGES.txt
     --keep                keep the scratch directory and print its path
+    --tree PATH           run against a different tree root (the self-check's)
+    --selfcheck-inner     "you are being run BY the self-check": skip the
+                          self-check itself, and skip the tree checks. Both for
+                          one reason -- the tree under test is a throwaway
+                          fixture and not this library -- and it is ONE flag so
+                          that no ordinary invocation can turn either off.
 """
 import argparse
 import os
@@ -52,6 +68,7 @@ import build                                                  # noqa: E402
 import manifest                                               # noqa: E402
 import stages                                                 # noqa: E402
 import toolchain                                              # noqa: E402
+import treecheck                                              # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -81,20 +98,22 @@ class Report:
         return not self.failed and not self.build_failures
 
 
-def main(argv=None):
+def main(argv=None, say=print):
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument("--only", action="append", default=[])
     ap.add_argument("--verdicts")
     ap.add_argument("--record-baseline", action="store_true")
     ap.add_argument("--keep", action="store_true")
+    ap.add_argument("--tree", default=None)
+    ap.add_argument("--selfcheck-inner", action="store_true")
     a = ap.parse_args(argv)
 
     t0 = time.time()
-    say = print
-    say(f"nregex harness -- cycle 0.0.2. tree: {ROOT}")
+    root = os.path.abspath(a.tree) if a.tree else ROOT
+    say(f"nregex harness -- cycle 0.0.3. tree: {root}")
 
     try:
-        m = manifest.read(os.path.join(ROOT, "nitpick.toml"))
+        m = manifest.read(os.path.join(root, "nitpick.toml"))
     except manifest.ManifestError as e:
         say(f"FAIL  nitpick.toml: {e}")
         return 1
@@ -107,8 +126,27 @@ def main(argv=None):
         say(f"FAIL  toolchain: {e}")
         return 1
 
+    # RULE V-21 -- THE SELF-CHECK RUNS FIRST, before a single library test is
+    # judged, and its failure stops the run. There is no order in which running
+    # the suite before this makes sense: a harness that has not been shown able
+    # to fail has not shown anything about what it reported green.
+    #
+    # `--record-baseline` is the one invocation that skips it, because it judges
+    # nothing and writes a file.
+    if not a.selfcheck_inner and not a.record_baseline:
+        import selfcheck                                       # noqa: E402
+        fl = selfcheck.run(say, keep=a.keep)
+        if fl:
+            say("")
+            say("THE SELF-CHECK FAILED, so no suite ran (V-21). The harness could "
+                "not be shown to report these kinds of wrongness, and until it can, "
+                "a green run below would mean nothing.")
+            for f in fl:
+                say(f"FAIL  {f}")
+            return 1
+
     tmp = tempfile.mkdtemp(prefix="nregex-harness-")
-    c = build.Ctx(ROOT, m, npkc, npkrt, tmp, say)
+    c = build.Ctx(root, m, npkc, npkrt, tmp, say)
     rep = Report()
     try:
         if a.record_baseline:
@@ -134,6 +172,15 @@ def main(argv=None):
             for f in rep.build_failures:
                 say(f"FAIL  {f}")
             return 1
+
+        # RULE P-16 -- the tree checks run on EVERY full invocation, including
+        # the ones with nothing to check. They diff the library against the
+        # documents describing it, so they are neither build steps nor tests and
+        # they get their own section.
+        if not a.selfcheck_inner:
+            for r in treecheck.run_all(root, say):
+                for f in r.failures:
+                    rep.unit("tree-checks", r.name, [f])
 
         _suites(c, m, rep, a.only, say)
     finally:
@@ -235,9 +282,15 @@ def _summary(c, rep, a, say, secs):
         return 1
     say("GREEN. Every declared suite built, linked, ran and was judged by its exit "
         "code; every program agreed with itself under opt -O2; every rejection "
-        "reported exactly the codes it names.")
-    say("      This runner has NOT yet been shown able to fail -- the self-check is "
-        "cycle 0.0.3 (TESTING.md V-20, V-21).")
+        "reported exactly the codes it names; every .npk in the tree was swept as "
+        "a root; and the tree checks agreed with the specifications.")
+    if not a.selfcheck_inner:
+        say("      AND THE RUNNER WAS SHOWN ABLE TO FAIL FIRST (V-21): the "
+            "self-check above fed it EIGHT kinds of wrong expectation and required "
+            "a red for each. Three of V-20's eleven cases are PENDING on stages "
+            "that do not exist yet (0.3, 0.5, 0.8) and printed as pending, not as "
+            "passing -- so this green covers eight of the eleven ways the harness "
+            "is meant to be able to fail, not eleven.")
     return 0
 
 
