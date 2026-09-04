@@ -1,0 +1,176 @@
+// expect-exit: 0
+//
+// PROBE 10 — what `comptime` CAN do. The boundary from the other side.
+//
+// ASKS: `string_concat`, `string_equals`, `string_byte_length`,
+// `string_is_empty`, a counted `loop`, a mutable local, and a nested
+// `comptime func:` call — all inside `comptime(…)`.
+//
+// MATTERS BECAUSE a request is stronger when it says what already works.
+// `probe09` records the refusal; this file records how narrow the missing piece
+// is, and the two together are **O-N1**'s evidence. It also answers a question
+// `0.0.0.md` §4 asked directly: whether a pattern-LENGTH or pattern-EQUALITY
+// check is available at compile time even without indexing — it is, which makes
+// a small `#regex_len_check` form buildable today.
+//
+// EVERY ASSERTION BELOW IS A RUN-TIME COMPARE AGAINST A COMPILE-TIME FOLD.
+// That is deliberate: `comptime(…)` in a value position folds at check time and
+// the emitter emits the FOLDED CONSTANT, so if the fold produced the wrong
+// number the compare fails at run time and this probe exits non-zero. A probe
+// that only compiled would prove the fold happened, not that it was right.
+mod:probe10_comptime_capabilities;
+
+// ---- a plain constant ------------------------------------------------------
+
+comptime func:answer = int64() never fails { pass 42i64; };
+
+// ---- a mutable local and arithmetic ---------------------------------------
+
+comptime func:accumulate = int64() never fails {
+    int64:a = 1i64;
+    a = a + 2i64;
+    a = a * 10i64;
+    pass a;                                  // 30
+};
+
+// ---- a counted loop -------------------------------------------------------
+
+// The construct a pattern validator most needs after indexing: a bounded walk.
+comptime func:sum_to = int64(int64:n) never fails {
+    int64:acc = 0i64;
+    int64:i = 0i64;
+    while (i < n) {
+        acc = acc + i;
+        i = i + 1i64;
+    }
+    pass acc;
+};
+
+// ---- the four foldable string builtins ------------------------------------
+
+comptime func:len_of = int64(string:s) never fails {
+    pass string_byte_length(s);
+};
+
+comptime func:empty_of = int64(string:s) never fails {
+    if (string_is_empty(s)) { pass 1i64; }
+    pass 0i64;
+};
+
+comptime func:same_as = int64(string:a, string:b) never fails {
+    if (string_equals(a, b)) { pass 1i64; }
+    pass 0i64;
+};
+
+comptime func:joined_len = int64(string:a, string:b) never fails {
+    string:t = string_concat(a, b);
+    pass string_byte_length(t);
+};
+
+// ---- a NESTED comptime call -----------------------------------------------
+
+// One `comptime func:` calling another, which is what a real validator would be
+// made of — a tokeniser calling a classifier calling a bound check.
+// TWO RULES MEET HERE, and the combination is not obvious.
+//
+// A `comptime func:` returns `Result<T>` like every other function, so calling
+// one from inside another body needs an unwrap — `NITPICK-TYPE-007`, "expected
+// `int64`, found `Result<int64>`". And `raw` is licensed ONLY by a `never
+// fails` callee (D-163) — `NITPICK-TYPE-042` otherwise. So **every
+// `comptime func:` in a chain must be declared `never fails`**, and they all
+// are, above.
+//
+// `comptime(f())` at a VALUE position needs neither, which is why this only
+// shows up one level in — the forcing form does the unwrapping. A validator
+// built out of nested comptime helpers hits it immediately.
+comptime func:nested = int64(string:s) never fails {
+    int64:n = raw len_of(s);
+    int64:t = raw sum_to(n);
+    pass n + t;
+};
+
+// ---- the shape a pattern check would ACTUALLY take today -------------------
+
+// `NREGEX_PATTERN_BYTES` is 65536 (`SAFETY.md` §5). A pattern literal that
+// exceeds it can be refused AT COMPILE TIME right now, with no indexing at all
+// — this is the `#regex_len_check` form `0.0.0.md` §4 asked about, and it is
+// buildable. It is a fraction of what O-N1 wants and it is not nothing.
+comptime func:pattern_len_ok = int64(string:pat) never fails {
+    if (string_byte_length(pat) > 65536i64) { pass 0i64; }
+    if (string_is_empty(pat))               { pass 0i64; }
+    pass 1i64;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    // ---- plain arithmetic folds ------------------------------------------
+
+    int64:a = comptime(6i64 * 7i64);
+    if (a != 42i64)                                     { exit 10i32; }
+
+    int64:b = comptime(answer());
+    if (b != 42i64)                                     { exit 11i32; }
+
+    // ---- a mutable local inside a comptime body --------------------------
+
+    int64:c = comptime(accumulate());
+    if (c != 30i64)                                     { exit 12i32; }
+
+    // ---- a counted loop ---------------------------------------------------
+
+    int64:d = comptime(sum_to(5i64));                   // 0+1+2+3+4
+    if (d != 10i64)                                     { exit 13i32; }
+    int64:e = comptime(sum_to(100i64));                 // 4950
+    if (e != 4950i64)                                   { exit 14i32; }
+
+    // ---- the string builtins ---------------------------------------------
+
+    int64:f = comptime(len_of("abcde"));
+    if (f != 5i64)                                      { exit 20i32; }
+    // A multi-byte codepoint, so this is BYTE length and not character count —
+    // which is what a pattern bound is measured in.
+    int64:g = comptime(len_of("é"));
+    if (g != 2i64)                                      { exit 21i32; }
+
+    int64:h = comptime(empty_of(""));
+    if (h != 1i64)                                      { exit 22i32; }
+    int64:i2 = comptime(empty_of("x"));
+    if (i2 != 0i64)                                     { exit 23i32; }
+
+    int64:j = comptime(same_as("ab", "ab"));
+    if (j != 1i64)                                      { exit 24i32; }
+    int64:k = comptime(same_as("ab", "ac"));
+    if (k != 0i64)                                      { exit 25i32; }
+
+    int64:l = comptime(joined_len("abc", "de"));
+    if (l != 5i64)                                      { exit 26i32; }
+
+    // ---- nested comptime calls --------------------------------------------
+
+    // len("abcd") = 4, sum_to(4) = 0+1+2+3 = 6, total 10.
+    int64:m = comptime(nested("abcd"));
+    if (m != 10i64)                                     { exit 30i32; }
+
+    // ---- the pattern length check that works TODAY ------------------------
+
+    int64:n = comptime(pattern_len_ok("(a|b)+"));
+    if (n != 1i64)                                      { exit 40i32; }
+    int64:o = comptime(pattern_len_ok(""));
+    if (o != 0i64)                                      { exit 41i32; }
+
+    // No `wild` bytes are taken anywhere in this program, so it cannot trip
+    // D-151 on any exit path (`SAFETY.md` §8b).
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

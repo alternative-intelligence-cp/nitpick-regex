@@ -1,0 +1,37 @@
+// expect-error: NITPICK-RUNG-001
+//
+// PROBE 13d — an `ensures` CONTRACT REFUSES BY NAME.
+//
+// ASKS: is `ensures result > 0i32` refused, rather than vanishing?
+//
+// MATTERS BECAUSE `ensures` may name `result` — the grammar binds it and the
+// verifier gives it meaning at 1.5. Until then the whole contract must refuse
+// rather than disappear, or `VERIFICATION.md`'s postconditions would be
+// decoration.
+mod:probe13d_ensures_refused;
+
+error:E9;
+
+func:successor = int32(int32:a) ensures result > 0i32 {
+    pass (a + 1i32);
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:v = successor(1i32) ?! E9;
+    if (v != 2i32) { exit 10i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (E9)             { exit 80i32; },
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

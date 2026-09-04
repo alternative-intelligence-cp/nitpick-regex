@@ -1,0 +1,43 @@
+// expect-error: NITPICK-RUNG-001
+//
+// PROBE 13c — a `requires` CONTRACT REFUSES BY NAME.
+//
+// ASKS: is `requires b != 0i32` on a function refused, rather than accepted and
+// unenforced?
+//
+// MATTERS BECAUSE `VERIFICATION.md` P-5 leans on `requires` for exactly the
+// divisor and index preconditions `SAFETY.md` §1 says must be proven on their
+// path. The compiler's own note records the observed defect this rung exists to
+// prevent: a `requires` the backend never read compiled to a function claiming
+// a contract nothing enforced, emitting a bare `sdiv`.
+mod:probe13c_requires_refused;
+
+error:E9;
+
+func:divide = int32(int32:a, int32:b) requires b != 0i32 {
+    pass (a / b);
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:v = divide(6i32, 2i32) ?! E9;
+    if (v != 3i32) { exit 10i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (E9)             { exit 80i32; },
+        // `/` raises BOTH of these, and REACH-002 makes each a mandatory arm.
+        // Discovered by probe 01, where a single `%` cost two arms.
+        (DivByZero)      { exit 89i32; },
+        (DivOverflow)    { exit 90i32; },
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

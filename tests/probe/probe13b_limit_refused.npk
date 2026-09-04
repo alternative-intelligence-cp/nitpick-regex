@@ -1,0 +1,56 @@
+// expect-error: NITPICK-RUNG-001
+//
+// PROBE 13b — a `limit<Rules>` PARAMETER REFUSES BY NAME.
+//
+// ASKS: is a parameter carrying `limit<r_pos>` refused, rather than lowered to
+// nothing?
+//
+// MATTERS BECAUSE this is the rung whose silent version is worst. D-068 makes a
+// parameter's `limit` enforced in EVERY build, so a `limit` that lowered to
+// nothing would tell the caller its argument had been checked when nothing had
+// checked it. `VERIFICATION.md` writes `ProgramIndex` and the other bound rules
+// in this syntax.
+mod:probe13b_limit_refused;
+
+error:E9;
+
+// THE CALLEE IS NOT `never fails`, AND THAT IS NOT AN ACCIDENT. The first draft
+// declared it `never fails` and got a DIFFERENT refusal:
+//
+//   NITPICK-TYPE-037 …: a `never fails` function may not carry `limit<Rules>`
+//   on a parameter (D-163): the limit is a verifier obligation this contract
+//   cannot hold
+//
+// That is a permanent rule rather than a rung, and it is worth knowing before
+// `VERIFICATION.md`'s obligations are written: **a limit and `never fails` are
+// mutually exclusive**, so every function this library wants to carry a bound
+// rule on must have an error channel. Most of `src/core/` is `never fails`
+// today, so this shapes which functions can carry obligations at 1.5.
+//
+// D-220: the rule name resolves, so the rule this file leans on is declared —
+// after the construct, so the line the rung is expected at holds.
+func:bounded = int32(limit<r_pos> int32:x) {
+    pass x;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:v = bounded(3i32) ?! E9;
+    if (v != 3i32) { exit 10i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (E9)             { exit 80i32; },
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};
+
+Rules<int32>:r_pos = { $ > 0i32 };

@@ -1,0 +1,44 @@
+// expect-error: NITPICK-RUNG-001
+//
+// PROBE 13a — `prove` REFUSES BY NAME.
+//
+// ASKS: is `prove(x > 0i32);` refused loudly, rather than parsed as something
+// else and silently discarded?
+//
+// MATTERS BECAUSE `VERIFICATION.md` P-1 writes every verification obligation as
+// a COMMENT in the syntax it will eventually take, from cycle 0.0 onward. That
+// is only safe if the real syntax is known to be **inert** — refused by name
+// rather than accepted and ignored. A construct that compiled to nothing would
+// tell a caller its argument was checked when nothing checked it, which is the
+// exact defect the compiler's LIVE-1 lock was created for.
+//
+// Confirmed in the source at `src/backend/ir/ir_stmt.npk`; this probe confirms
+// it in practice, which is a different claim.
+mod:probe13a_prove_refused;
+
+error:E9;
+
+func:checked = int32(int32:x) never fails {
+    prove(x > 0i32);
+    pass x;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:v = raw checked(3i32);
+    if (v != 3i32) { exit 10i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (E9)             { exit 80i32; },
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

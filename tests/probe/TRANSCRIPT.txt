@@ -1,0 +1,301 @@
+TRANSCRIPT — cycle 0.0.0, the language probes
+=============================================
+
+Every command that produced a verdict in `meta/roadmap/0.0/0.0.0.md` §7, with
+its exit code. This file is committed VERBATIM rather than summarised: a prose
+summary of a run is not evidence of it, and a subcycle in a sibling repository
+had its emission claims failed by its own verifier for exactly that.
+
+Why all four steps, every time: `npkc` exiting 0 does not mean a program is
+well-formed. A root file with `main` and no `failsafe` compiles at exit 0 and is
+refused only by `llc`, a long way from the cause (the workbench registry's
+O-N11, the compiler's DEF-5). A probe that was only compiled is a probe that has
+not been run.
+
+Toolchain, pinned (`../BOARD.md`, W-18):
+  npkc    fbb7d022e6a98ebcc9bc138aa01305310249eff54ddbf1aa0fc307aa52f8419f
+  npkrt.o 869c490de641380c574c9785d191414eea29c3cd5af6e84196ee2ffcb168b658
+  commit  950bb1d
+  llvm-config --version -> 20.1.2
+
+The four-step recipe (`0.0.0.md` §2), run for every probe below:
+
+  $NPKC tests/probe/<f>.npk -o <f>.ll
+  llc -O0 -filetype=obj -relocation-model=static <f>.ll -o <f>.o
+  ld.lld -static <f>.o $NPKRT -o <f>
+  ./<f>
+
+A probe expected to be REFUSED stops at step 1, and its verdict is the
+diagnostic, quoted in full.
+
+== A. THE PROBES ==============================================================
+
+---- probe01_pod_inst_array   [expect-exit: 0]
+$ npkc tests/probe/probe01_pod_inst_array.npk -o probe01_pod_inst_array.ll
+  exit 0
+$ llc -O0 -filetype=obj -relocation-model=static probe01_pod_inst_array.ll -o probe01_pod_inst_array.o
+  exit 0
+$ ld.lld -static probe01_pod_inst_array.o $NPKRT -o probe01_pod_inst_array
+  exit 0
+$ ./probe01_pod_inst_array
+  exit 0
+
+---- probe02b_derive_eq_refused   [expect-error: NITPICK-TYPE-034]
+$ npkc tests/probe/probe02b_derive_eq_refused.npk -o probe02b_derive_eq_refused.ll
+    NITPICK-TYPE-034 <derived-1>:2:82: `HirKind` has no built-in `==`: derive or implement `Eq` and compare with `a.eq(b)`
+  exit 1
+  (chain stops at npkc — this is a refusal probe)
+
+---- probe02c_derive_ord_tag_only   [expect-exit: 0]
+$ npkc tests/probe/probe02c_derive_ord_tag_only.npk -o probe02c_derive_ord_tag_only.ll
+  exit 0
+$ llc -O0 -filetype=obj -relocation-model=static probe02c_derive_ord_tag_only.ll -o probe02c_derive_ord_tag_only.o
+  exit 0
+$ ld.lld -static probe02c_derive_ord_tag_only.o $NPKRT -o probe02c_derive_ord_tag_only
+  exit 0
+$ ./probe02c_derive_ord_tag_only
+  exit 0
+
+---- probe02_payload_enum   [expect-exit: 0]
+$ npkc tests/probe/probe02_payload_enum.npk -o probe02_payload_enum.ll
+  exit 0
+$ llc -O0 -filetype=obj -relocation-model=static probe02_payload_enum.ll -o probe02_payload_enum.o
+  exit 0
+$ ld.lld -static probe02_payload_enum.o $NPKRT -o probe02_payload_enum
+  exit 0
+$ ./probe02_payload_enum
+  exit 0
+
+---- probe03_generic_move   [expect-exit: 0]
+$ npkc tests/probe/probe03_generic_move.npk -o probe03_generic_move.ll
+  exit 0
+$ llc -O0 -filetype=obj -relocation-model=static probe03_generic_move.ll -o probe03_generic_move.o
+  exit 0
+$ ld.lld -static probe03_generic_move.o $NPKRT -o probe03_generic_move
+  exit 0
+$ ./probe03_generic_move
+  exit 0
+
+---- probe04_inherent_generic_impl   [expect-exit: 0]
+$ npkc tests/probe/probe04_inherent_generic_impl.npk -o probe04_inherent_generic_impl.ll
+  exit 0
+$ llc -O0 -filetype=obj -relocation-model=static probe04_inherent_generic_impl.ll -o probe04_inherent_generic_impl.o
+  exit 0
+$ ld.lld -static probe04_inherent_generic_impl.o $NPKRT -o probe04_inherent_generic_impl
+  exit 0
+$ ./probe04_inherent_generic_impl
+  exit 0
+
+---- probe05_explicit_stack   [expect-exit: 0]
+$ npkc tests/probe/probe05_explicit_stack.npk -o probe05_explicit_stack.ll
+  exit 0
+$ llc -O0 -filetype=obj -relocation-model=static probe05_explicit_stack.ll -o probe05_explicit_stack.o
+  exit 0
+$ ld.lld -static probe05_explicit_stack.o $NPKRT -o probe05_explicit_stack
+  exit 0
+$ ./probe05_explicit_stack
+  exit 0
+
+---- probe06a_offsets_returned   [expect-exit: 0]
+$ npkc tests/probe/probe06a_offsets_returned.npk -o probe06a_offsets_returned.ll
+  exit 0
+$ llc -O0 -filetype=obj -relocation-model=static probe06a_offsets_returned.ll -o probe06a_offsets_returned.o
+  exit 0
+$ ld.lld -static probe06a_offsets_returned.o $NPKRT -o probe06a_offsets_returned
+  exit 0
+$ ./probe06a_offsets_returned
+  exit 0
+
+---- probe06b_subview_returned   [expect-exit: 0]
+$ npkc tests/probe/probe06b_subview_returned.npk -o probe06b_subview_returned.ll
+  exit 0
+$ llc -O0 -filetype=obj -relocation-model=static probe06b_subview_returned.ll -o probe06b_subview_returned.o
+  exit 0
+$ ld.lld -static probe06b_subview_returned.o $NPKRT -o probe06b_subview_returned
+  exit 0
+$ ./probe06b_subview_returned
+  exit 0
+
+---- probe07_string_bytes_edges   [expect-exit: 0]
+$ npkc tests/probe/probe07_string_bytes_edges.npk -o probe07_string_bytes_edges.ll
+  exit 0
+$ llc -O0 -filetype=obj -relocation-model=static probe07_string_bytes_edges.ll -o probe07_string_bytes_edges.o
+  exit 0
+$ ld.lld -static probe07_string_bytes_edges.o $NPKRT -o probe07_string_bytes_edges
+  exit 0
+$ ./probe07_string_bytes_edges
+  exit 0
+
+---- probe08b_wild_index_unchecked   [expect-exit: 0]
+$ npkc tests/probe/probe08b_wild_index_unchecked.npk -o probe08b_wild_index_unchecked.ll
+  exit 0
+$ llc -O0 -filetype=obj -relocation-model=static probe08b_wild_index_unchecked.ll -o probe08b_wild_index_unchecked.o
+  exit 0
+$ ld.lld -static probe08b_wild_index_unchecked.o $NPKRT -o probe08b_wild_index_unchecked
+  exit 0
+$ ./probe08b_wild_index_unchecked
+  exit 0
+
+---- probe08c_slice_index_traps   [expect-exit: 94]
+$ npkc tests/probe/probe08c_slice_index_traps.npk -o probe08c_slice_index_traps.ll
+  exit 0
+$ llc -O0 -filetype=obj -relocation-model=static probe08c_slice_index_traps.ll -o probe08c_slice_index_traps.o
+  exit 0
+$ ld.lld -static probe08c_slice_index_traps.o $NPKRT -o probe08c_slice_index_traps
+  exit 0
+$ ./probe08c_slice_index_traps
+  exit 94
+
+---- probe08_sparse_set   [expect-exit: 0]
+$ npkc tests/probe/probe08_sparse_set.npk -o probe08_sparse_set.ll
+  exit 0
+$ llc -O0 -filetype=obj -relocation-model=static probe08_sparse_set.ll -o probe08_sparse_set.o
+  exit 0
+$ ld.lld -static probe08_sparse_set.o $NPKRT -o probe08_sparse_set
+  exit 0
+$ ./probe08_sparse_set
+  exit 0
+
+---- probe09_comptime_walker   [expect-error: NITPICK-TYPE-004]
+$ npkc tests/probe/probe09_comptime_walker.npk -o probe09_comptime_walker.ll
+    NITPICK-TYPE-004 tests/probe/probe09_comptime_walker.npk:77:16: `comptime` requires an expression that folds at compile time, and this one does not
+  exit 1
+  (chain stops at npkc — this is a refusal probe)
+
+---- probe10_comptime_capabilities   [expect-exit: 0]
+$ npkc tests/probe/probe10_comptime_capabilities.npk -o probe10_comptime_capabilities.ll
+  exit 0
+$ llc -O0 -filetype=obj -relocation-model=static probe10_comptime_capabilities.ll -o probe10_comptime_capabilities.o
+  exit 0
+$ ld.lld -static probe10_comptime_capabilities.o $NPKRT -o probe10_comptime_capabilities
+  exit 0
+$ ./probe10_comptime_capabilities
+  exit 0
+
+---- probe11_byteset_bitset   [expect-exit: 0]
+$ npkc tests/probe/probe11_byteset_bitset.npk -o probe11_byteset_bitset.ll
+  exit 0
+$ llc -O0 -filetype=obj -relocation-model=static probe11_byteset_bitset.ll -o probe11_byteset_bitset.o
+  exit 0
+$ ld.lld -static probe11_byteset_bitset.o $NPKRT -o probe11_byteset_bitset
+  exit 0
+$ ./probe11_byteset_bitset
+  exit 0
+
+---- probe12b_for_over_borrow_refused   [expect-error: NITPICK-BORROW-009]
+$ npkc tests/probe/probe12b_for_over_borrow_refused.npk -o probe12b_for_over_borrow_refused.ll
+    NITPICK-BORROW-009 tests/probe/probe12b_for_over_borrow_refused.npk:57:21: a borrow cannot be iterated over: a `for` binding is not tracked by the escape analysis, so a borrow reaching one could not be followed
+  exit 1
+  (chain stops at npkc — this is a refusal probe)
+
+---- probe12_iterator_borrowing   [expect-exit: 0]
+$ npkc tests/probe/probe12_iterator_borrowing.npk -o probe12_iterator_borrowing.ll
+  exit 0
+$ llc -O0 -filetype=obj -relocation-model=static probe12_iterator_borrowing.ll -o probe12_iterator_borrowing.o
+  exit 0
+$ ld.lld -static probe12_iterator_borrowing.o $NPKRT -o probe12_iterator_borrowing
+  exit 0
+$ ./probe12_iterator_borrowing
+  exit 0
+
+---- probe13a_prove_refused   [expect-error: NITPICK-RUNG-001]
+$ npkc tests/probe/probe13a_prove_refused.npk -o probe13a_prove_refused.ll
+    NITPICK-RUNG-001 tests/probe/probe13a_prove_refused.npk:22:5: `prove` is not supported at this backend rung; enabled by cycle 1.5
+  exit 1
+  (chain stops at npkc — this is a refusal probe)
+
+---- probe13b_limit_refused   [expect-error: NITPICK-RUNG-001]
+$ npkc tests/probe/probe13b_limit_refused.npk -o probe13b_limit_refused.ll
+    NITPICK-RUNG-001 tests/probe/probe13b_limit_refused.npk:32:22: a `limit<Rules>` constraint is not supported at this backend rung; enabled by cycle 1.5
+  exit 1
+  (chain stops at npkc — this is a refusal probe)
+
+---- probe13c_requires_refused   [expect-error: NITPICK-RUNG-001]
+$ npkc tests/probe/probe13c_requires_refused.npk -o probe13c_requires_refused.ll
+    NITPICK-RUNG-001 tests/probe/probe13c_requires_refused.npk:17:39: a `requires`/`ensures` contract is not supported at this backend rung; enabled by cycle 1.5
+  exit 1
+  (chain stops at npkc — this is a refusal probe)
+
+---- probe13d_ensures_refused   [expect-error: NITPICK-RUNG-001]
+$ npkc tests/probe/probe13d_ensures_refused.npk -o probe13d_ensures_refused.ll
+    NITPICK-RUNG-001 tests/probe/probe13d_ensures_refused.npk:15:33: a `requires`/`ensures` contract is not supported at this backend rung; enabled by cycle 1.5
+  exit 1
+  (chain stops at npkc — this is a refusal probe)
+
+---- probe14_size_bound   [expect-exit: 0]
+$ npkc tests/probe/probe14_size_bound.npk -o probe14_size_bound.ll
+  exit 0
+$ llc -O0 -filetype=obj -relocation-model=static probe14_size_bound.ll -o probe14_size_bound.o
+  exit 0
+$ ld.lld -static probe14_size_bound.o $NPKRT -o probe14_size_bound
+  exit 0
+$ ./probe14_size_bound
+  exit 0
+
+== B. PROBE 14 — the size bound, measured =====================================
+
+$ /usr/bin/time -v ./probe14_size_bound
+    	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.00
+    	Maximum resident set size (kbytes): 1152
+    	Exit status: 0
+
+  For scale, the same measurement on the smallest probe in the tree, so the
+  runtime's own floor is separated from the 1 200 000-byte block:
+$ /usr/bin/time -v ./probe08c_slice_index_traps
+    	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.00
+    	Maximum resident set size (kbytes): 0
+    	Exit status: 94
+
+== C. ISOLATIONS =============================================================
+
+Measurements cited by a probe header. Each is a whole program compiled on its
+own; only the varying fragment is shown, and the exit code is npkc's.
+
+-- C1. probe 09 — where `comptime` folding stops -----------------------------
+
+Nine `comptime func:` bodies, each adding one construct. The forcing form
+`comptime(f(...))` in a value position is what must fold.
+
+    plain constant                     exit 0   FOLDS
+    mutable local + arithmetic         exit 0   FOLDS
+    counted while loop                 exit 0   FOLDS
+    string_byte_length                 exit 0   FOLDS
+    string_is_empty                    exit 0   FOLDS
+    string_equals                      exit 0   FOLDS
+    string_concat                      exit 0   FOLDS
+    string_bytes, then .len            exit 1   NITPICK-TYPE-004 tc.npk:4:15: `comptime` requires an expre
+    string_bytes, then an INDEX        exit 1   NITPICK-TYPE-004 tc.npk:4:15: `comptime` requires an expre
+
+    The wall is `string_bytes`, and `.len` alone is already past it: the index
+    never gets a chance because the view is never produced. The four builtins
+    that fold are exactly the four `fold_string_builtin` handles.
+
+-- C2. probe 11 — the bitwise operators --------------------------------------
+
+    a >>> b                  exit 1   NITPICK-PARSE-002 top.npk:5:19: expected an expressi
+    a >> b                   exit 0
+    a & b                    exit 0
+    a | b                    exit 0
+    a ^ b                    exit 0
+    ~a                       exit 0
+
+    `>>>` is in TYPE_REFERENCE.md's operator table and not in the lexer. It
+    costs nothing, because `>>` on an unsigned type is already logical:
+
+    $ npkc tshift.npk   # (1u64 << 63u64) >> 63u64 -- exit 1 logical, 2 arithmetic
+      exit 0   (npkc)
+      exit 0   (llc)
+      exit 0   (ld.lld)
+      exit 1   (run)  -- 1 = LOGICAL. `>>>` would be a synonym.
+
+    And the literal that cannot be spelled, which is why `~0u64` is used above:
+    $ npkc tlit.npk   # uint64:x = 18446744073709551615u64;
+      NITPICK-LEX-004 tlit.npk:3:16: this literal is outside the 64-bit literal envelope (D-148); a type's outermost values are constructed arithmetically, not spelled
+      exit 1
+
+-- C3. probe 08b — a wild block index against a slice index ------------------
+
+    Both are in section A as probes; the pair is what matters:
+      probe08b_wild_index_unchecked   wild int64->, index 999 of 4  -> exit 0
+      probe08c_slice_index_traps      int64[] slice, index 999 of 4 -> exit 94
+

@@ -44,22 +44,36 @@ settled. **Nothing in this cycle is blocked on a question.**
 ## Checklist
 
 ### 0.0.0 — the probes
-- [ ] `probe/probe01_pod_array.npk` — a `Vec<Inst>` of 100 000 12-byte POD values: fill, read, copy, clear; `#size_of<Inst>()` asserted
-- [ ] `probe/probe02_payload_enum.npk` — a tagged enum with payloads, destructured in a `pick`, stored in a `Vec`, `#[derive(Eq, Debug)]`, `#size_of` asserted
-- [ ] `probe/probe03_generic_move.npk` — `move T:v` into a generic container, `T` both scalar and owning
-- [ ] `probe/probe04_inherent_generic.npk` — `impl:<T>:Vec<T> = { … }` with a `Vec<T>->:self` receiver that mutates, called as `v.push(x)`
-- [ ] `probe/probe05_explicit_stack.npk` — a nested-structure parser over an explicit `Vec<Frame>`, 250 deep, **no native recursion**, and a 10 000-deep input refused rather than crashing
-- [ ] `probe/probe06_offsets_not_slices.npk` — a function returning `{lo, hi}` offsets; and one **returning a `uint8[]`**, expected to be **refused**, with the code recorded
-- [ ] `probe/probe07_string_bytes.npk` — `string_bytes` into a scanner, `.len`/`.ptr`, and the four borrow edges: passed down (legal), returned (refused), stored past the call (refused), held across an `await` (refused)
-- [ ] `probe/probe08_sparse_set.npk` — two `Vec<int32>` as a sparse set: O(1) insert, membership and clear, over 100 000 keys, with the dense/sparse invariant asserted
-- [ ] `probe/probe09_comptime_walk.npk` — a `comptime func:` that indexes a pattern string; **expected to be REFUSED**. Record the exact diagnostic: it is O-N1's evidence
-- [ ] `probe/probe10_comptime_strings.npk` — what `comptime` *can* do: `string_concat`, `string_equals`, `string_byte_length`, `string_is_empty`, a `loop`, a mutable local, a `comptime func:` call. Records the boundary from the other side
-- [ ] `probe/probe11_bitset_array.npk` — a `uint64[4]` field inside a struct inside a `Vec`, with union/intersect/complement/contains
-- [ ] `probe/probe12_iterator_trait.npk` — the prelude `Iterator` trait implemented on a struct holding a borrow, driven by `for … in`; O-A1 depends on the answer
-- [ ] `probe/probe13_verification_rungs.npk` — `prove`, `limit<Rules>`, `requires`/`ensures` each **refused by name** with `NITPICK-RUNG-001` naming "1.5", so the comment-form obligations are known to be inert rather than silently parsed as something else
-- [ ] `probe/probe14_large_program.npk` — a `Vec<Inst>` at `NREGEX_PROGRAM_INSTRUCTIONS`, built and walked, exiting 0 so a leak is a trap
-- [ ] a verdict line per probe recorded in `0.0.0.md` §7, with the exact diagnostic where refused
-- [ ] every design consequence written into `meta/specs/` **and** `meta/DECISIONS.md` before 0.0.1 starts
+- [x] `tests/probe/probe01_pod_inst_array.npk` — a `Vec<Inst>` of 100 000 12-byte POD values: fill, read, copy, clear; `#size_of<Inst>()` asserted  
+      **DONE** — `#size_of<Inst>` = 12, confirmed.
+- [x] `tests/probe/probe02_payload_enum.npk` + `probe02b_derive_eq_refused.npk` + `probe02c_derive_ord_tag_only.npk` — a tagged enum with payloads, destructured in a `pick`, stored in a `Vec`, `#[derive(Eq, Debug)]`, `#size_of` asserted  
+      **DONE** — but `#[derive(Eq)]` on a payload enum is **refused** (workbench O-N10), so the comparison is hand-written and 02b/02c record both halves.
+- [x] `tests/probe/probe03_generic_move.npk` — `move T:v` into a generic container, `T` both scalar and owning  
+      **DONE** — and the element obligation is the caller's; the specification's offset-into-`Bytes` design avoids it.
+- [x] `tests/probe/probe04_inherent_generic_impl.npk` — `impl:<T>:Vec<T> = { … }` with a `Vec<T>->:self` receiver that mutates, called as `v.push(x)`  
+      **DONE** — *both* forms work, so 0.0.4's API is a choice made with evidence.
+- [x] `tests/probe/probe05_explicit_stack.npk` — a nested-structure parser over an explicit `Vec<Frame>`, 250 deep, **no native recursion**, and a 10 000-deep input refused rather than crashing  
+      **DONE** — 10 000 deep refused at depth 251, program survives.
+- [x] `tests/probe/probe06a_offsets_returned.npk` + `probe06b_subview_returned.npk` — a function returning `{lo, hi}` offsets; and one **returning a `uint8[]`**, expected to be **refused**, with the code recorded  
+      **DONE, hypothesis REFUTED** — the slice return is **accepted** (workbench O-N9). RX-112 records why `API.md` §2 is *not* re-planned.
+- [x] `tests/probe/probe07_string_bytes_edges.npk` — `string_bytes` into a scanner, `.len`/`.ptr`, and the four borrow edges: passed down (legal), returned (refused), stored past the call (refused), held across an `await` (refused)  
+      **DONE** — edges 2–3 are O-N9 and are cited, not re-run. Edge 4 is accepted *and so is the `@`-borrow control*, so it is not reported as a sibling defect.
+- [x] `tests/probe/probe08_sparse_set.npk` + `probe08b_wild_index_unchecked.npk` + `probe08c_slice_index_traps.npk` — two `Vec<int32>` as a sparse set: O(1) insert, membership and clear, over 100 000 keys, with the dense/sparse invariant asserted  
+      **DONE, and it found RX-111** — a `wild T->` index is **not** bounds-checked; `SAFETY.md` §5.3 (S-23) added and §1's row corrected.
+- [x] `tests/probe/probe09_comptime_walker.npk` — a `comptime func:` that indexes a pattern string; **expected to be REFUSED**. Record the exact diagnostic: it is O-N1's evidence  
+      **DONE** — `NITPICK-TYPE-004`; the wall is `string_bytes`, not the index. O-N1's ask sharpened to two arms.
+- [x] `tests/probe/probe10_comptime_capabilities.npk` — what `comptime` *can* do: `string_concat`, `string_equals`, `string_byte_length`, `string_is_empty`, a `loop`, a mutable local, a `comptime func:` call. Records the boundary from the other side  
+      **DONE** — all four foldable builtins confirmed; a pattern-length check is buildable today.
+- [x] `tests/probe/probe11_byteset_bitset.npk` — a `uint64[4]` field inside a struct inside a `Vec`, with union/intersect/complement/contains  
+      **DONE** — `#size_of<ByteSet>` = 32.
+- [x] `tests/probe/probe12_iterator_borrowing.npk` + `probe12b_for_over_borrow_refused.npk` — the prelude `Iterator` trait implemented on a struct holding a borrow, driven by `for … in`; O-A1 depends on the answer  
+      **DONE, and it splits O-A1** — the impl is legal, `for … in` over it is `NITPICK-BORROW-009`.
+- [x] `tests/probe/probe13a_prove_refused.npk` … `probe13d_ensures_refused.npk` — `prove`, `limit<Rules>`, `requires`/`ensures` each **refused by name** with `NITPICK-RUNG-001` naming "1.5", so the comment-form obligations are known to be inert rather than silently parsed as something else  
+      **DONE** — all four refuse `NITPICK-RUNG-001` naming 1.5; and `never fails` + `limit` is a *permanent* refusal, `NITPICK-TYPE-037`.
+- [x] `tests/probe/probe14_size_bound.npk` — a `Vec<Inst>` at `NREGEX_PROGRAM_INSTRUCTIONS`, built and walked, exiting 0 so a leak is a trap  
+      **DONE** — 1 200 000 B, peak RSS 1152 KiB, wall < 10 ms.
+- [x] a verdict line per probe recorded in `0.0.0.md` §7, with the exact diagnostic where refused — **23 rows**, and every probe's outcome equals its `expect-` header (checked mechanically against `tests/probe/TRANSCRIPT.txt`)
+- [x] every design consequence written into `meta/specs/` **and** `meta/DECISIONS.md` before 0.0.1 starts — RX-110, RX-111, RX-112; `SAFETY.md` §1, §5.3 (S-23) and §8b (S-22)
 
 ### 0.0.1 — the skeleton
 - [ ] `src/lib.npk` exists and `pub use`s nothing yet (`use` is not transitive, so the surface is a deliberate list)

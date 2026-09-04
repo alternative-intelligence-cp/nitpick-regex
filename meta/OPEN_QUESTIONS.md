@@ -112,6 +112,39 @@ a probe that was only compiled is a probe that has not been run. The transcript
 in `tests/probe/TRANSCRIPT.txt` carries every step's exit code for exactly this
 reason.
 
+### O-N12 — **PROVISIONAL, awaiting the author's number**: the compiler's references document two constructs that do not exist
+**Raised by cycle 0.0.0, 2026-09-03. The number is a proposal** — `O-N` ids
+belong to the workbench registry (`../meta/OPEN_QUESTIONS.md`) and O-N1…O-N11
+are taken, so this is the next free one pending confirmation.
+
+Two documented constructs are absent from the compiler at `950bb1d`:
+
+| Documented | Where | What `npkc` says |
+|---|---|---|
+| `>>>`, "right shift (unsigned), `lshr`" | `TYPE_REFERENCE.md` operator table (line ~1799) | `NITPICK-PARSE-002 … expected an expression` |
+| `string_repeat(str, n)` | `BUILTIN_REFERENCE.md` string section (line ~167) | `NITPICK-RESOLVE-002 … cannot find `string_repeat` in this scope` |
+
+Evidence: `tests/probe/TRANSCRIPT.txt` §C2 isolates `>>>` against the five
+bitwise operators that do compile; `probe05_explicit_stack.npk`'s `nest_of`
+carries the `string_repeat` replacement and says why.
+
+**W-27 — what this blocks, what it inconveniences, and what it does not touch.**
+
+- **Blocks: nothing.** Neither construct is on any path this library needs.
+- **Inconveniences: mildly, once each.** `>>>` costs nothing at all, because
+  `>>` on an unsigned type is already logical — measured at bit 63, the only
+  place it could differ: `(1u64 << 63u64) >> 63u64` is **1**, not all-ones. So
+  `>>>` would be a pure synonym. `string_repeat` costs a four-line concat loop.
+- **Does not touch:** correctness, performance, or any specification rule. The
+  cost is entirely in reading a reference, believing it, and finding out.
+
+*Recommendation:* the cheapest fix is documentation — mark both rows "not
+implemented" — rather than implementing either. `>>>` in particular should
+probably say *"`>>` is `lshr` on unsigned operands; `>>>` is reserved and
+unimplemented"*, because a reader who sees `>>` described as `ashr` and `>>>` as
+`lshr` will reach for the one that does not exist, which is exactly what
+happened here.
+
 ### O-N1 — `comptime` cannot index a string, so a compile-time-validated pattern is not expressible
 **The most valuable thing on this list.** The obvious safety win for this
 library is `#regex("…")` — a form that parses the pattern *while compiling the
@@ -135,10 +168,48 @@ available. It is not. Measured at the compiler's 1.5.0, reading
 So a `comptime func:` can concatenate, compare and measure a pattern string and
 **cannot look at a byte of it**. A pattern walker is not expressible.
 
-**Ask:** one more `fold_expr` arm for indexing a string literal, or
-`string_slice` in the foldable set. Small; the payoff is a class of error moved
-from run time to compile time. Probe 09 in cycle 0.0 confirms the refusal and
-records the exact diagnostic as the evidence for the request.
+**MEASURED BY PROBE 09, AND THE ASK IS SHARPER THAN THE READING ABOVE.** The
+prediction from the source was "no arm for an INDEX expression". The wall is one
+step earlier. Nine `comptime func:` bodies, each adding one construct, every one
+compiled and its exit code recorded (`tests/probe/TRANSCRIPT.txt` §C1):
+
+| construct | folds? |
+|---|---|
+| plain constant | **yes** |
+| mutable local + arithmetic | **yes** |
+| counted `while` loop | **yes** |
+| `string_byte_length` | **yes** |
+| `string_is_empty` | **yes** |
+| `string_equals` | **yes** |
+| `string_concat` | **yes** |
+| `string_bytes`, then `.len` | **no** — `NITPICK-TYPE-004` |
+| `string_bytes`, then an index | **no** — `NITPICK-TYPE-004` |
+
+**`string_bytes` is the wall, and `.len` alone is already past it.** The index
+never gets a chance, because the view is never produced — `string_bytes` is not
+one of `fold_string_builtin`'s four names, and the four that fold are exactly
+those four.
+
+The diagnostic, verbatim from compiler commit `950bb1d`:
+
+> `NITPICK-TYPE-004 …:77:16: `comptime` requires an expression that folds at
+> compile time, and this one does not`
+
+Clean about the fact, **silent about the cause** — it does not say which
+sub-expression refused. Worth mentioning in the request, because the cost of
+diagnosing this without the isolation table above is an afternoon.
+
+**Ask, restated:** fold `string_bytes` (or add a comptime byte accessor), **and**
+an index arm on the slice it yields. That is **two** arms rather than one. The
+argument for it is what already works: loops, mutable locals and every string
+operation a validator would need to *report* with are all available at compile
+time today — `probe10_comptime_capabilities.npk` exercises all of them. What is
+missing is exclusively the ability to look at a byte.
+
+**And a fraction of it is buildable now.** `NREGEX_PATTERN_BYTES` (65536) and an
+empty-pattern check are enforceable at compile time with `string_byte_length`
+and `string_is_empty` alone — `probe10`'s `pattern_len_ok`. That is not
+`#regex(…)`, and it is not nothing.
 
 ### O-N2 — `MACRO_REFERENCE.md` §8 says `const`, which no longer exists
 **A documentation defect, found in the same reading.** §8's "What a name means
@@ -226,11 +297,25 @@ movemask intrinsic, which is a better request than a speculative one.
 ### The API
 
 - **O-A1 — whether `Matches` implements the prelude `Iterator` trait or only
-  exposes `matches_next`.** The trait gives `for … in`, which is ergonomic; it
-  requires an associated type, which disqualifies the trait from `dyn` (D-160)
-  — irrelevant here, since nothing erases an iterator.
-  **Recommendation:** implement it *and* keep `matches_next` as the explicit
-  form. **Decide at cycle 0.10**, after probe 12 says what the trait admits.
+  exposes `matches_next`.** *Probe 12 has reported, and the question changed
+  shape.* The trait **can** be implemented on a struct holding a `Regex->`
+  borrow and a `uint8[]` view — `tests/probe/probe12_iterator_borrowing.npk`
+  compiles and runs. But **`for … in` over it is refused**,
+  `NITPICK-BORROW-009`, *"a borrow cannot be iterated over: a `for` binding is
+  not tracked by the escape analysis"*
+  (`tests/probe/probe12b_for_over_borrow_refused.npk`).
+
+  So the original argument — *"the trait gives `for … in`, which is
+  ergonomic"* — **is void**. A `Matches` must borrow its `Regex`: a struct
+  holding a borrow cannot be returned (D-004), and an owning `Matches` would
+  consume the pattern it iterates with. The only `Matches` this library can have
+  is exactly the one `for` will not drive.
+  What the trait still buys is generic code written against `Iterator`, and
+  nothing else; the explicit `next` is not a fallback but the sole driver.
+  **Recommendation, revised:** implement `matches_next` for certain, and treat
+  the trait impl as optional — worth it only if a consumer materialises that is
+  generic over iterators. **Still decided at cycle 0.10**, now with the evidence
+  rather than the assumption.
 - **O-A2 — a `RegexSet` API.** See Q-3.
 - **O-S1 — whether `RegexOptions` should be a `comptime` parameter rather than
   a value.** A `comptime` bound would let the program-size limit be a

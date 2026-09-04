@@ -627,3 +627,54 @@ checks it — a slice cannot be returned from `vec_init` (D-004 rule 2, and O-N9
 means the compiler would not even say so today), and the container would not
 survive `ralloc`; keeping the accessor pair optional and relying on review — the
 failure is silent, which is precisely the case review does not catch.
+
+### RX-112 — RX-050 stands, and probe 06b's acceptance is not a licence
+**2026-09-03, from probe 06b, overriding `0.0.0.md` §5's instruction to the
+executor.**
+
+`0.0.0.md` §4 wrote probe 06's second half — a function returning a `uint8[]`
+subrange — as **"expected refused"**, and §5 told the executor that if it were
+accepted, the correct response was to *"stop and re-plan `API.md` §2"*, because
+an acceptance would mean RX-050 was over-cautious and a `Match` could carry a
+slice.
+
+**It is accepted, and the plan is not followed.** The plan predates the answer.
+
+The acceptance is the workbench registry's **O-N9** — a confirmed, independently
+verified compiler defect, accepted as the compiler's **DEF-3** and scheduled as
+the second commit of its cycle 1.5.1b. D-004 rule 2 forbids a borrow in the
+value of a `pass`; the compiler enforces it for `@`-borrows and not for slice
+views, and `TYPE_REFERENCE.md` §9.2.1 already states that a slice **is** a
+second-class borrow. So the compiler accepting this says nothing whatever about
+whether RX-050 is right.
+
+*Therefore:* **RX-050 stands unchanged.** `Match` carries byte offsets,
+`API.md` §2 is not re-planned, and no function in `src/` returns a `uint8[]`.
+Re-planning an API onto a rule that is known to be under-enforced and known to
+be scheduled for repair is precisely the "workaround buried in library code that
+outlives the bug" that W-11 forbids — the library would compile today and stop
+compiling at the re-pin.
+
+*What probe 06b contributes instead.* O-N9's six cases all escape a view of a
+frame **local** and dangle, reading the runtime's `0xAA` free-poison. 06b's
+shape is a subrange of a **parameter**, so the storage is the caller's and the
+returned view is correct. DEF-3's checker already distinguishes the two — a view
+rooted in a **pointer-shaped** binding (a wild pointer, a slice, a `cstring`) is
+the pointee's borrow and may travel — so 06b is **confirmation that the naive
+fix was avoided**, not a new request. The shape that will change under DEF-3 is
+a view of a **temporary**: `string_bytes(string_concat(a, b))` returned becomes
+`NITPICK-BORROW-012`, and D-246 already requires binding that intermediate
+because the `string_concat` is an owning temporary that leaks today.
+
+*And the house rule is restated at the right strength.* `nitpick-time`'s "a view
+is a parameter, never a return value" was deliberately conservative, written
+when nothing could tell the safe cases from the dangerous ones. This library
+adopts the narrower permanent rule instead: **`src/` returns VALUES and takes
+views as parameters** — correct under either regime, and not a bet on how DEF-3
+lands.
+
+*Alternatives declined:* re-planning `API.md` §2 to carry a slice, as §5
+instructed (it would break at the re-pin, and it builds the API on a defect);
+recording the acceptance without a decision (§5 gave a standing instruction, and
+an instruction not followed must be overridden in writing or the next reader
+follows it).

@@ -1,0 +1,93 @@
+// expect-error: NITPICK-TYPE-004
+//
+// PROBE 09 — a `comptime` pattern walker. **EXPECTED REFUSED**, and this probe
+// exists to record exactly HOW.
+//
+// ASKS: a `comptime func:` that indexes a pattern string byte by byte and
+// returns the position of the first `(`.
+//
+// MATTERS BECAUSE it is **O-N1**'s evidence, and O-N1 is the most valuable
+// request on this library's list. A compile-time-validated pattern literal — a
+// malformed pattern becoming a **compile error**, at the line that wrote it,
+// with no run-time cost and no error path — is a property no regex library in
+// any language offers. `#regex("(a|b")` would be a diagnostic instead of a
+// `PatternError` nobody checks.
+//
+// PREDICTED AT PLANNING from the compiler's 1.5.0 source: `fold_expr` in
+// `src/frontend/resolve_type.npk` has no arm for an index expression, and
+// `fold_string_builtin` handles exactly four names, none of which reads a byte.
+//
+// THE DIAGNOSTIC, verbatim, from compiler commit 950bb1d:
+//
+//   NITPICK-TYPE-004 …:77:16: `comptime` requires an expression that folds at
+//   compile time, and this one does not
+//
+// It is clean about the FACT and silent about the CAUSE — it does not say which
+// sub-expression refused to fold, which is the one thing a reader needs. That
+// is worth saying in the request: the fix is cheap and the diagnostic is not.
+//
+// ==========================================================================
+// AND THE WALL IS ONE STEP EARLIER THAN THE PLAN PREDICTED
+// ==========================================================================
+//
+// The prediction was "no arm for an INDEX expression". Measured by isolation —
+// nine `comptime func:` bodies, each adding one construct, every one compiled
+// and its exit code recorded (the table is in `tests/probe/TRANSCRIPT.txt`):
+//
+//     plain constant                        FOLDS
+//     mutable local + arithmetic            FOLDS
+//     counted `while` loop                  FOLDS
+//     string_byte_length                    FOLDS
+//     string_is_empty                       FOLDS
+//     string_equals                         FOLDS
+//     string_concat                         FOLDS
+//     string_bytes, then `.len`             NITPICK-TYPE-004
+//     string_bytes, then an INDEX           NITPICK-TYPE-004
+//
+// **`string_bytes` is the wall, and `.len` alone is already past it.** The
+// index never gets a chance, because the view is never produced. `string_bytes`
+// is not one of the four names `fold_string_builtin` handles — the four are
+// exactly the four that fold above — so O-N1's ask is more precisely stated as
+// *"fold `string_bytes`, and index the slice it yields"*, which is two arms
+// rather than one.
+//
+// THE GOOD NEWS FOR THE REQUEST, and it is what makes it arguable: **loops,
+// mutable locals and every string operation this library's validator would
+// need to REPORT with already fold.** A pattern's length, an equality against a
+// known prefix and a concatenated message are all available at compile time
+// today. What is missing is exclusively the ability to look at a byte.
+mod:probe09_comptime_walker;
+
+// The walker. Nothing here is exotic: a loop, an index, a compare. Every one of
+// those works at RUN time — this same function without `comptime` is ordinary
+// code, which is what makes the gap a gap rather than a design.
+comptime func:first_paren = int64(string:s) {
+    uint8[]:b = string_bytes(s);
+    int64:i = 0i64;
+    while (i < b.len) {
+        if (b[i] == 40u8) { pass i; }        // '('
+        i = i + 1i64;
+    }
+    pass -1i64;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    // The forcing form: `comptime(…)` in a value position must fold at check
+    // time. This is the line that cannot be folded.
+    int64:at = comptime(first_paren("ab(cd"));
+    if (at != 2i64) { exit 10i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};
