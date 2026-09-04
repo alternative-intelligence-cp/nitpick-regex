@@ -98,10 +98,14 @@ settled. **Nothing in this cycle is blocked on a question.**
       **DONE, and it links and runs** — `npkc` 0, `llc` 0, `ld.lld` 0, binary 0, and the same four
       through `opt -O2` (rule B-3). Six controls beside it, each failing for the right reason.
 - [x] CI: a workflow running `harness/run.py` on push, with LLVM 20.1.2 and the compiler built from a **pinned commit**, not a branch  
-      **WRITTEN, NOT RUN.** Pins the compiler by full sha (verified present on the public remote) and
-      LLVM by exact patch release, and *asserts* both. It has not executed: that needs a push, and
-      building the compiler from here is refused by W-18. See 0.0.1's acceptance for what is and is
-      not evidence.
+      **WRITTEN, AND NOW RUN GREEN.** Pins the compiler by full sha and LLVM by exact patch release,
+      and *asserts* both rather than reporting them. Run
+      [`33835762747`](https://github.com/alternative-intelligence-cp/nitpick-regex/actions/runs/33835762747)
+      on a push of `main` at `c7b8711`: conclusion **`success`**, job `build` green, 8m48s, all ten
+      declared steps — including the compiler built from the pin, which W-18 forbids rehearsing
+      from here. It proves the toolchain pin and that the conformance consumer still compiles, links and
+      runs; it proves nothing about this library's behaviour, because `harness/run.py` is the stub
+      until 0.0.2. See 0.0.1's acceptance for the full boundary.
 - [x] `CLAUDE.md` and `CONTRIBUTING.md` re-read against 0.0.0's verdicts and extended  
       **DONE, and the re-read earned its place**: `CLAUDE.md` still said out-of-range indexing traps,
       which probe 08b refuted at 0.0.0 (RX-111), and its "What this is" section was empty.

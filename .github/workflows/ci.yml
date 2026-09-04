@@ -9,9 +9,26 @@
 #
 # WHAT THIS PROVES TODAY IS SMALL AND IS STATED HONESTLY. `harness/run.py` is a
 # STUB until cycle 0.0.2: it checks the toolchain and nothing else, and it says
-# so in its own output. A green run here is evidence that the pinned compiler
-# builds and that LLVM is exactly 20.1.2 — not evidence about this library.
+# so in its own output. A green run is evidence that the pinned compiler builds
+# from a clean checkout, that LLVM is exactly 20.1.2, and — through the LAST
+# step rather than through the harness — that the conformance consumer still
+# compiles, links and runs. It is NOT evidence about this library's behaviour,
+# because there is none yet and no test suite runs here.
 # When 0.0.2 lands the real runner, this file does not change.
+#
+# FIRST GREEN: run 33835762747, 2026-09-04, on `main` at c7b8711, 8m48s.
+#
+# KNOWN MAINTENANCE ITEM, from that same run. GitHub annotates it:
+#   "Node.js 20 is deprecated. The following actions target Node.js 20 but are
+#    being forced to run on Node.js 24: actions/cache@v4, actions/checkout@v4."
+# Nothing is broken — the run is green and the runner is already forcing Node
+# 24 — and there is nothing to do today. It stops being a warning and becomes
+# a failure when the forcing ends, and the fix is to bump both actions to a
+# release built for Node 24. Worth writing down HERE, next to the pins, for one
+# reason: `@v4` is a moving tag, so these two actions are the only inputs in
+# this file NOT pinned to something immutable. A workflow this insistent about
+# pinning a compiler by sha and LLVM by patch release should not be surprised
+# when the parts it left on a floating tag roll forward underneath it.
 
 name: nregex
 
