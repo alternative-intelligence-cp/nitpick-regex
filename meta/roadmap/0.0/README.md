@@ -127,5 +127,9 @@ consequences are written into the specifications.
   words a container library reaches for, and `range` in particular is what a
   `ByteSet` iterator wants to be called.
 - **`Vec<T>` is `wild` storage** and every path out of a function that took
-  some must release it, or `exit 0` traps under D-151. The suite's programs
-  exit 0 on purpose so a leak on any path turns a pass into a trap.
+  some must release it, or `exit 0` traps under D-151. The suite's programs exit
+  0 on purpose, so **a leaked `wild` block** on any path turns a pass into a
+  trap. **It is only `wild` blocks that this catches**: D-151 counts them, D-188
+  counts live drivers, and neither sees a managed body, so a container freed
+  without dropping its owning elements exits 0 (RX-110). Where the obligation is
+  managed, the gate is a memory cap.

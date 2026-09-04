@@ -22,7 +22,7 @@ costs a library that compiles and executes patterns.
 | There are **no closures** | D-018 | replacement is a template string or a bare function value; iteration is a struct with `next`, never a callback. `API.md` §5 |
 | `failsafe`'s `pick` must **name** every reachable error | REACH-002 | **every public `error:` is an arm every consuming program owes.** §4 |
 | Reachability is **import-scoped** | 1.4.8 | module decomposition is part of the budget |
-| `exit 0` with live `wild` allocations traps | D-151 | every `wild` byte is paired on every path; the test programs exit 0 so a leak is a trap |
+| `exit 0` with live `wild` allocations traps | D-151 | every `wild` byte is paired on every path; the test programs exit 0 so a leaked **`wild` block** is a trap. **It sees nothing else** — D-151 counts `wild` blocks, D-188 counts live drivers, and neither sees a managed body, so a container freed without dropping its owning elements exits 0. §8b, RX-110 |
 | There are no static methods | D-185 | construction is `regex_compile(pattern)`, never `Regex.new(…)` |
 | No operator overloading | OP_REFERENCE | `a.eq(b)`, never `==`, on anything that is not a scalar |
 | `comptime` cannot index a string | measured, §7 | **a compile-time-validated pattern literal is not currently expressible.** §7, O-N1 |
@@ -308,6 +308,44 @@ network buffer.
 **Rule S-21 — the fuzzer's invariants are stated** (`TESTING.md` §7): never
 traps, always terminates, never allocates during a search, the answer agrees
 with the naive oracle, and every engine agrees with every other.
+
+---
+
+## 8b. What the leak gate actually covers
+
+**Rule S-22 (RX-110) — `exit 0` proves that no `wild` block was left live, and
+proves nothing else.** The formulation to use, because it is exact:
+
+> **D-151 counts `wild` blocks, D-188 counts live drivers, and neither sees a
+> managed body.**
+
+A `string`'s body, a `Vec`'s owning elements and a `dyn`'s cell are *managed*.
+Freeing a container's block does **not** drop its elements, and the controlled
+exit does not notice: `nitpick-time` measured a `Vec<string>` retaining
+**125 MiB over two million elements at exit 0**, and the same program hit
+`HeapOom` only when squeezed under a 64 MiB address-space cap.
+
+**What follows for this library, concretely:**
+
+- **`Program`, `Hir` and every engine's thread list are POD** (C-1, H-2,
+  `ENGINES.md` R-6), so for those the block *is* the whole obligation and
+  `exit 0` covers it exactly. This is not luck — it is TYPE-046 forcing the
+  representation, and it is the main practical reason the POD shape is worth
+  its awkwardness.
+- **The exceptions are the ones to watch**: `Hir.names`, `Vec<GroupInfo>` if a
+  group name is ever an owning `string` rather than an offset into `Bytes`, and
+  any future `Vec<string>`. Each must drop its elements before its block goes.
+- **Where the obligation is managed, the gate is a memory cap, not an exit
+  code** (`TESTING.md` §7's invariant list is the place it belongs).
+- **A better instrument is coming.** The compiler's `NPK_HEAP_STATS` will make
+  retained managed bytes measurable rather than inferable; when it lands, this
+  rule's test becomes a `peak_live` assertion and the memory cap becomes a
+  backstop.
+
+**Do not write "the suite's programs exit 0, so a missing `free` on any path is
+a trap" without saying which allocations that covers.** It was written four
+different ways in this repository's own plan and was false of managed bodies in
+every one of them.
 
 ---
 
