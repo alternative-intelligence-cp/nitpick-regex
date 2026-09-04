@@ -9,7 +9,8 @@ toolchain : npkc and npkrt.o at compiler commit 950bb1d, from
             ../.internal/toolchain/950bb1d/, sha256 matched against that
             directory's SHA256SUMS before anything below was run
 LLVM      : 20.1.2
-date      : 2026-09-03
+date      : 2026-09-03. ONE CORRECTION SINCE: §A2's exit code, wrong as
+            committed, re-run and fixed 2026-09-04, and §F added with it.
 cwd       : the nregex tree root. $SP is a scratch directory outside it;
             $NPKC and $NPKRT are the two pinned artefacts.
 
@@ -106,7 +107,17 @@ A2. THE CAUSE, COUNTED IN THE EMITTED IR.
 $ $NPKC --help
   unknown argument: --help
   usage: npkc <root.npk> [-o out.ll] [--obligations DIR] [--elide nitpick.obligations] [--extra-picky=no-wildx]
-  -> exit 1
+  -> exit 2
+
+    CORRECTED 2026-09-04. This line was committed as `-> exit 1` and the number
+    was WRONG. Re-run twice here against the same npkc, sha256 matched against
+    SHA256SUMS first: exit 2 both times. The two output lines above are
+    unchanged and were always right, and A2's point is untouched — `--help` is
+    simply not a recognised flag, so the usage line is what npkc prints when it
+    cannot proceed. Nothing else in this file cited this number.
+    2 IS NOT A REFUSAL. It is the ARGUMENT error, and the difference is a
+    harness's problem the moment rule B-6 says to assert on exit codes. The
+    alphabet is §F.
 
 === B. THE CONSUMER, ALL FOUR STEPS OF 0.0.0.md §2 ===
 
@@ -255,3 +266,31 @@ $ $NPKC $SP/ctl/tests/conformance/noarm2.npk -o $SP/ctl/f.ll
   NITPICK-REACH-002 noarm2.npk:8:5: `failsafe` does not name `WildLeak`, which can reach it (D-179): add the arm — `(*)` counts for nothing here, so a new failure mode is always acknowledged before the program compiles again
   -> exit 1
 
+=== F. npkc's EXIT ALPHABET AT THE PIN, READ OUT OF THE DRIVER ===
+
+Added 2026-09-04, with the A2 correction above and because of it. This is not
+a measurement, it is a reading: the source is the COMPILER's `src/main.npk` at
+commit 950bb1d — the pin these transcripts were produced against — and the line
+numbers below are that file's, not this repository's.
+
+  0  success                          :214 (with -o), :225 (IR to stdout)
+  1  THE PROGRAM WAS REFUSED, and diagnostics were reported to stderr:
+     the front half failed :160, `--extra-picky=no-wildx` rejected it :168,
+     emission failed :183
+  2  THE DRIVER COULD NOT PROCEED, and nothing was judged about the program:
+     unknown argument :116, a second root file :122, no root file at all :129,
+     any flag given twice :93 :97 :100, `--elide`'s manifest unreadable or
+     unparseable :139 :141 :143, `--obligations`' directory unwritable :191,
+     the output path unwritable :206 :211, stdout unwritable :222
+  3  A FAILSAFE TRAP — npkc's own handler, one arm per trap kind :269-:306
+
+The compiler intends the 1/2 split rather than tolerating it: its own cycle
+1.5.0 plan, P-20, specifies "an unknown argument exiting 2 with the usage".
+
+WHY THIS IS IN A LIBRARY'S TRANSCRIPT. `BUILD.md` rule B-6 says to assert on
+codes and exit codes and never on message text, which is right, and which means
+0.0.2's harness will compare integers. A harness that reads "nonzero" as
+"refused" scores a mistyped command line as a conformance result, and a
+rejection test expecting 1 that gets 2 has not been refused — it has not been
+COMPILED. The A2 line above is the small version of exactly that confusion, and
+it survived a commit.
