@@ -1037,3 +1037,154 @@ diverges our stage vocabulary from the compiler's, which is the one thing
 `BUILD.md` §3 exists to prevent — the migration to `npkg` is supposed to be a
 change of runner, not of suite); listing the sixteen paths explicitly (`path`
 names a directory, not a file — `files_of` lists by suffix).
+
+## Cycle 0.0.2 — what building the runner settled
+
+### RX-120 — `check_no_syscalls` gains a second layer, because the undefined-symbol difference cannot see a syscall
+**2026-09-04, from measuring the check RX-116 specified against the thing it is
+supposed to catch.** `meta/roadmap/0.0/0.0.2.md` §5.
+
+RX-116 made the no-syscall check differential: an `nregex` program object's
+undefined-symbol set must **equal** an empty baseline program's. That was the
+right correction to an unrunnable allowlist and it stands. **It also cannot
+detect a syscall**, and cycle 0.0.2's own acceptance list asked for exactly that
+— *"a deliberately introduced `sys(…)` call fails `check_no_syscalls`, by
+name"*.
+
+Two four-line programs at `950bb1d`, differing only by a `sys(39i64)` call in
+`main`:
+
+| | undefined symbols | `call i64 @npk_sys6` sites |
+|---|---|---|
+| baseline | 29 | 2 |
+| baseline + one `sys(…)` | 29 | 3 |
+
+**Symmetric difference of the symbol sets: empty.** `npk_sys6` is in every
+object already, because the prelude's `ByteReader.seek` and `std_dup` call it,
+so a program that starts making syscalls adds no symbol at all. The specified
+instrument would have reported a clean run over it, and the acceptance item
+would have been ticked by a check that cannot do the thing the item names.
+
+*Therefore a second layer, on the emitted IR rather than the object.* Every
+`(enclosing function, callee)` edge whose callee is declared and not defined in
+the module is the floor; the baseline's edge set is the floor's own; an edge the
+program has and the baseline does not was written here. If its callee reaches
+the kernel or a descriptor, the run is red and the message names the function.
+`BUILD.md` rule **B-2a**; `harness/irscan.py`.
+
+*Three things the first run over the real suite forced, and each was a false
+positive on all sixteen probes:*
+
+1. **`llvm.*` is not the floor.** `llvm.sadd.with.overflow.i64` is declared,
+   never defined, and is an *instruction* — it never reaches a symbol table.
+2. **Compiler-generated glue is numbered and the number moves.** The baseline's
+   `npk.drop.365` is probe04's `npk.drop.367`, because the counter shifts with
+   program content. The trailing digits are not part of a function's identity.
+3. **A DENY list is smaller and truer than a permit list.** A permit list was
+   written first and failed every probe: the residue is dominated by `npk_trap`
+   (the trap path every bounds check reaches), `npk_chain_push` /
+   `npk_chain_reset` (the `defer` machinery), the allocator and
+   `npk_string_concat` — none of them a syscall. What RX-008 forbids is
+   *reaching the kernel*, which is seven symbols: `npk_sys6`, `npk_open`,
+   `npk_read`, `npk_write`, `npk_ofd_close`, `npk_io_register`,
+   `npk_io_unwatch`. The list can be that short only because a floor symbol the
+   baseline does **not** have is caught by RX-116's layer with no list at all.
+
+*The boundary, stated rather than implied.* The async family — `npk_exec`,
+`npk_run_until`, `npk_thread_join`, `npk_windup_*` — is deliberately **not**
+denied. `await` is a language feature, `probe07` exercises it on purpose, and
+refusing a language probe for using the language would be this check failing the
+wrong thing. Matching in this library can never be async (RX-061) and that is
+held by the error budget, not by a symbol scan.
+
+*Why this is a new decision rather than an edit to RX-116:* RX-116 is settled,
+its reasoning is correct, and its rule is unchanged — the undefined-symbol sets
+must still be equal. What is added is a second question the first one was never
+able to ask. The pattern this repository uses for every correction (RX-002).
+
+*Alternatives declined:* counting `@npk_sys6` call sites and comparing the total
+(measured: the count is 2 against 3 at -O0 but **5 against 6** after `opt -O2`,
+because inlining duplicates the floor's own sites — a number that depends on the
+optimiser is a number that will drift, and it names no function); scanning the
+optimised object instead (same reason, plus `opt` legitimately removes symbols);
+grepping the IR for the string `sys(` (that is source, not emission, and it
+would miss a syscall reached through any wrapper).
+
+### RX-121 — both scans apply to a program whose module graph reaches `src/`, and the harness says how many that was
+**2026-09-04, from the first full run: sixteen probes red, and every one of them
+correctly.**
+
+RX-116's rule says *"the undefined-symbol set of every **`nregex` program
+object**"*. Read as "every program the harness builds", it fails the language
+probes, and it fails them for true statements: `probe01` needs `npk_ralloc`
+because it grows an allocation; `probe07` reaches the async floor because it
+`await`s; every probe with a `defer` calls `npk_chain_reset`.
+
+**`tests/probe/` is not this library.** Its own README says so — *"They are not
+tests of `nregex` — no probe imports anything from `src/`, and none will ever be
+able to (P-1)"*. They are tests of the **language**, kept here because this
+library's design rests on their answers. Holding them to a library's
+zero-syscall rule is a category error, and the cost of getting it wrong is not
+noise but blunting: making the probes green would have meant permitting
+`npk_trap`, the `defer` chain, the allocator and the string primitives from any
+function, which is most of what any program calls.
+
+*Therefore the scans run on programs whose transitive `use` graph reaches
+`src/`.* Today that is `tests/conformance/import.npk`, and it measures exactly
+equal — 29 against 29, the number `tests/conformance/TRANSCRIPT.txt` §D2
+recorded. **And the harness prints, every run, how many units each scan ran on
+and how many it did not**, because a check that quietly did not apply reads
+exactly like one that passed. `BUILD.md` rule **B-2b**.
+
+*A latent bug this found, worth recording because it is the same shape:* the
+first `reaches_src` compared a possibly-relative path against an absolute `src/`
+prefix, so it answered **no** for every program when handed a relative path —
+silently, and a silent no means the scans never run. Caught by running it on
+four known files and checking both spellings, not by reading it.
+
+*Alternatives declined:* widening the permit list until the probes pass (it
+blunts the check to nothing, above); moving the probes out of the harness (they
+are a permanent regression suite for the language shapes this library depends on
+— `tests/probe/README.md` P-5 — and not running them is worse than not scanning
+them); scanning them and reporting without failing (a check that reports and
+never fails is a check nobody reads, which is the compiler project's own
+recurring finding).
+
+### RX-122 — the expectation reader refuses an `expect-exit:` above 255 and a `stress:` below 1
+**2026-09-04, writing the marker grammar against `npkg/expect.npk` at the pin.**
+
+`harness/expect.py` mirrors the compiler's reader marker for marker and in its
+dispatch order, because the day this harness retires into `npkg` (RX-004, O-G3)
+a parity stage diffs the two runners' verdicts and a grammar that drifted makes
+every row a false difference. Two expectations are nevertheless **refused at
+read time**, and both are refusals of something that can never be met rather
+than a different judgement of something that can.
+
+**`expect-exit:` above 255.** An exit status is one byte. A process that exits
+321 reports **65**, silently; the compiler's reader accepts the 321 and then
+compares it against a number that can only be 0–255, so the test can never pass
+and nothing says why. Swept 2026-09-04: no `expect-exit` header in this
+repository exceeds 255, so this refuses no test that exists — it refuses the one
+somebody writes next. Negative values keep `npkg`'s meaning (`run_binary`
+reports a killed process as `0 - signal`, so `expect-exit: -11` is SIGSEGV) and
+below −64 there is no such signal.
+
+**`stress:` below 1**, and this one is smaller than it first looked. The reason
+first written here was that `npkg` loops `0...stress` and would therefore run
+the program **no times and report green**. That is **false**, and it was
+corrected before it was committed: `run_binary` opens
+`int64:runs = stress; if (runs < 1i64) { runs = 1i64; }` — read in the source
+rather than inferred from the loop. So it is not a hole there. What is left is
+still worth refusing: a `stress: 0` is an expectation the runner silently
+rewrites rather than honours.
+
+*Recorded as a decision rather than left in a comment* because B-5 says the
+grammar is the compiler's marker for marker, and a divergence from a rule that
+says "no divergence" has to be visible in the same place the rule is. `BUILD.md`
+rule **B-5a**.
+
+*Alternatives declined:* accepting `expect-exit: 321` and reporting the mod-256
+value the run would have to produce (that is guessing what the author meant, and
+the two candidate meanings — 321 and 65 — are both plausible); refusing the
+value at comparison time rather than read time (the message then arrives after a
+build, attached to a run, and reads like the program did something wrong).

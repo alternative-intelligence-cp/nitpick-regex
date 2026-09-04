@@ -1,0 +1,40 @@
+// A SELF-CHECK FIXTURE. IT MUST FAIL, AND IT MUST FAIL BY NAME.
+//
+// The OTHER half of rule B-2, and the half RX-116 specified: a floor symbol
+// this program NEEDS that the empty baseline does not. `ralloc` is the
+// cheapest honest one -- the baseline never grows an allocation, so
+// `npk_ralloc` is not among its 29 undefined symbols, and a program that
+// reallocates adds it.
+//
+// It is a real symbol and a real need, not a contrivance: this is exactly what
+// `Vec<T>`'s doubling will look like at cycle 0.0.4. The point of running it
+// now is that the check has to be seen naming a symbol before anybody trusts
+// it to name one later, and at 0.0.4 the right response will be to add
+// `npk_ralloc` to the permitted delta DELIBERATELY, in a decision, rather than
+// to discover it as a mysterious red.
+mod:new_symbol_consumer;
+
+use "../../src/lib.npk".*;
+
+func:main = int32(int32:argc, cstring[]:argv) {
+    discard(argc);
+    discard(argv);
+    wild int8->:mem = alloc(64i64);
+    wild int8->:bigger = ralloc(mem, 128i64);
+    dalloc(bigger);
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (ERegexPattern)  { exit 60i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

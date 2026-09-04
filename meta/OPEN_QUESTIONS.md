@@ -294,6 +294,45 @@ names the missing thing, instead of failing in `llc`'s parser. The frontend
 check DEF-5 asks for is still the right diagnostic; this makes the fallback
 honest.
 
+### O-N15 — **PROVISIONAL, awaiting the author's number**: `npkg`'s expectation reader accepts an `expect-exit:` a run can never satisfy
+**Raised by cycle 0.0.2, 2026-09-04, against pinned toolchain `950bb1d`. The
+number is a proposal**, following O-N14. **The smallest thing on this list, and
+it is here because it is the same family as the ones that were not.**
+
+`npkg/expect.npk`'s `expect_read` takes `expect-exit:` through `text_int`, which
+accepts any integer up to eighteen digits, and stores it. `run_binary` then
+compares it against a process's exit status, **which is one byte**. So
+`// expect-exit: 321` is accepted in silence and can never be satisfied: the
+program that computes 321 and exits with it reports **65**, and the test fails
+forever with the message *"exited 65, expected 321"* — which is true, unhelpful,
+and does not say that 321 was never reachable.
+
+*Recommendation:* refuse a value outside `-64 … 255` at read time, in
+`expect_read`, alongside the existing "a number the reader cannot read marks the
+expectations unreadable" rule — which is exactly the right treatment and simply
+does not cover a number that reads fine and means nothing. Negative values
+already have a meaning worth keeping (`run_binary` reports a killed process as
+`0 - signal`).
+
+**W-27 — what this blocks, what it inconveniences, what it does not touch.**
+
+- **Blocks:** nothing, anywhere.
+- **Inconveniences:** nobody today. Swept across this ecosystem 2026-09-04: no
+  `expect-exit` header and no recorded exit claim exceeds 255. It costs the
+  first person who writes one, and it costs them a debugging session rather than
+  a red run.
+- **Does not touch:** any library's shape, any specification rule, or any
+  schedule. `harness/expect.py` already refuses it here (RX-122), so nothing in
+  this repository is waiting on it.
+
+*Why raise it at all.* This ecosystem uses exit codes to carry probe results —
+`0xAA`/170 for a poison read, 94 for a bounds trap, 221 and 107 in the derive
+probes — so the channel is one byte wide and is used as though it were wider.
+The compiler session hit the wrap itself writing a DEF-4 regression whose wanted
+value was a sum of comparison results. A measurement channel narrower than the
+thing measured, failing silently, is the shape worth naming even when today's
+instance is empty.
+
 ---
 
 ## O-G — the compiler's, raised from here

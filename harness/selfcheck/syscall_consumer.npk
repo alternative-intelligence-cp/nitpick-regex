@@ -1,0 +1,44 @@
+// A SELF-CHECK FIXTURE. IT MUST FAIL, AND IT MUST FAIL BY NAME.
+//
+// Not declared in `nitpick.toml` and not run by any suite: a fixture whose
+// whole purpose is to be rejected cannot live in a directory an ordinary
+// stage judges. Cycle 0.0.3's `harness/selfcheck.py` drives it
+// (`meta/specs/TESTING.md` V-20); until then it is run by hand, and the
+// transcript is in `meta/roadmap/0.0/0.0.2.md`.
+//
+// WHAT IT DEMONSTRATES. `nregex` makes no syscall (RX-008). RX-116's
+// undefined-symbol difference CANNOT SEE ONE: `npk_sys6` is already among the
+// prelude's 29 symbols in every object, so a program that starts calling it
+// adds no symbol and the difference stays empty -- measured at 950bb1d, 29
+// against 29. `harness/irscan.py` is what sees it, by counting the call EDGE
+// and naming the function it is in (RX-120).
+//
+// It imports `src/lib.npk` on purpose: that is what makes it an `nregex`
+// program, and RX-116's rule is about `nregex` program objects. The language
+// probes import nothing from `src/` and the scans do not apply to them.
+mod:syscall_consumer;
+
+use "../../src/lib.npk".*;
+
+func:main = int32(int32:argc, cstring[]:argv) {
+    discard(argc);
+    discard(argv);
+    // getpid(2): no argument, no side effect, and unambiguously a SYSCALL.
+    Result<int64>:r = sys(39i64);
+    if (r.is_error) { exit 70i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (ERegexPattern)  { exit 60i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

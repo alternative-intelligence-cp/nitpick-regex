@@ -7,8 +7,9 @@ Guidance for Claude Code sessions working in this repository.
 `nregex` — a regular-expression library for **Nitpick**, the safety-critical
 systems language at `../../nitpick`. **Status: cycle 0.0, foundations.** The
 specifications, the decisions and the roadmap are complete; `tests/probe/` holds
-23 language probes with recorded verdicts; `src/` holds the module skeleton and
-one public `error:` identity, and nothing else. No matching happens yet.
+23 language probes with recorded verdicts, split 16 / 7 by kind; `harness/`
+builds and judges them; `src/` holds the module skeleton and one public `error:`
+identity, and nothing else. No matching happens yet.
 
 ## Before starting a session here
 
@@ -115,11 +116,12 @@ concatenate; `discard(x);` takes parentheses and `defer { … }` takes no
 trailing semicolon; declarations end `};` and control-flow blocks do not. And a
 file's `mod:` name must equal its basename.
 
-## What cycles 0.0.0 and 0.0.1 measured, that a reader would otherwise assume
+## What cycles 0.0.0, 0.0.1 and 0.0.2 measured, that a reader would otherwise assume
 
 Each of these was written the other way round in some document here before it
-was measured. `meta/roadmap/0.0/0.0.0.md` §7 and
-`tests/conformance/TRANSCRIPT.txt` are the evidence.
+was measured. `meta/roadmap/0.0/0.0.0.md` §7,
+`tests/conformance/TRANSCRIPT.txt` and `meta/roadmap/0.0/0.0.2.md` §5 are the
+evidence.
 
 - **An `Optional` is not `pick`-able.** `pick (m) { (NIL) {…}, (Match:g) {…} }`
   is `NITPICK-PARSE-005`; an `Optional` has no readable members. Test with
@@ -149,18 +151,42 @@ was measured. `meta/roadmap/0.0/0.0.0.md` §7 and
   `Equal`. Write the comparison by hand.
 - **Measure `#size_of`, never derive it.** `Inst` is 12, `Match` is 16,
   `ByteSet` is 32, `string` is 24, `HirNode` is 24.
+- **`npkc`'s exit codes are an alphabet, and `2` is not a refusal.** `0`
+  success; `1` **refused, with diagnostics**; `2` the driver **could not proceed
+  and judged nothing**, silently, with an empty stderr; `3` a trap. A test
+  expecting 1 that receives 2 was never compiled and proved nothing. Assert the
+  specific integer, never `!= 0`. `tests/conformance/TRANSCRIPT.txt` §F and §G.
+- **A missing import exits `1` with `NITPICK-RESOLVE-005` — the very code a
+  rejection fixture expects.** So a rejection test whose path is typo'd or later
+  moved passes for the wrong reason, and only B-7's code-set equality tells the
+  two refusals apart. Every import here is relative until O-G3 closes, so this
+  is the ordinary case, not the exotic one.
+- **`check_no_syscalls` needs two layers, because the undefined-symbol
+  difference cannot see a syscall** (RX-120). A program with a `sys(…)` call has
+  the *same* 29 undefined symbols as one without — `npk_sys6` is already the
+  prelude's. The IR call-edge scan is what sees it.
+- **An exit status is one byte.** `exit 321` reports 65, silently. Compose
+  weights that cannot sum past 255, or print the value and assert on stdout.
 
 ## Building and testing
 
 **`npkg` cannot build this yet** (`meta/specs/BUILD.md` §1, O-G3): it is the
 compiler's own bootstrap ladder, and `[dependencies]` resolves to nothing.
-`harness/run.py` is the runner until that changes (RX-004), and **today it is a
-stub that checks the toolchain and nothing else** — it says so on every run.
-Until cycle 0.0.2 lands the real one, probes are run by hand;
-`meta/roadmap/0.0/0.0.0.md` §2 has the four-step command and
-`tests/conformance/TRANSCRIPT.txt` has every 0.0.1 invocation with its exit
-code. CI (`.github/workflows/ci.yml`) pins the compiler by full commit sha and
-LLVM by exact patch release, and **asserts** both rather than reporting them.
+`harness/run.py` is the runner until that changes (RX-004), and **since cycle
+0.0.2 it is real**:
+
+```
+NPKC=… NPKRT=… python3 harness/run.py
+```
+
+builds every declared suite with the pinned `npkc`, assembles, scans, links
+closed-world, runs, and judges by exit code — every `program`-stage file twice,
+at −O0 and through `opt -O2`. It reads `nitpick.toml` for every path and every
+flag and hardcodes none. `harness/README.md` states the boundary; the one that
+matters is that **the self-check proving the runner can fail is cycle 0.0.3**,
+so `TESTING.md` V-21 still applies. CI (`.github/workflows/ci.yml`) pins the
+compiler by full commit sha and LLVM by exact patch release, and **asserts**
+both rather than reporting them.
 
 The compiler binary is the **pinned toolchain** the board names
 (`../BOARD.md`, W-18): `$NPKC` and `$NPKRT` are supplied to every session by the

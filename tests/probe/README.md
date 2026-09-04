@@ -18,6 +18,29 @@ cycle 0.8 by an engine that starts failing mysteriously.
 
 Cycle 0.0.2 picks them up as the harness's first `program`-stage entries.
 
+## Two directories, because a probe is one of two kinds
+
+**Split by cycle 0.0.2, 2026-09-04, discharging RX-119.**
+
+| Directory | Files | Declared as | Judged by |
+|---|---|---|---|
+| `tests/probe/` | 16, each `// expect-exit: N` | `probe`, stage `program` | it compiles, links, runs, and exits with that code — at −O0 and again under `opt -O2` |
+| `tests/probe/refused/` | 7, each `// expect-error: CODE` | `probe-refused`, stage `compile`, kind `negative` | `npkc` exits **1** and reports **exactly** that code set (B-7, D-237) |
+
+**No single entry could judge the mixed directory**, which is why it was split
+rather than declared: `run_program` does not skip a file carrying
+`expect-error`, and `run_compile`'s `kind` selects the checker and not the file
+set. What keeps the two entries disjoint without listing a single filename is
+that **`recursive` defaults false**, so `tests/probe/` does not see its own
+subdirectory.
+
+**The seven moved; cycle 0.0.0's execution record did not.** It cites their old
+paths and is a closed, independently verified artifact, so it is left saying
+what was true on the day it was written and a redirect table in
+[`../../meta/roadmap/0.0/0.0.2.md`](../../meta/roadmap/0.0/0.0.2.md) §4 makes
+its citations resolve — the pattern RX-114 set for the `O-G` renumbering. The
+transcript below is in the same position and carries the same note.
+
 ## How to run one
 
 Four steps, all of them, every time (`0.0.0.md` §2):

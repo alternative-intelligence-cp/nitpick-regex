@@ -36,10 +36,16 @@ reason.
 ```
 a PROGRAM ROOT  (and every module it reaches by `use`, including src/lib.npk)
    → npkc              →  build/<program>.ll
-   → opt -O2           →  build/<program>.opt.ll  only on the check leg
+   → IR call-edge scan, differential against the baseline (B-2a)
    → llc               →  build/<program>.o       at the manifest's flags
    → undefined-symbol scan, differential against the baseline (B-2)
    → ld.lld -static    →  build/<program>         one program object + npkrt.o
+   → run, judged by its exit code
+
+and again, on the check leg (B-3):
+   the same .ll → opt -O2 → llc -O2 → the symbol scan → ld.lld → run
+                                      (minting direction only: `opt` legitimately
+                                       REMOVES symbols — measured 29 → 28)
 ```
 
 **Rule B-0 (RX-115) — the unit `npkc` accepts is a program root, and there is no
@@ -83,6 +89,56 @@ the baseline's, and anything in one and not the other is attributable to this
 library and fails the run. The baseline's set is committed, so a prelude change
 in a moving compiler is a visible one-line update rather than a mysterious red.
 Measured at `950bb1d`: baseline 29, consumer 29, symmetric difference empty.
+The baseline program and its two committed sets are `harness/baseline/`.
+
+**Rule B-2a (RX-120) — and the symbol difference is not enough, because it
+cannot see a syscall.** A second layer scans the **-O0 IR's call edges**: every
+`(enclosing function, callee)` pair whose callee is declared and not defined in
+the module. A pair the program has and the baseline does not was written here,
+and if its callee reaches the kernel or a descriptor it is a red run, named with
+the function it is in.
+
+The reason is measured, not argued. Two four-line programs at `950bb1d`
+differing only by a `sys(39i64)` call in `main`:
+
+| | undefined symbols | `call i64 @npk_sys6` sites |
+|---|---|---|
+| baseline | 29 | 2 |
+| the same program plus one `sys(…)` | 29 | 3 |
+
+The symmetric difference of the symbol sets is **empty**. `npk_sys6` is already
+in every object because the prelude's `ByteReader.seek` and `std_dup` call it,
+so **a program that starts making syscalls adds no symbol**, and B-2's first
+layer reports a clean run over it. Cycle 0.0.2's own acceptance item — *"a
+deliberately introduced `sys(…)` call fails `check_no_syscalls`, by name"* —
+could not have been met by the instrument that was specified for it.
+
+Three things the first run over the real suite forced, each of them a false
+positive on all sixteen probes:
+
+- **`llvm.*` is not the floor.** `llvm.sadd.with.overflow.i64` is declared,
+  never defined, and is an *instruction* — it reaches no symbol table.
+- **Compiler-generated glue is numbered and the number moves.** The baseline's
+  `npk.drop.365` is probe04's `npk.drop.367`; the trailing digits are not part
+  of a function's identity and are normalised away.
+- **The list is a DENY list, not a permit list.** A permit list has to swallow
+  `npk_trap`, the `defer` chain (`npk_chain_push`/`npk_chain_reset`), the
+  allocator and `npk_string_concat`, which is most of what any program calls.
+  What RX-008 forbids is *reaching the kernel*, and that is seven symbols:
+  `npk_sys6`, `npk_open`, `npk_read`, `npk_write`, `npk_ofd_close`,
+  `npk_io_register`, `npk_io_unwatch`.
+
+**Rule B-2b (RX-121) — both layers apply to an `nregex` PROGRAM, which is one
+whose module graph reaches `src/`.** RX-116's rule says *"every `nregex`
+program object"* and the distinction is load-bearing: `tests/probe/` holds
+**language** probes that import nothing from `src/` and never will
+(`tests/probe/README.md` P-1). They allocate, they trap, they `await`. Holding
+them to a library's zero-syscall rule costs the check its teeth — the residue
+over the sixteen is `npk_trap`, the `defer` chain, the allocator and
+`npk_string_concat`, and widening the rule to swallow those would swallow a
+real finding with them. **The harness says, per run, how many units the scans
+ran on and how many they did not**, because a check that quietly did not apply
+reads exactly like one that passed.
 
 **Rule B-3.** The optimised leg runs on every program, every time: the same
 program re-emitted through `opt -O2` + `llc -O2` must produce the **same exit
@@ -134,11 +190,52 @@ grammar, marker for marker:
 // expect-error-at: 14:9     // stress: 40
 ```
 
+Marker for marker means marker for marker: a line whose **stripped** form starts
+with `//`, the body dispatched on its **prefix**, the value the **whole** rest of
+the line. So `// see \`expect-exit: 94\`` is prose and
+`// expect-exit: 94 -- the OutOfBounds arm` is **unreadable**, not 94 — and a
+test whose expectation cannot be read is a failing test, never a silently
+defaulted one.
+
+**Rule B-5a (RX-122) — two expectations are refused at read time, and both are
+refusals of something that can never be met rather than a different judgement
+of something that can.**
+
+- **`expect-exit:` above 255.** An exit status is one byte: a process that
+  exits 321 reports **65**, silently, and the compiler's own reader accepts the
+  321 and then compares it against a number that can only be 0–255. Nothing in
+  this ecosystem carries such a value today (swept 2026-09-04), so this refuses
+  no test that exists; it refuses the one somebody writes next. A negative value
+  keeps `npkg`'s meaning — `run_binary` reports a killed process as
+  `0 - signal`, so `expect-exit: -11` is SIGSEGV — and below −64 there is no
+  such signal.
+- **`stress:` below 1.** `npkg` silently clamps it to one run
+  (`run_binary`: `if (runs < 1i64) { runs = 1i64; }` — read at the pin, not
+  assumed). That is not a hole there, and it is still a marker whose meaning is
+  quietly rewritten, which is what this grammar exists to prevent.
+
 **Rule B-6 — assert on codes and exit codes, never on message text.**
 
 **Rule B-7 — unexpected diagnostics fail a test as surely as missing ones**
 (D-237). The set of codes a rejection test reports must **equal** the set its
 expectations name.
+
+**And this one is load-bearing rather than tidy.** A missing or mistyped import
+exits **1** with `NITPICK-RESOLVE-005` — the very code a rejection fixture
+expects — so a rejection test whose fixture path is typo'd, or whose file is
+later moved, **passes for the wrong reason**: it wanted a refusal, it got a
+refusal, and the refusal was about the *path* rather than about the thing under
+test. Nothing anywhere reports it. Measured both ways in
+[`../../tests/conformance/TRANSCRIPT.txt`](../../tests/conformance/TRANSCRIPT.txt)
+§G. Every import here is relative until O-G3 closes (B-15), so a moved path is
+the **ordinary** case in this repository, not the exotic one. Code-set equality
+is the single thing that makes the hole unreachable, and the harness names
+`RESOLVE-005` specially when it fires so the reader is not left guessing.
+
+**Rule B-7a — a `negative` test that names no code is itself a failure.** Exit
+1 alone cannot tell "refused for the reason this test is about" from "the file
+was not there", so a rejection fixture without an `// expect-error:` asserts
+nothing at all.
 
 **Rule B-8 — the harness is itself tested.** A self-check feeds it wrong
 expectations and requires it to report every one as a failure, and it runs

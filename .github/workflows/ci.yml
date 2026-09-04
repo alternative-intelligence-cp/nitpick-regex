@@ -7,14 +7,15 @@
 # that are not its own. Bumping either pin is a deliberate commit, and the
 # commit that bumps it is the one that runs the full suite.
 #
-# WHAT THIS PROVES TODAY IS SMALL AND IS STATED HONESTLY. `harness/run.py` is a
-# STUB until cycle 0.0.2: it checks the toolchain and nothing else, and it says
-# so in its own output. A green run is evidence that the pinned compiler builds
-# from a clean checkout, that LLVM is exactly 20.1.2, and — through the LAST
-# step rather than through the harness — that the conformance consumer still
-# compiles, links and runs. It is NOT evidence about this library's behaviour,
-# because there is none yet and no test suite runs here.
-# When 0.0.2 lands the real runner, this file does not change.
+# WHAT THIS PROVES, UPDATED 2026-09-04 BY CYCLE 0.0.2 — and the file itself did
+# not change, which is what 0.0.1 predicted. `harness/run.py` is no longer a
+# stub. A green run is now evidence that the pinned compiler builds from a clean
+# checkout, that LLVM is exactly 20.1.2, and that all 24 declared units build,
+# link, run and are judged by their exit codes — the 16 probes twice each, at
+# -O0 and through `opt -O2`. It is still NOT evidence about this library's
+# BEHAVIOUR, because there is none yet: `src/` is a skeleton and nothing
+# matches. And it is not yet evidence that the runner can FAIL — the self-check
+# is cycle 0.0.3, and until it exists `meta/specs/TESTING.md` V-21 applies.
 #
 # FIRST GREEN: run 33835762747, 2026-09-04, on `main` at c7b8711, 8m48s.
 #

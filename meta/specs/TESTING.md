@@ -32,10 +32,26 @@ This is worth stating because it removes the largest structural risk from every
 other library in this ecosystem. The only external inputs are the pattern and
 the haystack, both of which a test supplies.
 
-**Rule V-2 — the harness asserts that.** The undefined-symbol scan
-(`BUILD.md` B-2) is held to a **committed expected symbol list**: the
-allocator, `memcpy`/`memset`, and the string primitives. A syscall appearing in
-a `nregex` object is a red run.
+**Rule V-2 — the harness asserts that, in two layers, and the first one alone
+cannot.** `BUILD.md` B-2 and B-2a:
+
+1. the object's **undefined-symbol set** must equal an empty baseline
+   program's (RX-116) — this catches a floor symbol the library newly *needs*;
+2. the **-O0 IR's call edges** to the floor must contain no edge, absent from
+   the baseline, whose callee reaches the kernel or a descriptor (RX-120) —
+   this catches a floor symbol the library newly *calls*.
+
+**The second exists because the first is blind to a syscall.** Measured at
+`950bb1d`: a program with a `sys(39i64)` call in `main` has the *same* 29
+undefined symbols as one without, because `npk_sys6` is already the prelude's.
+It has one more `call i64 @npk_sys6` site, and that site is in `main`. A
+syscall appearing in an `nregex` object is a red run — and it is layer 2 that
+says so.
+
+Both layers apply to programs whose module graph reaches `src/` (RX-121). The
+language probes in `tests/probe/` import nothing from `src/` and never will, so
+the rule is not about them; the harness reports how many units each scan ran
+on, because a check that quietly did not apply reads like one that passed.
 
 ---
 
@@ -173,7 +189,7 @@ run on every full invocation.
 | `check_hir_kinds_total` | the same for `HirKind` |
 | `check_layering` | every `use` edge against `BUILD.md` §6, including the oracle's restriction |
 | `check_constants_named` | no bound outside `src/core/limits.npk` |
-| `check_no_syscalls` | the object's undefined symbols against the committed list |
+| `check_no_syscalls` | the object's undefined symbols, **and the IR's floor call edges**, against the committed baseline — RX-116 and RX-120, §2 |
 | `check_byte_class_partition` | `COMPILE.md` C-9's property, over every corpus program |
 | `check_specs_current` | reports, does not fail: spec citations that no longer resolve |
 
@@ -192,6 +208,9 @@ requires it to report every one as a failure:
 - a `program` case with the wrong `expect-exit`;
 - a `check` case expecting a code the compiler does not report;
 - a `check` case reporting a code no expectation names (the D-237 rule);
+- a `check` case whose **fixture path is mistyped** — it exits 1 with
+  `NITPICK-RESOLVE-005`, which is a refusal, and only the D-237 rule tells it
+  from the refusal the test is about (`BUILD.md` B-7);
 - a corpus fixture whose expected offsets are off by one;
 - a corpus fixture that passes under one engine and fails under another —
   **the case that proves V-11 is doing work**;

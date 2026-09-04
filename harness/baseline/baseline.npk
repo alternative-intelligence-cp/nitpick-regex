@@ -1,0 +1,46 @@
+// THE BASELINE PROGRAM. Rule B-2's other half, and the reason it exists is
+// measured rather than stylistic (RX-116).
+//
+// `check_no_syscalls` was specified as an absolute allowlist -- "the allocator,
+// memcpy/memset, the string primitives". A PROGRAM CONTAINING NO LIBRARY CODE
+// AT ALL FAILS THAT CHECK: this file's object has 29 undefined symbols,
+// including `npk_open`, `npk_read`, `npk_write` and `npk_sys6`. They are the
+// PRELUDE's, emitted into every translation unit, and `nregex` calls none of
+// them. So the check is a DIFFERENCE against this file rather than a list, and
+// anything a program object has that this one does not was written here.
+//
+// It imports nothing on purpose: the moment it imports anything, it stops
+// being the floor and starts being a test.
+//
+// THE FOUR NAMED ARMS ARE NOT DECORATION. An empty `main` and a bare `(*)` is
+// refused four times over -- NITPICK-REACH-002 for `Unreachable`, `HeapOom`,
+// `HeapBadRequest` and `WildLeak`, each saying "`(*)` counts for nothing here".
+// Every Nitpick program owes those four before it has done anything at all,
+// which is the cheapest possible demonstration of what `SAFETY.md` §4 means by
+// an error budget. The consumer at `tests/conformance/import.npk` owes two more
+// (`IntOverflow`, `OutOfBounds`) because it does arithmetic and indexing, plus
+// exactly one of this library's (`ERegexPattern`).
+//
+// The exit codes match `tests/conformance/import.npk`'s, so a reader who has
+// seen 91..99 once has seen them everywhere in this repository.
+mod:baseline;
+
+func:main = int32(int32:argc, cstring[]:argv) {
+    // `_~argv` would mark the parameter DISCARDED and reading it would be
+    // NITPICK-TYPE-007; `discard(x)` marks it USED, and the parentheses are
+    // mandatory.
+    discard(argc);
+    discard(argv);
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

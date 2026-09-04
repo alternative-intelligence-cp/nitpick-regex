@@ -405,3 +405,26 @@ $ $NPKC no_such_root.npk
 
     This is the scenario §F originally attributed to a `use`. It is a malformed
     command line, and it is reached by the command line alone.
+
+=== H. WHAT CYCLE 0.0.2 MEASURED AGAINST SECTION D, AND WHERE IT LIVES ===
+
+Added 2026-09-04. NOTHING ABOVE IS EDITED. Section D2 established the
+differential form of the undefined-symbol scan and measured it: baseline 29,
+consumer 29, symmetric difference empty. All of that still holds and was
+re-measured today by `harness/elf.py`, which reads the ELF64 symbol table
+directly and agrees with `llvm-nm --undefined-only` symbol for symbol -- 29
+against 29, identical sets, and 201 defined symbols in npkrt.o, matching D3.
+
+WHAT 0.0.2 ADDED IS A SECOND QUESTION SECTION D COULD NOT ASK. The difference
+in D2 CANNOT SEE A SYSCALL. Two four-line programs at this same pin, differing
+only by a `sys(39i64)` call in `main`:
+
+    baseline    29 undefined symbols   2 `call i64 @npk_sys6` sites
+    syscaller   29 undefined symbols   3 `call i64 @npk_sys6` sites
+    symmetric difference of the symbol sets: EMPTY
+
+`npk_sys6` is already in every object -- the prelude's `ByteReader.seek` and
+`std_dup` call it -- so a program that starts making syscalls adds no symbol.
+The full commands, their exit codes and the three false positives the first run
+over the real suite produced are in `meta/roadmap/0.0/0.0.2.md` sections 5 and
+6, and the rules are `BUILD.md` B-2a and B-2b (RX-120, RX-121).

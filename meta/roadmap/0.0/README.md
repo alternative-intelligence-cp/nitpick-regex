@@ -37,7 +37,7 @@ settled. **Nothing in this cycle is blocked on a question.**
 | [0.0.0](0.0.0.md) | **The language probes** — fourteen programs asking whether the design is spellable | a recorded verdict per probe, and any design change the answers force |
 | [0.0.1](0.0.1.md) | **The skeleton** — the module layout, `src/lib.npk`, the manifest's first test entries, CI | `npkc` compiles an empty library and a program that imports it |
 | [0.0.2](0.0.2.md) | **The harness, part 1** — build, the `program` stage, the toolchain pin, the no-syscall scan | one test program builds, links, runs, and its exit code is judged |
-| [0.0.3](0.0.3.md) | **The harness, part 2** — `parse`, `accept`, `check`; the self-check; the tree checks | the self-check proves the harness can fail, seven ways |
+| [0.0.3](0.0.3.md) | **The harness, part 2** — `parse`, `accept`, `check`; the self-check; the tree checks | the self-check proves the harness can fail, eleven ways |
 | [0.0.4](0.0.4.md) | **`src/core/`** — `Vec<T>`, `Bytes`, `ByteSet`, `SparseSet`, `limits.npk` | four primitives with their own suites and their obligations written |
 | [0.0.5](0.0.5.md) | **Close** — the findings, the spec amendments the probes forced, the handoff to 0.1 | `done/0.0/`, and 0.1 openable by a fresh session |
 
@@ -111,27 +111,49 @@ settled. **Nothing in this cycle is blocked on a question.**
       which probe 08b refuted at 0.0.0 (RX-111), and its "What this is" section was empty.
 
 ### 0.0.2 — the harness, part 1
-- [ ] `harness/run.py`: the manifest reader, the toolchain pin check, the module-graph walk
-- [ ] the build pipeline — `npkc` → `opt` (check leg) → `llc` → the undefined-symbol scan → `ld.lld`
-- [ ] the undefined-symbol scan against the runtime allowlist, as a **build step** and not a test (B-2)
-- [ ] **`check_no_syscalls`**: the object's undefined symbols held to a committed expected list — the allocator, `memcpy`/`memset`, the string primitives. A syscall in a `nregex` object is a red run (RX-008)
-- [ ] the `program` stage, at -O0 and again under `opt -O2`, same exit required (B-3)
-- [ ] `// expect-exit:` and `// stress: N` honoured
-- [ ] the `repro` check: two builds from different working directories, byte-identical IR
-- [ ] one real program green — probe 01, run as a `program`-stage entry
-- [ ] **split `tests/probe/` by kind and declare both entries** (RX-119). 16 of
-      the 23 probes carry `expect-exit:` and 7 carry `expect-error:`, and no
-      single `[[test]]` entry can judge both — `run_program` does not skip a
-      file with `expect-error` and `run_compile`'s `kind` selects the checker,
-      not the file set. `nitpick.toml` carries the three-entry shape ready to
-      uncomment. Moving the seven into `tests/probe/refused/` also moves paths
-      that cycle 0.0.0's verified record cites, so record the move there
+- [x] `harness/run.py`: the manifest reader, the toolchain pin check, the module-graph walk
+      **DONE** — six modules (`manifest`, `toolchain`, `expect`, `elf`, `irscan`, `build`, `stages`)
+      plus the driver. The manifest reader is the compiler's subset with the compiler's schema, and
+      refuses a key the schema lacks; the toolchain check asks `llc`, `opt` and `ld.lld` themselves.
+- [x] the build pipeline — `npkc` → `opt` (check leg) → `llc` → the undefined-symbol scan → `ld.lld`
+      **DONE, with the IR call-edge scan inserted between `npkc` and `llc`** (B-2a). `BUILD.md` §2's
+      diagram is amended to the order the runner actually uses.
+- [~] ~~the undefined-symbol scan against the runtime allowlist~~ — **STRUCK: there is no runtime
+      allowlist and there cannot be one.** RX-116 replaced it with a difference against a committed
+      baseline before this subcycle started; the scan **is** a build step, as this line asked
+      (B-2, P-11), and it reads the ELF64 symbol table with `struct` rather than spawning a fourth
+      tool. Verified against `llvm-nm --undefined-only`: 29 = 29, identical sets.
+- [~] ~~**`check_no_syscalls`**: the object's undefined symbols held to a committed expected list~~
+      — **STRUCK AND REPLACED, and the replacement is the subcycle's main finding.** The committed
+      list was already dead (RX-116). The *difference* that replaced it **also cannot see a
+      syscall**: measured at the pin, a program with `sys(39i64)` in `main` has the same 29
+      undefined symbols as one without, because `npk_sys6` is already the prelude's. So
+      `check_no_syscalls` is now **two** layers — the symbol difference, and an IR call-edge scan
+      that names the function (**RX-120**). RX-008's rule is unchanged; both layers apply to
+      programs whose graph reaches `src/` (**RX-121**), and the runner says per run how many that
+      was.
+- [x] the `program` stage, at -O0 and again under `opt -O2`, same exit required (B-3)
+      **DONE** — 16 probes, both legs, same exit.
+- [x] `// expect-exit:` and `// stress: N` honoured
+      **DONE, marker for marker with `npkg/expect.npk`** — including `expect-error-at:`,
+      `expect-note:`, `argv:` and the "a number that cannot be read makes the test FAIL" rule.
+      Two values are refused that the compiler's reader accepts, both unsatisfiable rather than
+      merely odd (**RX-122**).
+- [x] the `repro` check: two builds from different working directories, byte-identical IR
+      **DONE, and seen to fail** — §6 D4.
+- [x] one real program green — probe 01, run as a `program`-stage entry
+      **DONE, and all sixteen are**, plus the conformance consumer and the seven refusals.
+- [x] **split `tests/probe/` by kind and declare both entries** (RX-119).
+      **DONE.** The seven `expect-error:` probes are in `tests/probe/refused/`; both entries are
+      declared and live; `recursive` defaulting false is what keeps them disjoint. Cycle 0.0.0's
+      verified record is **not** rewritten — the redirect table is `0.0.2.md` §4, in the pattern
+      RX-114 set.
 
 ### 0.0.3 — the harness, part 2
 - [ ] the `parse` stage over every `.npk` in the tree, each file once
 - [ ] the `accept` and `check` stages, with the **exact-code** rule (B-7)
 - [ ] `--only`, and output that says twice that a filtered run concludes nothing
-- [ ] `harness/selfcheck.py` with all seven cases from `specs/TESTING.md` V-20, two of them pending until the corpus stage exists at 0.5
+- [ ] `harness/selfcheck.py` with all **eleven** cases (`0.0.3.md` §3, amended by 0.0.2), three of them pending until the corpus stage exists at 0.5; two already have committed fixtures under `harness/selfcheck/`
 - [ ] the self-check runs **first** in every full invocation
 - [ ] `check_layering` — every `use` edge against `specs/BUILD.md` §6, **including the oracle's restriction** (B-17), which will have nothing to check yet and is the right answer
 - [ ] `check_constants_named` and `check_error_budget` live
@@ -156,7 +178,7 @@ settled. **Nothing in this cycle is blocked on a question.**
 
 ## Gate
 
-A full `harness/run.py` green; the self-check proving the harness fails seven
+A full `harness/run.py` green; the self-check proving the harness fails eleven
 ways; `check_no_syscalls` green over a real object; `src/core/`'s four
 primitives each with a suite; and every probe with a recorded verdict whose
 consequences are written into the specifications.
