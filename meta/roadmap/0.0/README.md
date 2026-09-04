@@ -92,6 +92,13 @@ settled. **Nothing in this cycle is blocked on a question.**
 - [ ] `// expect-exit:` and `// stress: N` honoured
 - [ ] the `repro` check: two builds from different working directories, byte-identical IR
 - [ ] one real program green — probe 01, run as a `program`-stage entry
+- [ ] **split `tests/probe/` by kind and declare both entries** (RX-119). 16 of
+      the 23 probes carry `expect-exit:` and 7 carry `expect-error:`, and no
+      single `[[test]]` entry can judge both — `run_program` does not skip a
+      file with `expect-error` and `run_compile`'s `kind` selects the checker,
+      not the file set. `nitpick.toml` carries the three-entry shape ready to
+      uncomment. Moving the seven into `tests/probe/refused/` also moves paths
+      that cycle 0.0.0's verified record cites, so record the move there
 
 ### 0.0.3 — the harness, part 2
 - [ ] the `parse` stage over every `.npk` in the tree, each file once

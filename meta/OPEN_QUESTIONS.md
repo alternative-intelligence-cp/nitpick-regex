@@ -133,8 +133,11 @@ below is DEF-3's future rule.
   may travel.** A wild pointer, a slice and a `cstring` are pointer-shaped, so
   `string_from_bytes(buf, n)` over an alloc'd block, returned, **stays legal**.
   So does `probe06b`'s subrange of a `uint8[]` parameter.
-- **a view of a TEMPORARY is refused outright** — as `NITPICK-BORROW-001`,
-  because **DEF-3 introduces no new diagnostic code**:
+- **a view of a TEMPORARY is refused outright**, `NITPICK-BORROW-012` — the
+  **one** code DEF-3 adds, because `@` of a temporary cannot be spelled so no
+  existing code's text is true of it. **It is not in the pinned toolchain**
+  (DEF-3 step 2, unlanded; `BORROW-011` is the highest at `950bb1d`), so
+  grepping the pin for it finds nothing and that is expected:
   `string_bytes(string_concat(a, b))` returned must bind the intermediate first.
   That composes with D-246 — the `string_concat` is an owning temporary that
   leaks today — so the shape is doubly wrong and both faults have one fix.

@@ -668,12 +668,28 @@ root** formulation (a wild pointer, a slice, a `cstring`) is DEF-3's *future*
 rule, not today's. Under either, 06b is **confirmation that the naive fix was
 avoided**, not a new request. The shape that will change under DEF-3 is
 a view of a **temporary**: `string_bytes(string_concat(a, b))` returned becomes
-`NITPICK-BORROW-001` — **DEF-3 introduces no new diagnostic code**; every
-refusal it adds is the existing `BORROW_RETURNED`
-(`src/frontend/analysis/analysis_codes.npk:24`, and the highest borrow code
-allocated at `950bb1d` is `NITPICK-BORROW-011`). D-246 already requires binding
-that intermediate because the `string_concat` is an owning temporary that leaks
-today.
+**`NITPICK-BORROW-012`**, and D-246 already requires binding that intermediate
+because the `string_concat` is an owning temporary that leaks today.
+
+> **`NITPICK-BORROW-012` CANNOT BE REPRODUCED AGAINST THE PINNED TOOLCHAIN, AND
+> ITS ABSENCE THERE IS NOT EVIDENCE.** It is allocated by DEF-3's **step 2** and
+> exists only in the compiler's unlanded worktree commit; at `950bb1d` the
+> highest allocated borrow code is `NITPICK-BORROW-011`
+> (`src/frontend/analysis/analysis_codes.npk:106`), and a grep of the pin finds
+> nothing. This subcycle greped the pin, found nothing, and briefly recorded the
+> code as non-existent — twice wrong in one line, once in each direction.
+> *Sourced from the compiler session through the coordinator; not verifiable
+> from this repository until the re-pin.*
+>
+> The distinction it marks is real. DEF-3's plan said it adds no new code, and
+> that holds for **every refusal shaped like "as if `@` had been written at that
+> argument"** — a view of a local returned, held in a literal, laundered through
+> a call, stored through a pointer parameter — all `BORROW-001`/`002`. Writing
+> the rule found the one shape the `@`-equivalence has no arm for: **`@` of a
+> temporary cannot be spelled**, so no existing code's text is true of it and
+> tracking it would need a root with no name. It refuses outright, telling the
+> author to bind the value first, after which the view is a borrow of that
+> binding and is checked like any other.
 
 *And the house rule is restated at the right strength.* `nitpick-time`'s "a view
 is a parameter, never a return value" was deliberately conservative, written
@@ -969,3 +985,55 @@ was found when a probe written to **confirm** a specification sentence refuted
 it. This one was found when a claim arrived by relay and was checked against
 `TYPE_REFERENCE.md` before being written down. Both times the sentence was
 plausible and wrong, and both times the cost of checking was minutes.
+
+### RX-119 — the probe suite is not declared in the manifest yet, because no single `[[test]]` entry can judge it
+**2026-09-03, from writing the manifest's first entries and reading the runner
+that will one day consume them.**
+
+`0.0.1.md` §3 step 3 asked for two entries: `conformance` at
+`compile`/`positive`, and `probe` at stage `program` over `tests/probe`. The
+first is written and is exercised by this subcycle. **The second cannot be
+written truthfully.**
+
+`tests/probe/` holds 23 files, and they are not one kind: **16 carry
+`expect-exit:` and 7 carry `expect-error:`** — probe02b, probe09, probe12b and
+the four probe13s are *refusals*, and being refused is the whole point of each.
+Read in `npkg/suites.npk` at `950bb1d`, which is the runner the harness must
+stay compatible with (B-4a):
+
+- **`files_of` (:549) takes `path`/`paths` as directories**, listing by suffix;
+  `recursive` defaults false, so a subdirectory is excluded.
+- **`run_program` (:779) judges every file it finds**, skipping only those
+  another file in the suite imports. It does **not** skip a file carrying
+  `expect-error`, so the seven refusals would be built as programs and fail.
+- **`run_compile` (:608) does not filter by expectation either.** `kind`
+  selects the checker (`check_positive` / `check_negative` / `check_diagnostic`)
+  and not the file set, so a `positive` entry and a `negative` entry over the
+  same directory each judge all 23 rather than 16 and 7.
+
+So a mixed directory is not expressible, and the compiler's own answer is a
+directory per kind.
+
+*Therefore:* the entry is **written out in `nitpick.toml` as a comment**, with
+this evidence and the exact three-entry shape it becomes, and **cycle 0.0.2
+makes the split**, because 0.0.2 builds the runner and the split is a runner
+decision. `0.0/README.md`'s 0.0.2 checklist gains the item.
+
+*Why not just move the seven files now.* The move is right and it is small —
+`tests/probe/refused/`, seven files, content unchanged. What stopped it here is
+that those paths are cited by **cycle 0.0.0's execution record**, which is a
+closed, independently verified artifact (RX-114), and moving files out from
+under a verified record is a larger step than a subcycle should take without
+being asked. It costs nothing to defer: nothing reads this manifest today, and
+`npkg` cannot build this library at all (O-G3).
+
+*Alternatives declined:* declaring `probe` at `program` over the mixed
+directory anyway, since nothing reads the manifest (that is precisely the
+"manifest that appears when the tooling arrives is a manifest nobody reviewed"
+failure the file's own header was written to prevent, and a knowingly-false
+declaration is worse than an absent one); teaching **our** harness to skip a
+`program`-stage file carrying `expect-error` (it would work, and it silently
+diverges our stage vocabulary from the compiler's, which is the one thing
+`BUILD.md` §3 exists to prevent — the migration to `npkg` is supposed to be a
+change of runner, not of suite); listing the sixteen paths explicitly (`path`
+names a directory, not a file — `files_of` lists by suffix).

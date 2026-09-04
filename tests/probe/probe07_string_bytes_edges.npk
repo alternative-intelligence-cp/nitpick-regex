@@ -44,9 +44,11 @@
 //     program below: `borrows_only_param_rooted` (escape.npk:507, called at
 //     :425) asks whether every borrow is rooted at a PARAMETER of the current
 //     function;
-//   * a view of a **TEMPORARY** is refused outright, as `NITPICK-BORROW-001` --
-//     DEF-3 adds NO new diagnostic code, and `BORROW-011` is the highest one
-//     allocated at `950bb1d`:
+//   * a view of a **TEMPORARY** is refused outright, `NITPICK-BORROW-012` -- the
+//     ONE code DEF-3 adds, since `@` of a temporary cannot be spelled and no
+//     existing code's text is true of it. NOT IN THE PINNED TOOLCHAIN (DEF-3
+//     step 2, unlanded; `BORROW-011` is the highest at `950bb1d`), so a grep of
+//     the pin finding nothing is expected and is not evidence of absence:
 //     `string_bytes(string_concat(a, b))` returned must bind the intermediate
 //     first. That composes with D-246 — the `string_concat` is an owning
 //     temporary that leaks today as well — so the shape is doubly wrong and

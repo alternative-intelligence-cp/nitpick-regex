@@ -54,10 +54,50 @@ lld-flags     = ["-static"]
 # entry naming a directory with nothing in it is a suite that reports green
 # while checking nothing, which is the failure this table exists to prevent.
 # The stages are the compiler's (BUILD_REFERENCE §7.1) and the expectation
-# grammar lives inside each test file.
+# grammar lives inside each test file. Suites run in the order written here.
+
+# Cycle 0.0.1's entry, and the only live one. `compile`/`positive` means
+# "compiles, links, runs, and exits with the expected code" -- which is what
+# this suite needs and what the `accept` stage cannot do (RX-117: `accept` is
+# judged by the compiler's own tools/check, which RX-007 forbids importing,
+# and it neither links nor runs).
+[[test]]
+name  = "conformance"
+stage = "compile"
+kind  = "positive"
+path  = "tests/conformance"
+
+# THE PROBE SUITE IS NOT DECLARED YET, AND THE REASON IS MEASURED RATHER THAN
+# STYLISTIC (RX-119). `tests/probe/` holds 23 files: 16 carry `expect-exit:`
+# and 7 carry `expect-error:` -- they are refusals, and a refusal is the whole
+# point of probe09, probe12b and the four probe13s.
+#
+# No single entry can judge that directory. Read in npkg/suites.npk at 950bb1d:
+#   * `files_of` (:549) takes `path`/`paths` as DIRECTORIES and lists files by
+#     suffix; `recursive` defaults false, so a subdirectory is excluded.
+#   * `run_program` (:779) judges every file it finds, skipping only those
+#     imported by another; it does NOT skip a file carrying `expect-error`, so
+#     the 7 refusals would be run as programs and fail.
+#   * `run_compile` (:608) does not filter by expectation either -- `kind`
+#     selects the checker, not the file set -- so a `positive` entry and a
+#     `negative` entry over one directory each judge all 23.
+#
+# The compiler's own convention is a directory per kind. Adopting it means
+# moving the 7 into `tests/probe/refused/`, which is 0.0.2's to decide because
+# 0.0.2 builds the runner -- and because those paths are cited by cycle 0.0.0's
+# execution record, which is a verified artifact this subcycle would not move
+# unasked. The shape it becomes, ready to uncomment:
 #
 # [[test]]
-# name = "conformance"
+# name  = "probe"
+# stage = "program"
+# path  = "tests/probe"              # the 16 that compile, link and run
+#
+# [[test]]
+# name  = "probe-refused"
 # stage = "compile"
-# kind = "positive"
-# path = "tests/conformance"
+# kind  = "negative"
+# path  = "tests/probe/refused"      # the 7 that are refused by name
+#
+# Declaring either one today would name a directory whose contents it cannot
+# judge, which is the same failure as naming an empty one.
