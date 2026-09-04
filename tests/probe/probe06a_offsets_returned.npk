@@ -1,0 +1,172 @@
+// expect-exit: 0
+//
+// PROBE 06a — OFFSETS TRAVEL UP. The half of probe 06 that is expected to be
+// ACCEPTED, and the shape the whole API rests on.
+//
+// ASKS: does a function that takes a `uint8[]` and returns
+// `struct:Match = { int64:lo; int64:hi; }` -- offsets, not a view -- compile and
+// run? And does the `Match?` form `API.md` §2 actually specifies work too?
+//
+// DEPENDS ON THE ANSWER: RX-050, and through it every entry point in `API.md`.
+// `regex_find` returns `Match?`; `Match` carries byte offsets precisely because
+// a borrow cannot travel up the call stack (D-004 rule 2). If this half failed
+// the library would have no way to report WHERE a match was.
+//
+// `Match.end` DOES NOT PARSE -- `end` is a reserved word -- so the fields are
+// `lo` and `hi`, which is `CLAUDE.md`'s ecosystem-wide substitution and not a
+// local invention.
+//
+// AND ONE THING THIS PROBE GOT WRONG FIRST, WHICH IS WHY IT IS WRITTEN DOWN:
+// AN `Optional` IS NOT DESTRUCTURED BY A `pick`. The first draft of this file
+// wrote `pick (m) { (NIL) { }, (Match:g) { … } }` -- the obvious reading of
+// `Match?` for anyone coming from a language with sum types -- and it is
+// `NITPICK-PARSE-005`:
+//
+//   a pattern matches a value, and this is a type name; write the value to
+//   compare against — `(0i32)` — or `(*)` for any
+//
+// `TYPE_REFERENCE.md` §11.1 is explicit and easy to miss: **an `Optional` has no
+// readable members**, `.has_value` and `.value` are IR field names with no
+// source surface, and the two accessors "that cannot be wrong" are `== NIL` and
+// `??`. So the caller's shape for `regex_find` is a NIL test and a coalesce, not
+// a match arm -- which is `API.md` §2's business, because every example in it
+// shows a caller reading a `Match?`.
+mod:probe06a_offsets_returned;
+
+// `API.md` §2's return type. Two integers: it owns nothing, borrows nothing,
+// and is therefore returnable, copyable and storable in an array.
+struct:Match = {
+    int64:lo;
+    int64:hi;      // EXCLUSIVE, matching `...`'s own convention
+};
+
+// The shape of every search entry point: a view DOWN, offsets UP.
+func:find_byte = Match?(uint8[]:src, uint8:want, int64:from) never fails {
+    int64:i = from;
+    while (i < src.len) {
+        if (src[i] == want) {
+            // Built by struct literal at the point of return. Nothing here
+            // refers to `src`; the caller re-derives the bytes from its own
+            // storage using these two numbers.
+            pass Match{ lo: i, hi: i + 1i64 };
+        }
+        i = i + 1i64;
+    }
+    pass NIL;
+};
+
+// A run of equal bytes -- a `Match` spanning more than one, so the `hi` field
+// is doing work rather than being `lo + 1` forever.
+// There is no `break`, so the inner scan carries an explicit `go` flag. The
+// first draft folded the exit into the loop variable -- `j = src.len + 1` as a
+// sentinel -- and lost the run's end doing it, reporting a span of 9 where the
+// run was 1. It is written out here because the same shape recurs in every
+// engine in `ENGINES.md`: a scan that must report WHERE it stopped cannot use
+// its cursor as its own flag.
+func:find_run = Match?(uint8[]:src, uint8:want, int64:from) never fails {
+    int64:i = from;
+    while (i < src.len) {
+        if (src[i] == want) {
+            int64:j = i;
+            bool:go = true;
+            while (go) {
+                if (j >= src.len)       { go = false; }
+                else {
+                    if (src[j] != want) { go = false; }
+                    else                { j = j + 1i64; }
+                }
+            }
+            pass Match{ lo: i, hi: j };
+        }
+        i = i + 1i64;
+    }
+    pass NIL;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    string:s = string_concat("abcaa", "bXbb");     // "abcaabXbb", 9 bytes
+    uint8[]:v = string_bytes(s);                   // the owner is ALIVE
+    if (v.len != 9i64)                                  { exit 10i32; }
+
+    // ---- the `Match?` present case ---------------------------------------
+
+    Match?:m = raw find_byte(v, 88u8, 0i64);            // 'X' at index 6
+    // Present is tested with `== NIL`, and the value is taken with `??` and a
+    // default that says "absent" in the library's own vocabulary. There is no
+    // truthiness (TYPE-007) and no arm form.
+    if (m == NIL)                                       { exit 11i32; }
+    Match:g = m ?? Match{ lo: -1i64, hi: -1i64 };
+    if (g.lo != 6i64)                                   { exit 12i32; }
+    if (g.hi != 7i64)                                   { exit 13i32; }
+    int64:lo = g.lo;
+
+    // The offsets index the CALLER'S storage, which is the whole point: the
+    // caller still owns `s`, and reading `v[lo]` gives back the matched byte.
+    if (v[lo] != 88u8)                                  { exit 14i32; }
+
+    // ---- the `Match?` absent case ----------------------------------------
+
+    Match?:none = raw find_byte(v, 122u8, 0i64);        // 'z' is not there
+    if (none != NIL)                                    { exit 20i32; }
+    // And the coalesce hands back the default, which is how a caller writes
+    // "no match" without ever naming an unchecked read.
+    Match:dflt = none ?? Match{ lo: -1i64, hi: -1i64 };
+    if (dflt.lo != -1i64)                               { exit 21i32; }
+
+    // ---- a multi-byte span ------------------------------------------------
+
+    // "abcaabXbb": 'a' at 0 is a run of ONE.
+    Match?:r = raw find_run(v, 97u8, 0i64);
+    if (r == NIL)                                       { exit 30i32; }
+    Match:rg = r ?? Match{ lo: -1i64, hi: -1i64 };
+    if (rg.lo != 0i64)                                  { exit 31i32; }
+    if (rg.hi != 1i64)                                  { exit 32i32; }
+
+    // "aa" at index 3 -- a run of TWO, so `hi` is doing work rather than being
+    // `lo + 1` forever, and an EXCLUSIVE `hi` is checked against a real span.
+    Match?:r2 = raw find_run(v, 97u8, 1i64);
+    Match:rg2 = r2 ?? Match{ lo: -1i64, hi: -1i64 };
+    if (rg2.lo != 3i64)                                 { exit 33i32; }
+    if (rg2.hi != 5i64)                                 { exit 34i32; }
+    if ((rg2.hi - rg2.lo) != 2i64)                      { exit 35i32; }
+
+    // The run at the very end of the input: 'b' at 7..9, where the inner scan
+    // stops because it ran out of bytes rather than because it saw a different
+    // one. That is the branch a sentinel-in-the-cursor version gets wrong.
+    Match?:r3 = raw find_run(v, 98u8, 7i64);
+    Match:rg3 = r3 ?? Match{ lo: -1i64, hi: -1i64 };
+    if (rg3.lo != 7i64)                                 { exit 36i32; }
+    if (rg3.hi != 9i64)                                 { exit 37i32; }
+
+    // ---- a `Match` is copyable and storable -------------------------------
+
+    Match:a = Match{ lo: 3i64, hi: 5i64 };
+    Match:b = a;                                        // binding-to-binding
+    a.lo = 99i64;
+    if (b.lo != 3i64)                                   { exit 40i32; }
+    if (#size_of<Match>() != 16i64)                     { exit 41i32; }
+
+    // The library's own convention, checked once so it is written down
+    // somewhere executable: `hi` is EXCLUSIVE, so a match's length is
+    // `hi - lo` and an empty match is `hi == lo`.
+    if ((b.hi - b.lo) != 2i64)                          { exit 42i32; }
+
+    // D-151 counts `wild` blocks and neither it nor D-188 sees a managed body.
+    // This program takes no `wild` bytes at all; `s`'s body is managed and dies
+    // with the binding at scope exit, so exit 0 says nothing about it either
+    // way. There is nothing here for it TO say -- one string, one scope.
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

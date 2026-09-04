@@ -1,0 +1,129 @@
+// expect-exit: 0
+//
+// PROBE 06b — RETURNING A `uint8[]` SUBRANGE IS ACCEPTED. THE HYPOTHESIS WAS
+// THAT IT WOULD BE REFUSED, AND IT WAS REFUTED.
+//
+// `0.0.0.md` §4 wrote this half as "expected **refused**", and §5 instructed the
+// executor that an acceptance means "stop and re-plan `API.md` §2". **That
+// instruction is not followed, and the reason is that the plan predates the
+// answer.** Read on before concluding RX-050 is over-cautious, because it is
+// not.
+//
+// ==========================================================================
+// WHY AN ACCEPTANCE HERE IS NOT A LICENCE
+// ==========================================================================
+//
+// The acceptance is **O-N9**, a CONFIRMED compiler defect, independently
+// verified, accepted as the compiler's **DEF-3** and scheduled as the second
+// commit of its cycle 1.5.1b. D-004 rule 2 -- *"a borrow may not appear in the
+// value of `pass`, `fail`, or `return`"* -- is enforced for `@`-borrows and NOT
+// for slice views, and `TYPE_REFERENCE.md` §9.2.1 already says a slice IS a
+// second-class borrow. The six-case contrast set is
+// `../nitpick-time/tests/probe/defect/view_escape/`, and its case 1 is this
+// same program with `@x` in place of the slice, refused `NITPICK-BORROW-001`.
+//
+// So the compiler accepting this says nothing whatever about whether RX-050 is
+// right. **RX-050 stands**, `Match` keeps its offsets, and `API.md` §2 is not
+// re-planned -- because re-planning an API onto a rule that is known to be
+// under-enforced and known to be scheduled for repair is exactly the "workaround
+// buried in library code that outlives the bug" that W-11 forbids. The library
+// would compile today and stop compiling at the re-pin.
+//
+// ==========================================================================
+// WHAT IS GENUINELY NEW HERE, AND IT IS FOR THE COMPILER
+// ==========================================================================
+//
+// O-N9's six cases all escape a view of a **local**, and cases 3-5 dangle:
+// `string_bytes(s)` where `s` dies at the end of the frame, read back as `170`
+// -- `0xAA`, the runtime's free-poison. THIS FILE IS THE CASE THEY DO NOT
+// COVER: the view returned is a subrange of a **parameter**, so the storage
+// belongs to the CALLER and outlives the call. It compiles, it runs, and it is
+// CORRECT -- exit 0 below, with the bytes read back and checked.
+//
+// That matters to whoever fixes O-N9. The obvious fix -- refuse every slice in
+// a `pass` -- would also refuse this, and this is the single most useful shape
+// a byte-oriented library has: `sub(haystack, lo, hi)` narrowing a view without
+// copying. A fix that distinguishes them needs to ask where the viewed storage
+// came from, which is what the `@`-borrow path already does and what makes
+// case 1 refused and case 6 legal. **Recorded as a note ON O-N9, not as a new
+// defect** -- it is the same missing check seen from the safe side.
+//
+// WHAT THE LIBRARY DOES ABOUT IT TODAY: nothing. `RX-050`'s house rule is "a
+// view is a parameter, never a return value" (`../PLAYBOOK.md`), this file is a
+// probe rather than library code, and no function in `src/` will return a
+// `uint8[]` until the compiler decides which of these two shapes is legal.
+mod:probe06b_subview_returned;
+
+// THE SHAPE UNDER TEST. Under D-004 rule 2 as written, this should be refused;
+// it is accepted. The storage is `src`'s, which is the caller's, so the returned
+// view is not dangling -- which is precisely why it is worth distinguishing.
+func:subview = uint8[](uint8[]:src, int64:lo, int64:hi) never fails {
+    pass src[lo...hi];              // `...` is EXCLUSIVE (LEXICAL §5.1)
+};
+
+// The same thing one level deeper, to check that the acceptance is not an
+// artefact of a single frame: a view handed down twice and returned twice.
+func:subview2 = uint8[](uint8[]:src, int64:lo, int64:hi) never fails {
+    pass (raw subview(src, lo, hi));
+};
+
+func:main = int32(cstring[]:_~argv) {
+    // "abcaabXbb", nine bytes, owned by THIS frame -- so every view below is
+    // viewing storage that outlives every call that returns one.
+    string:s = string_concat("abcaa", "bXbb");
+    uint8[]:v = string_bytes(s);
+    if (v.len != 9i64)                                  { exit 10i32; }
+
+    // ---- the return that D-004 rule 2 says cannot happen ------------------
+
+    uint8[]:sub = raw subview(v, 3i64, 5i64);           // "aa"
+    if (sub.len != 2i64)                                { exit 11i32; }
+    if (sub[0i64] != 97u8)                              { exit 12i32; }
+    if (sub[1i64] != 97u8)                              { exit 13i32; }
+
+    // It is a VIEW and not a copy: the length is the subrange's, and the bytes
+    // are the originals at their new offsets.
+    uint8[]:tail = raw subview(v, 6i64, 9i64);          // "Xbb"
+    if (tail.len != 3i64)                               { exit 14i32; }
+    if (tail[0i64] != 88u8)                             { exit 15i32; }
+    if (tail[2i64] != 98u8)                             { exit 16i32; }
+
+    // ---- two frames deep --------------------------------------------------
+
+    uint8[]:deep = raw subview2(v, 0i64, 3i64);         // "abc"
+    if (deep.len != 3i64)                               { exit 20i32; }
+    if (deep[0i64] != 97u8)                             { exit 21i32; }
+    if (deep[2i64] != 99u8)                             { exit 22i32; }
+
+    // ---- a view OF a view -------------------------------------------------
+
+    uint8[]:inner = raw subview(tail, 1i64, 3i64);      // "bb"
+    if (inner.len != 2i64)                              { exit 23i32; }
+    if (inner[0i64] != 98u8)                            { exit 24i32; }
+
+    // ---- and the bound is still checked -----------------------------------
+
+    // The acceptance is about ESCAPE analysis, not about bounds: a slice
+    // carries its length and an index past it still traps (D-070). The library
+    // never gets a silent out-of-range read out of this, only a dangling one --
+    // and not even that here, because nothing has died.
+    if (sub.len != 2i64)                                { exit 30i32; }
+
+    // Every byte above was read AFTER the function that produced the view
+    // returned, and every one is the byte that was written. Contrast O-N9's
+    // case 5, which is this program over a view of a LOCAL and reads 170.
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

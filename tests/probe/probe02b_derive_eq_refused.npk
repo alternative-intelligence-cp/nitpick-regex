@@ -1,0 +1,63 @@
+// expect-error: NITPICK-TYPE-034
+//
+// PROBE 02b — `#[derive(Eq)]` ON THIS LIBRARY'S PAYLOAD ENUM DOES NOT COMPILE.
+//
+// THIS FILE MUST NOT COMPILE. It is not a new finding: it is **O-N10** in the
+// workbench registry, found by `nitpick-time` cycle 0.0.0 on 2026-09-03 and
+// reproduced there at `../nitpick-time/tests/probe/probe05b_derive_eq_refused.npk`.
+// It is repeated here for one reason only — `nitpick-time`'s enum has a SINGLE
+// payload field and `HirKind.Repeat` has TWO, so this file establishes that the
+// refusal is about payloads at all rather than about a particular arity.
+//
+// THE DIAGNOSTIC, verbatim, from compiler commit 950bb1d:
+//
+//   NITPICK-TYPE-034 <derived-1>:2:82: `HirKind` has no built-in `==`: derive
+//   or implement `Eq` and compare with `a.eq(b)`
+//
+// The span is not in this file. `<derived-1>` is the synthetic module the derive
+// expansion writes: the derived `Eq` implementation is being told to derive
+// `Eq`, because the expansion compares two `HirKind` VALUES with `==` instead of
+// comparing tags and then payloads. There is nothing wrong with the code below
+// and nothing its author can do to it.
+//
+// WHAT IT COSTS THIS LIBRARY: `probe02_payload_enum.npk`'s `hir_eq` — every
+// comparison of two payload enums is a nested `pick` written by hand. That is
+// four arms squared for a four-variant enum, and `PatternErrorKind` has thirty
+// variants (`API.md`'s closed kind enum), so the cost is real and it is why
+// `HIR.md` H-2's parallel-field node — a plain enum beside `int32` fields, where
+// `#[derive(Eq)]` works — is the better shape under today's compiler.
+mod:probe02b_derive_eq_refused;
+
+error:E9;
+
+#[derive(Eq)]
+enum:HirKind = {
+    Literal(uint32);
+    ClassRef(int32);
+    Repeat(int32, int32);
+    Empty;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    HirKind:a = HirKind.Repeat(2i32, 5i32);
+    HirKind:b = HirKind.Repeat(2i32, 6i32);
+    // `?! E9` because `eq` returns `Result<bool>` and there is no truthiness
+    // (D-237: the reported code set must EQUAL the expected one, so a stray
+    // `NITPICK-TYPE-007` here would make this file assert two findings).
+    if (a.eq(b) ?! E9) { exit 1i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (E9)             { exit 80i32; },
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

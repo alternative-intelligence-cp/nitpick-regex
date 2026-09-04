@@ -1,0 +1,197 @@
+// expect-exit: 0
+//
+// PROBE 01 — a large array of POD instruction values.
+//
+// ASKS: does a `Vec<Inst>` of 100 000 instruction structs fill, read back, copy
+// and clear without trapping, and what does `#size_of<Inst>()` ACTUALLY report?
+//
+// DEPENDS ON THE ANSWER: `Program.insts` is exactly this (`COMPILE.md` C-1) and
+// `SAFETY.md` §7's `NREGEX_PROGRAM_INSTRUCTIONS` is 100 000. The size is
+// asserted rather than reasoned about, because the memory budget in
+// `PERFORMANCE.md` is stated in bytes and a padding surprise changes it.
+//
+// A NEGATIVE VERDICT COSTS the program layout: `COMPILE.md` §1's struct is
+// re-derived from what the compiler actually lays out.
+//
+// ON MEASURING RATHER THAN ADDING UP: `../PLAYBOOK.md` records two drafts in one
+// subcycle that asserted an arithmetic `#size_of` and were both wrong (a
+// `string` is 24 bytes, not 16; a `uint16`-payload enum is 8, not 6). So every
+// size below is a compare against a literal that was WRITTEN AFTER THE PROBE RAN,
+// and the header records what it reported.
+mod:probe01_pod_inst_array;
+
+// ---------------------------------------------------------------------------
+// The container, in the compiler's own `List<T>` shape (src/frontend/list.npk,
+// D-209). `RX-006` says ours is that shape; a library must not import a
+// compiler's internals, so it is written out here.
+// ---------------------------------------------------------------------------
+
+struct:Vec<T> = {
+    wild T->:items;
+    int64:count;
+    int64:cap;
+};
+
+func:vec_init<T> = Vec<T>(int64:cap) never fails {
+    int64:n = cap;
+    if (n < 1i64) { n = 1i64; }
+    wild int8->:mem = alloc(n * #size_of<T>());
+    pass Vec{ items: mem =>! wild T->, count: 0i64, cap: n };
+};
+
+func:vec_reserve<T> = NIL(Vec<T>->:v, int64:need) never fails {
+    int64:want = v.count + need;
+    if (want <= v.cap) { pass NIL; }
+    int64:nc = v.cap;
+    while (nc < want) { nc = nc * 2i64; }
+    wild int8->:bigger = ralloc(v.items =>! wild int8->, nc * #size_of<T>());
+    v.items = bigger =>! wild T->;
+    v.cap = nc;
+    pass NIL;
+};
+
+func:vec_push<T> = NIL(Vec<T>->:v, move T:x) never fails {
+    drop vec_reserve(v, 1i64);
+    v.items[v.count] = move(x);
+    v.count = v.count + 1i64;
+    pass NIL;
+};
+
+// `Inst` owns nothing, so freeing the block IS the whole obligation here. That
+// is NOT true of a `Vec` over an owning element type -- probe 03 carries that
+// measurement, and `../PLAYBOOK.md` records the 125 MiB it costs to forget.
+func:vec_free<T> = NIL(Vec<T>->:v) never fails {
+    dalloc(v.items =>! wild int8->);
+    v.count = 0i64;
+    v.cap = 0i64;
+    pass NIL;
+};
+
+// ---------------------------------------------------------------------------
+// `COMPILE.md` C-1's instruction, verbatim.
+// ---------------------------------------------------------------------------
+
+// A plain enum -- no payloads. The operands are the struct's `a` and `b`
+// precisely so that `Inst` stays POD and storable in an array (TYPE-046).
+enum:InstKind = {
+    ByteRange;
+    Split;
+    Jump;
+    Save;
+    ClassRef;
+    Halt;
+};
+
+struct:Inst = {
+    InstKind:kind;
+    uint32:a;        // goto, class index, capture slot, byte lo
+    uint32:b;        // alternate goto, byte hi
+};
+
+// The read side, as a function, so the read is a real load through the block
+// and not something the emitter can fold away at the assertion site.
+func:inst_a = uint32(Inst:i) never fails {
+    pass i.a;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    // ---- the sizes, MEASURED --------------------------------------------
+
+    // Reported by this probe on compiler 950bb1d: InstKind 4, Inst 12.
+    // `Inst` is the twelve bytes `COMPILE.md` assumes -- confirmed, not derived.
+    if (#size_of<InstKind>() != 4i64)                   { exit 10i32; }
+    if (#size_of<Inst>() != 12i64)                      { exit 11i32; }
+
+    // The tag is a number only through the unchecked cast, and declaration
+    // order sets it. A table indexed by `InstKind` would rest on this.
+    if ((InstKind.ByteRange =>! int32) != 0i32)         { exit 12i32; }
+    if ((InstKind.Halt =>! int32) != 5i32)              { exit 13i32; }
+
+    // ---- fill to the bound ----------------------------------------------
+
+    // Start at 2 so the growth path is on the measured route rather than a
+    // branch nothing took: 100 000 pushes from a capacity of 2 is sixteen
+    // `ralloc` doublings.
+    Vec<Inst>:p = raw vec_init::<Inst>(2i64);
+    if (p.cap != 2i64)                                  { exit 20i32; }
+
+    int64:n = 100000i64;
+    int64:i = 0i64;
+    while (i < n) {
+        // Every seventh instruction is a `Split`, so the read-back below is
+        // checking a pattern and not a constant.
+        InstKind:k = InstKind.ByteRange;
+        if ((i % 7i64) == 0i64) { k = InstKind.Split; }
+        drop vec_push(@p, Inst{ kind: k, a: (i =>! uint32), b: ((i * 2i64) =>! uint32) });
+        i = i + 1i64;
+    }
+    if (p.count != 100000i64)                           { exit 21i32; }
+    if (p.cap < 100000i64)                              { exit 22i32; }
+
+    // ---- read every one back, through the block --------------------------
+
+    // The elements survived sixteen reallocations, in order, with their
+    // operands intact. Totalling `a` over 0..99999 is 4 999 950 000, which
+    // overflows nothing at int64 and is wrong the moment one slot shifts.
+    int64:total = 0i64;
+    int64:splits = 0i64;
+    i = 0i64;
+    while (i < p.count) {
+        total = total + ((raw inst_a(p.items[i])) => int64);
+        if ((p.items[i].kind =>! int32) == 1i32) { splits = splits + 1i64; }
+        i = i + 1i64;
+    }
+    if (total != 4999950000i64)                         { exit 23i32; }
+    // 0, 7, 14 … 99995 -- ceil(100000/7) = 14286.
+    if (splits != 14286i64)                             { exit 24i32; }
+
+    // ---- copy ------------------------------------------------------------
+
+    // A binding-to-binding COPY of an element. This is legal precisely because
+    // `Inst` declares no owning field (TYPE-046); the same line over a struct
+    // holding a `string` is refused, which is why C-1 is written the way it is.
+    Inst:c = p.items[5i64];
+    if (c.a != 5u32)                                    { exit 30i32; }
+    if (c.b != 10u32)                                   { exit 31i32; }
+    // The copy is independent: writing it does not disturb the array.
+    c.a = 999u32;
+    if (p.items[5i64].a != 5u32)                        { exit 32i32; }
+
+    // A whole-struct copy back INTO the array, and out again.
+    p.items[6i64] = c;
+    if (p.items[6i64].a != 999u32)                      { exit 33i32; }
+
+    // ---- clear and refill -------------------------------------------------
+
+    // `Inst` owns nothing, so a clear is `count = 0` and the block is reused.
+    p.count = 0i64;
+    drop vec_push(@p, Inst{ kind: InstKind.Halt, a: 0u32, b: 0u32 });
+    if (p.count != 1i64)                                { exit 40i32; }
+    if ((p.items[0i64].kind =>! int32) != 5i32)         { exit 41i32; }
+    // The capacity was NOT surrendered by the clear -- refilling costs no
+    // allocation, which is what makes a compiled program reusable.
+    if (p.cap < 100000i64)                              { exit 42i32; }
+
+    drop vec_free(@p);
+    if (p.cap != 0i64)                                  { exit 43i32; }
+
+    // D-151 counts `wild` blocks and does not see a managed body. `Inst` has
+    // no managed body -- no field of it owns heap storage -- so for THIS
+    // program the block was the whole obligation and exit 0 does cover it.
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (DivByZero)      { exit 89i32; },
+        (DivOverflow)    { exit 90i32; },
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

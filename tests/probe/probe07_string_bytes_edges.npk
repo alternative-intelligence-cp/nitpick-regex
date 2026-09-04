@@ -1,0 +1,196 @@
+// expect-exit: 0
+//
+// PROBE 07 — `string_bytes` at the borrow edges.
+//
+// ASKS: `string_bytes(s)` into a scanner, the slice's `.len` and `.ptr`, and
+// which of D-004's four escape edges the compiler ACTUALLY refuses -- which
+// `0.0.0.md` §4 is careful to say "is not the same question as which the
+// specification says it does".
+//
+// DEPENDS ON THE ANSWER: RX-054 makes `uint8[]` the primitive and every entry
+// point in `API.md` takes one.
+//
+// ==========================================================================
+// THREE OF THE FOUR EDGES WERE ALREADY ANSWERED. READ THIS BEFORE EXTENDING.
+// ==========================================================================
+//
+// Edges 2 and 3 -- a view RETURNED, and a view STORED IN A STRUCT that outlives
+// the call -- are **O-N9**, a CONFIRMED compiler defect, independently verified,
+// accepted as the compiler's **DEF-3**, and scheduled as the second commit of
+// its cycle 1.5.1b. Both are ACCEPTED where D-004 rule 2 says they must be
+// refused, and reading the result afterwards reads freed memory: the six-case
+// contrast set at `../nitpick-time/tests/probe/defect/view_escape/` returns
+// **170** from case 5, which is `0xAA`, the runtime's free-poison (D-183).
+//
+// **This probe does not re-run them and does not raise them again.** Nothing
+// below is built on the escape rule being enforced, and `probe06b` records this
+// library's one genuine addition to that report -- the SAFE slice return, of a
+// subrange of a parameter, that a naive fix would also refuse.
+//
+// WHAT THIS PROBE ADDS is edge 4, which the six cases do not cover, and the
+// answer is not the one the shape of O-N9 predicts. See §4 below.
+//
+// THE HOUSE RULE, MEANWHILE, IS UNCHANGED AND COSTS THIS LIBRARY NOTHING:
+// **a view is a parameter, never a return value.** Every function in §1 obeys
+// it, and §1 is the shape `src/` will actually have.
+mod:probe07_string_bytes_edges;
+
+error:E9;
+
+// ---------------------------------------------------------------------------
+// §1 — EDGE 1: PASSED DOWN. Legal under D-004 and always was: the callee's
+// frame is strictly inner, so the viewed storage outlives the call. This is the
+// shape of every entry point the library will ever have.
+// ---------------------------------------------------------------------------
+
+// A scanner step: takes the view, returns a NUMBER and never the view.
+func:count_byte = int64(uint8[]:src, uint8:want) never fails {
+    int64:i = 0i64;
+    int64:n = 0i64;
+    while (i < src.len) {
+        if (src[i] == want) { n = n + 1i64; }
+        i = i + 1i64;
+    }
+    pass n;
+};
+
+// Two frames deep, because "passed down" must survive being passed down again --
+// this is `regex_find` calling an engine calling a byte-class test.
+func:count_two_deep = int64(uint8[]:src, uint8:a, uint8:b) never fails {
+    pass (raw count_byte(src, a)) + (raw count_byte(src, b));
+};
+
+// A view NARROWED and passed down. The narrowing is a `...` range on the way
+// IN, which is legal for the same reason: it never travels up.
+func:count_in_span = int64(uint8[]:src, int64:lo, int64:hi, uint8:want) never fails {
+    pass (raw count_byte(src[lo...hi], want));
+};
+
+// ---------------------------------------------------------------------------
+// §2 — the async machinery for edge 4. `step` exists only to create a genuine
+// suspension point between the taking of a view and the reading of it.
+// ---------------------------------------------------------------------------
+
+async func:step = int64(int64:v) {
+    pass v + 1i64;
+};
+
+// EDGE 4: a `uint8[]` HELD ACROSS AN `await`. The view is a parameter, the
+// suspension happens between binding it and reading it, and `src.len` is read
+// on the far side.
+async func:view_across_await = int64(uint8[]:src) {
+    int64:n = relay await step(0i64);
+    pass src.len + n;
+};
+
+// THE CONTROL, and it is the line that decides how this finding is written up:
+// the SAME shape with an `@`-borrow in place of the slice. In O-N9 the control
+// is refused and the slice is accepted, and that asymmetry is the defect. Here
+// they behave identically -- see §4.
+async func:borrow_across_await = int64(int64->:p) {
+    int64:n = relay await step(0i64);
+    pass (<-p) + n;
+};
+
+async func:main = int32(cstring[]:_~argv) {
+    // "abcaabXbb", nine bytes. `s` is owned by this frame throughout.
+    string:s = string_concat("abcaa", "bXbb");
+    uint8[]:v = string_bytes(s);
+
+    // ---- §3 — the slice's own members ---------------------------------
+
+    // `.len` is the byte length -- the same number `string_byte_length` gives,
+    // because `string_bytes` is a VIEW and not a copy (D-185: same pointer,
+    // same length, no allocation).
+    if (v.len != 9i64)                                  { exit 10i32; }
+    if (string_byte_length(s) != 9i64)                  { exit 11i32; }
+
+    // `.ptr` exists and is readable. The library never dereferences it -- every
+    // read goes through the bounds-checked index (D-070, `SAFETY.md` §5) -- but
+    // it is what `string_from_bytes(ptr, len)` takes, so it is pinned here.
+    discard(v.ptr);
+
+    // An empty view is legal and has length zero, which is the case every
+    // engine hits on an empty haystack.
+    uint8[]:empty = v[0i64...0i64];
+    if (empty.len != 0i64)                              { exit 12i32; }
+
+    // ---- §1 in practice — edge 1 -----------------------------------------
+
+    if ((raw count_byte(v, 97u8)) != 3i64)              { exit 20i32; }   // 'a'
+    if ((raw count_byte(v, 98u8)) != 4i64)              { exit 21i32; }   // 'b'
+    if ((raw count_byte(v, 122u8)) != 0i64)             { exit 22i32; }   // 'z'
+    if ((raw count_two_deep(v, 97u8, 98u8)) != 7i64)    { exit 23i32; }
+    // The narrowed span "aab" (indices 3..6) holds two 'a's.
+    if ((raw count_in_span(v, 3i64, 6i64, 97u8)) != 2i64) { exit 24i32; }
+    if ((raw count_in_span(v, 0i64, 9i64, 98u8)) != 4i64) { exit 25i32; }
+
+    // The view still reads correctly after all of that: nothing a callee did
+    // disturbed the caller's storage.
+    if (v[0i64] != 97u8)                                { exit 26i32; }
+    if (v[8i64] != 98u8)                                { exit 27i32; }
+
+    // ---- §4 — EDGE 4, and the control ------------------------------------
+
+    // Both of these compile and both run. See the header block below §4 for
+    // what that does and does not establish.
+    int64:r = await view_across_await(v) ?! E9;
+    if (r != 10i64)                                     { exit 30i32; }
+
+    int64:x = 4i64;
+    int64:rb = await borrow_across_await(@x) ?! E9;
+    if (rb != 5i64)                                     { exit 31i32; }
+
+    // D-151 counts `wild` blocks, D-188 counts live drivers, and neither sees a
+    // managed body. This program takes no `wild` bytes and spawns no driver, so
+    // it cannot trip either on any exit path; `s`'s body is managed and dies
+    // with its binding. Exit 0 is therefore silent about leaks here rather than
+    // a proof of their absence.
+    exit 0i32;
+};
+
+// ===========================================================================
+// §4 — WHAT EDGE 4 MEASURED, AND WHY IT IS NOT REPORTED AS A DEFECT
+// ===========================================================================
+//
+// MEASURED on compiler 950bb1d: BOTH `view_across_await` and
+// `borrow_across_await` compile with no diagnostic and run to exit 0.
+//
+// `TYPE_REFERENCE.md` §9.2.1 says a slice "cannot cross a thread spawn or an
+// `await`", so on the face of it that is edge 4 unenforced. **It is not written
+// up as an O-N9 sibling, and the control is the reason.** O-N9 is an ASYMMETRY:
+// the `@`-borrow is refused `NITPICK-BORROW-001` and the slice is not, and the
+// two spellings sitting side by side are what make it under-enforcement rather
+// than a design question. Here the two spellings behave the SAME, so there is no
+// asymmetry to point at, and "the compiler does not check this" is a claim about
+// an unimplemented rung rather than a bug -- a distinction W-11 turns on.
+//
+// AND THE CLAIM THIS PROBE CAN HONESTLY MAKE IS NARROWER THAN THE RULE. What is
+// tested above is a view held across a suspension in a callee **that its caller
+// awaits directly**, with the viewed storage in the caller's frame and alive
+// throughout. Nothing here dies. D-177 makes crossing locals frame-resident and
+// the async frame is heap-allocated, so this shape may well be sound. The shape
+// the rule is really aimed at is a borrow crossing a `spawn` -- handed to a task
+// that outlives the frame it was taken in -- and THIS PROBE DOES NOT TEST THAT.
+//
+// IT IS NOT TESTED HERE ON PURPOSE. `nregex` is synchronous by construction:
+// RX-008 forbids syscalls, RX-061 says matching cannot fail, trap or allocate,
+// and no function in `API.md` is `async`. An edge this library cannot reach is
+// not worth a probe that would have to stand up a task to answer. Recorded as a
+// bounded measurement, and left for a library that actually spawns.
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (E9)               { exit 80i32; },
+        (DeadlineExceeded) { exit 88i32; },
+        (DriverLeak)       { exit 89i32; },
+        (HeapBadRequest)   { exit 91i32; },
+        (HeapOom)          { exit 92i32; },
+        (IntOverflow)      { exit 93i32; },
+        (OutOfBounds)      { exit 94i32; },
+        (Unreachable)      { exit 95i32; },
+        (WildLeak)         { exit 96i32; },
+        (*)                { exit 99i32; }
+    }
+    exit 9i32;
+};

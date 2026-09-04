@@ -1,0 +1,259 @@
+// expect-exit: 0
+//
+// PROBE 02 — a tagged enum with payloads, in a `pick` and in a `Vec`.
+//
+// ASKS: destructuring in a `pick`, storing in a `Vec`, comparing, and
+// `#size_of` — for the payload-variant spelling of `HirKind`.
+//
+// DEPENDS ON THE ANSWER: `HirKind`, `InstKind` and `PatternErrorKind` are the
+// three enums the library is built out of, and `HirNode` lives in an array.
+// `HIR.md` H-2 currently specifies the PARALLEL-FIELD spelling — a plain
+// `HirKind` beside `int32:a; int32:b; int32:c;` — and this probe asks what the
+// payload spelling would cost, because the payload spelling is the one that
+// cannot put a `Repeat`'s maximum in a field a `Literal` also has.
+//
+// THE NEW QUESTION HERE is the MULTI-FIELD payload, `Repeat(int32, int32)`.
+// The ecosystem has measured single-payload variants (`nitpick-time` probe 05,
+// `Literal(uint16)`) and nothing with two. `HirKind.Repeat` needs a minimum and
+// a maximum together or the spelling is no use to this library.
+//
+// WHAT THIS PROBE DELIBERATELY DOES NOT ASK. `#[derive(Eq)]` on a payload enum
+// and `#[derive(Ord)]` on one are ALREADY ANSWERED and the answers are O-N10 in
+// the workbench registry: `Eq` is refused `NITPICK-TYPE-034` pointing at a
+// synthetic `<derived-1>` module the author cannot open, and `Ord` compiles and
+// silently compares TAGS ONLY, so `Literal(7).cmp(Literal(9))` is `Equal`.
+// `../nitpick-time/tests/probe/probe05b_derive_eq_refused.npk` is the
+// reproduction. This probe therefore carries NO `Eq` or `Ord` derive and writes
+// its comparison by hand — see `hir_eq` — which is what the library must do
+// until O-N10 lands. `probe02b_derive_on_payload_enum.npk` confirms the two
+// halves against THIS library's enum rather than re-deriving them.
+mod:probe02_payload_enum;
+
+// ---------------------------------------------------------------------------
+// The container (see probe 01's header for the shape's provenance).
+// ---------------------------------------------------------------------------
+
+struct:Vec<T> = {
+    wild T->:items;
+    int64:count;
+    int64:cap;
+};
+
+func:vec_init<T> = Vec<T>(int64:cap) never fails {
+    int64:n = cap;
+    if (n < 1i64) { n = 1i64; }
+    wild int8->:mem = alloc(n * #size_of<T>());
+    pass Vec{ items: mem =>! wild T->, count: 0i64, cap: n };
+};
+
+func:vec_reserve<T> = NIL(Vec<T>->:v, int64:need) never fails {
+    int64:want = v.count + need;
+    if (want <= v.cap) { pass NIL; }
+    int64:nc = v.cap;
+    while (nc < want) { nc = nc * 2i64; }
+    wild int8->:bigger = ralloc(v.items =>! wild int8->, nc * #size_of<T>());
+    v.items = bigger =>! wild T->;
+    v.cap = nc;
+    pass NIL;
+};
+
+func:vec_push<T> = NIL(Vec<T>->:v, move T:x) never fails {
+    drop vec_reserve(v, 1i64);
+    v.items[v.count] = move(x);
+    v.count = v.count + 1i64;
+    pass NIL;
+};
+
+func:vec_free<T> = NIL(Vec<T>->:v) never fails {
+    dalloc(v.items =>! wild int8->);
+    v.count = 0i64;
+    v.cap = 0i64;
+    pass NIL;
+};
+
+// ---------------------------------------------------------------------------
+// The payload spelling of `HirKind`.
+// ---------------------------------------------------------------------------
+
+// `Empty` is not a reserved word; `end`, `in`, `any` and `range` are, which is
+// why the repetition bound is `hi` and the any-byte construct is `dot` here and
+// everywhere else in this tree (`CLAUDE.md`'s substitution table).
+enum:HirKind = {
+    Literal(uint32);            // a codepoint
+    ClassRef(int32);            // an index into `Hir.ranges`
+    Repeat(int32, int32);       // minimum, maximum -- THE MULTI-FIELD CASE
+    Empty;
+};
+
+// `HirNode` as it would be under the payload spelling: the kind carries its own
+// operands, and only the structural links stay in fields.
+struct:HirNode = {
+    HirKind:kind;
+    int32:child;
+    int32:sibling;
+    uint32:flags;
+};
+
+// The desugarer's inner loop: a node in, a number out. Every payload is read
+// through its arm, so a payload that did not survive the array shows up as a
+// wrong total rather than as nothing at all.
+func:weight_of = int64(HirKind:k) never fails {
+    int64:w = 0i64;
+    pick (k) {
+        // The variant MUST be qualified -- `(Literal(cp))` is
+        // `NITPICK-RESOLVE-002`, and a `failsafe`'s bare `(HeapOom)` is not a
+        // counter-example because those names are the prelude's.
+        (HirKind.Literal(cp))       { w = 1000i64 + (cp => int64); },
+        (HirKind.ClassRef(ix))      { w = 2000i64 + (ix => int64); },
+        // BOTH payload fields, bound in one arm, in declaration order.
+        (HirKind.Repeat(lo, hi))    { w = 3000i64 + (lo => int64) * 10i64 + (hi => int64); },
+        (HirKind.Empty)             { w = 4000i64; }
+    }
+    pass w;
+};
+
+// COMPARISON, WRITTEN BY HAND, because `#[derive(Eq)]` on this shape is refused
+// and `#[derive(Ord)]` on it silently ignores the payload (O-N10). Nested
+// `pick`, because there is no way to destructure two values at once.
+func:hir_eq = bool(HirKind:x, HirKind:y) never fails {
+    bool:same = false;
+    pick (x) {
+        (HirKind.Literal(a)) {
+            pick (y) {
+                (HirKind.Literal(b))    { same = (a == b); },
+                (HirKind.ClassRef(_b))  { same = false; },
+                (HirKind.Repeat(_p, _q)) { same = false; },
+                (HirKind.Empty)         { same = false; }
+            }
+        },
+        (HirKind.ClassRef(a)) {
+            pick (y) {
+                (HirKind.Literal(_b))   { same = false; },
+                (HirKind.ClassRef(b))   { same = (a == b); },
+                (HirKind.Repeat(_p, _q)) { same = false; },
+                (HirKind.Empty)         { same = false; }
+            }
+        },
+        (HirKind.Repeat(a, c)) {
+            pick (y) {
+                (HirKind.Literal(_b))   { same = false; },
+                (HirKind.ClassRef(_b))  { same = false; },
+                (HirKind.Repeat(p, q))  { same = (a == p) && (c == q); },
+                (HirKind.Empty)         { same = false; }
+            }
+        },
+        (HirKind.Empty) {
+            pick (y) {
+                (HirKind.Literal(_b))   { same = false; },
+                (HirKind.ClassRef(_b))  { same = false; },
+                (HirKind.Repeat(_p, _q)) { same = false; },
+                (HirKind.Empty)         { same = true; }
+            }
+        }
+    }
+    pass same;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    // ---- construction and destructuring ----------------------------------
+
+    HirKind:a = HirKind.Literal(97u32);              // 'a'
+    HirKind:b = HirKind.ClassRef(3i32);
+    HirKind:r = HirKind.Repeat(2i32, 5i32);
+    HirKind:e = HirKind.Empty;
+
+    if ((raw weight_of(a)) != 1097i64)                  { exit 10i32; }
+    if ((raw weight_of(b)) != 2003i64)                  { exit 11i32; }
+    // BOTH fields came through the one arm, in the order declared: 3000+20+5.
+    if ((raw weight_of(r)) != 3025i64)                  { exit 12i32; }
+    if ((raw weight_of(e)) != 4000i64)                  { exit 13i32; }
+
+    // A different payload down the same arm gives a different answer, which is
+    // what distinguishes "the payload was read" from "the arm ran".
+    if ((raw weight_of(HirKind.Repeat(5i32, 2i32))) != 3052i64) { exit 14i32; }
+    if ((raw weight_of(HirKind.Literal(0u32))) != 1000i64)      { exit 15i32; }
+    if ((raw weight_of(HirKind.Literal(1114111u32))) != 1114111i64 + 1000i64) { exit 16i32; }
+
+    // ---- the tag is a number, through the unchecked cast only -------------
+
+    if ((a =>! int32) != 0i32)                          { exit 20i32; }
+    if ((b =>! int32) != 1i32)                          { exit 21i32; }
+    if ((r =>! int32) != 2i32)                          { exit 22i32; }
+    if ((e =>! int32) != 3i32)                          { exit 23i32; }
+
+    // ---- comparison, by hand ----------------------------------------------
+
+    if (!(raw hir_eq(a, HirKind.Literal(97u32))))       { exit 30i32; }
+    if (raw hir_eq(a, HirKind.Literal(98u32)))          { exit 31i32; }
+    if (raw hir_eq(a, b))                               { exit 32i32; }
+    // The pair that O-N10's derived `Ord` gets WRONG: same tag, different
+    // payloads. A hand-written comparison distinguishes them; a derived one
+    // answers `Equal`.
+    if (raw hir_eq(r, HirKind.Repeat(2i32, 6i32)))      { exit 33i32; }
+    if (!(raw hir_eq(r, HirKind.Repeat(2i32, 5i32))))   { exit 34i32; }
+    if (!(raw hir_eq(e, HirKind.Empty)))                { exit 35i32; }
+
+    // ---- the sizes, MEASURED ----------------------------------------------
+
+    // Reported by this probe on compiler 950bb1d: HirKind 12, HirNode 24.
+    //
+    // TWELVE, not the ten a tag-plus-two-`int32`s would suggest: the payload
+    // aligns to 4 and the tag takes a whole 4-byte slot of its own. Note what
+    // that means for the library -- `Repeat`'s two `int32`s make the WHOLE enum
+    // 12 bytes, so every `Literal`, every `ClassRef` and every `Empty` pays for
+    // the widest variant. `HIR.md` H-2's parallel-field node is 20 bytes
+    // (5 x int32) and carries three operands rather than two.
+    if (#size_of<HirKind>() != 12i64)                   { exit 40i32; }
+    if (#size_of<HirNode>() != 24i64)                   { exit 41i32; }
+
+    // ---- stored in a Vec and read back ------------------------------------
+
+    Vec<HirNode>:nodes = raw vec_init::<HirNode>(2i64);
+    drop vec_push(@nodes, HirNode{ kind: HirKind.Literal(97u32),  child: -1i32, sibling: 1i32, flags: 0u32 });
+    drop vec_push(@nodes, HirNode{ kind: HirKind.Repeat(2i32, 5i32), child: 0i32, sibling: 2i32, flags: 1u32 });
+    drop vec_push(@nodes, HirNode{ kind: HirKind.ClassRef(3i32), child: -1i32, sibling: 3i32, flags: 0u32 });
+    drop vec_push(@nodes, HirNode{ kind: HirKind.Empty,          child: -1i32, sibling: -1i32, flags: 0u32 });
+    drop vec_push(@nodes, HirNode{ kind: HirKind.Repeat(0i32, 1i32), child: 2i32, sibling: -1i32, flags: 1u32 });
+    if (nodes.count != 5i64)                            { exit 50i32; }
+    if (nodes.cap < 5i64)                               { exit 51i32; }
+
+    // Every payload survived two reallocations: 1097 + 3025 + 2003 + 4000 + 3001.
+    int64:total = 0i64;
+    int64:i = 0i64;
+    while (i < nodes.count) {
+        total = total + (raw weight_of(nodes.items[i].kind));
+        i = i + 1i64;
+    }
+    if (total != 13126i64)                              { exit 52i32; }
+
+    // Read one back individually -- the payloads did not shuffle between slots.
+    if ((raw weight_of(nodes.items[1i64].kind)) != 3025i64) { exit 53i32; }
+    if ((raw weight_of(nodes.items[4i64].kind)) != 3001i64) { exit 54i32; }
+    if (nodes.items[1i64].sibling != 2i32)              { exit 55i32; }
+
+    // A whole-node COPY out of the array: legal because no variant of `HirKind`
+    // owns heap storage, so `HirNode` declares no owning field (TYPE-046).
+    HirNode:copy = nodes.items[1i64];
+    if ((raw weight_of(copy.kind)) != 3025i64)          { exit 56i32; }
+    if (!(raw hir_eq(copy.kind, nodes.items[1i64].kind))) { exit 57i32; }
+
+    drop vec_free(@nodes);
+
+    // D-151 counts `wild` blocks, D-188 counts live drivers, and neither sees a
+    // managed body. No variant of `HirKind` owns one, so for THIS program the
+    // block was the whole obligation.
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};
