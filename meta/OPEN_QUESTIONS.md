@@ -64,7 +64,7 @@ deliberately *not* rewritten.
    `nitpick-regex O-N3`.** That line is in the workbench, which this repository
    does not write. It is raised in 0.0.1's report for the author to correct.
 
-**`meta/roadmap/done/0.0/0.0.0.md` was deliberately NOT renumbered.** It is a closed
+**`meta/roadmap/0.0/0.0.0.md` was deliberately NOT renumbered.** It is a closed
 subcycle's execution record, independently verified at `9b80d69`, and a verified
 artifact is not edited afterwards — the workbench's own `RECORD.md` keeps a
 misnumbered `O-N7` for exactly this reason. Its `O-N1` and `O-N4` mean the
@@ -72,13 +72,13 @@ misnumbered `O-N7` for exactly this reason. Its `O-N1` and `O-N4` mean the
 those citations resolve.
 
 ### ~~O-N1~~ — **RENUMBERED to `O-G1`** (this repository's legacy local id), RX-114
-Cited under the old number only in `meta/roadmap/done/0.0/0.0.0.md`, which is frozen.
+Cited under the old number only in `meta/roadmap/0.0/0.0.0.md`, which is frozen.
 **The workbench registry's `O-N1` is a different thing** — `clone_exec` has no
 signal-mask slot, raised by `nitpick-tui` — and this library has no interest in
 it.
 
 ### ~~O-N4~~ — **RENUMBERED to `O-G4`** (this repository's legacy local id), RX-114
-Cited under the old number only in `meta/roadmap/done/0.0/0.0.0.md`, which is frozen.
+Cited under the old number only in `meta/roadmap/0.0/0.0.0.md`, which is frozen.
 **The workbench registry's `O-N4` is a different thing** — `npkc` is quadratic
 in the size of one declaration, raised by `nitpick-time`, the compiler's DEF-1.
 `nregex` generates no large single declaration before cycle 0.3's Unicode
@@ -137,7 +137,7 @@ below is DEF-3's future rule.
   **one** code DEF-3 adds, because `@` of a temporary cannot be spelled so no
   existing code's text is true of it. **It is not in the pinned toolchain**
   (DEF-3 step 2, unlanded; `BORROW-011` is the highest at `950bb1d`), so
-  grepping the pin for it finds nothing and that is expected:
+  grepping `3d15ac9` for it finds nothing and that is expected:
   `string_bytes(string_concat(a, b))` returned must bind the intermediate first.
   That composes with D-246 — the `string_concat` is an owning temporary that
   leaks today — so the shape is doubly wrong and both faults have one fix.
@@ -375,7 +375,7 @@ sentence says the workbench does not write are written here, twice.
 **Nothing was harmed, and the reason is not the one the note gives.** These
 programs are unaffected because this library's `Vec<T>` **does not own** —
 D-247's ownership is keyed on a module named `list` holding a struct named `List`
-with fields `items`/`count`/`cap` (`decl_is_list`, read at the pin), and this
+with fields `items`/`count`/`cap` (`decl_is_list`, read at `3d15ac9`), and this
 repository has neither. So DEF-8's precondition — an *owning* local — is never
 met here. **RX-126** records the measurement; all three owed probes re-ran at
 exit 0.
@@ -392,6 +392,52 @@ accessor is one.
 implied and nothing here is blocked.
 
 ---
+
+### O-N17 — **PROVISIONAL, awaiting the author's number**: the borrow tracker taints a function's return by SIGNATURE, so a function that takes a container by borrow cannot return an owned `string`
+
+**Raised by cycle 0.0.5's audit triage, 2026-09-06, measured at `3d15ac9`.**
+This is the exact inverse of **O-N9** and the two belong together: O-N9 is a
+view escaping with **no diagnostic**, and this is an owned value being **refused
+a diagnosis it does not deserve**. Both are the same tracker working on types
+where it needs values.
+
+`src/core/bytes.npk`'s `bytes_copy_string(Bytes->:b) -> string` makes a genuine
+owned copy — `string_concat("", view)`, which allocates and `memcpy`s, verified
+in the runtime's own IR. Returning its result from a frame that OWNS the `Bytes`
+is refused:
+
+```
+NITPICK-BORROW-001: a borrow cannot travel up: it is valid only for the frame
+it was taken in, and this returns it out of that frame (D-004 rule 2)
+```
+
+**It is the signature and not the body**, established with a control rather than
+assumed:
+
+| shape | result |
+|---|---|
+| `pass string_concat("", string_from_bytes(b.buf.ptr, b.len));` written INLINE in the owning frame | **accepted, exit 0** |
+| `pass raw bytes_copy_string(@b);` from the owning frame | **refused** `NITPICK-BORROW-001` |
+| a control taking `Bytes->` and returning `string_concat("small", "!")`, which **cannot alias its argument at all** | **refused identically** |
+| the same call where the `Bytes` is a **parameter** of the returning frame | accepted |
+
+The third row is the finding: a function that receives a borrow has any
+view-capable return treated as a borrow of it, whatever the body does.
+
+**It is SOUND and it is COARSE.** It refuses safe programs and accepts no unsafe
+ones, so nothing here is unsafe today and nothing is worked around — the working
+shapes (build and consume in one frame; take the container as a parameter and
+return one level up) are `API.md` A-12's shape anyway, and both are measured
+accepted. **What it costs is a whole class of constructor**: any
+`f(Container->) -> string` that builds its result rather than borrowing it. This
+library meets that class at cycle 0.6, where replacement returns built text.
+
+*Recommendation:* raise it with O-N9 rather than separately, because the fix is
+one idea — track the **provenance of the value** rather than the shape of the
+signature — and it closes an unsound hole and an over-strict refusal at once. If
+only one can be had, **O-N9 first**: a false accept is a use-after-free and a
+false reject is an inconvenience.
+
 
 ## O-G — the compiler's, raised from here
 
@@ -484,7 +530,7 @@ a request that can bounce. Re-measured 2026-09-06 at the working pin:
 | **the file's NAME** | **CHANGED** — it is `src/frontend/type_resolve.npk` | `git -C ../../nitpick grep -l 'func:fold_expr' 3d15ac9` |
 
 **The last row is the whole argument for re-verifying.** Everything above cites
-`src/frontend/resolve_type.npk`, and **there is no such file at the pin.** A
+`src/frontend/resolve_type.npk`, and **there is no such file at `3d15ac9`.** A
 request naming a path the maintainer cannot open is a request that costs a round
 trip before it is even read. Cite `fold_expr` and `fold_string_builtin` **by
 name**, per `PLAYBOOK.md` §6 — a symbol survives a rename and a line number does

@@ -9,7 +9,7 @@ because at 950bb1d every syscall in the language goes through ONE symbol the
 baseline already carries.
 
 Measured 2026-09-04 AT COMPILER `950bb1d` -- naming the commit rather than
-saying "at the pin", because the pin moves and a measurement dated to a moving
+saying "at the pin", because the pin moves and a measurement dated to a moving  # check_dated_measurements: exempt
 name goes false with nobody editing it (cycle 0.0.5). Two four-line programs
 differing only in a `sys(39i64)` call in `main`:
 

@@ -1,35 +1,50 @@
-# Cycle 0.0 — Foundations — **DONE and ARCHIVED, 2026-09-06**
+# Cycle 0.0 — Foundations — **NOT CLOSED. The close was refused 2026-09-06.**
 
-> ## The redirect, and why this note is here rather than in 41 edits
+> ## The archive was made and then REVERSED, and this note replaces the redirect
 >
-> This cycle lived at **`meta/roadmap/0.0/`** until 2026-09-06 and now lives at
-> `meta/roadmap/done/0.0/`. **Any citation of the form `meta/roadmap/0.0/X`
-> written before that date means `meta/roadmap/done/0.0/X`.** There are 41 such
-> mentions across 15 files.
+> **On 2026-09-06 this cycle was marked DONE and moved to
+> `meta/roadmap/done/0.0/`. Both were wrong, and the W-22 audit said so the
+> same day.** The close was reported `READY-TO-CLOSE`, passed by an independent
+> verifier on eight checks, and refused by the audit on **two blocking findings
+> in `src/core/`** — the cycle's headline deliverable. The audit is
+> [`../../audits/nitpick-regex-0.0-2026-09-06.md`](../../audits/nitpick-regex-0.0-2026-09-06.md)
+> and the triage is [`0.0.5.md`](0.0.5.md) §8.
 >
-> **They are deliberately not rewritten.** Most sit in settled `RX-` decision
-> texts, in closed execution records, and in committed REPORT blocks — all of
-> which W-28 says are superseded rather than edited, and which this repository
-> has twice chosen not to touch before (RX-114's `O-N` renumbering left
-> `0.0.0.md` alone; RX-125 reused the pattern). **The live navigational
-> pointers WERE corrected** — `CLAUDE.md`, `harness/README.md`, `nitpick.toml`,
-> `meta/OPEN_QUESTIONS.md` and three probe headers — because those exist to send
-> a reader somewhere and a pointer that misses is worth nothing.
+> **The folder is back at `meta/roadmap/0.0/`, so every citation of the form
+> `meta/roadmap/0.0/X` — including the 33 the redirect note existed to
+> serve — is correct again, and needs no redirect.** The handful of live
+> pointers that had been rewritten to `done/` were rewritten back: `CLAUDE.md`,
+> `harness/README.md`, `nitpick.toml`, `meta/OPEN_QUESTIONS.md`,
+> `tests/probe/README.md`, three probe headers,
+> `harness/selfcheck/syscall_consumer.npk`, `meta/roadmap/0.1/0.1.0.md` and
+> `ROADMAP.md`. `0.0.0.md` and `0.0.1.md` had their relative link depth changed
+> by the move and it is changed back; **the depth changed and no claim did**,
+> in both directions.
 >
-> **Two archived files were touched, and here is exactly what changed.**
-> `0.0.0.md` (4 occurrences) and `0.0.1.md` (2) carried markdown **links** of the
-> form `../../../tests/…`, which the extra directory level broke outright; they
-> are now `../../../../tests/…`. **The depth changed and no claim did.** They are
-> recorded here rather than silently, because a document promising it is never
-> rewritten owes an account of every time it was.
+> **Why reverse rather than fix in place — RX-140.** A cycle folder inside
+> `done/` is a claim that the cycle is finished. Fixing two blocking defects in
+> files sitting there would have meant editing archived notes, and
+> `done/README.md`'s rule that *archived cycle notes are never rewritten* is
+> worth more than a tidy directory. A rule gets its force from being absolute,
+> and the first exception would have been granted by the session that wanted
+> it. `0.0.5.md`'s own REPORT block anticipated this: *"if the audit wants
+> anything undone, it is one `git mv` back."*
 >
-> **And the gate did not catch any of this.** `check_refs.py` reported *clean*
-> across all 41 mentions, correctly: it checks markdown **link syntax** in
-> markdown **files**, and every one of the 41 is either an inline code span or
-> sits in a `.npk`, `.toml` or `.txt` file — 83 of this repository's 145 tracked
-> files are outside its denominator entirely. It found the six broken links and
-> could not see the mentions. **A whole-directory move is exactly the change that
-> separates those two populations**, which is worth knowing before the next one.
+> **What is NOT rewritten, deliberately.** `0.0.5.md`'s committed REPORT block
+> (W-28) and its two statements that step 6 *performed* `git mv meta/roadmap/0.0
+> meta/roadmap/done/0.0` still read that way, because they are true accounts of
+> an action that was taken. The distinction this note draws, and that the
+> earlier one did not: **live navigation is corrected, historical claims are
+> not.**
+>
+> **The redirect note's own numbers were wrong, which is finding N-3 and is now
+> moot.** It said "41 such mentions across 15 files", present tense. Re-derived
+> at the time it was written: 33 occurrences across 9 files, having been 49
+> across 17 before the move. It matched no state the tree ever had. The
+> reversal removes its subject rather than its arithmetic, and the lesson —
+> **a count written in the present tense about a tree that is mid-edit is stale
+> before the commit lands** — is recorded in `0.0.5.md` §8 where it can be
+> acted on.
 
 
 **The probes, the harness, and `src/core/`.** Nothing in this cycle matches
@@ -71,7 +86,7 @@ settled. **Nothing in this cycle is blocked on a question.**
 | [0.0.2](0.0.2.md) | **The harness, part 1** — build, the `program` stage, the toolchain pin, the no-syscall scan | one test program builds, links, runs, and its exit code is judged |
 | [0.0.3](0.0.3.md) | **The harness, part 2** — `parse`, ~~`accept`~~, `check`; the self-check; the tree checks | the self-check proves the harness can fail, **eight** of eleven ways; the other three need stages that do not exist until 0.3, 0.5 and 0.8 |
 | [0.0.4](0.0.4.md) | **`src/core/`** — `Vec<T>`, `Bytes`, `ByteSet`, `SparseSet`, `limits.npk` | four primitives with their own suites and their obligations written |
-| [0.0.5](0.0.5.md) | **Close** — the findings, the spec amendments the probes forced, the handoff to 0.1 | `done/0.0/`, and 0.1 openable by a fresh session |
+| [0.0.5](0.0.5.md) | **Close** — the findings, the spec amendments the probes forced, the handoff to 0.1 | the audit triage discharged, `done/0.0/`, and 0.1 openable by a fresh session |
 
 ## Checklist
 
@@ -244,11 +259,13 @@ settled. **Nothing in this cycle is blocked on a question.**
       **DONE** — nine, plus `HIR.md` §5's two literal-extraction bounds. `check_constants_named` reports 9/9 and had been running with only its negative half since 0.0.3, so the day the file appeared the check already did.
 - [x] `src/core/vec.npk` — `Vec<T>`: `init`, `reserve`, `push`, `pop`, `at`, `set`, `truncate`, `clear`, `insert`, `remove`, `swap_remove`, ~~`fill`~~, `free`; both `T` shapes exercised  
       **DONE**, with two renames and one strike, each with a reason.
+      **AND THREE GROWTH PATHS DID NOT TERMINATE OR DID NOT CHECK — RX-139**, found by the cycle 0.0 audit and not by this checklist. `vec_free` sets `cap = 0` as poison and `vec_reserve` read it as an arithmetic starting point: `while (nc < want) { nc = nc * 2 }` from zero **does not terminate** (exit 124 under `timeout 6`). `vec_push` and `vec_insert` reached `ralloc(<dangling>, 0)` and were stopped by the RUNTIME's refusal (D-150) rather than by this library's own check. All three now trap `OutOfBounds` at the top of the entry point, with a unit case each. `vec_init_zeroed(-5)` — found while establishing the extent — wrote five elements **before** its block at exit 0, and traps too.
       **`at` is `vec_get`**: `SAFETY.md` S-23 names the pair `vec_get`/`vec_set` and the specification is the authority (RX-002).
       **~~`fill`~~ IS STRUCK AND CANNOT EXIST**: a generic `vec_fill<T>(v, n, x)` is refused `NITPICK-TYPE-046` — *"`T` is a type parameter, and this body is checked once for every type it is instantiated at — some of which own storage (D-264): a copy here would leave two owners at those"*. A generic body is checked against EVERY instantiation, so an operation that COPIES its element cannot be generic at all, and `move` does not rescue it because the value is consumed by the first slot. Replaced by **`vec_init_zeroed<T>`** over `calloc` — the fill that needs no value — which is what `SparseSet` wanted.
       **`vec_free_owning` is new**, and it is the function the managed-half gate exists to test.
 - [x] `src/core/bytes.npk` — `Bytes`: `init`, `push`, `extend`, `extend_str`, `put_uint`, `len`, ~~`view`~~, `take`, `clear`; `put_uint` allocation-free and correct at 0, 1, 9, 10, 99, 100 and `uint64` maximum  
-      **DONE**, and **~~`view`~~ IS STRUCK ON A SAFETY GROUND**. A view is a `uint8[]`, and returning a slice over a local's body is the ONE ESCAPE THE COMPILER DOES NOT DIAGNOSE — workbench registry **O-N9**: returning `@x` is `NITPICK-BORROW-001`, returning a slice is not, and reading it afterwards reads freed memory. The ecosystem's house rule until it lands is *a view is a PARAMETER, never a return value*. `bytes_get` serves one byte, `bytes_extend` bulk, and `bytes_take_string` hands over an owning `string`, which is the only shape that may leave the frame.
+      **DONE**, and **~~`view`~~ IS STRUCK ON A SAFETY GROUND**. A view is a `uint8[]`, and returning a slice over a local's body is the ONE ESCAPE THE COMPILER DOES NOT DIAGNOSE — workbench registry **O-N9**: returning `@x` is `NITPICK-BORROW-001`, returning a slice is not, and reading it afterwards reads freed memory. The ecosystem's house rule until it lands is *a view is a PARAMETER, never a return value*. `bytes_get` serves one byte, `bytes_extend` bulk.
+      **AND THE LINE THAT STOOD HERE WAS FALSE IN BOTH ITS HALVES — RX-138.** It read *"`bytes_take_string` hands over an owning `string`, which is the only shape that may leave the frame"*. It handed over a **borrowed view** — `string_from_bytes` sets `cap 0` and the compiler's runtime calls that *"the not-mine bit"* — so every growth freed the body underneath it (measured: exit 46 on a read-back, exit 170 = `0xAA`, D-183's free poison), and returning it from the frame that owns the `Bytes` was refused `NITPICK-BORROW-001`. **This file struck `view` for the escape and then described the escape as the safe shape**, eleven lines from where the rule is stated. It is `bytes_copy_string` now, it copies, and the read-back after a growth is a unit assertion rather than a sentence.
       `put_uint` is also **division-free** — `RX-132`, and the reason is the error budget rather than speed.
 - [x] `Bytes` growth amortised linear, proven by appending a million bytes and bounding the reallocation count — the compiler's own quadratic-capture defect is why this test exists  
       **DONE** — one million bytes from capacity 1, **counting the reallocations** rather than the time, because a timing assertion in CI is a flake generator. Doubling gives 20; the gate is 30, which separates doubling from linear-or-worse, and the capacity ceiling catches a growth factor that overshot.
@@ -292,11 +309,26 @@ settled. **Nothing in this cycle is blocked on a question.**
       measures **the payload spelling `HIR.md` H-2 declined**. RX-135, RX-136, RX-137.
 - [x] the cycle's findings written as a numbered list — **25 of them, `0.0.5.md` §A**, in three
       groups (the language, the instruments, the documents) so a sibling can act on one without
-      reading the rest
-- [x] the harness self-check green, the full run green — **98/98 in 32.0 s**, self-check first,
-      eight live cases and three printed as PENDING rather than as passing
+      reading the rest.
+      **Two of the 25 were WRONG and the audit found both**: the RX-120 obligation was recorded as
+      discharged by a transcript containing a fabricated command, and the `bytes_take_string`
+      hand-over was listed as safe. `0.0.5.md` §8 carries the corrections beneath them.
+- [x] the harness self-check green, the full run green — **108/108 in 35.0 s** after the audit
+      triage (98/98 in 32.0 s at the refused close), self-check first, eight live cases and three
+      printed as PENDING rather than as passing.
+      **AND THE GREEN WAS NOT THE EVIDENCE, WHICH IS THIS CYCLE'S SHORTEST LESSON.** The 98/98 run
+      was green over a use-after-free its own suite CONSTRUCTED and declined to read, and over a
+      `vec_reserve` that does not terminate. Each of the five units added by the triage was seen to
+      FAIL before it was trusted, and so was the seventh tree check and the RX-120 assertion.
 - [x] `0.1/0.1.0.md` written execution-grade
-- [x] cycle archived to `done/0.0/`, `ROADMAP.md` updated
+- [ ] cycle archived to `done/0.0/`, `ROADMAP.md` updated — **DONE ON 2026-09-06 AND REVERSED THE SAME DAY.**
+      The W-22 audit refused the close (two blocking findings in `src/core/`), so the
+      move was undone with one `git mv` and this box is open again. It is ticked at
+      the close the audit accepts, and not before. See the note at the head of this
+      file and `0.0.5.md` §8.
+- [x] **added by the audit triage:** every one of the audit's 15 findings carries a line —
+      fixed, deferred to a named cycle with a reason, or refused with its cost stated —
+      counted rather than asserted (`0.0.5.md` §8)
 
 ## Gate
 
@@ -304,6 +336,14 @@ A full `harness/run.py` green; the self-check proving the harness fails eleven
 ways; `check_no_syscalls` green over a real object; `src/core/`'s four
 primitives each with a suite; and every probe with a recorded verdict whose
 consequences are written into the specifications.
+
+**AND, SINCE 2026-09-06, A W-22 AUDIT THAT HAS SEEN THE TREE IT IS ACCEPTING.**
+Every clause above was met at the refused close, and an independent verifier
+passed it on eight checks, and the cycle still shipped a non-terminating loop and
+a use-after-free in `src/core/`. **A gate written as a list of green things is a
+gate a green run satisfies**, which is no gate at all against a suite that
+declines to make the read that would go red. The audit is the clause that is not
+satisfiable by passing.
 
 ## Watch for
 

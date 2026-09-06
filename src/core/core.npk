@@ -64,6 +64,16 @@ pub use "./vec.npk".vec_clear;
 // `bytes.npk`. There is deliberately no `bytes_view` — a slice may travel DOWN
 // the call stack and not up, and returning one is the escape the compiler does
 // not diagnose (O-N9).
+//
+// **AND THAT PARAGRAPH USED TO SIT FOURTEEN LINES ABOVE A RE-EXPORT THAT BROKE
+// IT.** `bytes_take_string` returned `string_from_bytes(...)` — a view over the
+// `Bytes`' body wearing the type `string` — so this file forbade the escape and
+// then exported it, and a growth freed the body underneath every string handed
+// out. It is `bytes_copy_string` now and it COPIES (RX-138). The re-export list
+// below is the last place a reader checks what the layer offers, and a rule
+// stated in a comment above a list is not enforced by anything: the check that
+// would have caught this is reading `BUILTIN_REFERENCE.md` §1's `Views` column
+// for every primitive a `pub` function returns the result of.
 pub use "./bytes.npk".Bytes;
 pub use "./bytes.npk".bytes_init;
 pub use "./bytes.npk".bytes_len;
@@ -75,7 +85,7 @@ pub use "./bytes.npk".bytes_push;
 pub use "./bytes.npk".bytes_extend;
 pub use "./bytes.npk".bytes_extend_str;
 pub use "./bytes.npk".bytes_put_uint;
-pub use "./bytes.npk".bytes_take_string;
+pub use "./bytes.npk".bytes_copy_string;
 
 // ---- `ByteSet`, and the one structure that needs no accessor pair ----------
 //

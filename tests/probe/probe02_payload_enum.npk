@@ -21,7 +21,7 @@
 // CHANGED. `#[derive(Eq)]` on a payload enum and `#[derive(Ord)]` on one are
 // asked by `probe02b_derive_eq.npk` and `probe02c_derive_ord.npk`, not here.
 //
-// At the pin this file was written against (`950bb1d`) both were BROKEN — that
+// At `950bb1d`, the compiler this file was written against, both were BROKEN — that
 // was workbench registry O-N10 — so the comparison below is written by hand.
 // **At pin `94874ce` both work and read every payload field (RX-125, measured
 // 2026-09-04), so O-N10 is DISCHARGED and this file's `hir_eq` is no longer

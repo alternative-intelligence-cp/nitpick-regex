@@ -8,7 +8,7 @@ symbol into every translation unit and never a `declare` for it; only a
 program's own `failsafe` produces the `define`. So there is no
 `build/nregex.o`, nothing to link against, and cycle 0.0.2's planning decision
 P-14 -- "one build of the library per run, reused by every program" -- is not
-achievable at this pin. Each program root compiles the whole graph it reaches.
+achievable at `3d15ac9`. Each program root compiles the whole graph it reaches.
 Provisional workbench O-N14 would make P-14's shape possible again; it is
 accepted into the compiler's 1.5.1b step 3c, and this file is what changes.
 
@@ -59,12 +59,13 @@ def _as_limit(mib):
 
 class Run:
     def __init__(self, argv, cwd=None, timeout=TOOL_TIMEOUT, stdin_null=True,
-                 mem_cap_mib=0):
+                 mem_cap_mib=0, env=None):
         self.argv = argv
         self.timed_out = False
         try:
             r = subprocess.run(argv, cwd=cwd, capture_output=True, timeout=timeout,
                                preexec_fn=_as_limit(mem_cap_mib) if mem_cap_mib else None,
+                               env=env,
                                stdin=subprocess.DEVNULL if stdin_null else None)
             self.code = r.returncode
             self.out = r.stdout
@@ -398,6 +399,7 @@ BASELINE_SRC = "harness/baseline/baseline.npk"
 BASELINE_SYMS = "harness/baseline/SYMBOLS.txt"
 BASELINE_EDGES = "harness/baseline/EDGES.txt"
 BASELINE_RESIDUE = "harness/baseline/RESIDUE.txt"
+BASELINE_RX120 = "harness/baseline/rx120.sh"
 
 
 def build_baseline(c):

@@ -27,9 +27,15 @@ stub this replaced could assert almost nothing:
   * EVERY `.npk` IN THE TREE was swept as a ROOT by the `parse` stage -- which
     is `npkc` and not `tools/parse_check` (B-4b, RX-124), and which is what
     re-checks the six `src/` files `src/lib.npk` does not reach;
-  * the four live TREE CHECKS agreed with the specifications they diff against
-    (`check_layering`, `check_error_budget`, `check_constants_named`, and
-    `check_specs_current` which reports rather than fails);
+  * RX-120's numbers still hold at the pinned compiler -- `harness/baseline/rx120.sh`
+    ASSERTS floor == 2, syscaller == 3 and difference == {npk_sys6}, as a build
+    step, so a re-pin that moves the prelude reddens a run instead of silently
+    invalidating a committed sentence (RX-142's neighbourhood);
+  * the SEVEN live TREE CHECKS agreed with the specifications they diff against
+    (`check_layering`, `check_error_budget`, `check_constants_named`,
+    `check_no_division`, `check_accessor_confinement`,
+    `check_dated_measurements`, and `check_specs_current` which reports rather
+    than fails);
   * AND THE RUNNER WAS SHOWN ABLE TO FAIL FIRST (V-21, cycle 0.0.3): the
     self-check feeds it eight kinds of wrong expectation and requires a red for
     each, before any suite runs.
@@ -164,7 +170,7 @@ def main(argv=None, say=print):
             say(f"NOTE  --only {a.only}: {FILTERED}")
             say("")
 
-        _build_steps(c, rep, say)
+        _build_steps(c, rep, say, a.selfcheck_inner)
         if rep.build_failures:
             say("")
             say("THE BUILD FAILED, so no suite ran. A build step is not a test and "
@@ -192,7 +198,7 @@ def main(argv=None, say=print):
     return _summary(c, rep, a, say, time.time() - t0)
 
 
-def _build_steps(c, rep, say):
+def _build_steps(c, rep, say, inner=False):
     """Build steps, in order. Every one of these FAILS the run; none is a test."""
     say("")
     say("-- build steps (B-2, B-4; a failure here stops the run) --")
@@ -205,6 +211,44 @@ def _build_steps(c, rep, say):
     else:
         return
 
+    # RX-120's EXPIRY, ASSERTED. `harness/baseline/rx120.sh` builds the floor
+    # and a syscaller at the pinned compiler and REQUIRES floor == 2,
+    # syscaller == 3 and the difference == {npk_sys6}; with the superseded
+    # `950bb1d` present it also requires 29/29/identical, which is RX-120 as
+    # originally measured. It is a build step and not a test for the reason
+    # SYMBOLS.txt's diff is one: a number moving there is a PRELUDE change, and
+    # a prelude change invalidates what every suite below it means.
+    #
+    # It replaced a hand-copied transcript that recorded a command which could
+    # not have produced the output beside it (cycle 0.0 audit, adjudication a).
+    # Exit 2 is "could not proceed and judged nothing" -- npkc's own alphabet --
+    # and it is NOT a pass, so it stops the run like any other build failure.
+    # SKIPPED under `--selfcheck-inner`, for the reason the tree checks are: the
+    # tree under test is a throwaway fixture with no pinned-compiler baseline to
+    # be a difference against, so the assertion would be about the fixture and
+    # not about this library. One flag turns both off, so no ordinary
+    # invocation can lose either.
+    if inner:
+        rx = None
+    else:
+        rx = build.Run([os.path.join(c.root, build.BASELINE_RX120)], cwd=c.root,
+                       timeout=180, env={**os.environ, "NPKC": c.npkc})
+    if rx is None:
+        pass
+    elif rx.timed_out:
+        rep.step("rx120", [f"{build.BASELINE_RX120} TIMED OUT after 180 s"])
+        return
+    elif rx.code == 0:
+        say(f"ok    rx120: {build.BASELINE_RX120} asserted the floor, the "
+            f"syscaller and their difference at the pinned compiler")
+        for line in rx.out.decode("utf-8", "replace").split("\n"):
+            if line.startswith("SKIPPED") or line.startswith("         "):
+                say(f"      {line}")
+    else:
+        rep.step("rx120", [f"{build.BASELINE_RX120} exit={rx.code}\n"
+                           + rx.out.decode("utf-8", "replace") + rx.err])
+        return
+
     entry = c.m.need("build", "entry")
     r = build.emit(c, os.path.join(c.root, entry), os.path.join(c.tmp, "libcheck.ll"))
     if r.timed_out or r.code != build.NPKC_OK:
@@ -212,7 +256,7 @@ def _build_steps(c, rep, say):
         return
     say(f"ok    libcheck: npkc accepted {entry} (exit 0)")
     say("      AND THAT IS NOT EVIDENCE THAT THE LIBRARY BUILDS. There is no library")
-    say("      object at this pin: every file in src/ compiles at exit 0 and every")
+    say("      object at 3d15ac9: every file in src/ compiles at exit 0 and every")
     say("      one is refused by llc, because a library file cannot define")
     say("      @npk_failsafe and npkc never declares it (B-0, RX-115; O-N14). The")
     say("      library reaches the compiler only through a program root, and the")

@@ -161,9 +161,19 @@ static methods and no `Default` derive (D-123, D-185).
 language has no closures (D-018), so `replace_with(|m| …)` is unspellable.
 
 ```nitpick
-Bytes:out = bytes_new();
+Bytes:out = raw bytes_init(64i64);
 relay regex_replace_all(@re, @cache, hay, "$year-$month", @out);
 ```
+
+> **`bytes_init` takes a capacity and there is no `bytes_new`** — corrected at
+> the cycle 0.0 audit (N-4), which found this example calling a constructor that
+> has never existed in any of this repository's 147 tracked files. `Bytes`
+> landed at 0.0.4 and 0.0.5's reconciliation read the 23 **probe verdicts**
+> against `meta/specs/`; a constructor name is not a probe verdict, so nothing
+> compared this specification's EXAMPLES against the code that had just landed.
+> The `raw` is not decoration either: `bytes_init` is `never fails`, so the call
+> yields a `Result<Bytes>` at any ordinary site and `raw` is what unwraps it
+> (D-163). An example that would not compile is a defect in the specification.
 
 **The template syntax**, closed and stated:
 

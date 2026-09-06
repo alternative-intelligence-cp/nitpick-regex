@@ -20,15 +20,16 @@ reporting it.
 |---|---|
 | `run.py` | the driver: build steps, then the suites in manifest order, then the summary |
 | `manifest.py` | `nitpick.toml`, in the compiler's own subset, with the compiler's schema |
-| `toolchain.py` | `llc`, `opt`, `ld.lld` asked their versions and held to the pin |
+| `toolchain.py` | `llc`, `opt`, `ld.lld` asked their versions and held to the pinned LLVM 20.1.2 |
 | `expect.py` | the `// expect-…` grammar, marker for marker with `npkg/expect.npk` |
 | `elf.py` | an ELF64 symbol table, read with `struct` — no fourth tool |
 | `irscan.py` | the emitted IR's call edges to the floor |
 | `build.py` | the pipeline, and `npkc`'s exit alphabet |
 | `stages.py` | `program`, `compile`/`positive`, `compile`/`negative`, `parse`, `check` |
-| `treecheck.py` | the four live tree checks — the library diffed against its own documents |
+| `treecheck.py` | the **seven** live tree checks — the library diffed against its own documents; six can fail the run and `check_specs_current` reports |
 | `selfcheck.py` | **the harness fed wrong expectations and required to fail**; runs FIRST |
-| `baseline/` | the empty program the two scans are differences against |
+| `baseline/` | the empty program the two scans are differences against, and `rx120.sh` |
+| `baseline/rx120.sh` | **executable**: builds the floor and a syscaller at the pinned compiler and ASSERTS floor == 2, syscaller == 3, difference == `{npk_sys6}`; with `950bb1d` present it also asserts 29/29/identical. A harness **build step** and its own CI step. It replaced a hand-copied transcript that recorded a command which could not have produced the output beside it (RX-142's neighbourhood; cycle 0.0 audit, adjudication (a)) |
 | `selfcheck/` | fixtures that must **fail**; `selfcheck.py` drives them |
 
 ## What a green run asserts
@@ -66,7 +67,7 @@ red is unreachable, which is the exact failure this file exists to prevent.
 B-7's equality half reddens cases 3 and 3a and nothing else; disabling the IR
 call-edge scan reddens case 8 and **not** case 9, which is RX-120's own finding
 reproduced from the other side; comparing exit codes by truthiness instead of by
-value reddens case 1. `../meta/roadmap/done/0.0/0.0.3.md` §4 has the transcripts.
+value reddens case 1. `../meta/roadmap/0.0/0.0.3.md` §4 has the transcripts.
 
 ## What it does not assert yet
 

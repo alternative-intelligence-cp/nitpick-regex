@@ -14,10 +14,17 @@ being refused — RX-125; then 19 / 6 when the `3d15ac9` re-pin made
 `tests/rejection/` holds two consumer-facing refusals; `harness/` builds, sweeps,
 diffs and judges them, **and proves first that it can fail**; and since 0.0.4
 `src/core/` is real — `Vec<T>`, `Bytes`, `ByteSet`, `SparseSet` and `limits.npk`,
-with 13 unit programs of their own. **No matching happens yet**: `src/syntax/`,
+with 18 unit programs of their own. **No matching happens yet**: `src/syntax/`,
 `src/hir/`, `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are
-still one placeholder module each. A full green run is **98 units** and six tree
-checks; take those numbers from the runner's summary rather than from here.
+still one placeholder module each. A full green run is **108 units** and seven
+tree checks; take those numbers from the runner's summary rather than from here.
+**This file said 98 and six in one paragraph and *four* tree checks 220 lines
+lower**, and the cycle 0.0 audit found it (N-2) in the document every session is
+told to read first. Two sections of one file disagreeing is the shape this
+repository named a durable lesson and then left standing in its own onboarding
+page: **proximity is not review**, and a number written twice is a number that
+will be corrected once. There is now ONE statement of each count in this file,
+and the runner's summary is the authority for both.
 
 ## Before starting a session here
 
@@ -130,8 +137,8 @@ file's `mod:` name must equal its basename.
 ## What cycles 0.0.0, 0.0.1 and 0.0.2 measured, that a reader would otherwise assume
 
 Each of these was written the other way round in some document here before it
-was measured. `meta/roadmap/done/0.0/0.0.0.md` §7,
-`tests/conformance/TRANSCRIPT.txt` and `meta/roadmap/done/0.0/0.0.2.md` §5 are the
+was measured. `meta/roadmap/0.0/0.0.0.md` §7,
+`tests/conformance/TRANSCRIPT.txt` and `meta/roadmap/0.0/0.0.2.md` §5 are the
 evidence.
 
 - **An `Optional` is not `pick`-able.** `pick (m) { (NIL) {…}, (Match:g) {…} }`
@@ -238,7 +245,7 @@ builds every declared suite with the pinned `npkc`, assembles, scans, links
 closed-world, runs, and judges by exit code — every `program`-stage file twice,
 at −O0 and through `opt -O2`. It reads `nitpick.toml` for every path and every
 flag and hardcodes none. **Since 0.0.3 it also sweeps every `.npk` in the tree with the `parse`
-stage, judges `tests/rejection/` at the `check` stage, runs four tree checks, and
+stage, judges `tests/rejection/` at the `check` stage, runs seven tree checks, and
 — the one that matters — **runs the self-check FIRST** (`TESTING.md` V-21): eight
 live cases feed it wrong expectations and require a red for each, and three more
 print as PENDING on stages that do not exist until 0.3, 0.5 and 0.8.

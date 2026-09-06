@@ -9,12 +9,12 @@
 #
 # WHAT THIS PROVES, UPDATED 2026-09-06 BY CYCLE 0.0.5. A green run is evidence
 # that the pinned compiler builds from a clean checkout, that LLVM is exactly
-# 20.1.2, and that all 98 declared units build, link, run and are judged by
+# 20.1.2, and that all 108 declared units build, link, run and are judged by
 # their exit codes — 19 probes twice each at -O0 and through `opt -O2`, 6
-# refusal probes held to their exact code sets, 13 `src/core/` unit programs,
-# 1 conformance program, 2 rejection fixtures, and a 57-file sweep of every
+# refusal probes held to their exact code sets, 18 `src/core/` unit programs,
+# 1 conformance program, 2 rejection fixtures, and a 62-file sweep of every
 # `.npk` in the tree as a root.
-# SIX tree checks run on every invocation — five that can fail the run and
+# SEVEN tree checks run on every invocation — six that can fail the run and
 # `check_specs_current`, which reports. AND SINCE 0.0.3 IT IS ALSO EVIDENCE
 # THAT THE RUNNER CAN FAIL: the self-check runs FIRST and feeds it eight kinds
 # of wrong expectation, requiring a red for each. Three more of V-20's eleven
@@ -168,6 +168,29 @@ jobs:
       # whoever holds both numbers; a workflow that failed on a digest it has
       # never been told the expected value of would be asserting a guess.
       #
+      # AND IT STAYS THAT WAY AFTER THE CYCLE 0.0 AUDIT, WHICH SUGGESTED
+      # OTHERWISE. The audit verified the substitution below byte-for-byte on a
+      # developer machine -- `build/npkc.ll` and `.internal/quickemit/npkc.ll`
+      # are both 21 514 197 bytes at
+      # `05457db4e98b18a97033eac8bfbe1cfbcddf72f6cf5373dbb99d3693ce94d367`,
+      # `cmp`-identical -- and observed that the step could now name that digest
+      # and become an assert. It must not, and the reason is exactly what the
+      # measurement settles and what it does not.
+      #
+      # THAT COMPARISON IS SAME-MACHINE. It proves the SUBSTITUTION is
+      # legitimate: `quickemit.py` and `npkg build` produce the same emission
+      # from the same source with the same committed snapshot builder, so
+      # `.internal/quickemit/npkc.ll` stands in for `build/npkc.ll` honestly.
+      # It says NOTHING about the CROSS-MACHINE claim, which is the open
+      # question this step exists to answer and which has never been observed:
+      # the runner's value is unknown until a run prints it. Asserting the
+      # developer machine's number here would turn an open measurement into a
+      # foregone one -- CI would go red on the very first genuine cross-machine
+      # difference and report it as a broken pin rather than as the finding it
+      # would be. The number becomes an expectation on the day somebody holds
+      # both sides of it and writes down that they matched, and not before.
+      # (Cycle 0.0 audit, adjudication (b); RX-141.)
+      #
       # WHAT IS AND IS NOT A CROSS-MACHINE CLAIM. The compiler's `npkc` BINARY
       # is not one — S-42 measured it differing between this workbench and a
       # runner because D-204's pin is a VERSION of LLVM and a version is not a
@@ -214,6 +237,21 @@ jobs:
               printf '%-12s %s\n' "$f" "absent"
             fi
           done
+
+      # RX-120'S NUMBERS, ASSERTED. The harness runs this too, as a build step;
+      # it is ALSO here on its own so that a moved prelude names itself in the
+      # workflow's step list instead of appearing as one line inside a long
+      # harness log. It is the check that a re-pin cannot silently invalidate a
+      # committed sentence, and it replaced a hand-copied transcript that
+      # recorded a command which could not have produced the output beside it
+      # (cycle 0.0 audit, adjudication (a)).
+      #
+      # The `950bb1d` control leg SKIPS here and says so: the superseded
+      # compiler lives in the workbench's gitignored toolchain directory and is
+      # not on a runner. The working-pin assertions are the ones that guard a
+      # re-pin, and they all run.
+      - name: RX-120's floor, syscaller and difference, asserted at the pin
+        run: harness/baseline/rx120.sh
 
       - name: Run the harness
         run: python3 harness/run.py

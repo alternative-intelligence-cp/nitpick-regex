@@ -1,0 +1,48 @@
+// expect-exit: 94
+//
+// `Vec<T>` — OUT OF RANGE: `vec_push` on a FREED `Vec`. RX-139.
+//
+// **THIS ONE ALREADY STOPPED, AND STOPPED FOR THE WRONG REASON.** Against the
+// shipped file it exited **91, `HeapBadRequest`**: `nc = v.cap * 2i64` is 0, so
+// the push called `ralloc(<dangling>, 0)`, and the runtime refuses that
+// outright — D-150, *"freeing is spelled dalloc, and C's realloc(p, 0) is the
+// implementation-defined footgun this is not"*. So the stop was the
+// ALLOCATOR's check of a size, not this library's check of its own invariant,
+// and it reported that the allocator had been misused when what happened is
+// that a freed container was written to.
+//
+// The audit that found it said this path would `ralloc` and **then write**.
+// Measured, it does not get that far. The finding is real and its severity is
+// lower than stated, and both halves are recorded because a triage that only
+// confirms is not a triage.
+//
+// ONE CASE PER FILE, because a trapping call cannot be followed by an assertion.
+mod:vec_oob_push_freed;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:argv) {
+    int64:val = argv.len;
+
+    Vec<int64>:v = raw vec_init::<int64>(4i64);
+    drop vec_push(@v, 11i64);
+    drop vec_free(@v);
+    if (v.cap != 0i64) { exit 30i32; }
+
+    drop vec_push(@v, val);
+
+    exit 50i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

@@ -2071,3 +2071,301 @@ the ranges are live); leaving P-4 as a conditional promise (it is written as
 normative, it is numbered, and `VERIFICATION.md` is cited by `SAFETY.md` §3 as
 the machine-checked form of S-5 — a dead rule in that position is exactly the
 dormant-rule shape cycle 0.1's gate exists to catch).
+
+---
+
+### RX-138 — `bytes_take_string` returned a BORROWED VIEW while three documents called it owning; it is `bytes_copy_string` and it copies
+
+**2026-09-06, cycle 0.0.5 audit triage.** The last function in
+`src/core/bytes.npk` read:
+
+```
+pub func:bytes_take_string = string(Bytes->:b) never fails {
+    pass string_from_bytes(b.buf.ptr, b.len);
+};
+```
+
+`string_from_bytes` is a **view primitive**. The compiler's runtime sets `cap 0`
+on the header it returns and its own comment beside the code reads *"cap 0 is
+the not-mine bit"*; `BUILTIN_REFERENCE.md` §1 lists `string_bytes` and
+`string_from_bytes` as *"the explicit view primitives"* and gives them a `Views`
+column of 1. Read at `3d15ac9` with `git show`, not from a working tree.
+
+**Three documents said the opposite**, and each was a live navigational claim
+rather than a record: `0.0/README.md`'s cycle checklist (*"hands over an
+**owning** `string`, which is the only shape that may leave the frame"*),
+`harness/baseline/RESIDUE.txt`'s reason line for `npk_string_from_bytes`, and
+`src/core/bytes.npk`'s own function comment. `core.npk` forbade the escape in a
+comment and re-exported it fourteen lines lower.
+
+**Measured, and both halves of the claim are false.**
+
+| probe | result |
+|---|---|
+| take at len 5 over an 8-byte body, grow past capacity, read back by equality | **exit 46** — a wrong answer |
+| the same with the exit code as the first byte | **exit 170 = `0xAA`**, D-183's free poison |
+| return it from the frame that **owns** the `Bytes` | **REFUSED** `NITPICK-BORROW-001` |
+
+`bytes.npk`'s `b.buf = move(bigger)` frees the old body on every growth, so
+every `string` taken before a growth dangled. **Five public functions grow a
+`Bytes`.**
+
+**THE SUITE ALREADY BUILT THE STALE ALIAS AND DECLINED TO READ IT.**
+`tests/unit/bytes_unit.npk` took `out` at line 55, reallocated at line 63, and
+never read `out` again; it stayed in scope to the end of `main` and its cap-0
+drop freed nothing, so nothing complained. **One added line turns the green run
+into exit 46.** This is the third use-after-free this repository has shipped
+under a green suite and the second to survive an independent VERIFIED PASS. A
+leak gate cannot see it: it is a WRONG ANSWER, not a leak.
+
+**The decision: COPY, and rename.** Route (ii) — keep the view, rename it to say
+so, and write an invalidation contract — was declined. The library's own house
+rule for O-N9 is *a view is a PARAMETER, never a return value*, it is written in
+this very file's header, and a function returning one violates it eleven lines
+from where it is stated. Keeping the hazard and documenting it would have made
+the rule advisory in the one file that states it. `API.md` A-12 already says the
+library's own output goes into a caller-owned `Bytes` and never a returned
+`string`, so nothing on a hot path pays for the copy.
+
+**The copy is spelled `string_concat("", view)` and not `string_slice`.**
+`string_slice` is D-186's owned copy and would be the obvious choice, but it
+returns `Result<string>` and unwrapping it needs `?!` — an error path that can
+never fire, threaded through a function this file promises `never fails`. That
+is the exact shape RX-132 spent a subcycle DELETING from `bytes_put_uint`, where
+a division that could not divide by zero charged every consumer two `failsafe`
+arms. `string_concat` is `never fails` at `3d15ac9`, always allocates and copies
+(measured: no short-circuit on an empty operand), and charges the budget
+nothing. `string_concat("", "")` allocates zero bytes and returns cap 0, so the
+empty case needs no special path — measured, exit 0.
+
+**Measured after the fix**: the copy survives two growths; 2 000 000 copies of
+101 bytes — 202 MB if leaked — run to exit 0 under a 64 MiB `ulimit -v`, so the
+allocation is reclaimed at each binding's scope exit.
+
+**AND ONE CLAIM STILL DOES NOT HOLD, WHICH THE FIX DOES NOT RESCUE.** The value
+is owning and outlives the `Bytes`, but the compiler still refuses
+`pass raw bytes_copy_string(@b)` out of a frame that OWNS the `Bytes`, and it
+refuses it for the SIGNATURE rather than for the body: a control function taking
+`Bytes->` and returning `string_concat("small", "!")` — which cannot alias its
+argument at all — is refused identically, while the same expression written
+INLINE in the owning frame compiles and runs. The tracker taints any
+view-capable return of a function that received a borrow. It is sound and it is
+coarse, and it is raised as an open question rather than worked around. **So the
+sentence "the only shape that may leave the frame" is deleted rather than
+repaired**: the working shapes are build-and-consume in one frame, or take the
+`Bytes` as a PARAMETER and return the string one level up, both measured
+accepted.
+
+*Alternatives declined:* keeping the name `bytes_take_string` (nothing is taken
+— `b` keeps its bytes and its capacity — and the old name is why the return was
+read as a hand-over); adding a second, honestly-named view function beside the
+copy (it would be the first `pub` view return in the library, against the house
+rule, for a caller that does not exist yet and can pass the `Bytes` instead).
+
+---
+
+### RX-139 — a `Vec` with `cap <= 0` is DEAD, every growth path traps on one, and `vec_init_zeroed` was the one constructor that could build an invalid `Vec`
+
+**2026-09-06, cycle 0.0.5 audit triage.** `vec_free` sets `count = 0; cap = 0`
+deliberately, as poison: it is what makes `vec_get`, `vec_set` and `vec_pop`
+trap on a freed `Vec` instead of reading through a dangling `items`. **The
+poisoning was right and incomplete.** The three growth paths read `cap` as an
+arithmetic starting point and none checked it.
+
+Measured at `3d15ac9` on a `Vec` that had been freed:
+
+| entry point | before | after |
+|---|---|---|
+| `vec_reserve(@v, 1)` | **exit 124** under `timeout 6` — `while (nc < want) { nc = nc * 2 }` from `nc = 0` **DOES NOT TERMINATE** | **94** |
+| `vec_push(@v, x)` | **exit 91**, `HeapBadRequest` | **94** |
+| `vec_insert(@v, 0, x)` | **exit 91**, `HeapBadRequest` | **94** |
+| `vec_init_zeroed(-5)` then `vec_push` | **exit 0**, having written five elements BEFORE the block | **94** |
+
+The first is the blocking one and it is a **denial of service in the container
+every engine in this library is built on**, reached with no backtracking at all
+— against the first of `CLAUDE.md`'s non-negotiable rules, which exists because
+catastrophic backtracking is a DoS and the language has no cancellation (D-062).
+
+**THE AUDIT OVERSTATED THE OTHER TWO AND THE CORRECTION MATTERS.** It reported
+that `vec_push` and `vec_insert` *"`ralloc(<dangling>, 0)` and then write"*.
+They do not get that far: the runtime refuses `ralloc(p, 0)` outright — D-150,
+*"freeing is spelled dalloc, and C's `realloc(p, 0)` is the
+implementation-defined footgun this is not"* — so both were already a
+deterministic controlled stop, not memory corruption. They stopped for the
+ALLOCATOR's reason rather than this library's, and reported that the allocator
+had been misused when what happened is that a freed container was written to.
+Real, and less severe than filed.
+
+**THE FIX IS A TRAP, NOT A FLOOR, AND THE SIBLING IS NOT THE PRECEDENT.** The
+audit's first suggested remedy was to copy `bytes_reserve`'s
+`if (nc < 1i64) { nc = 1i64; }`, which `vec_reserve` lacks. **That would have
+been wrong here.** `Bytes` has no free, its `buf` is MANAGED, and
+`bytes_reserve` allocates a fresh `buffer_new` — so flooring a zero capacity
+there yields a valid buffer. In `vec_reserve` the block has already been
+`dalloc`ed, so flooring `nc` to 1 would hand `ralloc` a **dangling pointer with
+a plausible size** and let it succeed: a loud hang traded for silent heap
+corruption. *The same guard in the two files would have been two different
+decisions*, and "the sibling has it and this does not" is a reason to look, not
+a reason to copy.
+
+So `cap <= 0` traps `OutOfBounds` through `vec_oob`, like every other misuse in
+the file, **at the top of the entry point** rather than inside the growth
+branch: `vec_reserve(@v, 0)` on a freed `Vec` would otherwise return `NIL` and
+report success about a container that no longer exists. No `Vec` this library
+produces can reach the check — both constructors floor the block to one element
+— so it costs one perfectly-predicted compare and fires only on a
+use-after-free.
+
+**`vec_init_zeroed`'s negative was found by this triage, not by the audit**,
+while establishing the full extent rather than fixing the finding where it was
+reported — and it is the worst of the four, because it **exited 0**.
+`vec_init_zeroed(-5)` floored the ALLOCATION to one element and wrote `-5`
+straight into `count`; `vec_push`'s guard is `v.count >= v.cap`, which read
+`-5 >= 1` and was FALSE, so the push wrote at `items[-5]`. Every other entry
+point in the file already trapped on a negative — `vec_reserve` on `need`,
+`vec_truncate` on `n`, both accessors on `i`. The half of the sweep that was
+missing is the one where **the negative goes into a FIELD rather than into an
+index**, and no amount of checking indices would have found it.
+
+Five unit programs, one per entry point plus `bytes_oob_get_after_clear.npk`,
+each **seen to fail before it was trusted**.
+
+*Alternatives declined:* the floor (above); guarding only inside the growth
+branch (silently succeeds on a dead `Vec` when no growth is needed); making
+`vec_free` null `items` so a later use faults (a fault is not this library's
+controlled stop, and the field is `wild T->` with no null to mean anything).
+
+---
+
+### RX-140 — a refused close REVERSES its archive; `meta/roadmap/done/` is a claim, not a filing cabinet
+
+**2026-09-06, cycle 0.0.5 audit triage.** Cycle 0.0 was marked DONE, moved to
+`meta/roadmap/done/0.0/`, and its `ROADMAP.md` row struck through. Four hours
+later the W-22 audit refused the close on two blocking findings in `src/core/`.
+
+**The archive is reversed with one `git mv`, and the folder is back at
+`meta/roadmap/0.0/`.** Three reasons, in order of weight.
+
+1. **A cycle folder inside `done/` is a claim that the cycle is finished, and
+   the claim was false.** A false statement in the tree is the defect class this
+   cycle spent five subcycles finding; keeping one in order to preserve a tidy
+   directory would be the cycle failing its own lesson at its own close.
+2. **`done/README.md` says archived cycle notes are never rewritten, and the
+   blocking fixes require rewriting this cycle's checklist.** `0.0/README.md`
+   line 251 was one of RX-138's three false "owning" sentences. Editing it
+   inside `done/` would have made the never-rewrite rule advisory, and the
+   exception would have been granted by the session that wanted it. **A rule
+   gets its force from being absolute.**
+3. **The predecessor anticipated it.** `0.0.5.md`'s own REPORT block reads *"if
+   the audit wants anything undone, it is one `git mv` back"* — so the reversal
+   is the plan being followed, not a new judgement.
+
+**What was rewritten and what was not**, because the distinction is the whole
+decision: **live navigation is corrected, historical claims are not.** The
+pointers that had been rewritten to `done/` were rewritten back (`CLAUDE.md`,
+`harness/README.md`, `nitpick.toml`, `meta/OPEN_QUESTIONS.md`,
+`tests/probe/README.md`, three probe headers,
+`harness/selfcheck/syscall_consumer.npk`, `0.1/0.1.0.md`, `ROADMAP.md`), and
+`0.0.0.md`/`0.0.1.md`'s relative link depth went back from `../../../../` to
+`../../../` — the depth changed and no claim did, in both directions.
+`0.0.5.md`'s committed REPORT block and its two statements that step 6
+*performed* the move are untouched: they are true accounts of an action taken.
+
+**The redirect note is deleted rather than corrected, and that closes the
+audit's N-3.** It claimed *"41 such mentions across 15 files"*, present tense,
+immediately before *"they are deliberately not rewritten"*. Re-derived: 49
+across 17 files before the move, **33 across 9 at the state the note described**
+— it matched no state the tree has ever had, because it was written from a count
+taken before the same commit's own rewrites. The reversal removes its subject.
+**The durable half is the lesson: a count written in the present tense about a
+tree that is mid-edit is stale before the commit lands.** Write the count from
+the tree you are about to commit, or do not write a count.
+
+*Alternatives declined:* leaving the archive in place and editing inside it
+(kills the never-rewrite rule); leaving it in place and fixing nothing until a
+later cycle (the two blocking findings are a hang and a use-after-free in the
+storage layer every later cycle builds on).
+
+---
+
+### RX-141 — the CI emission digest stays a PRINT; a same-machine comparison licenses the substitution and not the assertion
+
+**2026-09-06, cycle 0.0.5 audit triage.** `.github/workflows/ci.yml` digests
+`.internal/quickemit/npkc.ll` and prints it, for the compiler's S-42
+cross-machine question. The audit verified the substitution byte-for-byte:
+`build/npkc.ll` and `.internal/quickemit/npkc.ll` are both 21 514 197 bytes at
+`05457db4e98b18a97033eac8bfbe1cfbcddf72f6cf5373dbb99d3693ce94d367`,
+`cmp`-identical, and the reasoning behind it checks out at source
+(`quickemit.py` → `build_tool` → the committed snapshot builder on
+`src/npkc.npk`, with D-236 rendering site rows relative to the manifest root so
+the output directory does not enter the IR). **The substitution is legitimate.**
+
+The audit then noted, non-blockingly, that the step could name that digest and
+become an assert. **It must not, and the reason is precisely what the
+measurement settles and what it does not.**
+
+**That comparison is SAME-MACHINE.** It establishes that `quickemit.py` and
+`npkg build` produce the same emission on one machine, so
+`.internal/quickemit/npkc.ll` stands in for `build/npkc.ll` honestly. It says
+nothing about the CROSS-MACHINE claim — which is the open question the step
+exists to answer and **which has never been observed**: the runner's value is
+unknown until a run prints it.
+
+Asserting the developer machine's number would **turn an open measurement into a
+foregone one**. CI would go red on the first genuine cross-machine difference
+and report it as a broken pin rather than as the finding it would be — and a
+difference in the EMISSION would be a compiler defect, which is exactly the
+thing worth learning. D-265 clause (4) asks pin notices to carry an expected
+value; the value becomes an expectation on the day somebody holds both sides of
+it and records that they matched, and not before.
+
+*Alternatives declined:* asserting now (above); removing the step (it is the
+compiler's own request, S-42 recommendation (c)); asserting only the SIZE (the
+same argument one field narrower, and a size collision is cheaper than a digest
+collision).
+
+---
+
+### RX-142 — a measurement is dated by a COMMIT or it is not dated, and a tree check now says so
+
+**2026-09-06, cycle 0.0.5 audit triage.** "The pin" is a name that re-points. A
+sentence saying a thing was measured *at the pin* becomes false the day the pin
+moves, **while nobody edits it** and with nothing lexically wrong to find: it is
+a true sentence about a different compiler.
+
+This repository has now paid for it twice. RX-120 is the expensive one:
+`check_no_syscalls`'s first layer *"cannot see a syscall"* was measured at
+`950bb1d`, recorded as a permanent property, and carried to four sibling
+repositories as current fact. At `3d15ac9` the compiler's D-262 trimmed the
+prelude and the layer CAN see one. The claim reversed and no document moved.
+
+**THE FIRST SWEEP CLOSED THE PHRASE AND NOT THE CLASS.** Cycle 0.0.5 corrected
+the three sites carrying the exact words *"measured at the pin"* and recorded
+the lesson. The cycle 0.0 audit then found **39 lines across 20 files** in the
+same class, spot-checked the two most load-bearing and found **both still true**
+— so nothing was wrong that day, and the class was thirteen times the size of
+the sweep said to have closed it. **A grep is a sweep; only a check is a rule.**
+
+`check_dated_measurements` is registered in `treecheck.ALL`, making seven, and
+runs over 115 text files. Seventeen live sites were dated to `3d15ac9` in the
+same commit. It was shown to fail before it was trusted: a planted
+`measured at the pin` in `src/core/limits.npk` was named at `file:line:col`, and
+a second plant proved the exemption marker is **per line and not per file**.
+
+**Records are out of scope, and each exclusion has a reason rather than a
+convenience.** `meta/roadmap/` holds execution records that say what was
+measured when they were written; `meta/audits/` holds another session's filed
+report reproduced verbatim; `TRANSCRIPT.txt` and `RX120.txt` are measurement
+transcripts. **`meta/DECISIONS.md` is excluded too, and that one is a rule
+rather than a courtesy**: a settled decision's text is never rewritten, it is
+superseded by a numbered decision that says why. Seven lines in it are in this
+class; a check demanding they be edited would be a check against this
+repository's first rule about its own documents, and the remedy for a decision
+whose dating went stale is a superseding decision, not a `sed`.
+
+*Alternatives declined:* a third sweep (the second one is what produced this
+finding); matching the bare word "pin" (false positives on "the pinned
+compiler", "held to the pin", "the pin moves" — and a check with false positives
+gets switched off, which the playbook records); a file-level exemption (an
+escape hatch that grows; the marker is per line and has to be written on the
+line that needs it).

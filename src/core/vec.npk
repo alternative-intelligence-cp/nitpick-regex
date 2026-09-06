@@ -66,6 +66,48 @@
 // return.
 //
 // ============================================================================
+// A `Vec` WITH `cap <= 0` IS DEAD, AND EVERY GROWTH PATH TRAPS ON ONE (RX-139)
+// ============================================================================
+//
+// `vec_free` sets `count = 0; cap = 0` DELIBERATELY, as poison: it is what makes
+// `vec_get`, `vec_set` and `vec_pop` trap on a freed `Vec` instead of reading
+// through a dangling `items`. The poisoning was right and INCOMPLETE — the three
+// growth paths read `cap` as an arithmetic starting point and none of them
+// checked it. Measured at `3d15ac9` on a `Vec` that had been `vec_free`d:
+//
+//   * `vec_reserve(@v, 1)`  --  `nc = v.cap` is 0 and `while (nc < want)
+//     { nc = nc * 2 }` multiplies zero forever. **exit 124 under `timeout 6`:
+//     IT DOES NOT TERMINATE.** That is a denial of service in the container
+//     every engine in this library is built on, reached with no backtracking at
+//     all — against the first of `CLAUDE.md`'s non-negotiable rules.
+//   * `vec_push` / `vec_insert`  --  `nc = v.cap * 2` is 0, so they call
+//     `ralloc(<dangling>, 0)`. **exit 91, `HeapBadRequest`**, because the
+//     runtime refuses `ralloc(p, 0)` outright (D-150: freeing is spelled
+//     `dalloc`, and C's `realloc(p, 0)` is the implementation-defined footgun
+//     it is not). So those two already stop — but they stop on the RUNTIME's
+//     check of a size, not on this library's check of its own invariant, and
+//     they report the wrong thing: `HeapBadRequest` says the allocator was
+//     misused, when what happened is that a freed container was written to.
+//
+// **THE FIX IS A TRAP, NOT A FLOOR, AND THE SIBLING IS NOT THE PRECEDENT.**
+// `bytes_reserve` carries `if (nc < 1i64) { nc = 1i64; }` and the obvious move
+// was to copy it here. It is the wrong move: `Bytes` has no free, its `buf` is
+// MANAGED, and `bytes_reserve` allocates a fresh `buffer_new` — so flooring a
+// zero capacity there produces a valid buffer. Here the block is already
+// `dalloc`ed, so flooring `nc` to 1 would hand `ralloc` a DANGLING pointer with
+// a plausible size and let it succeed. That trades a loud hang for silent heap
+// corruption, which is the wrong direction for this library in every case.
+// The same guard in two files would have been two different decisions.
+//
+// So `cap <= 0` traps `OutOfBounds` through `vec_oob`, like every other misuse
+// in this file, and it traps at the TOP of the entry point rather than inside
+// the growth branch: `vec_reserve(@v, 0)` on a freed `Vec` would otherwise
+// return `NIL` and report success about a container that no longer exists.
+// A `Vec` this library produced can never reach the check — `vec_init` and
+// `vec_init_zeroed` both floor the block to one element — so it costs one
+// perfectly-predicted compare and fires only on a use-after-free.
+//
+// ============================================================================
 // LIFETIME, AND WHAT `exit 0` PROVES ABOUT IT (P-20, S-22)
 // ============================================================================
 //
@@ -160,7 +202,10 @@ pub func:vec_free<T> = NIL(Vec<T>->:v) never fails {
 
 // obligation: never fails ensures v.cap >= v.count + need
 pub func:vec_reserve<T> = NIL(Vec<T>->:v, int64:need) never fails {
-    if (need < 0i64) { drop vec_oob(need); }
+    if (need < 0i64)  { drop vec_oob(need); }
+    // DEAD `Vec` -- see the header. Without this the loop below multiplies zero
+    // by two forever: measured exit 124 under `timeout 6`.
+    if (v.cap <= 0i64) { drop vec_oob(v.cap - 1i64); }
     int64:want = v.count + need;              // traps on overflow (D-210)
     if (want <= v.cap) { pass NIL; }
     int64:nc = v.cap;
@@ -199,6 +244,8 @@ pub func:vec_set<T> = NIL(Vec<T>->:v, int64:i, move T:x) never fails {
 
 // obligation: never fails ensures v.count == old(v.count) + 1i64
 pub func:vec_push<T> = NIL(Vec<T>->:v, move T:x) never fails {
+    // DEAD `Vec` -- see the header. Without this, `ralloc(<dangling>, 0)`.
+    if (v.cap <= 0i64) { drop vec_oob(v.cap - 1i64); }
     if (v.count >= v.cap) {
         int64:nc = v.cap * 2i64;              // traps on overflow (D-210)
         wild int8->:bigger = ralloc(v.items =>! wild int8->, nc * #size_of<T>());
@@ -231,6 +278,8 @@ pub func:vec_pop<T> = T(Vec<T>->:v) never fails {
 pub func:vec_insert<T> = NIL(Vec<T>->:v, int64:i, move T:x) never fails {
     if (i < 0i64)        { drop vec_oob(i); }
     if (i > v.count)     { drop vec_oob(i); }
+    // DEAD `Vec` -- see the header. Without this, `ralloc(<dangling>, 0)`.
+    if (v.cap <= 0i64)   { drop vec_oob(v.cap - 1i64); }
     if (v.count >= v.cap) {
         int64:nc = v.cap * 2i64;
         wild int8->:bigger = ralloc(v.items =>! wild int8->, nc * #size_of<T>());
@@ -326,6 +375,20 @@ pub func:vec_clear<T> = NIL(Vec<T>->:v) never fails {
 // consumed by the first slot. So the fill that is expressible is the one that
 // needs no value, and that is this.
 pub func:vec_init_zeroed<T> = Vec<T>(int64:n) never fails {
+    // A NEGATIVE `n` WAS THE ONE WAY THIS LIBRARY COULD BUILD AN INVALID `Vec`
+    // ITSELF, and it was found by the triage that fixed RX-139 rather than by
+    // the audit that prompted it. Every other entry point in this file traps on
+    // a negative (`vec_reserve` on `need`, `vec_truncate` on `n`, both
+    // accessors on `i`); this one floored the BLOCK to one element and then
+    // wrote `n` straight into `count`. `vec_init_zeroed(-5)` therefore returned
+    // `count == -5, cap == 1`, `vec_push`'s `v.count >= v.cap` read `-5 >= 1`
+    // and was FALSE, and the push wrote at `items[-5]` -- five elements BEFORE
+    // the block, at exit 0, silently. Measured at `3d15ac9`.
+    //
+    // The floor below cannot serve as the guard, because the defect is in
+    // `count` and the floor is on the allocation. `vec_init` is unaffected: it
+    // sets `count: 0i64` whatever it was asked for.
+    if (n < 0i64) { drop vec_oob(n); }
     int64:k = n;
     if (k < 1i64) { k = 1i64; }
     wild int8->:mem = calloc(k, #size_of<T>());

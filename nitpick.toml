@@ -84,7 +84,7 @@ path  = "tests/conformance"
 #
 # So the 7 moved to `tests/probe/refused/`, the compiler's own convention of a
 # directory per kind. Cycle 0.0.0's execution record cites their old paths and
-# is a verified artifact that is not rewritten; `meta/roadmap/done/0.0/0.0.2.md` has
+# is a verified artifact that is not rewritten; `meta/roadmap/0.0/0.0.2.md` has
 # the redirect table, in the pattern RX-114 established for the O-G renumbering.
 
 [[test]]
@@ -108,7 +108,7 @@ path  = "tests/probe/refused"      # the 7 that are refused BY NAME (B-7, D-237)
 # building from here. It is the same reason rule B-4a already gave for
 # striking `accept`, one row away in the same table, and `parse` was left
 # standing beside it. `npkc` has no parse-only flag (its usage line, read at
-# the pin). So the sweep is `npkc` itself: STRICTLY STRONGER than parsing,
+# `3d15ac9`). So the sweep is `npkc` itself: STRICTLY STRONGER than parsing,
 # because the whole frontend runs and IR is emitted.
 #
 # WHY IT IS WORTH A SUITE. `src/lib.npk` reaches `src/api/api.npk` and nothing

@@ -56,6 +56,17 @@
 // `bytes_get` for one byte and `bytes_extend` for bulk, and a caller that wants
 // to hand the bytes somewhere passes the `Bytes` itself.
 //
+// **AND THIS FILE BROKE THAT RULE AT ITS LAST FUNCTION FOR A WHOLE SUBCYCLE.**
+// `bytes_take_string` returned `string_from_bytes(...)`, which is a view over
+// `buf` wearing the type `string`, and a growth freed the body under it. The
+// house rule was written here and violated eleven lines from where it was
+// written, because a `string` does not LOOK like a view. It is now
+// `bytes_copy_string` and it copies — RX-138, at the bottom of this file, with
+// the measurements. **The lesson is that "no view escapes" is a property of the
+// VALUE and not of the TYPE**: `uint8[]` announces itself and `string` does
+// not, so the only reliable test is what the producing primitive's `Views`
+// column says, and `BUILTIN_REFERENCE.md` §1 has that column.
+//
 // LAYERING (`BUILD.md` §6, B-16). `core` imports nothing outside `core`.
 mod:bytes;
 
@@ -256,11 +267,67 @@ pub func:bytes_put_uint = NIL(Bytes->:b, uint64:v) never fails {
 
 // obligation: never fails ensures string_byte_length(result) == b.len
 //
-// Hands the bytes over as a `string`, which is the only shape that may leave
-// this frame: a `uint8[]` view could not (O-N9's house rule).
+// ============================================================================
+// THIS ALLOCATES, AND THE ALLOCATION IS THE POINT (RX-138)
+// ============================================================================
+//
+// **It was `bytes_take_string` and it returned a BORROWED VIEW.** The body read
+// `string_from_bytes(b.buf.ptr, b.len)` and three documents called the result an
+// owning `string` and "the only shape that may leave the frame". Both halves
+// were false, and the second one was a USE-AFTER-FREE that this library's own
+// unit suite constructed and declined to read.
+//
+// Measured at `3d15ac9`, not argued:
+//
+//   * the compiler's runtime sets `cap 0` on `npk_string_from_bytes` and its own
+//     comment beside it reads *"cap 0 is the not-mine bit"*; `BUILTIN_REFERENCE.md`
+//     §1 lists `string_bytes`/`string_from_bytes` as **the explicit view
+//     primitives** and gives them a `Views` column of 1;
+//   * take at len 5 over an 8-byte body, then `bytes_extend_str` past capacity,
+//     then read back: **exit 46** on an equality check, and **exit 170 = 0xAA**
+//     when the exit code is the first byte — 0xAA is D-183's free poison. Line
+//     117 above (`b.buf = move(bigger);`) frees the old body on every growth, so
+//     every string taken before it dangled.
+//
+// **The fix is a COPY, and the copy is spelled `string_concat` rather than
+// `string_slice`, deliberately.** `string_slice` returns `Result<string>`
+// (`BUILTIN_REFERENCE.md` §1) and is D-186's owned copy — correct, but unwrapping
+// it needs `?!`, which threads an error path that can never fire through a
+// function this file promises `never fails`. That is the exact shape RX-132
+// spent a subcycle DELETING from `bytes_put_uint`, where two `failsafe` arms
+// were charged to every consumer by a division that could not divide by zero.
+// `string_concat` is `never fails` at `3d15ac9` (audited at the compiler's 1.1.1:
+// its IR body only ever writes error 0, and OOM traps under D-150), it always
+// allocates and copies — measured: no short-circuit on an empty operand — and
+// concatenating with `""` therefore costs one allocation, one `memcpy` of length
+// zero, one `memcpy` of `b.len`, and NOTHING on the error budget.
+//
+// **`b` IS UNCHANGED.** The old name said "take" and nothing was taken: the
+// `Bytes` keeps its bytes and its capacity. The new name says what the call
+// costs, which is what a library whose whole reason for existing is avoiding
+// `string_concat` in a loop needs visible at the call site (P-21). Calling this
+// per output piece would be exactly the quadratic shape `Bytes` was built to
+// replace; it is for handing over a FINISHED buffer, once. `API.md` A-12 already
+// says the library's own output goes into a caller-owned `Bytes` and never a
+// returned `string`, so nothing on the hot path calls this at all.
+//
+// **WHAT STILL MAY NOT TRAVEL UP, AND IT IS NOT WHAT THE OLD COMMENT SAID.**
+// The VALUE is owning and outlives the `Bytes`. But the compiler refuses
+// `pass raw bytes_copy_string(@b)` out of a frame that OWNS the `Bytes` —
+// `NITPICK-BORROW-001`, *"a borrow cannot travel up"* — and it refuses it for
+// the SIGNATURE rather than for the body. Measured with a control: a function
+// taking `Bytes->` and returning `string_concat("small", "!")`, which cannot
+// alias its argument at all, is refused identically, while the same expression
+// written INLINE in the owning frame compiles and runs. So the tracker taints
+// any view-capable return of a function that received a borrow. It is sound —
+// it refuses safe programs and accepts no unsafe ones — and it is why the
+// working shapes are: build and consume in one frame, or take the `Bytes` as a
+// PARAMETER and return the string one level up. Both measured accepted; the
+// second is `API.md` A-12's shape anyway. Raised as this repository's own open
+// question about the borrow tracker's granularity.
 //
 // `string_from_bytes` TAKES A POINTER AND A LENGTH, `(wild any->, int64)`, and
-// not a slice — read at the pin rather than assumed, after the first draft here
+// not a slice — read at `3d15ac9` rather than assumed, after the first draft here
 // wrote the slice form and met `NITPICK-TYPE-007: `uint8->` cannot be ranged`.
 // That refusal is `TYPE_REFERENCE.md` §23's *"no route from a `buffer` to a
 // slice"* stated by the compiler instead of by the document, and it is the same
@@ -268,6 +335,11 @@ pub func:bytes_put_uint = NIL(Bytes->:b, uint64:v) never fails {
 // so this file's own `len` is the only thing standing between a caller and the
 // capacity beyond it. The length passed below is `b.len`, the LIVE prefix, and
 // never `b.buf.len`, which is the capacity and would hand out the zeroed tail.
-pub func:bytes_take_string = string(Bytes->:b) never fails {
-    pass string_from_bytes(b.buf.ptr, b.len);
+//
+// An empty `Bytes` is not a special case: `string_concat` of two empty strings
+// allocates zero bytes and returns cap 0, which the drop correctly frees
+// nothing for. Measured — `bytes_clear` then this, then `string_byte_length`
+// == 0 and `string_equals("")`, exit 0.
+pub func:bytes_copy_string = string(Bytes->:b) never fails {
+    pass string_concat("", string_from_bytes(b.buf.ptr, b.len));
 };

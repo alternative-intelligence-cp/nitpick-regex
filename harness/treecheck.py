@@ -590,8 +590,108 @@ def check_specs_current(root):
                   [], reports)
 
 
+
+
+# --- check_dated_measurements ---------------------------------------------------------
+
+# "at the pin", "at this pin", "at the current pin" -- a measurement dated to a  # check_dated_measurements: exempt
+# name that RE-POINTS. Deliberately narrow: it does not match "the pinned
+# compiler", "held to the pin", "the pin moves", or a phrase already carrying a
+# commit, because a check with false positives gets switched off.
+_UNDATED = re.compile(r'\bat (?:the|this|the current) pin\b', re.IGNORECASE)
+
+# Where the class does NOT apply, and each exclusion has a reason rather than a
+# convenience.
+#   meta/roadmap/  -- execution records. They say what was measured WHEN THEY
+#                     WERE WRITTEN and are superseded, never edited (W-28); a
+#                     check that demanded they be rewritten would be a check
+#                     against the record rule.
+#   meta/audits/   -- another session's filed report, reproduced verbatim.
+#   *TRANSCRIPT*   -- the same, for measurement transcripts.
+#   harness/baseline/RX120.txt -- the narrative that states this very rule.
+#   meta/DECISIONS.md -- a settled decision's TEXT IS NEVER REWRITTEN; it is
+#                     superseded by a numbered decision that says why (this
+#                     repository's first non-negotiable rule about its own
+#                     documents). A check demanding edits there would be a check
+#                     against that rule. Seven lines in it are in this class, and
+#                     the remedy for a decision whose dating went stale is a
+#                     SUPERSEDING decision, not a sed.
+_UNDATED_SKIP_DIRS = ("meta/roadmap/", "meta/audits/", ".internal/", ".git/")
+_UNDATED_SKIP_NAMES = ("TRANSCRIPT.txt", "RX120.txt", "DECISIONS.md")
+
+# One line may opt out by carrying this marker, which is greppable and has to be
+# written on purpose. The only intended user is a line that QUOTES the forbidden
+# phrase in order to forbid it.
+_UNDATED_EXEMPT = "check_dated_measurements: exempt"
+
+_UNDATED_EXTS = (".md", ".py", ".npk", ".txt", ".toml", ".yml", ".sh")
+
+
+def check_dated_measurements(root):
+    """A measurement is dated by a COMMIT or it is not dated -- RX-142.
+
+    "The pin" is a name that re-points. A sentence saying a thing was measured
+    "at the pin" (check_dated_measurements: exempt) becomes false the day the
+    pin moves, WHILE NOBODY EDITS IT and
+    with nothing lexically wrong to find: it is a true sentence about a
+    different compiler. This repository has now met that twice.
+
+    RX-120 is the expensive one. `check_no_syscalls`'s first layer "cannot see a
+    syscall" was measured at `950bb1d`, recorded as a permanent property, and
+    carried to four sibling repositories as current fact. At `3d15ac9` the
+    compiler's D-262 trimmed the prelude and the layer CAN see one -- floor 2,
+    syscaller 3, difference exactly `npk_sys6`. The claim reversed and no
+    document moved.
+
+    THE FIRST SWEEP CLOSED THE PHRASE AND NOT THE CLASS. Cycle 0.0.5 corrected
+    the three sites saying the exact words "measured at the pin". The cycle 0.0  # check_dated_measurements: exempt
+    audit then found **39 lines across 20 files** in the same class, spot-checked
+    the two most load-bearing, and found both still TRUE -- so nothing was wrong
+    that day, and the class was thirteen times larger than the sweep that was
+    said to have closed it. A grep is a sweep; only a check is a rule.
+
+    Records are out of scope by design -- see `_UNDATED_SKIP_DIRS`. What is IN
+    scope is everything a reader takes as current: the specifications, the
+    harness, `src/`, the probe headers, the manifest and the workflow."""
+    fl, notes = [], []
+    seen = 0
+    for dirpath, dirnames, names in os.walk(root):
+        dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+        for n in sorted(names):
+            if not n.endswith(_UNDATED_EXTS):
+                continue
+            path = os.path.join(dirpath, n)
+            rel = os.path.relpath(path, root).replace(os.sep, "/")
+            if any(rel.startswith(d) for d in _UNDATED_SKIP_DIRS):
+                continue
+            if n in _UNDATED_SKIP_NAMES:
+                continue
+            try:
+                text = open(path, encoding="utf-8", errors="replace").read()
+            except OSError:
+                continue
+            seen += 1
+            for ln, line in enumerate(text.split("\n"), 1):
+                if _UNDATED_EXEMPT in line:
+                    continue
+                m = _UNDATED.search(line)
+                if m:
+                    fl.append(f"{rel}:{ln}:{m.start() + 1}: `{m.group(0)}` dates a "
+                              f"measurement to a name that RE-POINTS. Name the "
+                              f"commit -- `at `3d15ac9`` -- so the sentence stays "
+                              f"true or becomes checkably false when the pin moves. "
+                              f"RX-142. (A line that quotes the phrase in order to "
+                              f"forbid it says `{_UNDATED_EXEMPT}`.)")
+    notes.append(f"records are out of scope: {', '.join(_UNDATED_SKIP_DIRS[:2])} and "
+                 f"{', '.join(_UNDATED_SKIP_NAMES)} say what was true when they were "
+                 f"written and are superseded rather than edited (W-28).")
+    return Result("check_dated_measurements", "RX-142",
+                  f"{seen} text file(s) outside the records", fl, notes)
+
+
 ALL = [check_layering, check_error_budget, check_constants_named,
-       check_no_division, check_accessor_confinement, check_specs_current]
+       check_no_division, check_accessor_confinement,
+       check_dated_measurements, check_specs_current]
 REPORTING_ONLY = {"check_specs_current"}
 
 

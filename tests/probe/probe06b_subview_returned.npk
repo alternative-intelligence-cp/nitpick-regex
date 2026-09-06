@@ -58,7 +58,7 @@
 // the ONE code DEF-3 adds, because `@` of a temporary cannot be spelled, so no
 // existing code's text is true of it. IT IS NOT IN THE PINNED TOOLCHAIN: it is
 // allocated by DEF-3 step 2, unlanded, and `BORROW-011` is the highest code at
-// `950bb1d`. Grepping the pin for it finds nothing, and that is expected rather
+// `950bb1d`. Grepping `3d15ac9` for it finds nothing, and that is expected rather
 // than evidence -- this file recorded it as non-existent for one commit.
 // Nothing in this file does that, and nothing in `src/` should -- D-246 already
 // requires binding such an intermediate, because the `string_concat` is an

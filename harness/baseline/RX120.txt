@@ -1,3 +1,57 @@
+THIS FILE IS THE NARRATIVE. THE ASSERTIONS ARE IN `harness/baseline/rx120.sh`.
+=============================================================================
+CORRECTED 2026-09-06 BY THE CYCLE 0.0 AUDIT TRIAGE. READ THIS BEFORE THE
+TRANSCRIPT BELOW, WHICH CONTAINED A COMMAND THAT CANNOT HAVE PRODUCED THE
+OUTPUT BESIDE IT.
+
+WHAT WAS WRONG, in the auditor's order, with the correction against each.
+
+1. SECTION E'S COMMAND IS FABRICATED AND IS NOW STRUCK IN PLACE. It read
+   `python3 -c "import harness.irscan as s; print(s.kernel_call_edges(...))"`
+   with `exit=0` beside it. `harness/irscan.py` defines `normalise`, `edges`,
+   `scan` and `DENIED`; `kernel_call_edges` EXISTS NOWHERE IN THIS TREE. Run
+   verbatim it raises `AttributeError` and exits 1, and the output recorded
+   beside it -- a list of irscan's public names -- is the output of a
+   different, unshown command. The CONCLUSION was sound (`edges` and `scan` do
+   exist and the reasoning about the two layers holds); the EVIDENCE for it was
+   invented. It sat in the section carrying "WHY RX-120'S REMEDY IS NOT
+   RETIRED", which is the half being propagated to four sibling repositories,
+   and an independent VERIFIED PASS did not catch it.
+
+2. SECTION D CONSUMED FILES NO SHOWN COMMAND CREATED. Line 104's decisive
+   `diff .internal/rx120/floor_old.undef .internal/rx120/sys_old.undef` reads
+   two `.undef` files; sections A, B and D show `llvm-nm` printing to stdout and
+   never redirecting it. A reader re-running the documented commands IN ORDER
+   cannot reach the transcript's own decisive comparison. Annotated below.
+
+3. SECTION A'S LINE 45 SHOWED ONE FORM AND ANNOTATED THE OTHER. It carried
+   `-o .internal/rx120/floor.ll` with the trailing comment "# stdout
+   redirected: npkc emits IR to it". Measured: `npkc file -o out.ll` writes the
+   file and leaves stdout EMPTY, 0 bytes. The two spellings are alternatives.
+   Annotated below.
+
+WHAT REPLACES IT, RATHER THAN WHAT EXCUSES IT. `harness/baseline/rx120.sh` is
+executable, CREATES every intermediate it later consumes, and ASSERTS the three
+numbers instead of printing them: floor == 2, syscaller == 3, difference ==
+{npk_sys6} at the working pin, and 29/29/identical with `npk_sys6` in the floor
+at the superseded `950bb1d` when that compiler is present. It runs as a harness
+BUILD STEP and as its own CI step, so the next re-pin that moves the prelude
+reddens a run. It was shown to fail before it was trusted: four planted faults
+-- floor 2->3, syscaller 3->9, the difference name, and the historical 29->28 --
+each produced exit 1 naming the number that moved.
+
+AND THE GENERAL POINT, WHICH IS WHY THIS PREFACE IS LONG. The instruction that
+produced this file said to commit "the actual command and its output". A
+hand-copied transcript satisfies those words exactly and misses their purpose,
+because NOTHING CAN CHECK IT. The file was written to stop a claim four
+repositories would act on from resting on a sentence, and it replaced the
+sentence with a sentence that looked like a command. A claim is reproducible
+when a FILE RUNS, not when a file is formatted like a terminal.
+
+The transcript below is kept for what it is good at: it says what the numbers
+MEAN, why the expiry happened (the compiler's D-262), and what did not expire.
+It is not evidence and is no longer offered as any.
+
 THE RX-120 EXPIRY, REPRODUCED.  cycle 0.0.5, 2026-09-06.
 
 WHY THIS FILE EXISTS. RX-120 is this repository's most travelled finding: the
@@ -42,7 +96,11 @@ npkc  = $TOOLCHAIN/3d15ac9/npkc
 sha256(npkc) = 3b7d6aa0d86215b37e0b24bf00fc9481cb651057d93e5cad89b2763c6e82c9e7
 
 ## A. The floor -- harness/baseline/baseline.npk, which imports nothing.
-$ $NPKC harness/baseline/baseline.npk -o .internal/rx120/floor.ll   # stdout redirected: npkc emits IR to it
+$ $NPKC harness/baseline/baseline.npk -o .internal/rx120/floor.ll
+##   [CORRECTED] this line carried the trailing comment "# stdout redirected:
+##   npkc emits IR to it". `-o` and a stdout redirect are ALTERNATIVES: with
+##   `-o` the file is written and stdout is empty (0 bytes, measured). The
+##   command shown is the one that ran; the annotation described the other form.
 exit=0
 $ llc -O0 -filetype=obj -relocation-model=static .internal/rx120/floor.ll -o .internal/rx120/floor.o
 exit=0
@@ -101,6 +159,11 @@ $ llvm-nm --undefined-only .internal/rx120/sys_old.o   # count only; the 29 name
 exit=0
 -- count --
 29
+##   [CORRECTED] THE TWO `.undef` FILES BELOW ARE NOT CREATED BY ANY COMMAND
+##   SHOWN IN THIS FILE. The `llvm-nm` invocations above print to stdout and are
+##   never redirected, so a reader replaying this transcript in order cannot
+##   reach the comparison it calls decisive. `rx120.sh` creates them, from the
+##   same two objects, before it consumes them.
 $ diff .internal/rx120/floor_old.undef .internal/rx120/sys_old.undef
 exit=0   # 0 = the sets are IDENTICAL; this is RX-120's finding, reproduced
 $ grep -c npk_sys6 .internal/rx120/floor_old.undef
@@ -112,9 +175,19 @@ exit=0   # npk_sys6 is in the OLD FLOOR, which is the whole mechanism
 ## The symbol layer now sees THAT a syscall exists. It does not say WHERE.
 ## The IR call-edge scan does, and it is unaffected by what the prelude
 ## chooses to emit -- so it survives the next prelude change too.
-$ python3 -c "import harness.irscan as s; print(s.kernel_call_edges(open('.internal/rx120/sys.ll').read()))"
-irscan public names: ['DENIED', 'edges', 'normalise', 're', 'scan']
-exit=0
+##   [STRUCK -- FABRICATED. See the preface, item 1.] The line below recorded
+##   `python3 -c "import harness.irscan as s;
+##    print(s.kernel_call_edges(open('.internal/rx120/sys.ll').read()))"`
+##   with `exit=0` and a list of irscan's public names beside it.
+##   `kernel_call_edges` does not exist in this tree and never has; run
+##   verbatim the command raises AttributeError and exits 1, and the output
+##   shown belongs to some other, unshown command. It is struck rather than
+##   deleted so that the file carries an account of having been wrong.
+##
+##   WHAT IS ACTUALLY TRUE, and `rx120.sh` now asserts it: `harness/irscan.py`
+##   defines `edges`, `scan`, `normalise` and `DENIED`, and `edges`/`scan` are
+##   what B-2's second layer is built on. The conclusion this section draws was
+##   never in doubt; only its evidence was.
 
 -------------------------------------------------------------------------------
 THE READING.

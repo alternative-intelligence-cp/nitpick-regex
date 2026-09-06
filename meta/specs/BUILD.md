@@ -235,7 +235,7 @@ at pin `94874ce` rather than assumed: `tools/parse_check.npk` opens with
 `mod:parse_check;` and **nineteen** `use "../src/frontend/…"` imports — lexer,
 parser, AST, diagnostics writer — so having it means compiling the compiler's
 frontend, which RX-007 forbids depending on and W-18 forbids building from here.
-`npkc` has no parse-only flag; its usage line at the pin is
+`npkc` has no parse-only flag; its usage line at `3d15ac9` is
 `npkc <root.npk> [-o out.ll] [--obligations DIR] [--elide …] [--extra-picky=…]`.
 
 So the stage is **`npkc` itself, and it is strictly stronger than parsing** —
@@ -289,7 +289,7 @@ of something that can.**
   `0 - signal`, so `expect-exit: -11` is SIGSEGV — and below −64 there is no
   such signal.
 - **`stress:` below 1.** `npkg` silently clamps it to one run
-  (`run_binary`: `if (runs < 1i64) { runs = 1i64; }` — read at the pin, not
+  (`run_binary`: `if (runs < 1i64) { runs = 1i64; }` — read at `3d15ac9`, not
   assumed). That is not a hole there, and it is still a marker whose meaning is
   quietly rewritten, which is what this grammar exists to prevent.
 
@@ -374,6 +374,20 @@ load-bearing and `VERIFICATION.md` P-2 writes its obligations on free functions.
   insert, `O(1)` membership and `O(1)` clear, over two `Vec<int32>`s. This is
   the data structure that makes the Pike VM linear (`ENGINES.md` §3) and it is
   in `core` because the DFA's state-set construction uses it too.
+
+**Rule B-11b (RX-138) — a primitive that HANDS BYTES OUT returns an owned copy,
+and the test is `BUILTIN_REFERENCE.md` §1's `Views` column rather than the return
+type.** `bytes_copy_string` allocates: it is `string_concat("", view)`, one
+allocation and one copy, and it is named for what it costs because this library's
+whole cost model is about not allocating per piece. It was `bytes_take_string`
+and it returned `string_from_bytes(...)` — a **view**, which the compiler's
+runtime marks with `cap 0`, *"the not-mine bit"* — so a growth freed the bytes
+underneath every string handed out, and the shipped unit suite constructed that
+stale alias without reading it. **`uint8[]` announces that it is a view and
+`string` does not**, so "no view escapes" cannot be checked by reading types at
+a signature; it is checked by reading the `Views` column of every primitive a
+`pub` function returns the result of. P-21 is unchanged and is about LOOPS: `src/`
+still composes output into a `Bytes` and never by repeated concatenation.
 
 **Rule B-12.** `nregex` declares no other container. Anything graph-shaped uses
 an index into a `Vec`, not pointers — which is also what keeps every node POD
@@ -485,6 +499,25 @@ parse.
   semicolon.** Both wrong forms are parse errors.
 - **Declarations end `};`; control-flow blocks do not.** A semicolon after an
   `if`'s closing brace is a syntax error.
+
+---
+
+## 8a. The emission digest CI prints, and why it is not an assertion
+
+**RX-141.** `.github/workflows/ci.yml` digests the compiler's emission
+(`.internal/quickemit/npkc.ll`) on every run and **prints** it, for the
+compiler's own cross-machine question (its S-42). It does not assert, and the
+cycle 0.0 audit's suggestion that it now could is declined with its reason
+recorded so a later session does not re-open it.
+
+The audit established, `cmp`-identical, that `build/npkc.ll` and
+`.internal/quickemit/npkc.ll` are the same 21 514 197 bytes on a developer
+machine — so the SUBSTITUTION is legitimate and that half is settled by
+measurement. **That comparison is same-machine.** The cross-machine value has
+never been observed. Asserting a developer machine's digest would make CI red on
+the first genuine cross-machine difference and report it as a broken pin rather
+than as the compiler defect it would be. The number becomes an expectation when
+somebody holds both sides of it, and not before.
 
 ---
 

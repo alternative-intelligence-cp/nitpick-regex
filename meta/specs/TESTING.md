@@ -183,29 +183,51 @@ with the defect named.
 
 ## 8. What the harness checks about the tree
 
-Not tests. Checks that diff the library against the documents describing it,
-run on every full invocation.
+Not tests. Checks that diff the library against the documents describing it.
 
-| Check | Diffs |
-|---|---|
-| `check_tables_regenerate` | the committed Unicode tables against a fresh generator run |
-| `check_table_invariants` | every range table sorted, disjoint, `lo <= hi`, within `U+10FFFF` |
-| `check_error_budget` | public `error:` declarations against `SAFETY.md` §4 — **exactly one** |
-| `check_error_kinds_tested` | every `PatternErrorKind` against the tests that provoke it (`SYNTAX.md` Y-25) |
-| `check_inst_kinds_total` | every `InstKind` emitted by the compiler and handled by every engine and the oracle |
-| `check_hir_kinds_total` | the same for `HirKind` |
-| `check_layering` | every `use` edge against `BUILD.md` §6, including the oracle's restriction |
-| `check_constants_named` | no bound outside `src/core/limits.npk` |
-| `check_no_division` | no `/` or `%` under `src/` — `SAFETY.md` S-25 (RX-132), because a division arms two `failsafe` arms in every importer |
-| `check_accessor_confinement` | no `.items[` outside `src/core/vec.npk`, no `.ptr[` outside `src/core/bytes.npk` — `SAFETY.md` S-23, **the only bounds check this library has** (RX-136) |
-| `check_no_syscalls` | the object's undefined symbols, **and the IR's floor call edges**, against the committed baseline — RX-116 and RX-120, §2 |
-| `check_byte_class_partition` | `COMPILE.md` C-9's property, over every corpus program |
-| `check_specs_current` | reports, does not fail: spec citations that no longer resolve |
+**READ THE `Built` COLUMN BEFORE THE ROW BESIDE IT.** Until the cycle 0.0 audit
+(N-1) this table had no such column and a header saying every row "runs on every
+full invocation" — while **six of its thirteen rows named functions that exist
+nowhere in the code**. Nothing was dormant: each of the six is owned by a named
+future cycle and will be built when the thing it checks exists. But a table that
+does not say which half is real is a table a reader takes as an inventory of
+enforcement, and this one was taken that way for five subcycles — including by
+rule V-19 below, which elevated **two rows that had never been written** as "the
+two that matter most". 0.0.5 corrected the two rows it found wrong and not the
+framing that let both be wrong. The framing is the column.
 
-**Rule V-19 — `check_error_kinds_tested` and `check_inst_kinds_total` are the
-two that matter most.** A `PatternErrorKind` nothing can produce is a promise
-the documentation makes and the code does not keep; an `InstKind` an engine
-does not handle is a wrong answer waiting for the pattern that emits it.
+| Check | Built | Diffs |
+|---|---|---|
+| `check_layering` | **yes** | every `use` edge against `BUILD.md` §6, including the oracle's restriction |
+| `check_error_budget` | **yes** | public `error:` declarations against `SAFETY.md` §4 — **exactly one** |
+| `check_constants_named` | **yes** | no bound outside `src/core/limits.npk` |
+| `check_no_division` | **yes** | no `/` or `%` under `src/` — `SAFETY.md` S-25 (RX-132), because a division arms two `failsafe` arms in every importer |
+| `check_accessor_confinement` | **yes** | no `.items[` outside `src/core/vec.npk`, no `.ptr[` outside `src/core/bytes.npk`, **within `src/`** — `SAFETY.md` S-23, **the only bounds check this library has** (RX-136) |
+| `check_dated_measurements` | **yes** | any live document dating a measurement to "the pin" rather than to a commit — RX-142, built by the cycle 0.0 audit triage after a phrase-level sweep left a class thirteen times its size |
+| `check_specs_current` | **yes**, reports rather than fails | spec citations that no longer resolve |
+| `check_no_syscalls` | **yes**, as a BUILD STEP and not a tree check | the object's undefined symbols, **and the IR's floor call edges**, against the committed baseline — RX-116 and RX-120, §2 |
+| `check_tables_regenerate` | no — **cycle 0.3** | the committed Unicode tables against a fresh generator run |
+| `check_table_invariants` | no — **cycle 0.3** | every range table sorted, disjoint, `lo <= hi`, within `U+10FFFF` |
+| `check_error_kinds_tested` | no — **cycle 0.1** | every `PatternErrorKind` against the tests that provoke it (`SYNTAX.md` Y-25) |
+| `check_inst_kinds_total` | no — **cycle 0.4** | every `InstKind` emitted by the compiler and handled by every engine and the oracle |
+| `check_hir_kinds_total` | no — **cycle 0.2** | the same for `HirKind` |
+| `check_byte_class_partition` | no — **cycle 0.7** | `COMPILE.md` C-9's property, over every corpus program |
+
+**Seven run on every full invocation** — the seven registered in
+`harness/treecheck.py`'s `ALL`, six of which can fail the run.
+`check_no_syscalls` is the eighth built one and
+is a build step rather than a tree check, because a failure there invalidates
+what every suite below it means. Take the count from the runner's summary, never
+from this table: the count moved *inside* the subcycle that last corrected it.
+
+**Rule V-19 — `check_error_kinds_tested` and `check_inst_kinds_total` will be the
+two that matter most, AND NEITHER EXISTS YET.** A `PatternErrorKind` nothing can
+produce is a promise the documentation makes and the code does not keep; an
+`InstKind` an engine does not handle is a wrong answer waiting for the pattern
+that emits it. Both are stated in the future tense on purpose: the rule was
+written in the present, two lines under a table that listed them as running, and
+a reader had no way to tell. **Cycle 0.1 builds the first and cycle 0.4 the
+second**, and V-19 becomes a present-tense rule on the day the second lands.
 
 ---
 

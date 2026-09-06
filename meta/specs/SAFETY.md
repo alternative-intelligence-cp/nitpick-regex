@@ -198,8 +198,8 @@ site can observe it. `tests/probe/probe13b_limit_enforced.npk`,
 decision and the commands are RX-127.
 
 **This does not touch `requires` and `ensures`**, which `VERIFICATION.md` P-2
-writes and which still refuse `NITPICK-RUNG-001` at this pin. Their consumer
-cost is **unknown and unmeasurable here**, because the pin cannot answer a
+writes and which still refuse `NITPICK-RUNG-001` at `3d15ac9`. Their consumer
+cost is **unknown and unmeasurable here**, because `3d15ac9` cannot answer a
 question about unlanded work; the day the compiler's 1.5.3 lands them, the
 measurement above is run again before a single clause is uncommented. That is
 `VERIFICATION.md` P-1a.
@@ -322,7 +322,19 @@ than a style note:**
 
 - **The "one accessor pair" is now load-bearing.** Every read and write of a
   `Vec` goes through `vec_get` / `vec_set`, which check against `count`, and a
-  tree check enforces that no `.items[` appears outside `src/core/vec.npk`.
+  tree check enforces that **no `.items[` appears anywhere under `src/` outside
+  `src/core/vec.npk`**.
+  **THE SCOPE IN THAT SENTENCE IS THE CHECK'S, and it was not until the cycle
+  0.0 audit (N-6).** It read "no `.items[` appears outside `src/core/vec.npk`",
+  unqualified, while `check_accessor_confinement` examines `src/` only — 13
+  files. Outside that scope the tree holds **84 occurrences across 20 files**,
+  every one currently benign and verified so: no probe imports
+  `src/core/vec.npk`, `probe01` and `probe08` define their own `struct:Vec`,
+  and the rest is prose. The check's docstring and its `over N file(s) under
+  src/` line were honest all along; the rule's words were wider than the thing
+  enforcing them, which is the same defect as a check that does not exist —
+  and 0.0.5 fixed *that* half here without noticing this one. **A rule whose
+  words exceed its enforcement is a rule nobody can tell is being broken.**
   **`Bytes` owes the identical pair over its `buffer`** (RX-118): `bytes_get` /
   `bytes_set` checking against `len`, and no `.ptr[` outside
   `src/core/bytes.npk`. `Bytes` is `BUILD.md` B-11's byte sink and every

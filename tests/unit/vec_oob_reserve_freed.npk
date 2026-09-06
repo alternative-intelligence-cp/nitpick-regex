@@ -1,0 +1,56 @@
+// expect-exit: 94
+//
+// `Vec<T>` — OUT OF RANGE: `vec_reserve` on a FREED `Vec`. RX-139.
+//
+// **BEFORE THE FIX THIS PROGRAM DID NOT TERMINATE**, which is the only reason
+// it is the first of the four. `vec_free` sets `cap = 0` deliberately, as
+// poison; `vec_reserve` then read `int64:nc = v.cap` and ran
+// `while (nc < want) { nc = nc * 2i64; }`, which multiplies zero by two
+// forever. Measured against the shipped file: `timeout 6` → **exit 124**.
+//
+// A NON-TERMINATING LOOP IN THE CONTAINER EVERY ENGINE IS BUILT ON is the exact
+// failure mode `CLAUDE.md`'s first non-negotiable rule exists to prevent — a
+// search is `O(m·n)` always, because catastrophic backtracking is a denial of
+// service and the language has no cancellation (D-062) with which to survive
+// one. This one is reached with no backtracking at all.
+//
+// The harness judges by exit code and a hang is not an exit code, so a
+// regression here shows up as the runner's own timeout rather than as a wrong
+// number. That is worth knowing before reading a red.
+//
+// ONE CASE PER FILE, because a trapping call cannot be followed by an assertion.
+mod:vec_oob_reserve_freed;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:argv) {
+    // Derived from `argv` so nothing folds: `argv.len` is 1 with no arguments.
+    int64:one = argv.len;
+
+    Vec<int64>:v = raw vec_init::<int64>(4i64);
+    drop vec_push(@v, 11i64);
+    // The poison is asserted rather than assumed: if `vec_free` ever stops
+    // setting `cap = 0`, this file is testing something else and says so with
+    // its own code instead of passing for the wrong reason.
+    drop vec_free(@v);
+    if (v.cap != 0i64) { exit 30i32; }
+
+    drop vec_reserve(@v, one);
+
+    // Unreachable. A DIFFERENT code from the trap, so "the guard was removed"
+    // and "the guard fired" can never be confused.
+    exit 50i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

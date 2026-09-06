@@ -4,7 +4,7 @@
 // whole purpose is to be rejected cannot live in a directory an ordinary
 // stage judges. Cycle 0.0.3's `harness/selfcheck.py` drives it
 // (`meta/specs/TESTING.md` V-20); until then it is run by hand, and the
-// transcript is in `meta/roadmap/done/0.0/0.0.2.md`.
+// transcript is in `meta/roadmap/0.0/0.0.2.md`.
 //
 // WHAT IT DEMONSTRATES. `nregex` makes no syscall (RX-008). RX-116's
 // undefined-symbol difference CANNOT SEE ONE: `npk_sys6` is already among the

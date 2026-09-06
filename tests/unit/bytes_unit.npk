@@ -52,17 +52,43 @@ func:main = int32(cstring[]:_~argv) {
     if ((raw bytes_len(@b)) != 5i64)                    { exit 40i32; }
     if ((raw bytes_get(@b, 0i64)) != 104u8)             { exit 41i32; }   // 'h'
     if ((raw bytes_get(@b, 4i64)) != 111u8)             { exit 42i32; }   // 'o'
-    string:out = raw bytes_take_string(@b);
+    string:out = raw bytes_copy_string(@b);
     if (string_byte_length(out) != 5i64)                { exit 43i32; }
     if (!string_equals(out, "hello"))                   { exit 44i32; }
 
-    // The take reads the LIVE PREFIX and not the capacity. `b` has 5 live bytes
-    // in a block of at least 8, so a `bytes_take_string` that passed `buf.len`
+    // The copy reads the LIVE PREFIX and not the capacity. `b` has 5 live bytes
+    // in a block of at least 8, so a `bytes_copy_string` that passed `buf.len`
     // would return the zeroed tail as well and this length check would catch it.
 
     drop bytes_extend_str(@b, " world");
-    string:out2 = raw bytes_take_string(@b);
+    string:out2 = raw bytes_copy_string(@b);
     if (!string_equals(out2, "hello world"))            { exit 45i32; }
+
+    // ========================================================================
+    // AND `out` IS STILL "hello". THIS IS THE LINE THE CYCLE 0.0 AUDIT ASKED
+    // FOR, AND ITS ABSENCE IS WHY A USE-AFTER-FREE SHIPPED UNDER A GREEN RUN.
+    // ========================================================================
+    //
+    // `out` was taken over an 8-byte body at length 5. `bytes_extend_str(@b,
+    // " world")` wants 11 > 8, so `bytes_reserve` allocated a bigger buffer and
+    // `b.buf = move(bigger)` FREED the old body. Every version of this file
+    // before the audit built exactly that stale alias, left `out` in scope to
+    // the end of `main`, and never read it again -- so the program exited 0
+    // while holding a dangling string, and the drop of a cap-0 view freed
+    // nothing and complained about nothing.
+    //
+    // Against the shipped `bytes_take_string` this single line returns **46**;
+    // against `bytes_copy_string` it returns 0. Measured both ways before it was
+    // committed, which is the only reason it is worth having. `out2` is read
+    // above and `out` below, so a copy that returned the WRONG bytes and a copy
+    // that returned STALE bytes are separate exit codes.
+    if (!string_equals(out, "hello"))                   { exit 46i32; }
+    if (string_byte_length(out) != 5i64)                { exit 47i32; }
+    // The same again after a SECOND growth, so the property is "survives any
+    // number of reallocations" and not "survives the first one".
+    drop bytes_extend_str(@b, " and some more bytes to force another doubling");
+    if (!string_equals(out, "hello"))                   { exit 48i32; }
+    if (!string_equals(out2, "hello world"))            { exit 49i32; }
 
     // ---- extend from a byte slice: a VIEW, and only as a parameter ---------
 
@@ -74,38 +100,58 @@ func:main = int32(cstring[]:_~argv) {
     drop bytes_extend(@b, string_bytes(""));
     if ((raw bytes_len(@b)) != 3i64)                    { exit 52i32; }
 
+    // ---- AFTER A CLEAR, EVERY BYTE IS READ BACK ---------------------------
+    //
+    // The cycle 0.0 audit's coverage table found that no primitive here read a
+    // value back after a TRUNCATION -- three of four read back after a growth
+    // and none after a shrink. `bytes_clear` is this type's truncation, and the
+    // section above only re-filled and read ONE index. The bytes below are all
+    // DISTINCT and all different from the "abc" they overwrite, so a clear that
+    // left the old contents addressable, or a re-fill that resumed at the old
+    // length, changes an exit code here.
+    drop bytes_clear(@b);
+    if ((raw bytes_len(@b)) != 0i64)                    { exit 53i32; }
+    drop bytes_extend_str(@b, "wxyz");
+    if ((raw bytes_len(@b)) != 4i64)                    { exit 54i32; }
+    if ((raw bytes_get(@b, 0i64)) != 119u8)             { exit 55i32; }   // 'w'
+    if ((raw bytes_get(@b, 1i64)) != 120u8)             { exit 56i32; }   // 'x'
+    if ((raw bytes_get(@b, 2i64)) != 121u8)             { exit 57i32; }   // 'y'
+    if ((raw bytes_get(@b, 3i64)) != 122u8)             { exit 58i32; }   // 'z'
+    // Reading at the OLD length after a clear is out of range and traps; that
+    // is `bytes_oob_get_after_clear.npk`, one case per file.
+
     // ---- put_uint at every digit-count boundary ---------------------------
 
     drop bytes_clear(@b);
     drop bytes_put_uint(@b, 0u64);
-    string:d0 = raw bytes_take_string(@b);
+    string:d0 = raw bytes_copy_string(@b);
     if (!string_equals(d0, "0"))                        { exit 60i32; }
 
     drop bytes_clear(@b);
     drop bytes_put_uint(@b, 1u64);
-    string:d1 = raw bytes_take_string(@b);
+    string:d1 = raw bytes_copy_string(@b);
     if (!string_equals(d1, "1"))                        { exit 61i32; }
 
     drop bytes_clear(@b);
     drop bytes_put_uint(@b, 9u64);
-    string:d9 = raw bytes_take_string(@b);
+    string:d9 = raw bytes_copy_string(@b);
     if (!string_equals(d9, "9"))                        { exit 62i32; }
 
     // The one-to-two digit boundary.
     drop bytes_clear(@b);
     drop bytes_put_uint(@b, 10u64);
-    string:d10 = raw bytes_take_string(@b);
+    string:d10 = raw bytes_copy_string(@b);
     if (!string_equals(d10, "10"))                      { exit 63i32; }
 
     drop bytes_clear(@b);
     drop bytes_put_uint(@b, 99u64);
-    string:d99 = raw bytes_take_string(@b);
+    string:d99 = raw bytes_copy_string(@b);
     if (!string_equals(d99, "99"))                      { exit 64i32; }
 
     // The two-to-three digit boundary.
     drop bytes_clear(@b);
     drop bytes_put_uint(@b, 100u64);
-    string:d100 = raw bytes_take_string(@b);
+    string:d100 = raw bytes_copy_string(@b);
     if (!string_equals(d100, "100"))                    { exit 65i32; }
 
     // THE `uint64` MAXIMUM: 18 446 744 073 709 551 615, twenty digits. Built as
@@ -113,7 +159,7 @@ func:main = int32(cstring[]:_~argv) {
     // a working one is exactly the shape that stops compiling.
     drop bytes_clear(@b);
     drop bytes_put_uint(@b, ~0u64);
-    string:dmax = raw bytes_take_string(@b);
+    string:dmax = raw bytes_copy_string(@b);
     if (!string_equals(dmax, "18446744073709551615"))   { exit 66i32; }
 
     // And it appends rather than replacing, which is what a replacement
@@ -121,7 +167,7 @@ func:main = int32(cstring[]:_~argv) {
     drop bytes_clear(@b);
     drop bytes_extend_str(@b, "n=");
     drop bytes_put_uint(@b, 42u64);
-    string:dn = raw bytes_take_string(@b);
+    string:dn = raw bytes_copy_string(@b);
     if (!string_equals(dn, "n=42"))                     { exit 67i32; }
 
     // ---- GROWTH IS AMORTISED LINEAR, MEASURED BY REALLOCATION COUNT --------
@@ -130,12 +176,23 @@ func:main = int32(cstring[]:_~argv) {
     // per-append reallocation would give a million. The assertion is a generous
     // ceiling, so it fails on the QUADRATIC shape and not on a different
     // growth factor.
+    //
+    // EVERY BYTE IS DIFFERENT FROM ITS NEIGHBOURS, AND THAT IS THE AUDIT'S N-8.
+    // This loop pushed the constant `88u8` for a whole cycle, so any mis-copy
+    // that preserved the LENGTH -- a `ralloc` that copied a short prefix and
+    // zero-filled, a doubling that copied the same page twice -- was invisible
+    // to the two reads below. `vec_unit.npk` pushes `i` and checks three
+    // distinct values; this now does the same. A byte is 8 bits and the loop
+    // runs a million times, so the value cannot simply be `k`: `k` truncated to
+    // `uint8` repeats every 256, which still distinguishes a short copy from a
+    // correct one at every index that matters, and is what a byte sink can
+    // express. Index 0 holds 0, index 999 999 holds 999999 % 256 == 63.
     Bytes:g = raw bytes_init(1i64);
     int64:grows = 0i64;
     int64:seen_cap = g.buf.len;
     int64:k = 0i64;
     while (k < 1000000i64) {
-        drop bytes_push(@g, 88u8);
+        drop bytes_push(@g, (k & 255i64) =>! uint8);
         if (g.buf.len != seen_cap) {
             grows = grows + 1i64;
             seen_cap = g.buf.len;
@@ -150,9 +207,14 @@ func:main = int32(cstring[]:_~argv) {
     // The capacity is bounded too -- a growth factor that overshot wildly would
     // be amortised linear in TIME and wasteful in SPACE, and this catches it.
     if (g.buf.len > 4000000i64)                         { exit 73i32; }
-    // The contents survived every copy, at both ends.
-    if ((raw bytes_get(@g, 0i64)) != 88u8)              { exit 74i32; }
-    if ((raw bytes_get(@g, 999999i64)) != 88u8)         { exit 75i32; }
+    // The contents survived every copy, at both ends AND in the middle, with a
+    // DIFFERENT expected value at each -- which is what makes this a copy test
+    // rather than a length test.
+    if ((raw bytes_get(@g, 0i64)) != 0u8)               { exit 74i32; }
+    if ((raw bytes_get(@g, 999999i64)) != 63u8)         { exit 75i32; }
+    if ((raw bytes_get(@g, 500000i64)) != 32u8)         { exit 76i32; }
+    if ((raw bytes_get(@g, 255i64)) != 255u8)           { exit 77i32; }
+    if ((raw bytes_get(@g, 256i64)) != 0u8)             { exit 78i32; }
 
     // No `bytes_free` anywhere in this file, and that is the type rather than
     // an omission: a `buffer` is MANAGED and its scope-exit drop is the reclaim
@@ -163,19 +225,22 @@ func:main = int32(cstring[]:_~argv) {
 
 func:failsafe = int32(Error:e) {
     pick (e) {
-        // `DivByZero` AND `DivOverflow` ARE HERE BECAUSE `bytes_put_uint` USES
-        // `/` AND `%`, and REACH-002 arms both the moment the operator appears.
-        // Neither can fire: the divisor is the literal `10u64` and the operands
-        // are unsigned, so there is no zero and no `MIN / -1`. The reachability
-        // walk does not know that, and `(*)` discharges nothing.
+        // TWO ARMS USED TO STAND HERE -- `DivByZero` and `DivOverflow` -- under
+        // a comment saying `bytes_put_uint` USES `/` AND `%`. It does not, and
+        // has not since RX-132 rewrote it as subtraction against a built power
+        // table; `src/core/bytes.npk` says so in capitals at its own line 186,
+        // and `SAFETY.md` §S-25 records the rewrite. So the justification was
+        // false about the very file this program tests, and REACH-002 had
+        // stopped arming either one: measured at the cycle 0.0 audit by
+        // stripping both from a scratch copy, which compiled at exit 0.
         //
-        // This is the error budget being charged by ARITHMETIC rather than by a
-        // declared `error:` -- the same shape as RX-127's `LimitViolated` and
-        // the second instance this repository has met. It is a cost on the
-        // CONSUMER the day `api` reaches `bytes`, so it is recorded as an open
-        // question rather than absorbed here (`meta/OPEN_QUESTIONS.md`).
-        (DivByZero)      { exit 89i32; },
-        (DivOverflow)    { exit 90i32; },
+        // THE SHAPE IS WORTH MORE THAN THE TWO LINES. A budget audit that
+        // counts declared `error:` sites finds one of the three ways this
+        // language charges an arm, and it finds the wrong one here: the defect
+        // was not a charge that had appeared, it was a charge that had been
+        // REMOVED FROM THE CODE AND LEFT STANDING IN THE CONSUMER. Thirteen of
+        // the fourteen test programs carry the ordinary six; this was the only
+        // one carrying eight, and nothing compared it to anything.
         (HeapBadRequest) { exit 91i32; },
         (HeapOom)        { exit 92i32; },
         (IntOverflow)    { exit 93i32; },

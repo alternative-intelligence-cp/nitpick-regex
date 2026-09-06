@@ -1,0 +1,53 @@
+// expect-exit: 94
+//
+// `Vec<T>` — OUT OF RANGE: `vec_init_zeroed` with a NEGATIVE length. RX-139.
+//
+// **FOUND BY THE AUDIT TRIAGE AND NOT BY THE AUDIT**, while establishing the
+// full extent of the dead-`Vec` finding rather than fixing it where it was
+// reported. It is the worse of the two: the others hang or trap, and this one
+// **exited 0 having written outside its block**.
+//
+// `vec_init_zeroed(-5)` floored the ALLOCATION to one element and wrote `-5`
+// straight into `count`. `vec_push`'s guard is `v.count >= v.cap`, which read
+// `-5 >= 1` and was FALSE, so the push went to `items[-5]` — five elements
+// BEFORE the block — and the program exited 0. Silently, and at the one
+// constructor in this file that could produce an invalid `Vec` without a caller
+// building a struct literal by hand.
+//
+// Every other entry point in `vec.npk` already trapped on a negative:
+// `vec_reserve` on `need`, `vec_truncate` on `n`, both accessors on `i`.
+// The half of the sweep that was missing was the one where the negative goes
+// into a FIELD rather than into an index.
+//
+// ONE CASE PER FILE, because a trapping call cannot be followed by an assertion.
+mod:vec_oob_init_zeroed_negative;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:argv) {
+    // -5 with no arguments, and derived so the optimiser cannot fold it: a
+    // constant would let `opt -O2` decide the whole program at compile time and
+    // this file has to run at both -O0 and -O2 (rule B-3).
+    int64:neg = 0i64 - argv.len - 4i64;
+
+    Vec<int64>:v = raw vec_init_zeroed::<int64>(neg);
+
+    // Unreachable. Reaching it means the constructor accepted a negative count,
+    // and the push below is the write that used to land before the block.
+    drop vec_push(@v, 7i64);
+    drop vec_free(@v);
+    exit 50i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

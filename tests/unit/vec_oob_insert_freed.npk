@@ -1,0 +1,48 @@
+// expect-exit: 94
+//
+// `Vec<T>` — OUT OF RANGE: `vec_insert` on a FREED `Vec`. RX-139.
+//
+// The third growth path, and it is here because two of three would have been a
+// sweep rather than a fix. `vec_insert` carries `vec_push`'s doubling verbatim,
+// so it carried the defect verbatim: measured **exit 91** against the shipped
+// file, for the reason `vec_oob_push_freed.npk` states.
+//
+// Its own index checks pass first — `i == 0` is `>= 0` and is `<= count`,
+// which is 0 — so nothing else in the function was going to catch this. That is
+// the argument for a case per ENTRY POINT rather than one per defect: the guard
+// that stops a caller reaching a dead container is not the guard that validates
+// the caller's index, and a file that tested only one of them would go green on
+// a fix to the other.
+//
+// ONE CASE PER FILE, because a trapping call cannot be followed by an assertion.
+mod:vec_oob_insert_freed;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:argv) {
+    int64:val = argv.len;
+
+    Vec<int64>:v = raw vec_init::<int64>(4i64);
+    drop vec_push(@v, 11i64);
+    drop vec_free(@v);
+    if (v.cap != 0i64) { exit 30i32; }
+
+    // i == 0 == count, which vec_insert's own bounds accept: the trap below is
+    // the DEAD-Vec guard and not the index guard.
+    drop vec_insert(@v, 0i64, val);
+
+    exit 50i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

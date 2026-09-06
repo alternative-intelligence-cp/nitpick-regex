@@ -1,0 +1,53 @@
+// expect-exit: 94
+//
+// `Bytes` — OUT OF RANGE: `bytes_get` at an index that was live before a
+// `bytes_clear` and is not after it.
+//
+// The cycle 0.0 audit's coverage table found that no primitive in `src/core/`
+// read a value back after a TRUNCATION. `bytes_unit.npk` now reads every byte
+// back after a clear-and-refill; this is the other half, and it has to be its
+// own file because it traps.
+//
+// WHY IT IS NOT REDUNDANT WITH `bytes_oob_get_at_len.npk`. That file asks
+// whether the accessor compares against `len` at all. This one asks whether
+// `bytes_clear` actually moves `len` — a clear that reset something else, or
+// that reset `buf.len` instead, would leave the byte at index 3 readable and
+// this program would exit 50 while the other stayed green. The capacity is
+// deliberately NOT reset by a clear (`SAFETY.md` S-6: a sink reused across
+// searches must not reallocate), so the storage under index 3 is still there
+// and still holds 'z'. Nothing but `len` stands between the caller and it.
+//
+// ONE CASE PER FILE, because a trapping call cannot be followed by an assertion.
+mod:bytes_oob_get_after_clear;
+
+use "../../src/core/bytes.npk".*;
+
+func:main = int32(cstring[]:argv) {
+    // Derived from `argv` so nothing folds.
+    int64:three = argv.len + 2i64;
+
+    Bytes:b = raw bytes_init(8i64);
+    drop bytes_extend_str(@b, "wxyz");
+    if ((raw bytes_get(@b, three)) != 122u8) { exit 30i32; }   // 'z', still live
+    drop bytes_clear(@b);
+    if ((raw bytes_len(@b)) != 0i64)         { exit 31i32; }
+    // The capacity is retained, so the byte is physically still there.
+    if (b.buf.len < 4i64)                    { exit 32i32; }
+
+    discard(raw bytes_get(@b, three));
+
+    exit 50i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

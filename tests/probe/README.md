@@ -6,7 +6,7 @@ They are not tests of `nregex` — no probe imports anything from `src/`, and
 none will ever be able to (P-1). They are tests of the **language**, kept in
 this library's tree because this library's design rests on their answers.
 
-Written by cycle 0.0.0 (`meta/roadmap/done/0.0/0.0.0.md`), which has the verdict
+Written by cycle 0.0.0 (`meta/roadmap/0.0/0.0.0.md`), which has the verdict
 table and the reasoning.
 
 ## A probe is never deleted
@@ -39,7 +39,7 @@ Cycle 0.0.2 picks them up as the harness's first `program`-stage entries.
 > `probe13e_limit_violation_traps.npk`, which proves the check actually fires,
 > and `refused/probe13f_limit_arm_missing.npk`, which records the **new**
 > refusal the construct produces. The redirect table is
-> [`../../meta/roadmap/done/0.0/0.0.4.md`](../../meta/roadmap/done/0.0/0.0.4.md) §7.
+> [`../../meta/roadmap/0.0/0.0.4.md`](../../meta/roadmap/0.0/0.0.4.md) §7.
 > **Again the harness reported it rather than a person noticing** — rule B-7's
 > code-set equality said *"expected NITPICK-RUNG-001, got NITPICK-REACH-002"*.
 >
@@ -51,7 +51,7 @@ Cycle 0.0.2 picks them up as the harness's first `program`-stage entries.
 > *"expected NITPICK-TYPE-034, but it compiled cleanly (exit 0)"*, which is a
 > stale expectation surfacing as a failing test rather than a quietly passing
 > one. **RX-125**; redirect table in
-> [`../../meta/roadmap/done/0.0/0.0.3.md`](../../meta/roadmap/done/0.0/0.0.3.md) §6.
+> [`../../meta/roadmap/0.0/0.0.3.md`](../../meta/roadmap/0.0/0.0.3.md) §6.
 
 **No single entry could judge the mixed directory**, which is why it was split
 rather than declared: `run_program` does not skip a file carrying
@@ -64,7 +64,7 @@ subdirectory.
 record did neither.** It cites their old
 paths and is a closed, independently verified artifact, so it is left saying
 what was true on the day it was written and a redirect table in
-[`../../meta/roadmap/done/0.0/0.0.2.md`](../../meta/roadmap/done/0.0/0.0.2.md) §4 makes
+[`../../meta/roadmap/0.0/0.0.2.md`](../../meta/roadmap/0.0/0.0.2.md) §4 makes
 its citations resolve — the pattern RX-114 set for the `O-G` renumbering. The
 transcript below is in the same position and carries the same note.
 

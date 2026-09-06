@@ -19,7 +19,7 @@
 // for — a stale expectation is a failing test, not a silently passing one. The
 // full behaviour was then measured on its own and is asserted below. **RX-125**
 // records the discharge; cycle 0.0.0's verdict table is NOT rewritten (RX-114),
-// and `meta/roadmap/done/0.0/0.0.3.md` §6 carries the redirect.
+// and `meta/roadmap/0.0/0.0.3.md` §6 carries the redirect.
 //
 // WHAT THIS FILE NOW ESTABLISHES, and each line is a separate way the derive
 // could still have been wrong:

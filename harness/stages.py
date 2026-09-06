@@ -163,13 +163,13 @@ def parse_sweep(c, path, name, exp):
     """The `parse` stage -- RX-124, and it is NOT the stage `BUILD.md` §3 named.
 
     §3 defines `parse` as "accepted by `tools/parse_check` with no diagnostic".
-    That tool is the COMPILER's, and reading it at the pin settles the matter:
+    That tool is the COMPILER's, and reading it at `3d15ac9` settles the matter:
     `tools/parse_check.npk` opens with nineteen `use "../src/frontend/..."`
     lines, so having it means compiling the compiler's frontend -- which RX-007
     forbids depending on and W-18 forbids building from here. This is EXACTLY
     the reason rule B-4a already struck the `accept` stage, recorded in the same
     table, one row away, and left `parse` standing. `npkc` has no parse-only
-    flag either (its usage line, read at the pin, is
+    flag either (its usage line, read at `3d15ac9`, is
     `npkc <root.npk> [-o out.ll] [--obligations DIR] [--elide ...] [--extra-picky=...]`).
 
     SO THE STAGE IS `npkc` ITSELF, AND IT IS STRICTLY STRONGER THAN PARSING:

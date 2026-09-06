@@ -16,7 +16,13 @@
 // `wild` blocks. It proves NOTHING about a managed body — the `Vec<string>`
 // section below frees its elements with `vec_free_owning`, and had it used
 // `vec_free` instead, this program would still exit 0 while retaining every
-// string. That half is gated by `vec_owning_cap.npk` under a memory cap.
+// string. That half is gated by the PAIR `vec_owning_freed.npk` and
+// `vec_owning_leak.npk` under the same memory cap, required to end 0 and 92
+// respectively. (This line named `vec_owning_cap.npk` until the cycle 0.0
+// audit; no such file has ever existed. It is a single occurrence in a
+// `.npk`, which `check_refs` does not open -- the gate reads markdown links
+// in markdown files, so a citation inside source is checked by nothing but
+// a reader.)
 mod:vec_unit;
 
 use "../../src/core/vec.npk".*;
@@ -89,16 +95,30 @@ func:main = int32(cstring[]:_~argv) {
 
     // ---- truncate and clear -----------------------------------------------
 
+    // THE VALUE IS READ BACK, NOT JUST THE COUNT. Until the cycle 0.0 audit
+    // this section asserted `count` and nothing else, which is a check that a
+    // `vec_truncate` writing `n` into `count` and ALSO corrupting element 0
+    // would pass. `[400, 101]` -> truncate(1) -> `[400]`.
     drop vec_truncate(@a, 1i64);
     if (a.count != 1i64)                                { exit 80i32; }
+    if ((raw vec_get(a, 0i64)) != 400i64)               { exit 84i32; }
     // Truncating ABOVE the count is a no-op, not a grow.
     drop vec_truncate(@a, 9i64);
     if (a.count != 1i64)                                { exit 81i32; }
+    if ((raw vec_get(a, 0i64)) != 400i64)               { exit 85i32; }
     drop vec_clear(@a);
     if (a.count != 0i64)                                { exit 82i32; }
     // Clearing keeps capacity: a `Cache` reused across searches must not
     // reallocate (`SAFETY.md` S-6).
     if (a.cap < 1i64)                                   { exit 83i32; }
+    // AND THE STORAGE IS STILL USABLE AFTER THE CLEAR, with DIFFERENT values
+    // from the ones that were there -- so a clear that left the old contents
+    // addressable, or a push that resumed at the old count, is visible here.
+    drop vec_push(@a, 7i64);
+    drop vec_push(@a, 8i64);
+    if (a.count != 2i64)                                { exit 86i32; }
+    if ((raw vec_get(a, 0i64)) != 7i64)                 { exit 87i32; }
+    if ((raw vec_get(a, 1i64)) != 8i64)                 { exit 88i32; }
     drop vec_free(@a);
 
     // ---- reserve ----------------------------------------------------------
@@ -118,6 +138,17 @@ func:main = int32(cstring[]:_~argv) {
     if ((raw vec_get(zs, 0i64)) != 0i32)                { exit 101i32; }
     if ((raw vec_get(zs, 63i64)) != 0i32)               { exit 102i32; }
     drop vec_free(@zs);
+
+    // ZERO IS THE LEGAL BOUNDARY AND IS NOT A NEGATIVE. `n == 0` still yields a
+    // block (the capacity is floored to 1) and a count of 0, so it is usable;
+    // `n < 0` traps, and that case is `vec_oob_init_zeroed_negative.npk`, one
+    // per file because a trap ends the program.
+    Vec<int32>:z0 = raw vec_init_zeroed::<int32>(0i64);
+    if (z0.count != 0i64)                               { exit 103i32; }
+    if (z0.cap < 1i64)                                  { exit 104i32; }
+    drop vec_push(@z0, 5i32);
+    if ((raw vec_get(z0, 0i64)) != 5i32)                { exit 105i32; }
+    drop vec_free(@z0);
 
     // ---- GROWTH: capacity 1 to 100 000 ------------------------------------
 
