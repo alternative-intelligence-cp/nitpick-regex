@@ -7,15 +7,28 @@
 # that are not its own. Bumping either pin is a deliberate commit, and the
 # commit that bumps it is the one that runs the full suite.
 #
-# WHAT THIS PROVES, UPDATED 2026-09-04 BY CYCLE 0.0.2 — and the file itself did
-# not change, which is what 0.0.1 predicted. `harness/run.py` is no longer a
-# stub. A green run is now evidence that the pinned compiler builds from a clean
-# checkout, that LLVM is exactly 20.1.2, and that all 24 declared units build,
-# link, run and are judged by their exit codes — the 16 probes twice each, at
-# -O0 and through `opt -O2`. It is still NOT evidence about this library's
-# BEHAVIOUR, because there is none yet: `src/` is a skeleton and nothing
-# matches. And it is not yet evidence that the runner can FAIL — the self-check
-# is cycle 0.0.3, and until it exists `meta/specs/TESTING.md` V-21 applies.
+# WHAT THIS PROVES, UPDATED 2026-09-06 BY CYCLE 0.0.4. A green run is evidence
+# that the pinned compiler builds from a clean checkout, that LLVM is exactly
+# 20.1.2, and that all 67 declared units build, link, run and are judged by
+# their exit codes — 19 probes twice each at -O0 and through `opt -O2`, 6
+# refusal probes held to their exact code sets, 1 conformance program, 2
+# rejection fixtures, and a 39-file sweep of every `.npk` in the tree as a root.
+# Four tree checks run on every invocation. AND SINCE 0.0.3 IT IS ALSO EVIDENCE
+# THAT THE RUNNER CAN FAIL: the self-check runs FIRST and feeds it eight kinds
+# of wrong expectation, requiring a red for each. Three more of V-20's eleven
+# cases print as PENDING on stages that do not exist until 0.3, 0.5 and 0.8, so
+# the green covers eight of the eleven ways the harness is meant to fail and
+# says so. It is still NOT evidence about this library's BEHAVIOUR: `src/` is a
+# skeleton and nothing matches yet.
+#
+# THE COMPILER CI BUILDS IS NOT BYTE-IDENTICAL TO THE ONE THIS WORKBENCH PINS,
+# AND THAT IS NOT A DEFECT. The pinned commit's own subject records it: at
+# `3d15ac9` the compiler side measured that `build/npkc` differs between a
+# developer machine and GitHub's runner while `npkrt.o` is identical, because
+# D-204's pin is a VERSION and a version is not a binary. The property that
+# holds across machines is the EMISSION — `build/npkc.ll` — and a difference
+# THERE would be a compiler defect. So a local `npkc` sha that disagrees with
+# the runner's is expected; do not raise it.
 #
 # FIRST GREEN: run 33835762747, 2026-09-04, on `main` at c7b8711, 8m48s.
 #
@@ -41,9 +54,19 @@ permissions:
   contents: read
 
 env:
-  # ../BOARD.md's pinned toolchain, by FULL sha. `950bb1d` is the short form
+  # ../BOARD.md's pinned toolchain, by FULL sha. `3d15ac9` is the short form
   # used in the roadmap and the transcripts.
-  NITPICK_COMMIT: 950bb1d8a12fa08a9682a538398c655163c69dd5
+  #
+  # BUMPED 2026-09-06 FROM `950bb1d`, WHICH WAS 57 COMMITS AND TWO RE-PINS
+  # STALE AND HAD BEEN RED FOR TWO DAYS. The red was this library's tests
+  # against an old compiler, not a defect: cycle 0.0.3 added derive probes that
+  # `950bb1d` refuses `NITPICK-TYPE-034`, because it predates the fix for
+  # workbench registry O-N10. Reproduced locally against three kept pins before
+  # this line moved -- `950bb1d` 60/63, `94874ce` 63/63, `3d15ac9` 61/63 and
+  # then 67/67 once the two commits before this one landed. A CI pin that lags
+  # the pin the work is done against does not test the library; it tests the
+  # gap.
+  NITPICK_COMMIT: 3d15ac92d51bfca9079d8a28808c2d9db0dab51e
   # nitpick.toml [toolchain] llvm. Exact patch release: a patch may change
   # instruction selection, which is why the manifest names three digits.
   LLVM_VERSION: 20.1.2
