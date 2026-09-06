@@ -172,6 +172,44 @@ import-scoped, and `nregex`'s layering (`BUILD.md` §6) puts `core`, `unicode`
 and `hir` below the error: a program importing `nregex/unicode.npk` to ask
 whether a codepoint is alphabetic owes **nothing**.
 
+### 4.2 The budget is charged by more than `error:` declarations
+
+**Rule S-24 (RX-127) — `nregex` declares no `limit<Rules>` anywhere in `src/`,
+because a limited binding charges every consuming program a second mandatory
+`failsafe` arm.**
+
+S-8's promise — *importing `nregex` costs your program's `failsafe` exactly one
+arm* — is a claim about the whole reachable graph, not about the `error:`
+declarations alone. Three things were measured at pin `3d15ac9`, each against a
+control differing only in the clause:
+
+| Measurement | Control | Result |
+|---|---|---|
+| a `pub` limited callee in an imported module | the same callee without `limit` | consumer refused **`NITPICK-REACH-002`**, "`failsafe` does not name `LimitViolated`"; control **exit 0** |
+| a **module-private** limited callee reached only through a `pub` wrapper | the same, unlimited | consumer refused the same way; control **exit 0** |
+| a violation met with an explicit `?\| 55i32` fallback | — | **exit 97**, this library's `LimitViolated` arm. The fallback never fires |
+
+So visibility does not contain it — reachability follows the call graph — and
+the arm it charges is not one a caller can decline, because the violation takes
+the trap route (the compiler's D-241) and no `?|`, `?!` or `is_err` at the call
+site can observe it. `tests/probe/probe13b_limit_enforced.npk`,
+`probe13e_limit_violation_traps.npk` and
+`tests/probe/refused/probe13f_limit_arm_missing.npk` are the three probes; the
+decision and the commands are RX-127.
+
+**This does not touch `requires` and `ensures`**, which `VERIFICATION.md` P-2
+writes and which still refuse `NITPICK-RUNG-001` at this pin. Their consumer
+cost is **unknown and unmeasurable here**, because the pin cannot answer a
+question about unlanded work; the day the compiler's 1.5.3 lands them, the
+measurement above is run again before a single clause is uncommented. That is
+`VERIFICATION.md` P-1a.
+
+**The general form, which is why this is a rule and not a note:** the error
+budget is charged by *anything that can reach `failsafe`*, and this repository
+has now met three kinds — a declared `error:` (S-8), arithmetic (`%` and `/`
+each add `DivByZero` and `DivOverflow`), and a **contract clause**. A budget
+audit that counts only `error:` declarations is counting one of three.
+
 ---
 
 ## 5. Bounds

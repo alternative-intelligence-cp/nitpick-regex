@@ -74,7 +74,14 @@ settled. **Nothing in this cycle is blocked on a question.**
 - [x] `tests/probe/probe12_iterator_borrowing.npk` + `probe12b_for_over_borrow_refused.npk` — the prelude `Iterator` trait implemented on a struct holding a borrow, driven by `for … in`; O-A1 depends on the answer  
       **DONE, and it splits O-A1** — the impl is legal, `for … in` over it is `NITPICK-BORROW-009`.
 - [x] `tests/probe/probe13a_prove_refused.npk` … `probe13d_ensures_refused.npk` — `prove`, `limit<Rules>`, `requires`/`ensures` each **refused by name** with `NITPICK-RUNG-001` naming "1.5", so the comment-form obligations are known to be inert rather than silently parsed as something else  
-      **DONE** — all four refuse `NITPICK-RUNG-001` naming 1.5; and `never fails` + `limit` is a *permanent* refusal, `NITPICK-TYPE-037`.
+      **DONE at pin `950bb1d`, and HALF OF IT HAS SINCE CHANGED — RX-127, 2026-09-06.** `prove`,
+      `requires` and `ensures` still refuse `NITPICK-RUNG-001` naming 1.5, so the comment-form
+      obligations remain inert. **`limit<Rules>` does not**: it went live in the compiler's 1.5.2
+      and is now accepted and enforced, so `probe13b` moved out of `refused/` as
+      `probe13b_limit_enforced.npk`, `probe13e` proves the check fires, and
+      `refused/probe13f` records the new refusal. **And `never fails` + `limit` is NOT a permanent
+      refusal**: the compiler's D-241 (2026-09-03) retired that rule, so the `NITPICK-TYPE-037`
+      sentence this line used to carry is false. See `0.0.4.md` §7 and `VERIFICATION.md` P-1a.
 - [x] `tests/probe/probe14_size_bound.npk` — a `Vec<Inst>` at `NREGEX_PROGRAM_INSTRUCTIONS`, built and walked, exiting 0 so a leak is a trap  
       **DONE** — 1 200 000 B, peak RSS 1152 KiB, wall < 10 ms.
 - [x] a verdict line per probe recorded in `0.0.0.md` §7, with the exact diagnostic where refused — **23 rows**, and every probe's outcome equals its `expect-` header (checked mechanically against `tests/probe/TRANSCRIPT.txt`)
@@ -93,11 +100,14 @@ settled. **Nothing in this cycle is blocked on a question.**
       does, and what `BUILD.md` §6 permits it to import. All seven compile at `npkc` exit 0
       (`tests/conformance/TRANSCRIPT.txt` §A) — and all seven are refused by `llc`, which is **RX-115**.
 - [~] `nitpick.toml`'s `[[test]]` table has its first entries: `probe` and `conformance`  
-      **HALF DONE, deliberately.** `conformance` is declared at `compile`/`positive` and is live.
-      `probe` is **not** declared: 16 of the 23 probes carry `expect-exit:` and 7 carry
-      `expect-error:`, and no single entry can judge both — `run_program` does not skip a file with
-      `expect-error`, and `run_compile`'s `kind` selects the checker, not the file set
-      (`npkg/suites.npk` :779 and :608). **RX-119**; the three-entry shape is in the manifest ready
+      **HALF DONE WHEN THIS WAS WRITTEN AT 0.0.1, AND FULLY DONE AT 0.0.2 — the counts below are
+      0.0.1's and are kept because they are the reasoning's evidence.** `conformance` is declared at
+      `compile`/`positive` and is live. `probe` was **not** declared: 16 of the 23 probes then in the
+      tree carried `expect-exit:` and 7 carried `expect-error:`, and no single entry can judge both —
+      `run_program` does not skip a file with `expect-error`, and `run_compile`'s `kind` selects the
+      checker, not the file set (`npkg/suites.npk` :779 and :608). **RX-119**; 0.0.2 split the
+      directory and declared **both** `probe` and `probe-refused`, and the split today is
+      **19 / 6 over 25 probes** (`tests/probe/README.md`). The three-entry shape is in the manifest ready
       to uncomment and the split is 0.0.2's, above.
 - [x] a consumer program under `tests/conformance/` imports `src/lib.npk` by relative path and compiles, with a comment naming O-G3 as the reason the path is relative  
       **DONE, and it links and runs** — `npkc` 0, `llc` 0, `ld.lld` 0, binary 0, and the same four

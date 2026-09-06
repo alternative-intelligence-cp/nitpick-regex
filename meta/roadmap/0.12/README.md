@@ -50,7 +50,7 @@ recommendation: yes, with the cost measured at 0.13 before confirming).
 - [ ] `VERIFICATION.md`'s obligation list read against the code, entry by entry
 - [ ] every obligation the code generates that the list does not name, added
 - [ ] every obligation the list names that the code does not generate, removed or scheduled
-- [ ] the comment-form contracts checked to be **syntactically what they will be**, by pasting one into a scratch file and confirming the compiler refuses it by name with `NITPICK-RUNG-001` — probe 13's check, repeated against the real clauses
+- [ ] the comment-form contracts checked to be **syntactically what they will be**, by pasting one into a scratch file and confirming the compiler's verdict on it — probe 13's check, repeated against the real clauses. **The expected verdict is per construct and must not be assumed uniform (`VERIFICATION.md` P-1a, RX-127):** `prove`, `requires` and `ensures` refused `NITPICK-RUNG-001` at pin `3d15ac9` and `limit<Rules>` did not, because it is live. A clause that has landed is checked by **running** it, not by confirming a refusal that will no longer come — and a clause that has landed is also re-measured for what it charges a consumer's `failsafe`, which is how RX-127 decided against `limit`
 - [ ] the property tests standing in for each, present and green
 - [ ] the whole list handed forward as `meta/OBLIGATIONS.md`, ready for the compiler's verified build (P-12)
 - [ ] O-P1 decided, pending 0.13's measurement

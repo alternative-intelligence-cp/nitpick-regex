@@ -1,0 +1,66 @@
+// expect-exit: 97
+//
+// PROBE 13e — A `limit<Rules>` VIOLATION TRAPS, AND NO FALLBACK CATCHES IT.
+//
+// ASKS: when a limited parameter's rule is violated at run time, what happens —
+// and can the caller recover?
+//
+// MATTERS BECAUSE `probe13b` can only show that a limited parameter is
+// ACCEPTED. Acceptance is exactly what a clause lowered to nothing also looks
+// like, so the pair is the measurement and neither half is one on its own.
+// A trapping call cannot be followed by an assertion in the same program, which
+// is why this is a second file rather than a fourth case in `probe13b` — the
+// same split `probe08b` and `probe08c` take for the bounds check.
+//
+// `expect-exit: 97` is this file's `LimitViolated` arm, so reaching `failsafe`
+// through that arm IS the assertion. Every other path out of `main` exits with
+// a code that names the line it came from, so a wrong answer is never 97.
+//
+// THE `?|` IS THE POINT, NOT AN IDIOM. `?| 55i32` asks for a default on error.
+// If a limit violation were an ordinary `Result` error, `v` would be 55 and
+// this program would exit 55. It exits 97: the violation takes the TRAP route
+// (the compiler's D-241, and its D-220/D-221 before it) and NOTHING at the call
+// site can observe or recover it. So the `Result` a caller must spell for a
+// limited callee is, for the limit itself, a channel that can never carry it —
+// worth knowing before this library writes a bound rule it expects a caller to
+// handle.
+mod:probe13e_limit_violation_traps;
+
+func:bounded = int32(limit<r_pos> int32:x) never fails {
+    pass x;
+};
+
+func:main = int32(cstring[]:argv) {
+    // DERIVED FROM `argv`, NOT WRITTEN AS A LITERAL. `argv.len` is 1 for a
+    // program run with no arguments, so this is 0 — computed at run time, so
+    // no folding can turn the violation into a compile-time refusal and quietly
+    // change what this file measures. `_~argv` would mark the parameter
+    // DISCARDED and reading it would be NITPICK-TYPE-007.
+    int32:zero = (argv.len =>! int32) - 1i32;
+
+    // `r_pos` is `$ > 0i32`, so `zero` violates it. The predicate runs at
+    // THIS CALLEE's entry, before its body.
+    int32:v = bounded(zero) ?| 55i32;
+
+    // Unreachable. Both codes are named so that if the trap ever stops firing,
+    // the failure says which way it stopped rather than merely not being 97.
+    if (v == 55i32) { exit 55i32; }     // the fallback fired: recoverable
+    if (v == 0i32)  { exit 60i32; }     // the limit lowered to nothing
+    exit 61i32;                         // neither, and that is a third finding
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (LimitViolated)  { exit 97i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};
+
+Rules<int32>:r_pos = { $ > 0i32 };

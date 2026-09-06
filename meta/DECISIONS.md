@@ -1407,3 +1407,146 @@ this repository has now found four of); renaming `Vec<T>` to `List` to acquire
 D-247's ownership (it would import a compiler-known type's drop semantics into a
 container this library has deliberately specified itself, RX-006, and it would do
 so by matching a filename — a coupling no reader would predict).
+
+---
+
+*Appended 2026-09-06 by stream 1, working `meta/roadmap/0.0/0.0.4.md`, against
+pinned toolchain `3d15ac9` under LLVM 20.1.2. This is the second re-pin this
+repository has absorbed, and — like the first — most of what follows exists
+because the compiler moved under a measurement already recorded here.*
+
+### RX-127 — `limit<Rules>` is live, enforced and import-scoped, so this library declines it: a limited binding charges every consumer a second `failsafe` arm
+
+**2026-09-06, at the re-pin from `94874ce` to `3d15ac9`.** `probe13b` came back
+red with *"expected `NITPICK-RUNG-001`, got `NITPICK-REACH-002`"*. It is not a
+regression: `limit<Rules>` went live in the compiler's 1.5.2, the rung refusal
+retired, and the probe now compiles **past** the construct and is refused at its
+`failsafe` instead. The probe asked a two-way question — *refused, or lowered to
+nothing?* — and the answer is a third thing it did not offer: **enforced.**
+
+**What was measured here, on the pinned `npkc`, each against a control that
+differs only in the clause.** The compiler session supplied three of these from
+its own build; they are re-run here rather than banked, because a fact about the
+toolchain we test against is only ours once we have taken it on that toolchain.
+
+| # | Program | Result |
+|---|---|---|
+| 1 | `limit<r_pos>` parameter, in-range call | `npkc` 0, `llc` 0, `ld` 0, **run 0** at −O0 and under `opt -O2` |
+| 2 | the same, argument violating the rule | **run 97** — this file's `LimitViolated` arm — at −O0 **and** under `opt -O2` |
+| 3 | `never fails` **+** `limit`, in-range | `npkc` 0, **run 0** |
+| 4 | `?\| 55i32` fallback over a violating call | **run 97**. The fallback never fires |
+| 5 | `pub` limited callee imported by a root whose `failsafe` omits the arm | **`NITPICK-REACH-002`**; the same root over an unlimited callee, **exit 0** |
+| 6 | **module-private** limited callee behind a `pub` wrapper, same root | **`NITPICK-REACH-002`**; unlimited control, **exit 0** |
+
+**The decision. No `limit<Rules>` appears anywhere in `src/`, public or
+private.** Rows 5 and 6 are the reason and row 6 is the one that settles it:
+visibility does not contain the charge, because reachability follows the call
+graph. `SAFETY.md` S-8 (RX-060) makes the strongest promise in this repository —
+*importing `nregex` costs your program's `failsafe` exactly one arm* — and a
+single limited binding anywhere in the reachable graph makes it two. Row 4 says
+the second arm buys the caller nothing it could not have without it: the
+violation takes the trap route (the compiler's D-241, its D-220/D-221 before
+it), so no `?|`, `?!` or `is_err` at the call site can observe or recover it.
+`SAFETY.md` gains **S-24** and §4.2; `VERIFICATION.md` gains **P-1a**.
+
+*The extent was measured before the decision was written, not after.* Rows 5 and
+6 are two different questions and only the first is the obvious one. Had the
+sweep stopped at row 5 the rule would have read *"no `limit` on a `pub`
+function"*, which is short by every private helper in `src/core/` — and it would
+have been discharged by a green suite, because a private limited helper compiles
+perfectly and only the **consumer** is refused. `PLAYBOOK.md`'s rule that an
+extent is a separate measurement from an existence, applied to a rule rather
+than to a defect.
+
+*One inference drawn and RETRACTED here, because the retraction is the more
+useful half.* A first reading of row 3 was that `limit` puts a `Result` at every
+call site — the call to a `never fails` limited callee is `Result<int32>` and
+needs `raw`, which looked like the clause's doing and would have killed
+`SAFETY.md` S-4 (RX-061: *`regex_find` returns `Match?`, **not**
+`Result<Match?>`*) on its own. **The control refutes it:** an unlimited
+`never fails` callee's call site is `Result<int32>` too, and `raw` unwraps both
+identically. That is D-163's own shape and has nothing to do with `limit`. The
+control was run because the conclusion was large, and it is in
+`probe13b_limit_enforced.npk` as `f_plain` so that the next reader meets the
+refutation beside the temptation.
+
+**What this does NOT decide.** `requires` and `ensures` — the clauses
+`VERIFICATION.md` P-2 actually writes, and the ones every accessor in cycle
+0.0.4 carries as a comment — still refuse `NITPICK-RUNG-001` at this pin
+(`probe13c`, `probe13d`, both green). **Whether they charge a consumer an arm
+cannot be measured here at all**, because the pin is silent about unlanded work
+by construction; the compiler's own `VERIFICATION_REFERENCE.md` says a violated
+precondition *"returns a `Result` error"* while D-241 says a contract violation
+takes the trap route "never a `Result`", and those two cannot both be the whole
+story. **The question is therefore left open and dated rather than guessed**,
+and P-1a requires it to be re-measured before a single clause is uncommented.
+
+*And it corrects a claim this repository shipped.* `probe13b`'s old header, and
+three sites in cycle 0.0.0's execution record, said `never fails` and `limit`
+are **mutually exclusive** — a *permanent* rule, `NITPICK-TYPE-037`, "a bound
+rule needs an error channel". Row 3 falsifies it, and the compiler's **D-241**
+(2026-09-03, its 1.5.1 step 5) is why: D-163 rule 2's contract row retired,
+because a `never fails` body already admits the trap channel. The claim was
+load-bearing — it was written down as deciding *which functions in `src/core/`
+could carry an obligation at 1.5*, and `VERIFICATION.md` §4's own P-2 example is
+`requires … never fails`, the very shape it forbade. **The record is not
+edited**: those three sites are a verified artifact of pin `950bb1d`, corrected
+by the redirect table in `meta/roadmap/0.0/0.0.4.md` §7 under W-28, in the
+pattern RX-114 set and RX-125 reused.
+
+*Alternatives declined:* adopting `limit` on `src/core/`'s accessors and
+amending S-8 to "one arm, plus `LimitViolated`" (S-8 is the library's headline
+API property and the second arm is a compiler-enforced source break in every
+consumer, which RX-005 calls a major version — paying it for a bound this
+library already checks by hand in `vec_get`/`vec_set` is a bad trade); using
+`limit` only on module-private helpers (row 6 measured, and it does not work);
+keeping `probe13b` red and expecting `NITPICK-REACH-002` in it (that makes a
+positive result look like a refusal, which is exactly the false claim in a
+filename RX-125 removed).
+
+### RX-128 — `VERIFICATION.md` §3 discharged the bounds obligation for free, and it is the obligation cycle 0.0.4 exists to build
+
+**2026-09-06.** `meta/specs/VERIFICATION.md` §3, *"What the language discharges
+for free"*, opened with:
+
+> **Every index traps** (D-070), so `nregex` never reads out of bounds. The
+> question is only whether a *reachable* index is out of bounds — §4.
+
+**RX-111 is the correction to exactly that sentence and it did not reach this
+file.** RX-111 rewrote `SAFETY.md` §1's row and added §5.3 (S-23): D-070's check
+attaches to types that carry a length, a `wild T->` block is a bare pointer,
+`Vec<T>.items` is one, and an out-of-range index **reads and returns a heap
+word**. Measured as a pair at the time — `probe08c` exit 94, `probe08b` exit 0,
+same offset and same program shape.
+
+**Why the miss is worse here than at any of the other sites.** §3's whole
+function is to list what the library therefore does **not** have to check. So
+the specification that governs cycle 0.0.4 discharged, for free, the single
+obligation cycle 0.0.4 exists to discharge — and the sentence immediately after
+it narrows the residue to *"whether a reachable index is out of bounds"*, which
+is a solver's question, when the real residue is *every index in the library*.
+
+*How it was found, and why the ordinary sweep would not have.* It surfaced while
+re-reading §2 for an unrelated reason (`limit`'s rung status, RX-127). The sweep
+that then confirmed it was run three ways over 62 tracked `.md` files —
+`index.*trap|trap.*index`, `bounds.checked|out of bounds|never reads out`, and
+`D-070` — and returned **19 candidate lines, of which reading confirmed exactly
+one false site**, this one. Every other line is either correct (`SAFETY.md` §1
+and §5.3, `CLAUDE.md`, `CONTRIBUTING.md`), a quotation of the error in order to
+forbid it (RX-111 itself), or a closed execution record. **RX-111's own entry
+names only `SAFETY.md` as what changes** — it never states a site list at all,
+so there was nothing for a later reader to check against, and this is the
+`PLAYBOOK.md` rule that a correction states its denominator arriving in the one
+place it had not been applied: a decision that corrects a claim should say how
+many sites it swept, not merely which one it fixed.
+
+**The correction.** §3's row now names the types D-070 actually covers, says
+plainly that this library's containers are not among them, and points at
+`SAFETY.md` §5.3. The residue §4 states is enlarged to what it always was.
+
+*Alternatives declined:* deleting the row (it is true of slices and fixed
+arrays, and this library does index both — a `uint8[]` haystack is the hottest
+one in the engine, and losing that discharge would put a redundant obligation on
+every haystack read); leaving it and relying on `SAFETY.md` §5.3 to be read
+first (a reader of `VERIFICATION.md` §4 is deciding what to prove, and §3 is the
+list they are entitled to skip §4 for).

@@ -24,10 +24,26 @@ Cycle 0.0.2 picks them up as the harness's first `program`-stage entries.
 
 | Directory | Files | Declared as | Judged by |
 |---|---|---|---|
-| `tests/probe/` | **17**, each `// expect-exit: N` | `probe`, stage `program` | it compiles, links, runs, and exits with that code — at −O0 and again under `opt -O2` |
+| `tests/probe/` | **19**, each `// expect-exit: N` | `probe`, stage `program` | it compiles, links, runs, and exits with that code — at −O0 and again under `opt -O2` |
 | `tests/probe/refused/` | **6**, each `// expect-error: CODE` | `probe-refused`, stage `compile`, kind `negative` | `npkc` exits **1** and reports **exactly** that code set (B-7, D-237) |
 
-> **The split was 16 / 7 until 2026-09-04 and is now 17 / 6.** `probe02b` moved
+> **The split is 19 / 6, and 25 is the count of probes in this repository.** It
+> was 16 / 7, then 17 / 6, and both moves were a probe changing directory
+> because the compiler changed its answer — not a probe being deleted, which
+> P-5 forbids.
+>
+> **2026-09-06, at the re-pin to `3d15ac9` (RX-127).** `probe13b` moved **out**
+> of `refused/` and was renamed `probe13b_limit_enforced.npk`: `limit<Rules>`
+> went live in the compiler's 1.5.2, so the file no longer records a refusal and
+> a name saying it does is a false claim. Two files joined it —
+> `probe13e_limit_violation_traps.npk`, which proves the check actually fires,
+> and `refused/probe13f_limit_arm_missing.npk`, which records the **new**
+> refusal the construct produces. The redirect table is
+> [`../../meta/roadmap/0.0/0.0.4.md`](../../meta/roadmap/0.0/0.0.4.md) §7.
+> **Again the harness reported it rather than a person noticing** — rule B-7's
+> code-set equality said *"expected NITPICK-RUNG-001, got NITPICK-REACH-002"*.
+>
+> **2026-09-04, at the re-pin to `94874ce` (RX-125).** `probe02b` moved
 > **out** of `refused/` at cycle 0.0.3: the re-pin to `94874ce` discharged
 > workbench registry O-N10, `#[derive(Eq)]` on a payload enum stopped being
 > refused, and a probe named `…_refused` that is not refused is a false claim in

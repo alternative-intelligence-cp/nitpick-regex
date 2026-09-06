@@ -1,3 +1,29 @@
+NOTE ADDED 2026-09-06 BY CYCLE 0.0.4 -- NOTHING BELOW IS EDITED, A THIRD TIME.
+One further verdict recorded below is NO LONGER THE COMPILER'S ANSWER. It was
+correct against pin 950bb1d, which is what this transcript is a record of; the
+repository is now pinned to 3d15ac9 and `limit<Rules>` is LIVE (RX-127, measured
+here 2026-09-06).
+
+    probe13b_limit_refused      -> tests/probe/probe13b_limit_enforced.npk
+        recorded below: npkc exit 1, NITPICK-RUNG-001 at :32:22,
+                        "a `limit<Rules>` constraint is not supported at this
+                        backend rung; enabled by cycle 1.5"
+        at 3d15ac9:     npkc exit 0 -- the clause is ACCEPTED and ENFORCED. A
+                        violation traps `LimitViolated`, and a program carrying
+                        a limited binding owes that arm in its `failsafe`.
+
+Note also that this file's 2026-09-04 move table sends `probe13b_limit_refused`
+to `tests/probe/refused/`, which was true then and is not now: it has moved a
+SECOND time, out of `refused/` and under a new basename, because a probe named
+`..._refused` that is not refused is a false claim in a filename. Two files were
+added beside it -- probe13e_limit_violation_traps.npk and
+refused/probe13f_limit_arm_missing.npk -- and neither appears below, because
+neither existed on the day this transcript was taken. The full redirect table is
+meta/roadmap/0.0/0.0.4.md section 7.
+
+Nothing below is altered, for the reason the 2026-09-04 note gives: a transcript
+records what a named compiler did on a named day, and the change is the finding.
+
 NOTE ADDED 2026-09-04 BY CYCLE 0.0.3 -- NOTHING BELOW IS EDITED, AGAIN.
 Two of the verdicts recorded below are NO LONGER THE COMPILER'S ANSWER. They
 were correct against pin 950bb1d, which is what this transcript is a record of;

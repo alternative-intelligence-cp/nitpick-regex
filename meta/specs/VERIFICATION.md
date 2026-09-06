@@ -33,7 +33,7 @@ how much effort goes here:
 |---|---|---|
 | 1.5.0 (done) | the SMT writer, z3 pinned, the obligation manifest, `llvm.assume` elision | the bounds obligations we generate are already decidable |
 | 1.5.1 | `limit<R>` names resolve, `Rules` bodies type, contracts type | §5's types become writable |
-| 1.5.2 | `limit<Rules>` live | §5 lands |
+| 1.5.2 | `limit<Rules>` live | **LANDED, and §5 does NOT take it — RX-127.** Measured at pin `3d15ac9`: a limited parameter is checked in every build, a violation traps `LimitViolated`, and REACH-002 makes that a mandatory arm in **every consuming program**. That is a second arm on top of S-8's one, so this library declines the construct |
 | 1.5.3 | contracts live | §3 and §4's clauses land |
 | 1.5.4 | `prove` / `assert_static` | §6's inline proofs land |
 
@@ -45,14 +45,31 @@ a property test. Measured at the compiler's 1.5.0: `prove`, `assert_static`,
 clause is a build failure and not a silent no-op. The switch is deleting a
 comment marker rather than inventing the clause.
 
+**Rule P-1a (RX-127) — the rung is no longer uniform, so "refused by name" must
+be re-measured per construct and not inherited.** At pin `3d15ac9`, `prove`,
+`requires` and `ensures` still refuse `NITPICK-RUNG-001` — `probe13a`,
+`probe13c`, `probe13d` — and **`limit<Rules>` does not**: it is live, accepted
+and enforced (`probe13b`, `probe13e`). P-1's guarantee that a premature clause
+is a build failure therefore still holds for the three this library writes, and
+has stopped holding for the one it does not. **A comment-form obligation is
+only inert while its construct is refused**, so any cycle that writes a new
+clause re-runs the probe for that clause rather than citing this paragraph.
+
 ---
 
 ## 3. What the language discharges for free
 
 Most of the list, which is why the residue is small:
 
-- **Every index traps** (D-070), so `nregex` never reads out of bounds. The
-  question is only whether a *reachable* index is out of bounds — §4.
+- **Indexing a type that CARRIES A LENGTH traps** (D-070) — a slice `T[]` and a
+  fixed array `T[N]`. **This library's own containers are not in that set and
+  the language discharges nothing for them (RX-111, RX-128).** `Vec<T>.items`
+  is a `wild T->` and a `buffer`'s bytes are reached through `.ptr`, both bare
+  pointers: an out-of-range index **reads and returns a heap word, silently**.
+  So the obligation §4 states is not "is a reachable index out of bounds" —
+  every index into a `Vec` or a `Bytes` is an obligation this library
+  discharges itself, through the accessor pairs, or not at all.
+  `SAFETY.md` §5.3 (S-23).
 - **Every plain integer `+ - *` traps on overflow** (D-210), so program-size
   arithmetic cannot silently produce a wrong bound.
 - **Borrows cannot escape** (D-004), so a `Cache` cannot outlive its scope and

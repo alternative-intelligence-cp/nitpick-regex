@@ -1,0 +1,96 @@
+// expect-exit: 0
+//
+// PROBE 13b — a `limit<Rules>` PARAMETER IS ACCEPTED AND CHECKED.
+//
+// ASKS: is a parameter carrying `limit<r_pos>` refused, lowered to nothing, or
+// enforced?
+//
+// THIS FILE WAS `refused/probe13b_limit_refused.npk` AND ITS ANSWER CHANGED.
+// It was written at pin `950bb1d`, where the whole clause refused
+// `NITPICK-RUNG-001`, and it asked a two-way question -- "refused, or lowered
+// to nothing?". At pin `3d15ac9` the answer is a third thing it did not offer:
+// ENFORCED. `limit<Rules>` went live in the compiler's 1.5.2 (its D-251…D-255),
+// the RUNG-001 refusal retired, and a limited parameter is now checked in every
+// build: a generated predicate runs at the callee's entry and a violation traps
+// `LimitViolated`, which REACH-002 arms in any program carrying a limited
+// binding. A probe named `…_refused` that is not refused is a false claim in a
+// filename, so it moved and was renamed -- the precedent is `probe02b` at cycle
+// 0.0.3 (RX-125), and the redirect table is `meta/roadmap/0.0/0.0.4.md` §7.
+//
+// MATTERS BECAUSE this is the rung whose silent version is worst. A `limit`
+// that lowered to nothing would tell the caller its argument had been checked
+// when nothing had checked it. It does not; `probe13e` is the file that proves
+// the check fires, because a trapping call cannot be followed by an assertion
+// in the same program (the same reason `probe08c` is separate from `probe08b`).
+//
+// AND IT CARRIES A CORRECTION THIS FILE ITSELF USED TO ASSERT. Its old header
+// said a `limit` and `never fails` are MUTUALLY EXCLUSIVE, quoting
+// `NITPICK-TYPE-037`. **That has been false since the compiler's D-241
+// (2026-09-03, its 1.5.1 step 5)**, which retired D-163 rule 2's contract row:
+// a `never fails` function may carry `requires`, `ensures` and `limit<Rules>`,
+// because the trap route is a channel a `never fails` body already admits.
+// `f_never_fails` below is that shape, compiling. The stale claim mattered:
+// most of `src/core/` is `never fails`, so the old sentence said which
+// functions could carry a bound rule, and it said it wrongly.
+mod:probe13b_limit_enforced;
+
+error:E9;
+
+// (1) The shape the old header called impossible.
+func:f_never_fails = int32(limit<r_pos> int32:x) never fails {
+    pass x;
+};
+
+// (2) The fallible shape the old probe used, kept so the pair is comparable.
+func:f_fallible = int32(limit<r_pos> int32:x) {
+    pass x;
+};
+
+// (3) THE CONTROL, AND IT IS HERE TO STOP A WRONG INFERENCE THAT WAS ACTUALLY
+// DRAWN WHILE WRITING THIS FILE. A call to `f_never_fails` yields
+// `Result<int32>` and needs `raw` to unwrap -- and it is TEMPTING to attribute
+// that to the `limit`. It is not the limit: `f_plain` carries no clause at all
+// and its call site is a `Result<int32>` too. That is D-163's own shape, where
+// `raw` is the checked unwrap of a `never fails` callee. Measured both ways
+// with the pair below before the sentence was written.
+func:f_plain = int32(int32:x) never fails {
+    pass x;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    // (1) accepted, and the in-range call returns its argument.
+    int32:a = raw f_never_fails(3i32);
+    if (a != 3i32) { exit 10i32; }
+
+    // (2) the fallible sibling, unwrapped the way the old probe did.
+    int32:b = f_fallible(3i32) ?! E9;
+    if (b != 3i32) { exit 11i32; }
+
+    // (3) the control: no clause, same `raw`, same result.
+    int32:c = raw f_plain(3i32);
+    if (c != 3i32) { exit 12i32; }
+
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (E9)             { exit 80i32; },
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        // NOT DECORATION AND NOT OPTIONAL: carrying a limited binding anywhere
+        // in the program's call graph makes this arm mandatory, `(*)` does not
+        // discharge it, and `probe13f` is the file that records the refusal.
+        (LimitViolated)  { exit 97i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};
+
+// D-220: the rule name resolves, and it is declared after the constructs that
+// lean on it so the lines above hold the positions the header cites.
+Rules<int32>:r_pos = { $ > 0i32 };

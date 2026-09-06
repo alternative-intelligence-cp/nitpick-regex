@@ -7,8 +7,10 @@ Guidance for Claude Code sessions working in this repository.
 `nregex` — a regular-expression library for **Nitpick**, the safety-critical
 systems language at `../../nitpick`. **Status: cycle 0.0, foundations.** The
 specifications, the decisions and the roadmap are complete; `tests/probe/` holds
-23 language probes with recorded verdicts, split **17 / 6** by kind (it was 16 / 7
-until the re-pin discharged O-N10 and `probe02b` stopped being refused — RX-125);
+**25** language probes with recorded verdicts, split **19 / 6** by kind (16 / 7,
+then 17 / 6 when the `94874ce` re-pin discharged O-N10 and `probe02b` stopped
+being refused — RX-125; then 19 / 6 when the `3d15ac9` re-pin made
+`limit<Rules>` live and `probe13b` stopped being refused — RX-127);
 `tests/rejection/` holds two consumer-facing refusals; `harness/` builds, sweeps,
 diffs and judges them, **and proves first that it can fail**; `src/` holds the
 module skeleton and one public `error:` identity, and nothing else. No matching
@@ -149,6 +151,24 @@ evidence.
 - **`%` and `/` each add two mandatory `failsafe` arms**, `DivByZero` and
   `DivOverflow`. The error budget is charged by arithmetic, not only by a
   declared `error:`.
+- **`limit<Rules>` is LIVE, ENFORCED, and it charges every consumer a `failsafe`
+  arm** (**RX-127**, measured here at the `3d15ac9` re-pin). It refused
+  `NITPICK-RUNG-001` until the compiler's 1.5.2; it is now checked in every
+  build, and a violation traps `LimitViolated`. **A limited binding anywhere in
+  a program's reachable call graph makes `(LimitViolated)` a mandatory
+  `failsafe` arm** — measured with controls at both `pub` and module-private
+  visibility, because reachability follows the call graph and not visibility.
+  That is a second arm on top of `SAFETY.md` S-8's one, so **`src/` declares no
+  `limit` at all** (S-24). `requires` and `ensures` still refuse
+  `NITPICK-RUNG-001`, so the comment-form obligations remain inert — but that is
+  now a per-construct fact to re-measure rather than a property of the rung
+  (`VERIFICATION.md` P-1a).
+- **`never fails` may carry `limit`, `requires` and `ensures`** — the compiler's
+  **D-241**, 2026-09-03. This repository shipped the opposite claim, that they
+  are *mutually exclusive* by a *permanent* `NITPICK-TYPE-037`, and wrote it
+  into cycle 0.0.0's record as deciding which `src/core/` functions could carry
+  an obligation at 1.5. It is false, and `VERIFICATION.md` §4's own P-2 example
+  is `requires … never fails` — the shape the claim forbade.
 - **`#[derive(Eq)]` and `#[derive(Ord)]` on a payload enum WORK, and read every
   payload field** — measured here at the re-pin, 2026-09-04 (**RX-125**). This is
   the reverse of what cycles 0.0.0–0.0.2 recorded: at pin `950bb1d` the `Eq`

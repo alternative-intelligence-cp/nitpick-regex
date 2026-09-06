@@ -1,0 +1,58 @@
+// expect-error: NITPICK-REACH-002
+//
+// PROBE 13f — A LIMITED BINDING MAKES `(LimitViolated)` A MANDATORY ARM.
+//
+// ASKS: does carrying a `limit<Rules>` charge the program's `failsafe` an arm,
+// and does `(*)` discharge it?
+//
+// The diagnostic, verbatim from `npkc` at pin `3d15ac9`, with its span:
+//
+//   NITPICK-REACH-002 …:NN:5: `failsafe` does not name `LimitViolated`, which
+//   can reach it (D-179): add the arm — `(*)` counts for nothing here, so a new
+//   failure mode is always acknowledged before the program compiles again
+//
+// MATTERS BECAUSE IT IS AN API DECISION AND NOT A PROBE CURIOSITY.
+// `SAFETY.md` S-8 (RX-060) makes the strongest promise in this repository:
+// *importing `nregex` costs your program's `failsafe` exactly one arm*. A
+// `limit` anywhere in the reachable call graph adds a second, and this file is
+// the mechanism that says so. `(*)` is present below and discharges nothing,
+// which is `PLAYBOOK.md` §3's rule that the wildcard and the named arms are two
+// different obligations failing two different ways.
+//
+// THE EXTENT WAS MEASURED SEPARATELY AND IS WIDER THAN THIS FILE CAN SHOW,
+// because this file is one module and the rule is import-scoped. Two further
+// pairs were run, each with a control differing only in the clause:
+// a `pub` limited callee in an imported module arms the consumer, and so does a
+// MODULE-PRIVATE limited callee reached only through a `pub` wrapper — so
+// visibility does not contain it and reachability follows the call graph. Both
+// controls, without the clause, compiled at exit 0. The commands and the
+// verdicts are in `meta/roadmap/0.0/0.0.4.md` §7; the decision they forced is
+// RX-127.
+mod:probe13f_limit_arm_missing;
+
+func:bounded = int32(limit<r_pos> int32:x) never fails {
+    pass x;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:v = raw bounded(3i32);
+    if (v != 3i32) { exit 10i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        // `(LimitViolated)` IS DELIBERATELY ABSENT. That absence is the whole
+        // test; adding it here would make this file compile and assert nothing.
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};
+
+Rules<int32>:r_pos = { $ > 0i32 };
