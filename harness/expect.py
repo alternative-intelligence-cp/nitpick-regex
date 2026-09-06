@@ -37,6 +37,25 @@ Negative values keep `npkg`'s meaning and are not refused: `run_binary` reports
 a killed process as `0 - signal`, so `expect-exit: -11` is "killed by SIGSEGV".
 Below -64 there is no such signal on Linux, so that is refused too.
 
+THIRD, AND IT IS AN ADDITION RATHER THAN A DIVERGENCE: `mem-cap-mib: N`.
+`npkg`'s grammar has no such marker and this one is `nregex`'s own, declared
+here so the parity stage that retires this runner has a row for it rather than
+a surprise. It exists because `SAFETY.md` §8b (S-22) makes half of this
+library's memory obligations INVISIBLE TO `exit 0`: D-151 counts `wild` blocks,
+D-188 counts live drivers, and neither sees a managed body, so a container
+freed without dropping its owning elements exits 0 while retaining every one of
+them. Where the obligation is managed the gate is a MEMORY CAP, and a marker is
+how a file asks for one.
+
+`run_binary` applies it as an RLIMIT_AS to the child, and **runs `/bin/true`
+under the identical cap first, requiring it to succeed**. That control is not
+politeness: a low address-space cap measures the DYNAMIC LOADER rather than the
+program, and this ecosystem has already shipped an acceptance item asserting
+that a probe "finishes clean in under 768 KiB of address space" when `/bin/true`
+does not either -- both flip at the same cap, between 2688 and 2816 KiB. A cap
+a trivial program also fails is not a statement about your program, so the
+control turns that warning into a mechanism.
+
 SECOND: `stress: 0`. Here the divergence is smaller and the reason is
 different, and it is worth stating exactly because the first draft of this
 comment got it wrong. `npkg` does NOT run the program zero times: `run_binary`
@@ -60,6 +79,7 @@ class Expect:
         self.exit_code = 0
         self.stress = 1
         self.argv = []
+        self.mem_cap_mib = 0    # 0 = uncapped. `mem-cap-mib: N` sets it.
         self.no_parse_error = False
         self.ok = True
         self.bad_line = 0
@@ -163,6 +183,17 @@ def read(text):
                 return _bad(e, n, f"`stress: {v}` -- a run count below one is not a run")
             e.stress = v
             continue
+        if body.startswith("mem-cap-mib:"):
+            v = _int(_after_colon(body))
+            if v is None:
+                return _bad(e, n, "a `mem-cap-mib:` whose number cannot be read")
+            if v < 1:
+                return _bad(e, n, f"`mem-cap-mib: {v}` -- a cap below one MiB cannot "
+                                  f"load a process at all, so it would measure the "
+                                  f"dynamic loader rather than the program")
+            e.mem_cap_mib = v
+            continue
+
         if body.startswith("argv:"):
             e.argv = _after_colon(body).split()
             continue

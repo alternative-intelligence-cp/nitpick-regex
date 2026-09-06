@@ -94,11 +94,34 @@ def empty_suite(name, rel):
 
 # --- running a built program ---------------------------------------------------------
 
-def run_binary(exe, args, stress, want, name, tail):
-    """`stress` runs, the SAME answer required every time."""
+TRUE_CONTROL = "/bin/true"
+
+
+def run_binary(exe, args, stress, want, name, tail, mem_cap_mib=0):
+    """`stress` runs, the SAME answer required every time.
+
+    `mem_cap_mib` caps the child's address space, and **`/bin/true` is run under
+    the identical cap first**. A low cap measures the DYNAMIC LOADER rather than
+    the program -- measured in this ecosystem, `/bin/true` and a probe flip at
+    the same cap, between 2688 and 2816 KiB -- so a cap a trivial program cannot
+    survive says nothing about the program under test. Running the control is
+    what makes the number a statement rather than a hope, and it is done on
+    every capped run rather than once, because the cap is per file.
+    """
+    if mem_cap_mib:
+        ctl = build.Run([TRUE_CONTROL], timeout=build.RUN_TIMEOUT,
+                        mem_cap_mib=mem_cap_mib)
+        if ctl.timed_out or ctl.code != 0:
+            got = "timed out" if ctl.timed_out else f"exited {ctl.code}"
+            return [f"{name}: THE CONTROL FAILED, so the cap measures the loader and "
+                    f"not this program: `{TRUE_CONTROL}` {got} under the same "
+                    f"{mem_cap_mib} MiB address-space cap. Raise the cap until the "
+                    f"control passes, then re-read what the test is asserting"
+                    f"{tail}"]
     seen = {}
     for _ in range(stress):
-        r = build.Run([exe] + list(args), timeout=build.RUN_TIMEOUT)
+        r = build.Run([exe] + list(args), timeout=build.RUN_TIMEOUT,
+                      mem_cap_mib=mem_cap_mib)
         if r.timed_out:
             return [f"{name}: timed out after {build.RUN_TIMEOUT} s{tail}"]
         got = r.code
@@ -126,14 +149,14 @@ def _program_like(c, path, name, exp, with_opt_leg):
     # `argv:` tokens pass verbatim; fixture substitution arrives with the corpus
     # stage at cycle 0.5, and there is nothing to substitute before then.
     fl = run_binary(base, exp.argv, exp.stress, exp.exit_code, name,
-                    " (compiled by the REAL backend)")
+                    " (compiled by the REAL backend)", exp.mem_cap_mib)
     if fl or not with_opt_leg:
         return fl
     fl = build.check_optimised(c, name, base, scanned=scanned)
     if fl:
         return fl
     return run_binary(base + ".opt", exp.argv, exp.stress, exp.exit_code, name,
-                      " (through opt -O2 + llc -O2 -- B-3)")
+                      " (through opt -O2 + llc -O2 -- B-3)", exp.mem_cap_mib)
 
 
 def parse_sweep(c, path, name, exp):

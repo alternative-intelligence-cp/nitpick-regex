@@ -1,0 +1,186 @@
+// expect-exit: 0
+//
+// `Vec<T>` — THE IN-RANGE SUITE.
+//
+// Every accessor at its boundaries `0` and `count-1`, at BOTH `T` shapes,
+// through the growth path, and ending in a state where `exit 0` is entitled to
+// assert something. The out-of-range boundary — `i == count` — is a TRAP and
+// therefore cannot be asserted in the same program as anything that follows it;
+// `vec_oob_*.npk` are those cases, one per file, exactly as `probe08c` is a
+// separate file from `probe08b`.
+//
+// A DISTINCT EXIT CODE PER ASSERTION, so a failure names one line.
+//
+// WHAT `exit 0` PROVES HERE AND WHAT IT DOES NOT (`SAFETY.md` §8b, S-22).
+// It proves every `wild` block this program made was released: D-151 counts
+// `wild` blocks. It proves NOTHING about a managed body — the `Vec<string>`
+// section below frees its elements with `vec_free_owning`, and had it used
+// `vec_free` instead, this program would still exit 0 while retaining every
+// string. That half is gated by `vec_owning_cap.npk` under a memory cap.
+mod:vec_unit;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    // ---- a scalar T: construction and the invariants of an empty Vec -------
+
+    Vec<int64>:a = raw vec_init::<int64>(4i64);
+    if (a.count != 0i64)                                { exit 10i32; }
+    if (a.cap < 1i64)                                   { exit 11i32; }
+
+    // A zero or negative request still yields a usable capacity, so the
+    // doubling in `vec_push` always has something to double.
+    Vec<int64>:z = raw vec_init::<int64>(0i64);
+    if (z.cap < 1i64)                                   { exit 12i32; }
+    drop vec_free(@z);
+
+    // ---- push, and the boundaries of `vec_get` ----------------------------
+
+    drop vec_push(@a, 100i64);
+    drop vec_push(@a, 101i64);
+    drop vec_push(@a, 102i64);
+    if (a.count != 3i64)                                { exit 20i32; }
+    // i == 0, the lower boundary
+    if ((raw vec_get(a, 0i64)) != 100i64)               { exit 21i32; }
+    // i == count-1, the upper boundary
+    if ((raw vec_get(a, 2i64)) != 102i64)               { exit 22i32; }
+    // and the middle, so a check that only ever fires at the ends is caught
+    if ((raw vec_get(a, 1i64)) != 101i64)               { exit 23i32; }
+
+    // ---- set, at both boundaries ------------------------------------------
+
+    drop vec_set(@a, 0i64, 200i64);
+    drop vec_set(@a, 2i64, 202i64);
+    if ((raw vec_get(a, 0i64)) != 200i64)               { exit 30i32; }
+    if ((raw vec_get(a, 2i64)) != 202i64)               { exit 31i32; }
+    if (a.count != 3i64)                                { exit 32i32; }
+
+    // ---- pop --------------------------------------------------------------
+
+    if ((raw vec_pop(@a)) != 202i64)                    { exit 40i32; }
+    if (a.count != 2i64)                                { exit 41i32; }
+
+    // ---- insert, including at `i == count` --------------------------------
+
+    drop vec_insert(@a, 0i64, 300i64);                  // at the front
+    if ((raw vec_get(a, 0i64)) != 300i64)               { exit 50i32; }
+    if ((raw vec_get(a, 1i64)) != 200i64)               { exit 51i32; }
+    if (a.count != 3i64)                                { exit 52i32; }
+    drop vec_insert(@a, a.count, 400i64);               // at the end: legal
+    if ((raw vec_get(a, 3i64)) != 400i64)               { exit 53i32; }
+    if (a.count != 4i64)                                { exit 54i32; }
+
+    // ---- remove (order-preserving) ----------------------------------------
+
+    // [300, 200, 101, 400] -> remove(1) -> [300, 101, 400]
+    drop vec_remove(@a, 1i64);
+    if (a.count != 3i64)                                { exit 60i32; }
+    if ((raw vec_get(a, 0i64)) != 300i64)               { exit 61i32; }
+    if ((raw vec_get(a, 1i64)) != 101i64)               { exit 62i32; }
+    if ((raw vec_get(a, 2i64)) != 400i64)               { exit 63i32; }
+
+    // ---- swap_remove (O(1), DOES NOT preserve order) ----------------------
+
+    // [300, 101, 400] -> swap_remove(0) -> [400, 101]
+    drop vec_swap_remove(@a, 0i64);
+    if (a.count != 2i64)                                { exit 70i32; }
+    if ((raw vec_get(a, 0i64)) != 400i64)               { exit 71i32; }
+    if ((raw vec_get(a, 1i64)) != 101i64)               { exit 72i32; }
+
+    // ---- truncate and clear -----------------------------------------------
+
+    drop vec_truncate(@a, 1i64);
+    if (a.count != 1i64)                                { exit 80i32; }
+    // Truncating ABOVE the count is a no-op, not a grow.
+    drop vec_truncate(@a, 9i64);
+    if (a.count != 1i64)                                { exit 81i32; }
+    drop vec_clear(@a);
+    if (a.count != 0i64)                                { exit 82i32; }
+    // Clearing keeps capacity: a `Cache` reused across searches must not
+    // reallocate (`SAFETY.md` S-6).
+    if (a.cap < 1i64)                                   { exit 83i32; }
+    drop vec_free(@a);
+
+    // ---- reserve ----------------------------------------------------------
+
+    Vec<int64>:r = raw vec_init::<int64>(1i64);
+    drop vec_reserve(@r, 50i64);
+    if (r.cap < 50i64)                                  { exit 90i32; }
+    if (r.count != 0i64)                                { exit 91i32; }
+    drop vec_free(@r);
+
+    // ---- zeroed construction ----------------------------------------------
+
+    // Every slot readable before anything was written there, which is what
+    // `SparseSet` needs and what makes its O(1) clear honest.
+    Vec<int32>:zs = raw vec_init_zeroed::<int32>(64i64);
+    if (zs.count != 64i64)                              { exit 100i32; }
+    if ((raw vec_get(zs, 0i64)) != 0i32)                { exit 101i32; }
+    if ((raw vec_get(zs, 63i64)) != 0i32)               { exit 102i32; }
+    drop vec_free(@zs);
+
+    // ---- GROWTH: capacity 1 to 100 000 ------------------------------------
+
+    // `NREGEX_PROGRAM_INSTRUCTIONS` is 100 000 and `Program.insts` is a
+    // `Vec<Inst>`, so this is the real shape at the real size rather than a
+    // token loop. Starting from capacity 1 forces every doubling.
+    Vec<int32>:g = raw vec_init::<int32>(1i64);
+    int32:i = 0i32;
+    while (i < 100000i32) {
+        drop vec_push(@g, i);
+        i = i + 1i32;
+    }
+    if (g.count != 100000i64)                           { exit 110i32; }
+    if (g.cap < 100000i64)                              { exit 111i32; }
+    // The contents survived every reallocation, checked at both ends and in
+    // the middle -- a `ralloc` that copied short would pass an end-only check.
+    if ((raw vec_get(g, 0i64)) != 0i32)                 { exit 112i32; }
+    if ((raw vec_get(g, 50000i64)) != 50000i32)         { exit 113i32; }
+    if ((raw vec_get(g, 99999i64)) != 99999i32)         { exit 114i32; }
+    drop vec_free(@g);
+
+    // ---- a second instantiation, to prove the family is generic -----------
+
+    // `int32` is a different width, so `#size_of<T>()` inside every function is
+    // doing real work. A family that only ever served the type it was first
+    // instantiated at would pass everything above.
+    Vec<int32>:b = raw vec_init::<int32>(1i64);
+    drop vec_push(@b, 7i32);
+    drop vec_push(@b, 8i32);
+    drop vec_push(@b, 9i32);
+    if (b.count != 3i64)                                { exit 120i32; }
+    if ((raw vec_get(b, 0i64)) != 7i32)                 { exit 121i32; }
+    if ((raw vec_get(b, 2i64)) != 9i32)                 { exit 122i32; }
+    drop vec_free(@b);
+
+    // ---- AN OWNING T ------------------------------------------------------
+
+    // `string` owns a heap body. This is the shape `SAFETY.md` §8b is about and
+    // the reason `vec_free_owning` exists.
+    Vec<string>:s = raw vec_init::<string>(2i64);
+    drop vec_push(@s, "alpha");
+    drop vec_push(@s, "beta");
+    drop vec_push(@s, "gamma");                          // forces the doubling
+    if (s.count != 3i64)                                { exit 130i32; }
+    // `vec_get` is scalar-only by construction -- a copy of an owning element
+    // is TYPE-046 -- so the assertion here is on the container's own state.
+    if (s.cap < 3i64)                                   { exit 131i32; }
+    // DROPS EVERY ELEMENT, then the block. `vec_free` would release the block
+    // and orphan three string bodies, and this program would still exit 0.
+    drop vec_free_owning(@s);
+
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

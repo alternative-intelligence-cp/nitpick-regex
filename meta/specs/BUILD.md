@@ -91,6 +91,32 @@ in a moving compiler is a visible one-line update rather than a mysterious red.
 Measured at `950bb1d`: baseline 29, consumer 29, symmetric difference empty.
 The baseline program and its two committed sets are `harness/baseline/`.
 
+**Rule B-2b (RX-131) — the equality above became an emptiness claim about
+nothing when the prelude was trimmed, so the difference is now a REVIEWED
+RESIDUE LIST.** The compiler's D-262 (its 1.5.2d) emits a prelude item only if
+it is REFERENCED. Re-measured at `3d15ac9`: the floor is **2** undefined symbols
+(`npk_dalloc`, `npk_ofd_close`) and **2** call edges, both from the drop glue,
+against 29 and 237 before. An object's undefined set is therefore exactly what
+the program uses, and a four-line program making one `wild` block already
+differs from the floor by three symbols — so the equality would fail on every
+correct program in this library.
+
+The `got - base` direction is now diffed against
+`harness/baseline/RESIDUE.txt`: one line per symbol with **its reason**,
+committed, refused at read time if the reason is missing, and checked **both
+ways** so an entry no program references fails the run too. It is the absolute
+allowlist the paragraph above says cannot be expressed — which was true while
+the prelude was emitted whole, and is not any more. RX-120's kernel deny list is
+applied on top and independently, so no edit to that file can admit a syscall.
+
+**And this layer can now see a syscall, which RX-120 measured that it could
+not.** At `950bb1d` a `sys(39i64)` program had the same 29 undefined symbols as
+the floor, because `npk_sys6` was already the prelude's. At `3d15ac9` the floor
+has no `npk_sys6` and the difference is exactly that symbol. **RX-120's second
+layer stands regardless** — it names the calling function and survives a prelude
+that emits `npk_sys6` again — and what is corrected is one supporting clause
+inside it, not its decision.
+
 **Rule B-2a (RX-120) — and the symbol difference is not enough, because it
 cannot see a syscall.** A second layer scans the **-O0 IR's call edges**: every
 `(enclosing function, callee)` pair whose callee is declared and not defined in
@@ -294,6 +320,13 @@ no import.
 ---
 
 ## 5. Storage primitives
+
+**Rule B-11a (RX-129) — the container API is FREE FUNCTIONS**, `vec_push(@v, x)`
+and not `v.push(x)`, following the compiler's own `list.npk` shape (D-209).
+Probe 04 compiled and ran BOTH forms, at two instantiations, so this is a choice
+and not a default; cycle 0.0.0's verdict table deferred it here in as many
+words. The deciding reason is that `SAFETY.md` S-23 makes the accessor pair
+load-bearing and `VERIFICATION.md` P-2 writes its obligations on free functions.
 
 **Rule B-11 (RX-006).** `nregex` declares its own, in `src/core/`:
 

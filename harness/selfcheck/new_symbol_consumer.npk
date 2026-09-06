@@ -1,17 +1,32 @@
 // A SELF-CHECK FIXTURE. IT MUST FAIL, AND IT MUST FAIL BY NAME.
 //
-// The OTHER half of rule B-2, and the half RX-116 specified: a floor symbol
-// this program NEEDS that the empty baseline does not. `ralloc` is the
-// cheapest honest one -- the baseline never grows an allocation, so
-// `npk_ralloc` is not among its 29 undefined symbols, and a program that
-// reallocates adds it.
+// The OTHER half of rule B-2: a floor symbol this program NEEDS that neither
+// the baseline nor the REVIEWED RESIDUE LIST has (RX-116 as amended by RX-131).
 //
-// It is a real symbol and a real need, not a contrivance: this is exactly what
-// `Vec<T>`'s doubling will look like at cycle 0.0.4. The point of running it
-// now is that the check has to be seen naming a symbol before anybody trusts
-// it to name one later, and at 0.0.4 the right response will be to add
-// `npk_ralloc` to the permitted delta DELIBERATELY, in a decision, rather than
-// to discover it as a mysterious red.
+// CHANGED 2026-09-06 AT CYCLE 0.0.4, AND THE OLD VERSION PREDICTED IT.
+// This fixture used to lean on `npk_ralloc`, with a header saying: *"at 0.0.4
+// the right response will be to add `npk_ralloc` to the permitted delta
+// DELIBERATELY, in a decision, rather than to discover it as a mysterious
+// red."* That is exactly what happened -- `Vec<T>`'s doubling calls `ralloc`,
+// and `npk_ralloc` is now a reviewed line in `harness/baseline/RESIDUE.txt`.
+//
+// **So the old fixture would now PASS, and a self-check case that goes green is
+// a case whose red is unreachable.** This is `PLAYBOOK.md`'s exemption shape
+// arriving inside the mechanism written to prevent it: the check asked whether
+// the FILE still fails, while what decayed was the REASON the symbol was
+// unusual. The prediction was written down, was correct about the world, and
+// nothing mechanical could see it come true.
+//
+// `mono_now` replaces it, and it is chosen to be UNADDABLE rather than merely
+// unused: `PLAYBOOK.md` §4 and D-076 make determinism this ecosystem's
+// property -- no clock on any path, ever -- so `npk_mono_now` is a symbol that
+// can never legitimately join the residue list, and this case cannot decay the
+// same way twice. The `ralloc` lines below are KEPT, now as a control: they are
+// on the list, so they must NOT be reported, and the case's expectation names
+// the clock alone.
+//
+// A REAL SYMBOL AND A REAL NEED, NOT A CONTRIVANCE, in both versions. The check
+// has to be seen naming a symbol before anybody trusts it to name one later.
 mod:new_symbol_consumer;
 
 use "../../src/lib.npk".*;
@@ -19,9 +34,15 @@ use "../../src/lib.npk".*;
 func:main = int32(int32:argc, cstring[]:argv) {
     discard(argc);
     discard(argv);
+    // The CONTROL: both are on the residue list, so neither may be reported.
     wild int8->:mem = alloc(64i64);
     wild int8->:bigger = ralloc(mem, 128i64);
     dalloc(bigger);
+    // THE SUBJECT: a clock. `npk_mono_now` is not in the baseline and can never
+    // be added to the residue list, because a library that reads a clock is no
+    // longer deterministic (D-076).
+    int64:t = mono_now();
+    discard(t);
     exit 0i32;
 };
 

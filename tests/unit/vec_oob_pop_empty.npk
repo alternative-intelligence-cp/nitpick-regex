@@ -1,0 +1,49 @@
+// expect-exit: 94
+//
+// `Vec<T>` — OUT OF RANGE: vec_pop on an EMPTY Vec.
+//
+// `expect-exit: 94` is this file's `OutOfBounds` arm, so REACHING FAILSAFE
+// THROUGH IT is the assertion. Every other path out of `main` exits with a code
+// that names its own line, so a wrong answer is never 94.
+//
+// ONE CASE PER FILE, because a trapping call cannot be followed by an assertion
+// in the same program — the split `probe08b` and `probe08c` take, for the same
+// reason.
+//
+// WHY THIS MATTERS MORE HERE THAN IN AN ORDINARY CONTAINER. `Vec<T>.items` is a
+// `wild T->`, a bare pointer, and D-070's bounds guard is not emitted for it
+// (`SAFETY.md` §5.3, S-23, RX-111). Without the check inside the accessor this
+// program would exit 0 having read or written unrelated heap memory. The trap
+// below is this library's, not the language's — and the point of the file is
+// that it happens at all.
+mod:vec_oob_pop_empty;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:argv) {
+    // Derived from `argv` so nothing folds: `argv.len` is 1 with no arguments.
+    int64:past = argv.len;
+
+    Vec<int64>:v = raw vec_init::<int64>(4i64);
+    // count is 0. `vec_pop` would decrement to -1 and index there.
+    discard(raw vec_pop(@v));
+
+    // Unreachable. If the accessor ever stops checking, this is the exit that
+    // says so — and it says it as a DIFFERENT code from the trap, so "the check
+    // was removed" and "the check fired" can never be confused.
+    drop vec_free(@v);
+    exit 50i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

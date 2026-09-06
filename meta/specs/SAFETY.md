@@ -304,6 +304,17 @@ than a style note:**
   controls — so it is the second-most exposed accessor here and it was outside
   this rule until the `buffer` row was added.
   Before this rule that pair was tidiness; it is now the only bounds check.
+- **A VIOLATION TRAPS `OutOfBounds` (RX-130).** `vec_get`, `vec_set`,
+  `bytes_get` and `bytes_set` do not return a `Result` on an out-of-range
+  index: S-4 says matching cannot fail and `regex_find` returns `Match?` and not
+  `Result<Match?>`, so an error channel here would land on the search path. The
+  trap is spelled by indexing a one-element **fixed array** — a type that does
+  carry a length — so it is the language's own `OutOfBounds` rather than a code
+  this library invented, and it is what a `requires` clause will do by itself
+  when the compiler's 1.5.3 lands it (D-241's trap route, measured for `limit`
+  in RX-127). Four cases are gated, one file each because a trapping call cannot
+  be followed by an assertion: `i == count`, a negative `i`, the write side of
+  `i == count`, and a pop from empty.
 - **An unchecked index is a WRONG ANSWER, not a crash.** That inverts the
   failure mode §1 advertises. A wrong program counter in an engine reads an
   unrelated heap word as an instruction; a wrong sparse-set probe adds a thread

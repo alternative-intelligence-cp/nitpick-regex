@@ -1,0 +1,107 @@
+// `src/core/limits.npk` — EVERY BOUND IN THIS LIBRARY, AND NOWHERE ELSE.
+//
+// `SAFETY.md` rule S-12 (RX-062): every bound is a named constant here, and a
+// tree check (`check_constants_named`) fails the run if a literal is compared
+// against anywhere else under `src/`. The rule is about BOUNDS, not about
+// arithmetic — a bit width or a byte count inside a shift is structure rather
+// than policy, and the check excludes those by value.
+//
+// WHY ONE FILE AND NOT A CONSTANT BESIDE EACH USE. A bound is a policy decision
+// that a later cycle, a consumer's `RegexOptions`, or a security review will
+// want to find, change, and test at its edge. `SAFETY.md` §5 is the table these
+// names implement, and the two are diffed on every full run: a row there with
+// no constant here fails the check by name.
+//
+// EACH CONSTANT CARRIES THE RULE THAT SET IT. That is the half a grep cannot
+// reconstruct — the number is in the specification, but WHY it is that number,
+// and what breaks if it moves, is not.
+//
+// `fixed` RATHER THAN `const`. `const` was retired from the language at the
+// compiler's 1.4.2c (D-222); `QUAL_FIXED` is what the folder actually checks,
+// which `SAFETY.md` §7's note records as O-G2 against the compiler's own
+// documentation.
+//
+// LAYERING (`BUILD.md` §6, B-16). `core` imports nothing, and this file is the
+// bottom of `core`. It has no `use` line and never will.
+mod:limits;
+
+// ---- the pattern text ------------------------------------------------------
+
+// SAFETY.md §5. The pattern is caller-supplied text and every parser bound is
+// spent against it. 64 KiB is far past any hand-written pattern and far short
+// of a size at which the parser's own arrays matter.
+pub fixed int64:NREGEX_PATTERN_BYTES = 65536i64;
+
+// SAFETY.md §5, and S-18 is why it exists at all: the parser uses an EXPLICIT
+// STACK with this many entries, because a recursive-descent parser on `((((…`
+// blows the call stack and the language has no stack-depth guard — the failure
+// would be a segfault rather than a controlled stop. Probe 05 measured the
+// shape at exactly this bound: 250 parses, 251 is refused at byte 250, and
+// 10 000 is refused at depth 251 with the program surviving.
+pub fixed int64:NREGEX_NEST_DEPTH = 250i64;
+
+// ---- the compiled program --------------------------------------------------
+
+// SAFETY.md §5. The ceiling on `Program.insts`. Probe 14 measured the floor
+// this implies: 100 000 × #size_of<Inst> (12) = 1 200 000 B, peak RSS 1152 KiB,
+// wall under 10 ms — so the bound is affordable rather than merely stated.
+pub fixed int64:NREGEX_PROGRAM_INSTRUCTIONS = 100000i64;
+
+// SAFETY.md §5. A single `{n,m}` bound.
+pub fixed int64:NREGEX_REPEAT_MAX = 1000i64;
+
+// SAFETY.md §5.1, rule S-13 (RX-015) — THE REPETITION BOMB, and the one bound
+// here that closes an attack rather than sizing a buffer. `a{1000}` is a
+// thousand instructions; `(a{1000}){1000}` is a million; `((a{1000}){1000}){1000}`
+// is a billion — thirty characters that would exhaust memory DURING
+// COMPILATION. This is the program-size analogue of ReDoS and it is closed the
+// same way S-1 closes ReDoS: by a bound, not by a timeout.
+//
+// It is checked AS THE HIR IS BUILT, multiplying nesting factors on the way
+// down, so the refusal happens BEFORE the memory is requested rather than
+// after. The multiply is a `uint64` widening whose narrow is refused if it
+// would exceed this, per D-210 — because a plain `int64` multiply of two
+// nesting factors traps on overflow, and a trap is the wrong answer here: the
+// caller is owed a `PatternError`, not a dead process.
+pub fixed int64:NREGEX_REPEAT_PRODUCT = 100000i64;
+
+// SAFETY.md §5. Capture groups, named and numbered together. It bounds the
+// capture slot array, which is `2 × group_count` and is written on every
+// engine's hot path.
+pub fixed int64:NREGEX_CAPTURE_GROUPS = 250i64;
+
+// SAFETY.md §5. Codepoint ranges in one class AFTER case folding — the
+// qualifier matters, because folding is what makes a small written class large.
+pub fixed int64:NREGEX_CLASS_RANGES = 20000i64;
+
+// ---- the lazy DFA ----------------------------------------------------------
+
+// SAFETY.md §5.2, rule S-14 (RX-042). The cache never grows past this and never
+// fails: when it is full it is cleared and rebuilt, and if clearing happens too
+// often to be worth it the meta-engine ABANDONS the DFA for that search and
+// falls back to the Pike VM, which needs no cache and is still linear. The user
+// never sees it: it changes the time, never the answer, and TESTING.md §5's
+// cross-engine oracle is what proves that.
+//
+// 2 MiB, written as a byte count rather than `2 * 1024 * 1024` so the number a
+// reviewer sees is the number the check compares against.
+pub fixed int64:NREGEX_DFA_CACHE_BYTES = 2097152i64;
+
+// SAFETY.md §5. Below this many states the DFA gives up PERMANENTLY for that
+// search rather than thrashing — clearing a cache that cannot hold a working
+// set is pure overhead on top of an engine that was already linear.
+pub fixed int64:NREGEX_DFA_MIN_STATES = 32i64;
+
+// ---- literal extraction ----------------------------------------------------
+//
+// `HIR.md` §5's two bounds. They are here rather than in `hir.npk` for the
+// reason S-12 gives — one file, so a bound can be found — and they are listed
+// separately from the nine above because `SAFETY.md` §5's table is what
+// `check_constants_named` diffs against and these are not rows in it.
+
+// The most literals a prefilter will consider from one pattern.
+pub fixed int64:NREGEX_LITERAL_LIMIT = 64i64;
+
+// The most bytes of literal text extracted in total. A prefilter that has to
+// scan for more than this stops being a prefilter.
+pub fixed int64:NREGEX_LITERAL_BYTES = 1024i64;

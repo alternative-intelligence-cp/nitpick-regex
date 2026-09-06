@@ -1550,3 +1550,161 @@ one in the engine, and losing that discharge would put a redundant obligation on
 every haystack read); leaving it and relying on `SAFETY.md` §5.3 to be read
 first (a reader of `VERIFICATION.md` §4 is deciding what to prove, and §3 is the
 list they are entitled to skip §4 for).
+
+### RX-129 — the container API is FREE FUNCTIONS, and probe 04 measured both forms so this is a choice rather than a default
+
+**2026-09-06.** Cycle 0.0.0's verdict table left this open in as many words:
+*"the container API is a **choice**; cycle 0.0.4 settles it with both
+measured."* `probe04_inherent_generic_impl.npk` compiles and runs BOTH — D-171's
+inherent family impl `impl:<T>:Vec<T>` called as `v.push2(x)`, at two
+instantiations, and the free-function form beside it — so neither is being
+chosen because the other does not work.
+
+**The decision: free functions**, `vec_push(@v, x)`, following the compiler's
+own `list.npk` shape (its D-209).
+
+Three reasons, in order of weight:
+
+1. **`SAFETY.md` S-23 makes the accessor pair load-bearing, and a free function
+   is what the tree check can see.** The rule is that no `.items[` appears
+   outside `src/core/vec.npk`. That is a check over one file either way — but
+   the *reason* it holds is that every read goes through `vec_get`, and a
+   grep for a free function's name finds every call site in one pass, where a
+   method call is `.get(` on any receiver.
+2. **`VERIFICATION.md` P-2 writes the obligations on free functions.** Its
+   worked example is `func:prog_inst = Inst(Program->:p, int32:pc) requires …`,
+   and P-23 requires every accessor's obligation to be written NOW in the
+   syntax it will take. Writing them on one shape and the code on another would
+   make the switch at 1.5 a rewrite rather than a comment deletion.
+3. **There are no static methods (D-185)**, so construction is a bare function
+   whichever form the rest takes. A library that is half free functions and half
+   methods reads worse than either.
+
+*Alternatives declined:* the inherent impl form (it reads better at the call
+site — `v.push(x)` — and that is the whole of its case; against it are the
+three above, and the mutating receiver must be `Vec<T>->` rather than
+`Vec<T>`, which a by-value slip turns into a silent no-op rather than an
+error, as probe04's own header notes); a mix, methods for reading and free
+functions for mutating (two vocabularies for one type).
+
+### RX-130 — an out-of-range accessor TRAPS, and the trap is the language's own `OutOfBounds`
+
+**2026-09-06.** `SAFETY.md` S-23 says `vec_get`/`vec_set` "check against
+`count`" and does not say what a violation does. Three answers were available
+and only one survives the specifications already in force.
+
+**The decision: it traps `OutOfBounds`.** Spelled by indexing a one-element
+fixed array — `int64[1]`, a type that DOES carry a length — out of range, so it
+is the language's own trap and not a code this library invented. The helper is
+`vec_oob`, it never returns, and the guard array is constructed inside the
+failing branch so the fast path pays a compare and a branch.
+
+**Why not a `Result`.** `SAFETY.md` S-4 (RX-061): *matching cannot fail*, and
+`regex_find` returns `Match?` and **not** `Result<Match?>`. An accessor with an
+error channel puts one on the search path — the hottest path in the library —
+and every engine would thread it to no purpose, since a violated bound is a bug
+in this library rather than a condition a caller can handle.
+
+**Why not "leave it unchecked and rely on the contract".** That is the state
+RX-111 found and called the worst outcome available: an unchecked index is *a
+WRONG ANSWER, not a crash*, and it inverts the failure mode `SAFETY.md` §1
+advertises.
+
+**And it is where the language is going, which is the strongest reason.** When
+the compiler's 1.5.3 lands `requires`, a contract violation takes the TRAP route
+(its D-241, and D-220/D-221 before it) — measured for `limit` at this pin in
+RX-127, where an explicit `?| 55i32` fallback did not fire and the program
+exited through its `LimitViolated` arm. So writing the trap now means behaviour
+does not change on the day the clause is uncommented, which is exactly what
+P-23 promises when it says the switch is deleting a comment marker.
+
+*Measured, four files, one case each because a trapping call cannot be followed
+by an assertion in the same program:* `vec_get` at `i == count`, `vec_get` at a
+negative index, `vec_set` at `i == count`, `vec_pop` on an empty `Vec` — all
+four exit **94**, and each names a different code on the path where the check
+was removed, so "the check fired" and "the check is gone" can never be confused.
+
+*Alternatives declined:* a `Result<T>` accessor (above); an `error:` identity of
+this library's own for it (RX-060 — a second identity is a major version, and
+this one would be raised only by a bug); a debug-only check (the failure is
+silent, which is precisely the case a build flag must not be able to turn off).
+
+### RX-131 — the prelude trim turned B-2's first layer into an emptiness claim about nothing, so the difference becomes a REVIEWED RESIDUE LIST
+
+**2026-09-06, forced by re-recording the floor at `3d15ac9`.** RX-116 made
+`check_no_syscalls` differential: a program object's undefined-symbol set must
+**equal** the empty baseline's. That was the right correction to an unrunnable
+allowlist and its reasoning was sound — *"a program containing no library code
+at all has 29 undefined symbols, so an absolute allowlist fails on this
+file."*
+
+**The compiler's D-262 removed the premise.** A prelude item is now emitted only
+if referenced, so:
+
+| | at `950bb1d` | at `3d15ac9` |
+|---|---|---|
+| the floor's undefined symbols | **29** | **2** — `npk_dalloc`, `npk_ofd_close` |
+| the floor's call edges | **237** | **2**, both from the drop glue |
+| a four-line program making one `wild` block | equal to the floor | **+3** — `npk_alloc`, `npk_chain_reset`, `npk_trap` |
+
+So equality now fails on the first program that allocates, which is every
+program this cycle adds. **A check that fails on correct code is a check that
+gets switched off**, and the honest reading is that the thing being asserted
+changed meaning: "equal to the floor" used to mean *added nothing*, and now
+means *does nothing*.
+
+**The decision.** The `got - base` direction is diffed against
+`harness/baseline/RESIDUE.txt` — one line per symbol, `name<TAB>reason`,
+committed and reviewed like a golden, and refused at read time if a line has no
+reason. **This is the absolute allowlist RX-116 wanted and could not have**: an
+object's undefined set is now exactly what the program uses, so the list is a
+short, readable statement of what `nregex` needs from the runtime, which is what
+RX-008 is actually about. Six entries today.
+
+**Three failures, deliberately different.** A symbol not on the list is a review
+event, named as one. A symbol on RX-120's **kernel deny list** is a finding
+whatever the list says — checked independently, so no edit to `RESIDUE.txt` can
+admit a syscall. And the baseline direction is unchanged: a floor symbol the
+object lacks means the committed baseline is stale.
+
+**BOTH DIRECTIONS, and the second one earned its place immediately.** An entry
+no scanned program references fails the run. Two of the eight entries first
+written here — `npk_chain_push` and `npk_int_to_string` — were added *by
+reasoning* ("the `defer` pair travels together"; "interpolation must call the
+integer formatter") and the check refused both, because no program references
+them. That is `PLAYBOOK.md`'s named-exemption shape caught at the moment of
+writing rather than three cycles later, and it happened to the session that had
+just written the mechanism.
+
+**AND THE FIRST LAYER CAN NOW SEE A SYSCALL, WHICH RX-120 MEASURED THAT IT
+COULD NOT.** RX-120's finding was that a `sys(39i64)` program has *the same 29
+undefined symbols* as the floor, because `npk_sys6` was already the prelude's.
+Re-measured at this pin: the floor has two symbols and no `npk_sys6`, the
+syscaller has three, and the symmetric difference is exactly `{npk_sys6}`.
+**RX-120 is NOT retired by that** — the IR call-edge scan is strictly stronger
+(it names the calling function, and it survives a prelude that starts emitting
+`npk_sys6` again), and the decision stands. What has expired is one supporting
+clause inside it: *"the deny list can be that short only because a floor symbol
+the baseline does not have is caught by RX-116's layer with no list at all."*
+That clause is corrected here rather than in RX-120, whose text is settled.
+
+**The self-check's case 9 had to move, and it had PREDICTED that it would.**
+That case proves this layer can name a symbol, and it leant on `npk_ralloc` —
+whose fixture header said, in 2026-09-04: *"at 0.0.4 the right response will be
+to add `npk_ralloc` to the permitted delta DELIBERATELY, in a decision, rather
+than to discover it as a mysterious red."* `Vec<T>`'s doubling calls `ralloc`,
+`npk_ralloc` is now a reviewed line, **and the old fixture would therefore have
+gone GREEN — a self-check case whose red is unreachable.** It now uses
+`mono_now`, chosen to be *unaddable* rather than merely unused: D-076 makes
+determinism this ecosystem's property, so `npk_mono_now` can never legitimately
+join the list and the case cannot decay the same way twice. The `ralloc` lines
+are kept as a control that must NOT be reported.
+
+*Alternatives declined:* widening `baseline.npk` until the floor covers what the
+library uses (the baseline's own README forbids it — *"the moment it imports
+anything, it stops being the floor and starts being a test"* — and a floor built
+to swallow the library's symbols is unfalsifiable by construction); reporting
+the residue without failing (printing is what green-because-it-never-ran looks
+like, `PLAYBOOK.md` §6); per-program residue lists rather than the union (it
+would catch more, and it would also make every new test file a two-file change,
+which is how a check acquires a `--skip` flag).

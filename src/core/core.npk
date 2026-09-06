@@ -1,16 +1,57 @@
-// `src/core/` — the storage primitives. PLACEHOLDER: it declares nothing yet.
+// `src/core/` — THE STORAGE PRIMITIVES. This file is the layer's entry: it
+// `pub use`s what the layer offers, so a module above it writes one import.
 //
-// FILLED BY cycle 0.0.4, governed by `meta/specs/BUILD.md` §5 (rules B-11 and
-// B-12): `Vec<T>`, `Bytes`, `ByteSet`, `SparseSet` and `limits.npk`. Each of
-// those is its own file beside this one; this module is the layer's entry and
-// will `pub use` them when they exist.
+// Rule B-11 (RX-006) declares these ours rather than imported, and B-12 says
+// there are no others: anything graph-shaped uses an INDEX INTO A `Vec`, never
+// a pointer — which is also what keeps every node POD (TYPE-046) and every
+// structure serialisable as a fixture.
 //
-// LAYERING (`BUILD.md` §6, rule B-16). `core` IMPORTS NOTHING. It is the
-// bottom of the diagram and the only module in the library with no dependency
-// at all — which is what lets `tests/oracle/` import it without sharing code
-// with the engines it judges (B-17).
+// LAYERING (`BUILD.md` §6, B-16). `core` is the bottom of the diagram and the
+// only module in the library with no dependency at all, which is what lets
+// `tests/oracle/` import it without sharing code with the engines it judges
+// (B-17). The imports below are all INTRA-layer, `core` to `core`, which
+// `check_layering` permits because the rule forbids importing a module to your
+// LEFT and a layer is not to its own left.
 //
-// WHY THE FILE EXISTS BEFORE THE CODE (`0.0.1.md` §2, P-6): an empty directory
-// is invisible to the `parse` stage, and the `parse` sweep is what stops the
-// grammar being quietly made partial. A placeholder is replaced, never deleted.
+// THE RE-EXPORT RULES ARE RX-113'S AND THEY ARE NOT STYLE. `use` is not
+// transitive (`MODULE_REFERENCE.md` §2.3), so every line here is `pub use`, one
+// name per line, and this file never plain-`use`s a path it also `pub use`s —
+// a plain `use` above a `pub use` of the same path silently downgrades the
+// re-export to nothing, AT NO DIAGNOSTIC, and the failure appears in the
+// consumer as "cannot find X in this scope".
 mod:core;
+
+// ---- bounds: `SAFETY.md` §5's table, and nowhere else (S-12, RX-062) -------
+pub use "./limits.npk".NREGEX_PATTERN_BYTES;
+pub use "./limits.npk".NREGEX_NEST_DEPTH;
+pub use "./limits.npk".NREGEX_PROGRAM_INSTRUCTIONS;
+pub use "./limits.npk".NREGEX_REPEAT_MAX;
+pub use "./limits.npk".NREGEX_REPEAT_PRODUCT;
+pub use "./limits.npk".NREGEX_CAPTURE_GROUPS;
+pub use "./limits.npk".NREGEX_CLASS_RANGES;
+pub use "./limits.npk".NREGEX_DFA_CACHE_BYTES;
+pub use "./limits.npk".NREGEX_DFA_MIN_STATES;
+pub use "./limits.npk".NREGEX_LITERAL_LIMIT;
+pub use "./limits.npk".NREGEX_LITERAL_BYTES;
+
+// ---- `Vec<T>`, and THE ONLY BOUNDS CHECK THIS LIBRARY HAS ------------------
+//
+// `vec_get` and `vec_set` are the sanctioned pair (`SAFETY.md` §5.3, S-23):
+// `Vec<T>.items` is a `wild T->`, D-070's guard is not emitted for it, and an
+// out-of-range index reads a heap word instead of trapping. No `.items[` may
+// appear outside `vec.npk`, and a tree check says so.
+pub use "./vec.npk".Vec;
+pub use "./vec.npk".vec_init;
+pub use "./vec.npk".vec_init_zeroed;
+pub use "./vec.npk".vec_free;
+pub use "./vec.npk".vec_free_owning;
+pub use "./vec.npk".vec_reserve;
+pub use "./vec.npk".vec_get;
+pub use "./vec.npk".vec_set;
+pub use "./vec.npk".vec_push;
+pub use "./vec.npk".vec_pop;
+pub use "./vec.npk".vec_insert;
+pub use "./vec.npk".vec_remove;
+pub use "./vec.npk".vec_swap_remove;
+pub use "./vec.npk".vec_truncate;
+pub use "./vec.npk".vec_clear;

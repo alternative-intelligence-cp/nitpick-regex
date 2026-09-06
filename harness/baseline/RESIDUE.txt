@@ -1,0 +1,32 @@
+# WHAT `nregex` NEEDS FROM THE RUNTIME, BEYOND THE FLOOR (B-2, RX-131).
+#
+# One symbol per line, `name<TAB>reason`. Blank lines and `#` comments ignored.
+#
+# WHY THIS FILE EXISTS, AND WHY IT DID NOT UNTIL 2026-09-06. Rule B-2's first
+# layer required a program object's undefined-symbol set to EQUAL the empty
+# baseline program's. That was right while the prelude was emitted whole into
+# every translation unit: the floor was 29 symbols, it already contained the
+# allocator and the string primitives, and "equal to the floor" meant "added
+# nothing". The compiler's D-262 (its 1.5.2d) emits a prelude item only if it is
+# REFERENCED, so the floor collapsed to TWO symbols and an object's undefined
+# set became exactly what the program uses. Equality then fails on the first
+# program that allocates -- measured, `npk_alloc`, `npk_chain_reset` and
+# `npk_trap` for a four-line program that makes one `wild` block.
+#
+# So the difference is now a REVIEWED LIST rather than an emptiness claim, which
+# is the absolute allowlist RX-116 wanted and could not have. Adding a line here
+# is a deliberate act: it says this library reached for a runtime facility it
+# did not use before.
+#
+# THE LIST IS THE UNION OVER EVERY SCANNED PROGRAM, AND IT IS CHECKED BOTH WAYS:
+# a symbol outside it fails the run, and an entry no program references fails it
+# too, so the file cannot rot into a permission nobody needs. The kernel deny
+# list (`harness/irscan.py`) is applied on top and independently, so a syscall
+# can never be admitted here by an editing accident.
+
+npk_alloc	`alloc` -- every `Vec` and `Bytes` block. RX-006 makes the containers ours, so the allocator is reached directly.
+npk_calloc	`calloc` -- `vec_init_zeroed`, the zero-filled block a `SparseSet`'s `sparse` array needs so no key reads uninitialised storage.
+npk_ralloc	`ralloc` -- `Vec`'s doubling and `Bytes`' growth. B-11's shape is "doubling through `#size_of<T>()`".
+npk_trap	the trap path. EVERY bounds check in this library reaches it: `vec_oob` is a deliberate `OutOfBounds`, and D-210's overflow and D-007's division traps land here too. It is not a syscall; it is the controlled stop this ecosystem exists to produce.
+npk_chain_reset	the `defer` machinery (D-014), emitted for scope exits rather than written by hand here. Note that `npk_chain_push` is NOT on this list: it was added on the assumption that the pair travels together, and the both-directions check refused it because no scanned program references it. That is the list working -- an entry added by reasoning rather than by measurement is exactly what it exists to catch.
+npk_string_concat	`string_concat`, in the managed-half gate only (`tests/unit/vec_owning_*.npk`), which builds owning `string` elements on purpose to have something a `wild` block count cannot see. `src/` itself does not concatenate -- P-21 says `Bytes` is the only allocating builder in this library.

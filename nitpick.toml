@@ -137,3 +137,26 @@ recursive = true
 name  = "rejection"
 stage = "check"
 path  = "tests/rejection"
+
+# CYCLE 0.0.4's ENTRY — the first suite in this manifest whose subject is this
+# LIBRARY'S OWN CODE rather than the language or the public surface.
+#
+# `program` because these files are built, linked, RUN and judged by their exit
+# codes, and because rule B-3 then runs every one of them a second time through
+# `opt -O2` — which is where an optimiser divergence in a container's pointer
+# arithmetic would show up, and the only place it would.
+#
+# THREE KINDS OF FILE LIVE HERE AND THE MIX IS DELIBERATE:
+#   * the in-range suites, `expect-exit: 0`;
+#   * the out-of-range cases, `expect-exit: 94` — one per file, because a
+#     trapping call cannot be followed by an assertion in the same program;
+#   * the managed-half PAIRS, which carry `mem-cap-mib:` and are required to end
+#     DIFFERENTLY under the same cap. `exit 0` cannot see a managed body
+#     (`SAFETY.md` §8b, S-22), so those two files are the only gate on half of
+#     this cycle's memory obligations.
+# All three are `expect-exit:` files, so one entry judges them all -- which is
+# what RX-119 found was NOT true of the probe directory.
+[[test]]
+name  = "unit"
+stage = "program"
+path  = "tests/unit"

@@ -243,7 +243,7 @@ def _case8(d):
 def _case9(d):
     """A program needing a floor symbol THE BASELINE DOES NOT HAVE.
 
-    Must fail rule B-2 by naming `npk_ralloc` (RX-116). This is the layer that
+    Must fail rule B-2 by naming `npk_mono_now` (RX-116, RX-131). This is the layer that
     catches a NEW dependency on the floor, as against case 8's layer which
     catches a new CALL to a floor symbol already present. Two layers, two
     cases, and neither would catch the other's."""
@@ -310,9 +310,11 @@ CASES = [
     Case(8, "a program that makes a syscall",
          "B-2a, and the layer the symbol difference CANNOT see (RX-120)",
          _case8, ["syscall_consumer.npk", "`main` calls `npk_sys6`"]),
-    Case(9, "a program needing a floor symbol the baseline does not have",
-         "B-2, RX-116 -- the other layer, and neither catches the other's",
-         _case9, ["new_symbol_consumer.npk", "`npk_ralloc`", "NOT in the baseline"]),
+    Case(9, "a program needing a floor symbol neither the baseline nor the residue list has",
+         "B-2, RX-116 as amended by RX-131 -- the other layer, and neither "
+         "catches the other's",
+         _case9, ["new_symbol_consumer.npk", "`npk_mono_now`",
+                  "NOT ON THE REVIEWED RESIDUE LIST"]),
     Case(10, "a non-deterministic emission",
          "B-4: the `repro` comparison must report the byte offset",
          _case10, ["first difference at byte 17"]),
@@ -345,6 +347,10 @@ def _lib(d):
                 _at(d, "harness/baseline/SYMBOLS.txt"))
     shutil.copy(os.path.join(ROOT, "harness/baseline/EDGES.txt"),
                 _at(d, "harness/baseline/EDGES.txt"))
+    # RX-131: B-2's first layer diffs against this, so a scratch tree without it
+    # fails at the BUILD step and every case's red becomes the same red.
+    shutil.copy(os.path.join(ROOT, "harness/baseline/RESIDUE.txt"),
+                _at(d, "harness/baseline/RESIDUE.txt"))
 
 
 def _scaffold(d):

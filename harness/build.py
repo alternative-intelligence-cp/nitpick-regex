@@ -42,12 +42,29 @@ TOOL_TIMEOUT = 300
 RUN_TIMEOUT = 30
 
 
+def _as_limit(mib):
+    """A `preexec_fn` capping the child's ADDRESS SPACE, for `mem-cap-mib:`.
+
+    RLIMIT_AS and not RLIMIT_DATA: the managed heap this gate is aimed at is
+    mapped, and a `Vec<string>` retaining two million bodies grows the mapping
+    rather than the break. It is set in the CHILD, after fork and before exec,
+    so this process is never capped by a test."""
+    import resource
+
+    def _apply():
+        n = mib * 1024 * 1024
+        resource.setrlimit(resource.RLIMIT_AS, (n, n))
+    return _apply
+
+
 class Run:
-    def __init__(self, argv, cwd=None, timeout=TOOL_TIMEOUT, stdin_null=True):
+    def __init__(self, argv, cwd=None, timeout=TOOL_TIMEOUT, stdin_null=True,
+                 mem_cap_mib=0):
         self.argv = argv
         self.timed_out = False
         try:
             r = subprocess.run(argv, cwd=cwd, capture_output=True, timeout=timeout,
+                               preexec_fn=_as_limit(mem_cap_mib) if mem_cap_mib else None,
                                stdin=subprocess.DEVNULL if stdin_null else None)
             self.code = r.returncode
             self.out = r.stdout
@@ -146,6 +163,8 @@ class Ctx:
         self.lld_flags = m.need("toolchain", "lld-flags")
         self.baseline_edges = set()
         self.baseline_syms = []
+        self.residue_allowed = set()   # RX-131: `RESIDUE.txt`'s names
+        self.residue_seen = set()      # what the scanned programs actually used
         # per unit: did the B-2 scans apply to it? A check that silently did not
         # run is indistinguishable from one that passed, so the summary says.
         self.scanned = {}
@@ -244,12 +263,38 @@ def _first_error(text):
 # --- rule B-2: the two scans ---------------------------------------------------------
 
 def zero_dep(c, obj, name, both_ways=True):
-    """The undefined-symbol set must EQUAL the baseline's (RX-116).
+    """The undefined symbols beyond the floor must be on the REVIEWED RESIDUE
+    LIST -- rule B-2, RX-116 as amended by RX-131.
 
-    Not an allowlist: a program containing no library code at all has 29
-    undefined symbols including `npk_open`, `npk_read`, `npk_write` and
-    `npk_sys6`, because they are the PRELUDE's, emitted into every translation
-    unit. Anything in one set and not the other is attributable to `nregex`.
+    WHAT CHANGED AND WHY, because the rule this replaces was right when it was
+    written. RX-116 required the set to EQUAL the empty baseline program's:
+    the floor was 29 symbols, it already held the allocator and the string
+    primitives, so "equal to the floor" meant "this library added nothing". The
+    compiler's D-262 emits a prelude item only if REFERENCED, so the floor is
+    now TWO symbols and an object's undefined set is exactly what the program
+    uses. Equality would fail on the first program that allocates, and a check
+    that fails on correct code gets switched off.
+
+    So the `got - base` direction is now diffed against
+    `harness/baseline/RESIDUE.txt` -- one line per symbol WITH ITS REASON,
+    reviewed like a golden. That is the absolute allowlist RX-116 wanted and
+    could not have while the prelude was emitted whole.
+
+    Three things are checked and they fail differently on purpose:
+      * a residue symbol not on the list -- this library reached for a new
+        runtime facility, which is a review event;
+      * a residue symbol on the KERNEL DENY LIST -- RX-008, and it is checked
+        here independently of the list, so no edit to the list can admit one;
+      * the baseline direction, unchanged: a floor symbol the object lacks
+        means the committed baseline is stale.
+
+    AND THE FIRST LAYER CAN NOW SEE A SYSCALL, WHICH IT COULD NOT AT `950bb1d`.
+    RX-120 measured a `sys(39i64)` program having the SAME 29 undefined symbols
+    as the floor, because `npk_sys6` was already the prelude's. Re-measured at
+    `3d15ac9`: the floor has 2 symbols and no `npk_sys6`, the syscaller has 3,
+    and the difference is exactly `{npk_sys6}`. RX-120's second layer is NOT
+    retired by that -- it is strictly stronger, it names the calling function,
+    and it survives a prelude that starts emitting `npk_sys6` again.
 
     `both_ways=False` on the OPTIMISED leg, and it is measured rather than
     conceded: `opt -O2` legitimately REMOVES an undefined symbol -- the
@@ -264,15 +309,44 @@ def zero_dep(c, obj, name, both_ways=True):
         return [f"{name}: {e}"]
     base = set(c.baseline_syms)
     fl = []
-    for s in sorted(got - base):
-        fl.append(f"{name}: undefined symbol `{s}` is in this object and NOT in the "
-                  f"baseline -- it is attributable to this repository (B-2, RX-116)")
+    residue = got - base
+    c.residue_seen |= residue
+    for s in sorted(residue):
+        if s in irscan.DENIED:
+            fl.append(f"{name}: undefined symbol `{s}` REACHES THE KERNEL and is not "
+                      f"in the baseline. RX-008: this library makes no syscalls, and "
+                      f"the deny list is checked independently of "
+                      f"{BASELINE_RESIDUE} so that no edit to that file can admit "
+                      f"one (B-2, RX-131)")
+        elif s not in c.residue_allowed:
+            fl.append(f"{name}: undefined symbol `{s}` is in this object, not in the "
+                      f"baseline, and NOT ON THE REVIEWED RESIDUE LIST "
+                      f"({BASELINE_RESIDUE}). This library has reached for a runtime "
+                      f"facility it did not use before -- add the line WITH ITS "
+                      f"REASON, which is a deliberate act (B-2, RX-131)")
     if both_ways:
         for s in sorted(base - got):
             fl.append(f"{name}: undefined symbol `{s}` is in the baseline and NOT in "
                       f"this object. That is not a failure of this test; it means the "
                       f"committed baseline is stale, and re-recording it is a "
                       f"deliberate act (harness/baseline/SYMBOLS.txt)")
+    return fl
+
+
+def residue_unused(c):
+    """The other direction of RX-131's list: an entry no scanned program
+    references. A permission nobody needs is how an allowlist rots into a
+    rubber stamp, and it is the failure `PLAYBOOK.md` names -- a named-exemption
+    list whose membership is checked while its REASON decays.
+
+    Only meaningful after a FULL run: a filtered one scans a subset, so the
+    unused half would fire on every `--only`. The caller passes `full`."""
+    fl = []
+    for s in sorted(c.residue_allowed - c.residue_seen):
+        fl.append(f"{BASELINE_RESIDUE}: `{s}` is permitted and NO SCANNED PROGRAM "
+                  f"REFERENCES IT. Remove the line: a residue list is a statement "
+                  f"about this tree, and an entry that outlives its reason is a "
+                  f"permission nobody reviewed (B-2, RX-131)")
     return fl
 
 
@@ -323,6 +397,7 @@ def reaches_src(root, path):
 BASELINE_SRC = "harness/baseline/baseline.npk"
 BASELINE_SYMS = "harness/baseline/SYMBOLS.txt"
 BASELINE_EDGES = "harness/baseline/EDGES.txt"
+BASELINE_RESIDUE = "harness/baseline/RESIDUE.txt"
 
 
 def build_baseline(c):
@@ -344,6 +419,8 @@ def build_baseline(c):
         return [f"baseline: llc rejected it: {_first_error(s.err)}"], None, None
     live_syms = elf.undefined(base + ".o")
 
+    fl += _load_residue(c)
+
     fl += _diff_committed(os.path.join(c.root, BASELINE_SYMS),
                           [f"{s}" for s in live_syms], "undefined symbol")
     fl += _diff_committed(os.path.join(c.root, BASELINE_EDGES),
@@ -357,6 +434,35 @@ def build_baseline(c):
     if rr.timed_out or rr.code != 0:
         fl.append(f"baseline: the empty program exited {rr.code}, expected 0")
     return fl, live_syms, live_edges
+
+
+def _load_residue(c):
+    """Read `RESIDUE.txt` into `c.residue_allowed` -- RX-131.
+
+    EVERY LINE MUST CARRY A REASON. A bare name is refused: the whole value of
+    this file over the equality it replaces is that a reader can see WHY a
+    symbol is permitted, and a list of bare names is a rubber stamp with a
+    filename."""
+    path = os.path.join(c.root, BASELINE_RESIDUE)
+    if not os.path.exists(path):
+        return [f"{BASELINE_RESIDUE} is missing. Since the compiler's D-262 trimmed "
+                f"the prelude, the floor is two symbols and B-2's first layer is a "
+                f"diff against this reviewed list rather than an emptiness claim "
+                f"(RX-131). It is committed on purpose and is not generated."]
+    fl = []
+    for n, line in enumerate(open(path, encoding="utf-8").read().split("\n"), 1):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        parts = line.split("\t", 1)
+        name = parts[0].strip()
+        reason = parts[1].strip() if len(parts) > 1 else ""
+        if not reason:
+            fl.append(f"{BASELINE_RESIDUE}:{n}: `{name}` has no reason. Every line is "
+                      f"`name<TAB>reason`: a permitted symbol whose reason nobody "
+                      f"wrote is a permission nobody reviewed.")
+            continue
+        c.residue_allowed.add(name)
+    return fl
 
 
 def _diff_committed(path, live, what):

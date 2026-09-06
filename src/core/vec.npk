@@ -1,0 +1,364 @@
+// `src/core/vec.npk` — `Vec<T>`, THE GROWABLE ARRAY, AND THE ONLY BOUNDS CHECK
+// THIS LIBRARY HAS.
+//
+// Rule B-11 (RX-006) declares it ours rather than imported: the shape is the
+// compiler's `List<T>` — a `wild` block, a count, a capacity, doubling through
+// `#size_of<T>()` — because that shape is right and has been exercised across
+// twenty-two families, and ours because a library must not import a compiler's
+// internals. RX-126 is why the resemblance stops there: the compiler's D-247
+// made the compiler-known `List<T>` OWNING, and `decl_is_list` keys that on a
+// file named `list`, a struct named `List`, and exactly the fields
+// `items`/`count`/`cap`. This is `Vec` in `vec.npk`, so it is an ordinary
+// struct holding a bare pointer, it does not drop, and every consequence below
+// follows from that.
+//
+// ============================================================================
+// THE ONE THING TO READ BEFORE CHANGING ANYTHING HERE
+// ============================================================================
+//
+// **`items` IS A `wild T->`, AND INDEXING IT IS NOT BOUNDS-CHECKED.**
+// `SAFETY.md` §5.3, rule S-23 (RX-111). D-070's guarantee attaches to types
+// that CARRY A LENGTH — a slice `T[]` and a fixed array `T[N]` trap on an
+// out-of-range index. A `wild T->` is a bare pointer and the emitter goes
+// straight to `getelementptr` with no guard. Measured as a pair at the same
+// offset and the same program shape: `probe08c` (a slice, index 999 into four
+// elements) exits **94**, `OutOfBounds`; `probe08b` (a `wild int64->` block,
+// the same index) exits **0**, having read 7 992 bytes past its allocation and
+// returned the result.
+//
+// So an out-of-range index here is **a WRONG ANSWER, not a crash** — which
+// inverts the failure mode this library advertises. A wrong program counter
+// reads an unrelated heap word as an instruction; a wrong sparse-set probe adds
+// a thread for a state the automaton is not in and the library returns a match
+// that is not there. Both silent, both reachable from bytes a caller does not
+// control.
+//
+// THEREFORE:
+//
+//   1. `vec_get` and `vec_set` are the ONLY sanctioned way to read or write an
+//      element, and they check. They are not tidiness; since RX-111 they are
+//      the library's entire bounds check.
+//   2. **NO `.items[` MAY APPEAR OUTSIDE THIS FILE.** A tree check enforces it.
+//      Inside this file it appears only below a check that has already run.
+//   3. **SIGNEDNESS IS HALF THE CHECK.** An index derived from an `int32` field
+//      can be NEGATIVE, `i < count` accepts it, and a negative index reads
+//      backwards off the block without complaint. Every accessor checks
+//      `0 <= i` as well as `i < count`. This is the half a reader porting from
+//      C leaves out, because there the index is `unsigned`.
+//
+// ============================================================================
+// WHAT A VIOLATION DOES, AND WHY IT IS A TRAP (RX-130)
+// ============================================================================
+//
+// It traps `OutOfBounds`, exit 94 in this repository's `failsafe` convention.
+// Not a `Result`: `SAFETY.md` S-4 (RX-061) says matching cannot fail and
+// `regex_find` returns `Match?` and not `Result<Match?>`, so an accessor with
+// an error channel would put one on the search path — the hottest path in the
+// library — and every engine would have to thread it. And a trap is where the
+// language is going anyway: when the compiler's 1.5.3 lands `requires`, a
+// contract violation takes the TRAP route (its D-241), so writing the trap now
+// means the behaviour does not change on the day the clause is uncommented.
+//
+// The trap is spelled by indexing a one-element fixed array out of range —
+// `int64[1]`, which DOES carry a length — so it is the language's own
+// `OutOfBounds` and not a code this library invented. It costs nothing on the
+// fast path: the array is constructed inside the failing branch, which does not
+// return.
+//
+// ============================================================================
+// LIFETIME, AND WHAT `exit 0` PROVES ABOUT IT (P-20, S-22)
+// ============================================================================
+//
+// A `Vec`'s block is `wild`, and its lifetime is its owner's scope: every scope
+// that makes one calls `vec_free`, on every path, or `exit 0` traps `WildLeak`
+// under D-151.
+//
+// **THAT COVERS THE BLOCK AND STOPS THERE.** D-151 counts `wild` blocks, D-188
+// counts live drivers, and NEITHER SEES A MANAGED BODY (`SAFETY.md` §8b, S-22).
+// So `vec_free` on a `Vec` whose elements own heap storage releases the block
+// and orphans the elements, at exit 0, silently — `nitpick-time` measured
+// exactly this shape retaining 125 MiB over two million elements. Where the
+// obligation is managed the gate is a MEMORY CAP, never an exit code, and
+// `vec_free_owning` below is the function that discharges it.
+//
+// LAYERING (`BUILD.md` §6, B-16). `core` imports nothing outside `core`. This
+// file imports nothing at all.
+mod:vec;
+
+// ---- the type --------------------------------------------------------------
+
+// FIELDS ARE PUBLIC BECAUSE THE LANGUAGE HAS NO OTHER KIND. A `pub struct` has
+// no private fields and `opaque struct:Name = { … };` is the extern-driver
+// declaration (D-149), so a consumer's struct literal compiles, links and runs
+// whatever this file does. The honest sentence is therefore: *this library
+// never produces an invalid `Vec`, and a caller building one by hand has opted
+// out of every guarantee above.*
+pub struct:Vec<T> = {
+    wild T->:items;      // WILD, DELIBERATELY. See the header.
+    int64:count;         // elements in use
+    int64:cap;           // elements the block can hold
+};
+
+// ---- the trap --------------------------------------------------------------
+
+// THE OUT-OF-RANGE STOP. Never returns. `i` is passed only so the trap is
+// reached with a value the optimiser cannot prove constant.
+//
+// obligation, in the syntax it will take at the compiler's 1.5.3:
+//     never fails ensures false
+// — it is `never fails` and it carries a contract, which is legal since the
+// compiler's D-241 retired D-163 rule 2's row (RX-127). This library's own
+// cycle 0.0.0 record says the pair is a permanent `NITPICK-TYPE-037` refusal;
+// that was true at pin `950bb1d` and is false now.
+func:vec_oob = NIL(int64:i) never fails {
+    // `int64[1]` CARRIES A LENGTH, so D-070's guard is emitted for it and the
+    // index traps. This is the language's `OutOfBounds`, not an invented code.
+    int64[1]:guard = [0i64];
+    discard(guard[i]);
+    pass NIL;
+};
+
+// ---- construction and destruction ------------------------------------------
+
+// obligation: never fails ensures result.count == 0i64 && result.cap >= 1i64
+//
+// A capacity of at least one, always, so `vec_push`'s doubling has something to
+// double and no path multiplies zero by two forever.
+pub func:vec_init<T> = Vec<T>(int64:cap) never fails {
+    int64:n = cap;
+    if (n < 1i64) { n = 1i64; }
+    // `n * #size_of<T>()` traps on overflow (D-210), and that trap is the
+    // guard: a request this large cannot be satisfied, so a controlled stop is
+    // the right answer and no invented bound is needed. `alloc` itself traps on
+    // OOM rather than returning null.
+    wild int8->:mem = alloc(n * #size_of<T>());
+    pass Vec{ items: mem =>! wild T->, count: 0i64, cap: n };
+};
+
+// obligation: never fails ensures v.cap == 0i64
+//
+// FREES THE BLOCK AND NOTHING ELSE. For an owning `T` this is a leak that
+// `exit 0` cannot see — use `vec_free_owning`. The name does not say "owning"
+// because the overwhelmingly common `T` here is POD (TYPE-046 forces it for
+// anything stored in an array), and a name that warned on every call would stop
+// being read.
+pub func:vec_free<T> = NIL(Vec<T>->:v) never fails {
+    dalloc(v.items =>! wild int8->);
+    v.count = 0i64;
+    v.cap = 0i64;
+    pass NIL;
+};
+
+// ---- capacity --------------------------------------------------------------
+
+// obligation: never fails ensures v.cap >= v.count + need
+pub func:vec_reserve<T> = NIL(Vec<T>->:v, int64:need) never fails {
+    if (need < 0i64) { drop vec_oob(need); }
+    int64:want = v.count + need;              // traps on overflow (D-210)
+    if (want <= v.cap) { pass NIL; }
+    int64:nc = v.cap;
+    while (nc < want) { nc = nc * 2i64; }     // traps on overflow (D-210)
+    wild int8->:bigger = ralloc(v.items =>! wild int8->, nc * #size_of<T>());
+    v.items = bigger =>! wild T->;
+    v.cap = nc;
+    pass NIL;
+};
+
+// ---- the checked accessor pair ---------------------------------------------
+//
+// EVERYTHING BELOW THIS LINE THAT TOUCHES `.items[` HAS ALREADY CHECKED.
+
+// obligation: never fails requires i >= 0i64 && i < v.count
+//
+// RETURNS BY VALUE, so it is for a scalar `T` only: for an owning `T` a copy is
+// refused, TYPE-046, and the caller reads through the site that knows the
+// element's shape. The compiler's own `List<T>` has no generic `list_at` for
+// exactly this reason.
+pub func:vec_get<T> = T(Vec<T>:v, int64:i) never fails {
+    if (i < 0i64)        { drop vec_oob(i); }
+    if (i >= v.count)    { drop vec_oob(i); }
+    pass v.items[i];
+};
+
+// obligation: never fails requires i >= 0i64 && i < v.count
+pub func:vec_set<T> = NIL(Vec<T>->:v, int64:i, move T:x) never fails {
+    if (i < 0i64)        { drop vec_oob(i); }
+    if (i >= v.count)    { drop vec_oob(i); }
+    v.items[i] = move(x);
+    pass NIL;
+};
+
+// ---- adding and removing ---------------------------------------------------
+
+// obligation: never fails ensures v.count == old(v.count) + 1i64
+pub func:vec_push<T> = NIL(Vec<T>->:v, move T:x) never fails {
+    if (v.count >= v.cap) {
+        int64:nc = v.cap * 2i64;              // traps on overflow (D-210)
+        wild int8->:bigger = ralloc(v.items =>! wild int8->, nc * #size_of<T>());
+        v.items = bigger =>! wild T->;
+        v.cap = nc;
+    }
+    v.items[v.count] = move(x);
+    v.count = v.count + 1i64;
+    pass NIL;
+};
+
+// obligation: never fails requires v.count > 0i64
+//
+// Returns the removed element BY VALUE, so scalar `T` only, for `vec_get`'s
+// reason. An empty pop is the caller's error and traps rather than returning a
+// value nobody chose (D-123: a default that carries meaning is a value nobody
+// chose).
+pub func:vec_pop<T> = T(Vec<T>->:v) never fails {
+    if (v.count <= 0i64) { drop vec_oob(v.count - 1i64); }
+    v.count = v.count - 1i64;
+    pass v.items[v.count];
+};
+
+// obligation: never fails requires i >= 0i64 && i <= v.count
+//              ensures v.count == old(v.count) + 1i64
+//
+// `i == v.count` IS LEGAL AND IS NOT A TYPO: inserting at the end is a push,
+// and the half-open bound is what makes `vec_insert` total over the positions
+// an element can occupy.
+pub func:vec_insert<T> = NIL(Vec<T>->:v, int64:i, move T:x) never fails {
+    if (i < 0i64)        { drop vec_oob(i); }
+    if (i > v.count)     { drop vec_oob(i); }
+    if (v.count >= v.cap) {
+        int64:nc = v.cap * 2i64;
+        wild int8->:bigger = ralloc(v.items =>! wild int8->, nc * #size_of<T>());
+        v.items = bigger =>! wild T->;
+        v.cap = nc;
+    }
+    int64:j = v.count;
+    while (j > i) {
+        v.items[j] = move(v.items[j - 1i64]);
+        j = j - 1i64;
+    }
+    v.items[i] = move(x);
+    v.count = v.count + 1i64;
+    pass NIL;
+};
+
+// obligation: never fails requires i >= 0i64 && i < v.count
+//              ensures v.count == old(v.count) - 1i64
+//
+// ORDER-PRESERVING, so it is O(count - i). `vec_swap_remove` is the O(1) one
+// and the engines use that; this exists because the parser's group stack needs
+// order and a library that offers only the fast one invites a hand-written
+// shift at the call site, which is a `.items[` outside this file.
+pub func:vec_remove<T> = NIL(Vec<T>->:v, int64:i) never fails {
+    if (i < 0i64)        { drop vec_oob(i); }
+    if (i >= v.count)    { drop vec_oob(i); }
+    int64:j = i;
+    while (j < v.count - 1i64) {
+        v.items[j] = move(v.items[j + 1i64]);
+        j = j + 1i64;
+    }
+    v.count = v.count - 1i64;
+    pass NIL;
+};
+
+// obligation: never fails requires i >= 0i64 && i < v.count
+//              ensures v.count == old(v.count) - 1i64
+//
+// O(1), and it DOES NOT PRESERVE ORDER. That is stated here rather than left to
+// the name: a caller who wanted order and reached for the fast one gets a
+// silently reordered container, which no test of the container itself catches.
+pub func:vec_swap_remove<T> = NIL(Vec<T>->:v, int64:i) never fails {
+    if (i < 0i64)        { drop vec_oob(i); }
+    if (i >= v.count)    { drop vec_oob(i); }
+    v.items[i] = move(v.items[v.count - 1i64]);
+    v.count = v.count - 1i64;
+    pass NIL;
+};
+
+// ---- bulk operations -------------------------------------------------------
+
+// obligation: never fails ensures v.count == min(n, old(v.count))
+//
+// FOR AN OWNING `T` THIS DISCARDS WITHOUT DROPPING and the discarded elements
+// leak, invisibly to `exit 0` (S-22). The obligation is the caller's and the
+// gate for it is a memory cap.
+pub func:vec_truncate<T> = NIL(Vec<T>->:v, int64:n) never fails {
+    if (n < 0i64)        { drop vec_oob(n); }
+    if (n < v.count) { v.count = n; }
+    pass NIL;
+};
+
+// obligation: never fails ensures v.count == 0i64
+//
+// The same managed-body caveat as `vec_truncate`. Capacity is retained, which
+// is the whole point: a `Cache` reused across searches clears rather than
+// reallocating, and `SAFETY.md` S-6 says a search allocates nothing.
+pub func:vec_clear<T> = NIL(Vec<T>->:v) never fails {
+    v.count = 0i64;
+    pass NIL;
+};
+
+// obligation: never fails ensures result.count == n && result.cap >= n
+//
+// A `Vec` of `n` ZERO BYTES, ready to be indexed. This is what a `SparseSet`'s
+// backing arrays want at construction: `sparse` must be readable at any key
+// before anything has been written there, and reading uninitialised storage is
+// not something to rely on. `calloc` is one call to the allocator and the
+// zeroing is the allocator's, not a loop here.
+//
+// **THIS REPLACES A GENERIC `vec_fill`, WHICH THE LANGUAGE DOES NOT PERMIT, AND
+// THE DIAGNOSTIC IS WORTH KEEPING.** `vec_fill<T>(v, n, T:x)` writing `x` into
+// `n` slots is refused `NITPICK-TYPE-046`:
+//
+//     `T` is a type parameter, and this body is checked once for every type it
+//     is instantiated at -- some of which own storage (D-264): a copy here
+//     would leave two owners at those.
+//
+// A generic body is checked against EVERY instantiation, not against the ones a
+// caller happens to write, so an operation that copies its element cannot be
+// generic at all — there is no `T` for which "write this value into n slots" is
+// meaningful when `T` owns. `move` does not rescue it either: the value is
+// consumed by the first slot. So the fill that is expressible is the one that
+// needs no value, and that is this.
+pub func:vec_init_zeroed<T> = Vec<T>(int64:n) never fails {
+    int64:k = n;
+    if (k < 1i64) { k = 1i64; }
+    wild int8->:mem = calloc(k, #size_of<T>());
+    pass Vec{ items: mem =>! wild T->, count: n, cap: k };
+};
+
+// ---- the managed half ------------------------------------------------------
+
+// FREES THE BLOCK **AND DROPS EVERY ELEMENT**, for an owning `T`.
+//
+// This is the function `exit 0` cannot check and a memory cap can. It is
+// separate from `vec_free` rather than being it, because dropping requires
+// MOVING each element out — `move(v.items[j])` binds the element to a local
+// that drops at the end of its iteration — and a `move` out of an element is
+// refused for a `T` that does not own (there is nothing to move), so one
+// function cannot serve both. RX-126 records that this shape is outside the
+// compiler's DEF-8 entirely: `Vec<T>` does not drop, so there is no drop flag
+// to get wrong.
+//
+// obligation: never fails ensures v.cap == 0i64
+pub func:vec_free_owning<T> = NIL(Vec<T>->:v) never fails {
+    int64:j = 0i64;
+    while (j < v.count) {
+        // Bound, then dropped at the end of this iteration's scope. Binding is
+        // the point: an owning value that is never bound is never dropped,
+        // which is the compiler's own D-183 debt.
+        T:e = move(v.items[j]);
+        drop drop_element(move(e));
+        j = j + 1i64;
+    }
+    v.count = 0i64;
+    dalloc(v.items =>! wild int8->);
+    v.cap = 0i64;
+    pass NIL;
+};
+
+// The sink an owning element is moved into so that it drops. It does nothing
+// with the value on purpose: taking it by `move` makes this function the
+// owner, and it drops at the closing brace like any other bound owner.
+func:drop_element<T> = NIL(move T:e) never fails {
+    discard(e);
+    pass NIL;
+};

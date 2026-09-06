@@ -1,0 +1,75 @@
+// expect-exit: 0
+// mem-cap-mib: 64
+//
+// THE MANAGED HALF, FREED — `vec_free_owning` DROPS EVERY ELEMENT, then the block.
+//
+// THIS IS ONE OF A PAIR AND NEITHER HALF MEANS ANYTHING ALONE. The two files
+// are identical but for the one function name, they run under the SAME 64 MiB
+// address-space cap, and they are required to end differently: this one exits
+// 0. A cap that both survive, or that neither does, is measuring
+// something other than the difference between them.
+//
+// WHY A CAP AND NOT `exit 0` (`SAFETY.md` §8b, rule S-22, RX-110).
+// `exit 0` is SILENT HERE BY CONSTRUCTION. D-151 counts `wild` blocks, D-188
+// counts live drivers, and NEITHER SEES A MANAGED BODY — a `string`'s bytes are
+// managed. So a `Vec<string>` freed with `vec_free` releases the block, orphans
+// every body, and exits 0 with a clean conscience: `nitpick-time` measured
+// exactly this retaining 125 MiB over two million elements AT EXIT 0, and
+// hitting `HeapOom` only when squeezed under a cap. An acceptance item that
+// leant on the exit code here would be unfalsifiable, which is why
+// `0.0.4.md` §6 gives the managed half its own gate.
+//
+// THE SHAPE IS A LOOP OF ROUNDS, NOT ONE BIG VECTOR, and that is the whole
+// design. At peak both halves hold the same 1 000 live strings, so a
+// single-vector program could not tell them apart at any cap. The difference is
+// only visible ACROSS rounds: the correct half returns to flat after every
+// round, the leaking half never does.
+//
+// THE `/bin/true` CONTROL IS RUN BY THE HARNESS AT THIS SAME CAP, and it is not
+// decoration. A low address-space cap measures the DYNAMIC LOADER rather than
+// the program — this ecosystem has already published a bound that `/bin/true`
+// also fails — so the runner requires the control to pass before it believes
+// anything this file says.
+mod:vec_owning_freed;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    // 256 bytes of body per element, so the arithmetic is legible: 1 000 per
+    // round times 500 rounds is 500 000 strings and well over 128 MiB retained
+    // if nothing drops them, against a 64 MiB cap.
+    string:filler = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+
+    int64:round = 0i64;
+    while (round < 500i64) {
+        Vec<string>:v = raw vec_init::<string>(16i64);
+        int64:k = 0i64;
+        while (k < 1000i64) {
+            // BOUND, NEVER NESTED. `vec_push(@v, string_concat(filler, t))`
+            // would pass an owning TEMPORARY that is never bound and therefore
+            // never dropped — the compiler's D-183 debt, and the difference
+            // between linear and quadratic memory in any loop that does it.
+            string:tag = "&{k}";
+            string:e = string_concat(filler, tag);
+            drop vec_push(@v, move(e));
+            k = k + 1i64;
+        }
+        drop vec_free_owning(@v);
+        round = round + 1i64;
+    }
+
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

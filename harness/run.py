@@ -267,6 +267,17 @@ def _summary(c, rep, a, say, secs):
         f"nothing from src/ (tests/probe/README.md P-1), so RX-008's rule is not "
         f"about them. Saying so is the point -- a check that quietly did not apply "
         f"reads exactly like one that passed.")
+    say(f"      Of B-2's reviewed residue list, {len(c.residue_seen)} of "
+        f"{len(c.residue_allowed)} entries were referenced by a scanned program "
+        f"(RX-131): {', '.join(sorted(c.residue_seen)) or 'none'}.")
+    # The unused half is only meaningful over the WHOLE tree: `--only` scans a
+    # subset, so every filtered run would report the rest as dead entries.
+    if not a.only:
+        for m in build.residue_unused(c):
+            rep.rows.append(("baseline", "residue", False, m))
+            rep.failed.append(("baseline", "residue", False, m))
+            bad += 1
+            total += 1
     if a.verdicts:
         with open(a.verdicts, "w", encoding="utf-8") as fh:
             for suite, name, ok, msg in rep.rows:
