@@ -26,7 +26,7 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
 
 | # | Topic | Ends with |
 |---|---|---|
-| 0.1.0 | **The cursor and the AST** — the byte cursor with offsets, the AST arena, the node kinds | a parser skeleton that accepts `a` and reports an offset for `(` |
+| [0.1.0](0.1.0.md) | **The cursor and the AST** — the byte cursor with offsets, the AST arena, the node kinds | a parser skeleton that accepts `a` and reports an offset for `(` |
 | 0.1.1 | **The core grammar** — literals, concatenation, alternation, groups, quantifiers | `SYNTAX.md` §1's grammar minus classes |
 | 0.1.2 | **The explicit stack** — nesting, `NREGEX_NEST_DEPTH`, and the refusal | 10 000 levels deep is a `NestTooDeep`, not a segfault |
 | 0.1.3 | **Classes** — items, ranges, Perl and POSIX classes, nesting, `&&`/`--`/`~~` | every class form in §5, parsed to unresolved items |
