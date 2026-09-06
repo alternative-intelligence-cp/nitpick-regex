@@ -222,13 +222,22 @@ settled. **Nothing in this cycle is blocked on a question.**
       **P-22's open half is decided:** `sparse` is built with `vec_init_zeroed` (one `calloc`) rather than relying on reading uninitialised storage. `clear` is still O(1) — only `count` is reset — so the engine's property is kept without resting on the part of the trick that is a hope.
 - [x] every accessor's bounds obligation written as a comment in the `requires`/`ensures` syntax it will take, with a property test standing in  
       **DONE, and checked against the compiler rather than against this repository's own stale claim.** Cycle 0.0.0 recorded that `never fails` and a contract are mutually exclusive by a *permanent* `NITPICK-TYPE-037`; that is false since the compiler's D-241 (RX-127), so the obligations are written `never fails requires …`, which is `VERIFICATION.md` P-2's own shape. `requires` and `ensures` still refuse `NITPICK-RUNG-001`, so they remain inert — but that is now a per-construct fact to re-measure rather than a property of the rung (`VERIFICATION.md` P-1a), because `limit<Rules>` went live and this library declined it (S-24).
-- [ ] the leak tests exit 0, so a missing **`wild` block** free is a trap — and
+- [x] the leak tests exit 0, so a missing **`wild` block** free is a trap — and
       **that is the whole of what `exit 0` proves** (RX-123). D-151 counts `wild`
       blocks, D-188 counts live drivers, and neither sees a managed body, so a
       `Vec` freed without dropping its owning elements exits 0 (`SAFETY.md` §8b,
       S-22). **Where the obligation is managed the gate is a MEMORY CAP**, and
       `Vec<T>`'s elements are exactly that case — this line named `vec_free`
-      until 0.0.3 and so asserted the gate for the one case it cannot see
+      until 0.0.3 and so asserted the gate for the one case it cannot see  
+      **DONE, BOTH HALVES, AND THEY ARE SEPARATE TESTS.** The block half: every
+      program in `tests/unit/` exits 0 or traps by design, so a leaked `wild`
+      block is a red. The managed half: `vec_owning_freed.npk` and
+      `vec_owning_leak.npk` differ only in `vec_free_owning` against `vec_free`,
+      run under one 64 MiB address-space cap, and are required to end
+      **differently** — 0 and 92 (`HeapOom`) — with `/bin/true` passing at the
+      same cap, because a low cap measures the dynamic loader rather than the
+      program. `mem-cap-mib:` is the new expectation header that carries it, and
+      the harness runs that control on every capped file.
 
 ### 0.0.5 — close
 - [ ] every probe verdict reconciled against the specifications
