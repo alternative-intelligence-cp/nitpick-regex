@@ -1,0 +1,45 @@
+// expect-exit: 94
+//
+// `SparseSet` — OUT OF RANGE: `sset_contains(s, 0)` on a FREED set.
+//
+// RX-143's eighth site, and **the only two of the nine that a live container
+// cannot reach — which is itself worth writing down.** `sset_contains`'s guard
+// is `k >= s.sparse.count`, and `sset_init` floors its capacity to 1, so a live
+// `SparseSet` always has `sparse.count >= 1` and key 0 is always a legal key.
+// The guard fires at `k == 0` only once `sset_free` has run `vec_free` over
+// both vectors and left `sparse.count == 0`.
+//
+// So the empty-container boundary for these two IS the freed container, and
+// falling through means `vec_get(s.sparse, 0)` reading through a dangling
+// `items` — the second bounds check catching what the first let past, which is
+// luck rather than design and is not a defence: `vec_get`'s guard was broken by
+// the identical defect at the identical index.
+mod:sparseset_oob_contains_freed;
+
+use "../../src/core/sparseset.npk".*;
+
+func:main = int32(cstring[]:argv) {
+    // 0, computed at run time: `argv.len` is 1 with no arguments.
+    int64:zero = argv.len - 1i64;
+
+    SparseSet:s = raw sset_init(16i64);
+    drop sset_insert(@s, 3i64);
+    drop sset_free(@s);             // both vectors freed; sparse.count == 0
+
+    discard(raw sset_contains(@s, zero));
+
+    exit 56i32;                     // reached only if the stop returned
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

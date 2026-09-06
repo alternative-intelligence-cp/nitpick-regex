@@ -1,0 +1,61 @@
+// expect-exit: 0
+// mem-cap-mib: 64
+//
+// `bytes_copy_string` — THE MANAGED HALF, NON-EMPTY. The CONTROL of the pair.
+//
+// THIS IS ONE OF A PAIR AND NEITHER HALF MEANS ANYTHING ALONE, exactly as
+// `vec_owning_leak` / `vec_owning_freed` are. The two files are identical but
+// for two `bytes_push` calls, they run under the SAME 64 MiB address-space cap,
+// and they are required to end DIFFERENTLY at this tree's pin. A cap that both
+// survive, or that neither does, is measuring something other than the
+// difference between them.
+//
+// WHY A CAP AND NOT `exit 0` (`SAFETY.md` §8b, rule S-22, RX-110). A `string`'s
+// bytes are MANAGED. D-151 counts `wild` blocks, D-188 counts live drivers, and
+// neither sees a managed body — so a `bytes_copy_string` that allocates a block
+// per call and never frees it **exits 0** for as long as the address space
+// lasts. Until this pair, nothing in this repository gated that: the comment in
+// `bytes.npk` justifying the empty path cited an `exit 0` measurement, which is
+// the one instrument S-22 says cannot see this. RX-146.
+//
+// This half returns to flat: 8 000 000 calls, 0 KiB of peak growth, exit 0.
+// Its sibling is the same program over an EMPTY `Bytes` and leaks 32 bytes a
+// call — a compiler defect, DEF-25, not a defect here.
+mod:bytes_copy_string_nonempty;
+
+use "../../src/core/bytes.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Bytes:b = raw bytes_init(16i64);
+    drop bytes_push(@b, 65u8);
+    drop bytes_push(@b, 66u8);
+
+    // The count is chosen against the cap, not against the clock: at the 32.2
+    // bytes per call the empty path leaks, 8 000 000 calls is ~250 MiB against
+    // 64 MiB, so the sibling cannot survive by luck. This half is flat, so the
+    // same count costs it about a second.
+    int64:k = 0i64;
+    while (k < 8000000i64) {
+        // BOUND, NEVER NESTED, and never handed to anything: binding is what
+        // makes the drop happen at the end of the iteration's scope. An owning
+        // temporary that is never bound is never dropped (D-183).
+        string:s = raw bytes_copy_string(@b);
+        discard(s);
+        k = k + 1i64;
+    }
+
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

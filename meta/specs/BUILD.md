@@ -293,6 +293,31 @@ of something that can.**
   assumed). That is not a hole there, and it is still a marker whose meaning is
   quietly rewritten, which is what this grammar exists to prevent.
 
+**Rule B-5b (RX-146) — this runner adds TWO markers `npkg` does not have, and
+each is declared here so the parity stage that retires the runner (RX-004,
+O-G3) has a row for it rather than a surprise.**
+
+- **`mem-cap-mib: N`** caps the child's address space, and runs `/bin/true`
+  under the identical cap first. It exists because S-22 makes half this
+  library's memory obligations invisible to `exit 0`; a marker is how a file
+  asks for the instrument that can see them.
+- **`pending-until: <compiler-commit>`** marks a unit that is **correct and
+  red**, because the defect it asserts against is in the pinned compiler and is
+  already fixed in a commit this repository has not pinned yet. The file is
+  built, linked and **run**; its actual exit is printed; and it is counted as
+  **neither a pass nor a failure**, which is the rule `selfcheck.py`'s three
+  pending cases already follow (P-18): *a pending case is not a passing case.*
+
+  **The marker retires itself, and that is the point of it.** If a pending unit
+  starts **meeting** its expectation, the run goes **RED** and names the action —
+  delete the marker. The three wrong answers it exists to refuse are weakening
+  the test, guarding around a compiler defect in library code (forbidden by
+  name), and not writing the test until the re-pin, which is how a defect gets
+  forgotten between the day it is understood and the day it could be caught. A
+  blank or multi-word value is **unreadable** rather than an accepted skip: the
+  marker excuses a red, so a value that silences a test while looking like
+  documentation is the failure this grammar exists to prevent.
+
 **Rule B-6 — assert on codes and exit codes, never on message text.**
 
 **Rule B-7 — unexpected diagnostics fail a test as surely as missing ones**

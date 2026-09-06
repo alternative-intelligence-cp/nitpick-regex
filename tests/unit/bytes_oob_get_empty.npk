@@ -1,0 +1,44 @@
+// expect-exit: 94
+//
+// `Bytes` — OUT OF RANGE: `bytes_get` at index 0 on an EMPTY `Bytes`.
+//
+// RX-143 at the fifth of its nine entry points. `bytes_init(16i64)` gives a
+// live buffer with capacity 16 and **`len` 0**, so `i >= b.len` fires at
+// `i == 0`; under the shipped spelling `vec_oob(0)` returned and `drop`
+// continued into `pass b.buf.ptr[i]`, handing back a byte of the buffer's
+// zeroed tail. Measured exit 53 at `3d15ac9`.
+//
+// The existing `bytes_oob_get_after_clear` is the closest neighbour and it
+// passes a non-zero index (3, after a clear of a four-byte `Bytes`), so it
+// exercises the same guard and never the value that broke it. That is the
+// twelve-of-twelve pattern in one pair of files.
+//
+// A `buffer` LOOKS bounds-checked — it carries `.len` and `.cap` — and is not
+// (RX-118): `.ptr` is a bare `uint8->` with no slice route, so `bytes.npk`'s
+// own comparison is the entire check, and a stop that returns leaves none.
+mod:bytes_oob_get_empty;
+
+use "../../src/core/bytes.npk".*;
+
+func:main = int32(cstring[]:argv) {
+    // 0, computed at run time: `argv.len` is 1 with no arguments.
+    int64:zero = argv.len - 1i64;
+
+    Bytes:b = raw bytes_init(16i64);
+    discard(raw bytes_get(@b, zero));
+
+    exit 53i32;                     // the shipped tree's actual exit
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

@@ -1,0 +1,66 @@
+// expect-exit: 0
+// mem-cap-mib: 64
+// pending-until: fe42dba
+//
+// `bytes_copy_string` — THE MANAGED HALF, EMPTY. **CORRECT, RED, AND PENDING.**
+//
+// **THIS FILE IS RIGHT AND THIS TREE IS WRONG, AND THAT IS WHY IT IS COMMITTED
+// RED.** `bytes_copy_string` on an EMPTY `Bytes` leaks 32.2 bytes per call at
+// this tree's pinned compiler, so under the 64 MiB cap it exits **92,
+// `HeapOom`**, where its non-empty sibling exits 0. The leak is a **compiler
+// defect — DEF-25**, raised under W-11 rather than worked around, confirmed by
+// the compiler side and fixed at `fe42dba`, which this tree is not pinned to.
+// Their words: *nothing in library code needs a guard.*
+//
+// **DO NOT MAKE THIS PASS.** The three ways to do so are all wrong and all
+// available: lower the count, raise the cap, or put
+// `if (b.len == 0i64) { pass ""; }` in `bytes_copy_string`. The third is the
+// tempting one and it is the one `CLAUDE.md` forbids by name — a workaround
+// buried in library code outlives the bug, and this one would sit in the
+// hottest accessor of the byte sink every replacement in this library is
+// composed into, long after the compiler stopped needing it.
+//
+// `pending-until: fe42dba` is what the harness does instead: the file is built,
+// linked, RUN, and its actual exit printed, counted as neither a pass nor a
+// failure — and **the run goes RED the day it starts passing**, which is the day
+// the pin moves past that commit and the marker should be deleted. See
+// `expect.py`'s fourth marker for why it retires itself rather than being
+// trusted to. RX-146.
+//
+// WHY THE EMPTY PATH IS THE ORDINARY CASE AND NOT AN EDGE. Cycle 0.1's parser
+// and 0.6's replacement are this function's first users, and "the result is
+// empty" is what a replacement that deletes produces, and what a capture that
+// matched nothing produces. Its blast radius today is nil —
+// `bytes_copy_string` is not in `src/lib.npk` — which is exactly what was said
+// about the use-after-free the first audit blocked on.
+mod:bytes_copy_string_empty;
+
+use "../../src/core/bytes.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    // The ONE difference from the sibling: nothing is pushed, so `b.len` is 0
+    // and `string_concat("", "")` takes the path that has no short-circuit.
+    Bytes:b = raw bytes_init(16i64);
+
+    int64:k = 0i64;
+    while (k < 8000000i64) {
+        string:s = raw bytes_copy_string(@b);
+        discard(s);
+        k = k + 1i64;
+    }
+
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

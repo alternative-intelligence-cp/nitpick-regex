@@ -336,10 +336,51 @@ pub func:bytes_put_uint = NIL(Bytes->:b, uint64:v) never fails {
 // capacity beyond it. The length passed below is `b.len`, the LIVE prefix, and
 // never `b.buf.len`, which is the capacity and would hand out the zeroed tail.
 //
-// An empty `Bytes` is not a special case: `string_concat` of two empty strings
-// allocates zero bytes and returns cap 0, which the drop correctly frees
-// nothing for. Measured — `bytes_clear` then this, then `string_byte_length`
-// == 0 and `string_equals("")`, exit 0.
+// **AN EMPTY `Bytes` IS A SPECIAL CASE, IT LEAKS, AND THE COMPILER IS THE
+// DEFECT — DEF-25, fixed at `fe42dba` and NOT PRESENT AT THIS TREE'S PIN.**
+// RX-146.
+//
+// The paragraph that stood here said three things and every one was wrong, in a
+// comment written to justify not writing a test:
+//
+//   1. *"`string_concat` of two empty strings allocates zero bytes."* Read at
+//      `3d15ac9` in `runtime/npkrt.ll:6376`, `@npk_string_concat` has **no
+//      empty short-circuit**: it computes `n = al + bl` and calls
+//      `npk_alloc_internal(n)` unconditionally. And `@npk_alloc_impl` (:4808)
+//      substitutes 16 for a zero request on purpose — *"alloc(0) is a real,
+//      unique, freeable 16-byte block (D-150)"*. So the empty path allocates a
+//      REAL BLOCK and the cap-0 result gives the drop nothing to free.
+//      **32.2 bytes per call, linear, measured here.**
+//   2. *"Measured — `bytes_clear` then this …"* — **that measurement was not in
+//      the tree.** No committed test called `bytes_copy_string` on an empty
+//      `Bytes`; all eleven call sites in `bytes_unit.npk` follow an `extend` or
+//      a `put_uint`. A comment citing a measurement nobody can re-run is a
+//      sentence formatted like evidence.
+//   3. *"exit 0"* — **the wrong instrument, by this repository's own rule.**
+//      `SAFETY.md` S-22: D-151 counts `wild` blocks, D-188 counts live drivers,
+//      and NEITHER SEES A MANAGED BODY. A `string`'s bytes are managed, so
+//      exit 0 is silent here by construction. The gate is a memory cap, and
+//      `bytes_copy_string_empty.npk` / `bytes_copy_string_nonempty.npk` are now
+//      that pair, with the `/bin/true` control the harness runs at the same cap.
+//
+// **THERE IS NO GUARD HERE AND THERE WILL NOT BE ONE.** `if (b.len == 0i64)
+// { pass ""; }` would make the run green today and would still be sitting in
+// this file long after the compiler stopped needing it —
+// `CLAUDE.md`'s last non-negotiable rule, and W-11. It was raised instead, the
+// compiler side confirmed it as **DEF-25** and landed the fix at `fe42dba`
+// with the words *"nothing in library code needs a guard"*. So the empty half
+// of the pair carries `pending-until: fe42dba`: it is built, run, and printed
+// as PENDING rather than as a pass, and it goes RED the day the pin moves past
+// that commit, which is the day the marker should be deleted.
+//
+// The asymmetry is documented in the compiler's own source, which is what made
+// this a defect rather than a design: `@npk_string_slice` (`npkrt.ll:6530`) has
+// exactly the branch `string_concat` lacks — *"An empty slice allocates
+// nothing: len 0 is never dereferenced, and cap 0 gives the drop nothing to
+// free."* RX-138 chose `string_concat` over `string_slice` because
+// `string_slice` returns a `Result`; **the `Result` was the price of the
+// primitive that handles the empty case correctly**, and that is the trade this
+// comment should have recorded the first time.
 pub func:bytes_copy_string = string(Bytes->:b) never fails {
     pass string_concat("", string_from_bytes(b.buf.ptr, b.len));
 };

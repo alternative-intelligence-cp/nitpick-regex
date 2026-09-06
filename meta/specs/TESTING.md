@@ -203,7 +203,7 @@ framing that let both be wrong. The framing is the column.
 | `check_constants_named` | **yes** | no bound outside `src/core/limits.npk` |
 | `check_no_division` | **yes** | no `/` or `%` under `src/` — `SAFETY.md` S-25 (RX-132), because a division arms two `failsafe` arms in every importer |
 | `check_accessor_confinement` | **yes** | no `.items[` outside `src/core/vec.npk`, no `.ptr[` outside `src/core/bytes.npk`, **within `src/`** — `SAFETY.md` S-23, **the only bounds check this library has** (RX-136) |
-| `check_dated_measurements` | **yes** | any live document dating a measurement to "the pin" rather than to a commit — RX-142, built by the cycle 0.0 audit triage after a phrase-level sweep left a class thirteen times its size |
+| `check_dated_measurements` | **yes** | any live document dating a measurement to "the pin" rather than to a commit — RX-142, built by the cycle 0.0 audit triage after a phrase-level sweep left a class thirteen times its size. **It declared `.yml` and could not reach the one `.yml` in the tree**, because it pruned directories by leading dot and the workflow lives in `.github/`: it now prunes by NAME and reports its denominator PER EXTENSION, so a declared class the walk never opens shows a zero instead of vanishing into a healthy total — RX-145 |
 | `check_specs_current` | **yes**, reports rather than fails | spec citations that no longer resolve |
 | `check_no_syscalls` | **yes**, as a BUILD STEP and not a tree check | the object's undefined symbols, **and the IR's floor call edges**, against the committed baseline — RX-116 and RX-120, §2 |
 | `check_tables_regenerate` | no — **cycle 0.3** | the committed Unicode tables against a fresh generator run |
@@ -219,6 +219,18 @@ framing that let both be wrong. The framing is the column.
 is a build step rather than a tree check, because a failure there invalidates
 what every suite below it means. Take the count from the runner's summary, never
 from this table: the count moved *inside* the subcycle that last corrected it.
+
+**Rule V-22 — A CHECK IS A RULE ONLY OVER THE FILES IT OPENS, so every check
+here reports what it examined and not merely its verdict.** This module's own
+docstring has said since 0.0.3 that a check finding nothing because it **looked
+nowhere** is indistinguishable in the output from one that found nothing because
+there was nothing to find — and `check_dated_measurements` then declared seven
+file extensions, opened **zero** of one of them for a whole subcycle, and
+reported one healthy-looking aggregate over the other six (RX-145). A count per
+declared class is what makes that visible, and **a zero beside a declared class
+is a finding rather than a clean bill**. The rule generalises past this check:
+`check_accessor_confinement`'s scope was wider in its rule than in its code
+(N-6), and the fix there was the same shape — say what was examined.
 
 **Rule V-19 — `check_error_kinds_tested` and `check_inst_kinds_total` will be the
 two that matter most, AND NEITHER EXISTS YET.** A `PatternErrorKind` nothing can

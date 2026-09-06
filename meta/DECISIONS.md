@@ -2369,3 +2369,277 @@ compiler", "held to the pin", "the pin moves" — and a check with false positiv
 gets switched off, which the playbook records); a file-level exemption (an
 escape hatch that grows; the marker is per line and has to be written on the
 line that needs it).
+
+### RX-143 — `vec_oob` RETURNED for `i == 0`, so nine `pub` entry points performed the access they had just refused; the stop's index is now negative for every `i`
+
+**2026-09-06, forced by the SECOND cycle 0.0 audit (BL-3), which is the largest
+defect this cycle found.** **This supersedes RX-130's sentence "the helper is
+`vec_oob`, it never returns", which was false at the value that mattered from
+the day it was written.** RX-130's *decision* — that a violation traps
+`OutOfBounds`, spelled as the language's own trap rather than an invented code —
+stands unchanged and is right. What did not hold was its claim about the
+implementation.
+
+The body was:
+
+```
+int64[1]:guard = [0i64];
+discard(guard[i]);
+```
+
+**Index 0 is in range for a one-element array.** Measured at `3d15ac9`, with
+controls: `vec_oob(0)` returns and the program runs on (exit 50), while
+`vec_oob(1)` and `vec_oob(-1)` both exit 94. Identical at −O0 and through
+`opt -O2`.
+
+**And a stop that returns is not a weakened guard, it is no guard**, because
+every one of the 28 call sites is `drop vec_oob(…)` and `drop` **continues**.
+Of those 28, **19 are sound** — they can only pass a strictly negative value or
+one ≥ 1 — and **9 are broken**: every guard of the form `i >= <count|len>`
+reached with an empty or freed container, where `i` is 0. Measured, one program
+each:
+
+| entry point | what it did instead of stopping |
+|---|---|
+| `vec_get` | empty `Vec`: **returned a heap word**, exit 51 |
+| `vec_set` | **freed** `Vec`: **completed the write through a dangling `items`**, exit 62 |
+| `vec_remove` | empty `Vec`: left **`count == -1`**, exit 60 |
+| `vec_swap_remove` | reads `items[-1]`, writes `items[0]`, `count` → −1, exit 61 |
+| `bytes_get` | empty `Bytes`: returned a byte past `len`, exit 53 |
+| `bytes_set` | wrote past `len`, inside `cap` — a wrong answer later, exit 54 |
+| `sset_contains` | freed set: fell into `vec_get(s.sparse, 0)` on a freed block |
+| `sset_insert` | freed set: two writes through a dangling `items` |
+| `sset_at` | empty live set: **returned a phantom member**, exit 55 |
+
+**Two of those chain into something worse than they look.** After
+`vec_remove(@v, 0)` leaves `count == -1`, `vec_push`'s guard reads `-1 >= 4`,
+is false, and the element is written at **`items[-1]` — before the block, over
+the allocator's header** — surfacing later as **exit 95** from inside `dalloc`.
+Verified here, not taken from the audit. And `sset_at`'s phantom member is
+verbatim the failure `src/core/sparseset.npk`'s own header warns of: *a wrong
+sparse-set probe adds a thread for a state the automaton is not in and the
+library returns a match that is not there.*
+
+**THE FIX: the index is NEGATIVE for every `i`, not merely non-zero.**
+
+```
+int64:below = 0i64 - 1i64 - (i & 1i64);   // -1 or -2
+discard(guard[below]);
+```
+
+`i & 1i64` is 0 or 1, so `below` is −1 or −2. Two properties are wanted and both
+are had: it is **total** — no overflow is possible, since only a mask and a
+subtraction of a value in {0,1} are involved, verified at `int64`'s minimum and
+maximum — and it is **out of range for an array of any length**, so the trap
+does not depend on the guard array one line above staying one element long.
+*The rejected alternative was `guard[i | 1i64]`*, which is odd and therefore
+never 0 and is a correct one-operation fix today; it was declined because its
+correctness is coupled to the array's declared length, so widening `int64[1]`
+to `int64[2]` later would silently restore the defect. The negative form also
+matches the model the file's own 19 sound call sites already use, where "out of
+range" means "negative".
+
+**THE PARAMETER SURVIVES AND ITS STATED REASON DID NOT.** `vec.npk` said `i` was
+passed "only so the trap is reached with a value the optimiser cannot prove
+constant". Measured at `3d15ac9`: a **literal** out-of-range index compiles at
+exit 0, `npkc` folds it to an unconditional `call void @npk_trap(i32 -4099)`,
+and the program exits 94 at both optimisation levels. Folding does not defeat
+this trap at this pin. The parameter is kept for the two reasons that are true —
+the call site records **which** index was out of range, and a compiler that later
+refused a constant out-of-range index outright would break a parameterless
+spelling — and the false reason is deleted rather than left standing.
+
+**WHY 108 GREEN UNITS WERE GREEN OVER IT, AND THIS IS THE PART THAT TRANSFERS.**
+All **twelve** out-of-range unit programs passed a non-zero argument: 3, 1, −1,
+2, −1, 3, 16, −1, −1, −1, −1, −5. Twelve of twelve avoided the single value at
+which the stop did not stop. `SAFETY.md` enumerated "four cases are gated" and
+read as exhaustive; `i == count == 0` was the fifth. **A thirteenth case of the
+same shape would not have found this.** So the remedy is not more boundary cases
+but a case of a different kind: **`vec_oob_selfcheck_{zero,negative,positive}`
+test the PRIMITIVE, asserting that `vec_oob(k)` does not return for
+k ∈ {−1, 0, 1}.** That trio fails for the *next* spelling of the trap whatever
+it is, and needs no extension when a tenth accessor is written. Nine further
+units cover each broken entry point at exactly the empty-container boundary.
+**Ten of the twelve were seen to fail against the shipped tree first, each with
+its own distinct exit code**, and the two that pass on both trees are the
+controls that would catch a fix which trapped at 0 by ceasing to trap elsewhere.
+
+*Alternatives declined:* documenting the hole and guarding at the nine call
+sites (nine copies of a rule is nine places for it to weaken — the argument
+RX-123 makes, and the single definition is what made this a one-line fix);
+`guard[i | 1i64]` (above); returning a `Result` from `vec_oob` (RX-130 settled
+that an error channel here lands on the search path).
+
+### RX-144 — the FREE paths stopped on the allocator's check and reported `Unreachable`, so "`cap <= 0` traps `OutOfBounds` like every other misuse in this file" was not true of two of them
+
+**2026-09-06, from the second cycle 0.0 audit (N-11).** RX-139 put a `cap <= 0`
+guard on the three GROWTH paths — `vec_reserve`, `vec_push`, `vec_insert` — and
+wrote, in `vec.npk`'s header and in RX-139 itself, that `cap <= 0` traps
+`OutOfBounds` *"like every other misuse in this file"*. It did not. Measured at
+`3d15ac9`, three programs: `vec_free` twice → **exit 95, `Unreachable`**;
+`vec_free_owning` after `vec_free` → **95**; `sset_free` twice → **95**.
+
+They stop, deterministically — this was never silent — but they stop on the
+**allocator's** double-free check and report a broken heap invariant where what
+happened is that a freed container was used. **That is precisely the complaint
+`vec.npk`'s own header makes six paragraphs earlier about `vec_push` and
+`vec_insert`** — *they stop on the RUNTIME's check of a size, not on this
+library's check of its own invariant, and they report the wrong thing* — fixed
+there in the same subcycle and left standing here, in the same header that
+states it.
+
+**The decision: the same guard heads `vec_free` and `vec_free_owning`.**
+`sset_free` inherits it by calling them and declares no poison of its own,
+which is right: the guard belongs to the container that owns the block.
+Three units, each **seen to fail at 95 before the fix and passing at 94 after**:
+`vec_oob_free_twice`, `vec_oob_free_owning_after_free`,
+`sparseset_oob_free_twice`.
+
+`vec_free_owning` is the more important of the two and not the more obvious.
+Without the guard it walks `0 .. count` **moving elements out of a freed block
+and dropping them**, reaching `dalloc`'s check only afterwards. It is currently
+survivable only because `vec_free` also sets `count = 0`, so the loop body runs
+zero times — and `count` is a field a caller can write, since a `pub struct` has
+no private fields (D-149). The poison that matters is `cap`.
+
+**The transferable half is about the sentence, not the code.** *"Like every
+other misuse in this file"* is a claim about a set, and **the set was never
+enumerated**. It was written while five entry points were being fixed and read
+as a summary of them; it was false about the two that had not been looked at. A
+claim of the form "like every other X" should either name the X's or be replaced
+by one that does not quantify.
+
+*Alternatives declined:* documenting it as a known difference (the header
+already documents the identical complaint about `vec_push` and calls it wrong,
+so documenting would make that paragraph advisory); making `vec_free`
+idempotent by returning early on `cap <= 0` (a double free is a bug in the
+caller and D-123's reasoning applies — silently accepting it reports success
+about a container that no longer exists, which is the same failure `vec_reserve`
+was fixed for).
+
+### RX-145 — `check_dated_measurements` pruned by leading dot, so the only file of a class it declares was unreachable; it prunes by NAME and reports per-extension denominators
+
+**2026-09-06, from the second cycle 0.0 audit (N-10).** The check written to
+close N-9 could not see the one file its own docstring names. It declared
+`.yml` in `_UNDATED_EXTS` and its scope sentence ends *"the harness, `src/`, the
+probe headers, the manifest **and the workflow**"* — then pruned every directory
+whose name begins with a dot, which makes `.github/` unreachable. The tree's
+only tracked `.yml` is `.github/workflows/ci.yml`.
+
+Reproduced here rather than taken from the report: the shipped walk opens
+**132 files, `.yml` 0**, and reports `failures: []`, while the check's own regex
+finds **two** matches in that file (`ci.yml:221` and `ci.yml:253`). Both are now
+dated — the cache-hit sentence names `NITPICK_COMMIT` and the `rx120.sh` step
+name says `3d15ac9` — and the fixed check finds them before the fix and nothing
+after.
+
+**Two changes, and the second is the one that generalises.**
+
+1. **Prune by NAME**, from `_UNDATED_PRUNE_DIRS = (".git", ".internal",
+   "__pycache__", "build")`. The tell was already in the tree and the audit
+   spotted it: `_UNDATED_SKIP_DIRS` carried `.internal/` and `.git/`, which the
+   leading-dot prune had already removed, so **they were dead code** — and dead
+   code in a skip list is evidence that the author expected the list to be doing
+   the skipping. It is now doing it, and the two dead entries are gone.
+2. **The check reports its denominator PER DECLARED EXTENSION**, with a note
+   saying a zero is a finding. `treecheck.py`'s own module docstring already
+   says a check that finds nothing because it **looked nowhere** is
+   indistinguishable in the output from one that found nothing because there was
+   nothing to find — and then this check declared seven extensions, opened zero
+   of one of them for a whole subcycle, and reported a single healthy-looking
+   aggregate. A class with a zero beside it is a question a reader can ask; a
+   class absorbed into a total is not.
+
+Shown to fail before it was trusted, in the directory that was unreachable: a
+planted `measured at the pin` appended to `.github/workflows/ci.yml` is named at
+`file:line:col`, and the check is clean again when it is removed.
+
+**This is finding-shape N-6 — a rule wider than the mechanism enforcing it —
+occurring inside the check that was built to retire a sweep.** RX-142 said *a
+grep is a sweep; only a check is a rule*, and it is still true; what this adds
+is that **a check is only a rule over the files it opens**, and the count of
+those files belongs in its output.
+
+*Alternatives declined:* adding `.github` back as a named exception to the
+leading-dot prune (it fixes this file and not the class — the next dotted
+directory holding a tracked text file is invisible again); dropping `.yml` from
+the declared extensions (the workflow is exactly where a pin-dated claim is most
+load-bearing, since it is the file that names the pin).
+
+### RX-146 — `bytes_copy_string` LEAKS on an empty `Bytes`; the compiler is the defect, the comment claiming otherwise was wrong three times, and the gate is a memory cap that is PENDING rather than a guard
+
+**2026-09-06, from the second cycle 0.0 audit (BL-4 and N-12).** RX-138 replaced
+a borrowed view with `string_concat("", string_from_bytes(b.buf.ptr, b.len))`.
+The copy is correct. **The empty path leaks 32.2 bytes per call**, and the
+paragraph in `src/core/bytes.npk` that said it did not was wrong in three
+separate ways at once, in a comment written to justify not writing a test:
+
+1. *"`string_concat` of two empty strings allocates zero bytes."* Read at
+   `3d15ac9` in the compiler's own source rather than in a document:
+   `@npk_string_concat` (`runtime/npkrt.ll:6376`) has **no empty
+   short-circuit** — it computes `n = al + bl` and calls
+   `npk_alloc_internal(n)` unconditionally — and `@npk_alloc_impl` (:4808)
+   substitutes 16 for a zero request deliberately, *"alloc(0) is a real, unique,
+   freeable 16-byte block (D-150)"*. A real block is allocated and the cap-0
+   result gives the drop nothing to free.
+2. *"Measured — `bytes_clear` then this …"* — **the measurement was not in the
+   tree.** No committed test called `bytes_copy_string` on an empty `Bytes`; all
+   eleven call sites in `bytes_unit.npk` followed an `extend` or a `put_uint`.
+   That is N-12, and it is the same shape as the fabricated transcript
+   adjudication (a) found in `RX120.txt`: **a sentence formatted like evidence.**
+3. *"exit 0"* — **the wrong instrument, by this repository's own rule.** S-22:
+   D-151 counts `wild` blocks, D-188 counts live drivers, neither sees a managed
+   body, and a `string`'s bytes are managed. `bytes_unit.npk` says so in as many
+   words twenty lines away.
+
+Measured here with the instrument S-22 requires: 8 000 000 calls under a 64 MiB
+address-space cap, with `/bin/true` passing under the same cap — the **empty**
+path exits **92, `HeapOom`**; the **non-empty** control exits **0** with no peak
+growth. At 2 000 000 calls the empty path peaks at 62 592 KiB and the control at
+0, which is where the 32.2 bytes per call comes from.
+
+**THE ROOT CAUSE IS A COMPILER DEFECT AND IT WAS RAISED, NOT WORKED AROUND.**
+The compiler's own source documents the asymmetry: `@npk_string_slice`
+(`npkrt.ll:6530`) carries exactly the branch `string_concat` lacks — *"An empty
+slice allocates nothing: len 0 is never dereferenced, and cap 0 gives the drop
+nothing to free."* It was raised under W-11, confirmed by the compiler side as
+**DEF-25**, and fixed and pushed at **`fe42dba`**, with their words: *nothing in
+library code needs a guard.*
+
+**SO THERE IS NO GUARD, AND THE ONE-LINE GUARD IS NAMED HERE SO THAT NOBODY ADDS
+IT LATER.** `if (b.len == 0i64) { pass ""; }` would make the run green today and
+would still be in the hottest accessor of the byte sink every replacement in this
+library is composed into, long after the compiler stopped needing it.
+`CLAUDE.md`'s last non-negotiable rule forbids it by name.
+
+**THE GATE IS THE `Vec` MEMORY-CAP PAIR'S SHAPE, WITH ONE HALF DECLARED
+PENDING.** `bytes_copy_string_nonempty.npk` is live and green.
+`bytes_copy_string_empty.npk` is **correct and red at this tree's pin**, because
+the fix is at a commit this tree is not pinned to, and it carries a new marker:
+`pending-until: fe42dba`. A pending unit is built, linked and **run** like any
+other, its actual exit printed, and counted as **neither a pass nor a failure** —
+the rule `selfcheck.py`'s three pending cases already follow (P-18): *a pending
+case is not a passing case*.
+
+**AND THE MARKER RETIRES ITSELF, WHICH IS THE HALF THAT MATTERS.** If a pending
+unit starts **meeting** its expectation the run goes **RED** and names the action
+— delete the marker. That is the opposite of what a known-failure list usually
+does, and it is deliberate: this ecosystem's recurring defect is the rule that
+outlives its reason (a dead skip entry, an allowlist nobody re-derives, a check
+whose scope drifted — N-6, N-10, RX-131 and RX-145 are all one shape). A marker
+that survives the day it stops being true is one more of them. Here the run that
+moves the pin is the run that says so. Shown able to fail on three mutations: a
+pending unit meeting its expectation reddens with `IS NOW STALE`; a blank
+`pending-until:` is UNREADABLE rather than a silent skip; and a pending unit that
+does not compile is a failure, because the marker excuses a wrong exit code and
+not a refusal.
+
+*Alternatives declined:* the library-side guard (above, and forbidden);
+re-pinning this repository to `fe42dba` inside this subcycle (the pin is the
+board's to move and a re-pin is not a triage's to make — the whole tree's
+measurements belong to one pin); writing the test only after the re-pin (that is
+how a defect gets forgotten between the day it is understood and the day it
+could be caught, and the pending file is the artefact that prevents it);
+`string_slice` instead of `string_concat` (its `Result` is real, but swapping
+primitives to route around a defect the compiler has already fixed would be the
+workaround with extra steps).

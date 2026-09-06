@@ -1,0 +1,42 @@
+// expect-exit: 94
+//
+// `Vec<T>` — OUT OF RANGE: `vec_remove` at index 0 on an EMPTY `Vec`.
+//
+// RX-143's LATENT case, and the one whose damage surfaces somewhere else.
+// Falling through `vec_remove`'s `i >= v.count` guard on an empty `Vec` skips
+// the shift loop (its condition is already false) and runs the last line,
+// `v.count = v.count - 1i64` — leaving **`count == -1` on a live container**.
+//
+// Nothing has crashed at that point and nothing ever reports it. The next
+// `vec_push` reads `v.count >= v.cap` as `-1 >= 4`, false, and writes at
+// `v.items[-1]` — one element BEFORE the block, over the allocator's own
+// header — and the program then exits **95, `Unreachable`**, from inside
+// `dalloc` when `vec_free` finds that header corrupted. Measured at `3d15ac9`.
+// A stop that does not stop turns a caller's off-by-one into heap corruption
+// attributed to a line in a different function.
+mod:vec_oob_remove_empty;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:argv) {
+    int64:zero = argv.len - 1i64;
+
+    Vec<int64>:v = raw vec_init::<int64>(4i64);
+    drop vec_remove(@v, zero);
+
+    drop vec_free(@v);
+    exit 60i32;                     // the shipped tree's actual exit
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

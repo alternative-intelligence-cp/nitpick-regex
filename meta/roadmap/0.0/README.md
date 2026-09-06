@@ -1,4 +1,29 @@
-# Cycle 0.0 — Foundations — **NOT CLOSED. The close was refused 2026-09-06.**
+# Cycle 0.0 — Foundations — **NOT CLOSED. The close was refused TWICE on 2026-09-06.**
+
+> ## The SECOND refusal, and it found a defect in the fix for the first
+>
+> **[`../../audits/nitpick-regex-0.0-2026-09-06-second.md`](../../audits/nitpick-regex-0.0-2026-09-06-second.md)**
+> returned **DO-NOT-ACCEPT** on two blocking findings. One, `BL-4`, was
+> **introduced by the first triage's own fix commit**. The other, `BL-3`, is the
+> largest defect this cycle has found and it sits one level below the template the
+> first audit was given: **not a missing guard, but the guard's stop failing to
+> stop.** `vec_oob` was spelled as an index into a one-element array, so
+> `vec_oob(0)` **returned** — and 0 is exactly the index that nine `i >= count`
+> guards pass when the container is empty. Every call site is `drop vec_oob(…)`
+> and `drop` continues, so those nine performed the read or write they had just
+> refused: a heap word returned from an empty `Vec`, a write completed through a
+> dangling pointer, `count` left at −1, a phantom sparse-set member.
+>
+> **All twelve out-of-range units in the shipped suite passed a NON-ZERO
+> argument**, so 108 green was green over it and a thirteenth case of the same
+> shape would have been too. The triage is [`0.0.5.md`](0.0.5.md) §9 — **6 items,
+> 6 lines, all fixed** — and it adds seventeen units, of which the three that
+> matter test the **stop itself** rather than any entry point.
+>
+> **The cycle is still not archived and `meta/roadmap/done/` is still empty.** The
+> gate below requires an audit that has seen the tree it is accepting, and the
+> only audit that has seen this one refused an earlier version of it.
+
 
 > ## The archive was made and then REVERSED, and this note replaces the redirect
 >
@@ -313,13 +338,17 @@ settled. **Nothing in this cycle is blocked on a question.**
       **Two of the 25 were WRONG and the audit found both**: the RX-120 obligation was recorded as
       discharged by a transcript containing a fabricated command, and the `bytes_take_string`
       hand-over was listed as safe. `0.0.5.md` §8 carries the corrections beneath them.
-- [x] the harness self-check green, the full run green — **108/108 in 35.0 s** after the audit
-      triage (98/98 in 32.0 s at the refused close), self-check first, eight live cases and three
-      printed as PENDING rather than as passing.
-      **AND THE GREEN WAS NOT THE EVIDENCE, WHICH IS THIS CYCLE'S SHORTEST LESSON.** The 98/98 run
-      was green over a use-after-free its own suite CONSTRUCTED and declined to read, and over a
-      `vec_reserve` that does not terminate. Each of the five units added by the triage was seen to
-      FAIL before it was trusted, and so was the seventh tree check and the RX-120 assertion.
+- [x] the harness self-check green, the full run green — **141/141 in 46.2 s** after the SECOND
+      audit triage (108/108 after the first, 98/98 at the refused close), self-check first, eight
+      live cases and three printed as PENDING rather than as passing, **plus one PENDING UNIT that
+      is outside the denominator and is not a pass**.
+      **AND THE GREEN WAS NOT THE EVIDENCE, WHICH IS THIS CYCLE'S SHORTEST LESSON — TWICE OVER.**
+      The 98/98 run was green over a use-after-free its own suite CONSTRUCTED and declined to read,
+      and over a `vec_reserve` that does not terminate. **The 108/108 run was green over a bounds
+      stop that did not stop**, because all twelve of its out-of-range units passed a non-zero
+      argument and the stop returned only at zero. Each of the five units added by the first triage
+      and the seventeen added by the second was seen to FAIL before it was trusted, and so were the
+      seventh tree check, the RX-120 assertion and the new `pending-until:` marker.
 - [x] `0.1/0.1.0.md` written execution-grade
 - [ ] cycle archived to `done/0.0/`, `ROADMAP.md` updated — **DONE ON 2026-09-06 AND REVERSED THE SAME DAY.**
       The W-22 audit refused the close (two blocking findings in `src/core/`), so the
@@ -329,6 +358,14 @@ settled. **Nothing in this cycle is blocked on a question.**
 - [x] **added by the audit triage:** every one of the audit's 15 findings carries a line —
       fixed, deferred to a named cycle with a reason, or refused with its cost stated —
       counted rather than asserted (`0.0.5.md` §8)
+- [x] **added by the SECOND audit triage:** every one of the second audit's findings carries a
+      line — **6 items, 6 lines, all FIXED, none deferred and none refused** (`0.0.5.md` §9).
+      The denominator has two halves and both are stated: the audit filed **5** findings, and the
+      dispatch split `BL-4` into its comment half and its memory-cap half because the root cause
+      was raised as a compiler defect and confirmed as **DEF-25**, which gives **6**.
+      **The largest was `BL-3`: the library's only out-of-range stop returned for `i == 0`**, so
+      nine `pub` entry points performed the access they had just refused whenever their container
+      was empty. RX-143 … RX-146
 
 ## Gate
 

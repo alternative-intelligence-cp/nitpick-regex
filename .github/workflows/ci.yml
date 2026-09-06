@@ -9,11 +9,18 @@
 #
 # WHAT THIS PROVES, UPDATED 2026-09-06 BY CYCLE 0.0.5. A green run is evidence
 # that the pinned compiler builds from a clean checkout, that LLVM is exactly
-# 20.1.2, and that all 108 declared units build, link, run and are judged by
+# 20.1.2, and that all 141 judged units build, link, run and are judged by
 # their exit codes — 19 probes twice each at -O0 and through `opt -O2`, 6
-# refusal probes held to their exact code sets, 18 `src/core/` unit programs,
-# 1 conformance program, 2 rejection fixtures, and a 62-file sweep of every
-# `.npk` in the tree as a root.
+# refusal probes held to their exact code sets, 35 `src/core/` unit programs of
+# which 34 are judged and 1 is PENDING on a compiler commit this workflow does
+# not pin, 1 conformance program, 2 rejection fixtures, and a 79-file sweep of
+# every `.npk` in the tree as a root.
+# THE PENDING ONE IS DELIBERATE AND IT IS NOT A SKIP: it is correct and red
+# because the leak it asserts against is a compiler defect (DEF-25) fixed at
+# `fe42dba`, which `NITPICK_COMMIT` below is not. It builds, links and runs
+# here like any other unit; it is counted as neither a pass nor a failure, and
+# the run goes RED the day it starts passing, so bumping `NITPICK_COMMIT` past
+# that commit cannot leave a stale marker behind.
 # SEVEN tree checks run on every invocation — six that can fail the run and
 # `check_specs_current`, which reports. AND SINCE 0.0.3 IT IS ALSO EVIDENCE
 # THAT THE RUNNER CAN FAIL: the self-check runs FIRST and feeds it eight kinds
@@ -218,7 +225,9 @@ jobs:
       # tree-position-dependent and invocation-independent.
       #
       # It runs on a cache hit too, because `npkc.ll` is inside the cached
-      # directory and a cached artefact is still the artefact built at this pin.
+      # directory and a cached artefact is still the artefact built at the
+      # commit `NITPICK_COMMIT` names -- the cache key IS that commit, so a hit
+      # cannot serve an artefact from a different one.
       - name: The compiler's emission, digested for cross-machine comparison
         working-directory: .nitpick
         run: |
@@ -250,7 +259,7 @@ jobs:
       # compiler lives in the workbench's gitignored toolchain directory and is
       # not on a runner. The working-pin assertions are the ones that guard a
       # re-pin, and they all run.
-      - name: RX-120's floor, syscaller and difference, asserted at the pin
+      - name: RX-120's floor, syscaller and difference, asserted at `3d15ac9`
         run: harness/baseline/rx120.sh
 
       - name: Run the harness

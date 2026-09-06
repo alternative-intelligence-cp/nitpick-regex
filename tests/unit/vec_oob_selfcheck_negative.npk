@@ -1,0 +1,42 @@
+// expect-exit: 94
+//
+// `vec_oob` — THE SELF-CHECK AT `i == -1`. The CONTROL for the pair.
+//
+// This value already trapped under the shipped spelling, and that is exactly
+// what makes it worth committing: `vec_oob_selfcheck_zero` fails on its own
+// only if the stop is broken AT ZERO, while this one and its `+1` sibling say
+// the stop was not broken everywhere ELSE in the course of fixing it. A repair
+// that made `vec_oob` trap at 0 by making it stop trapping at −1 would leave
+// nineteen sound call sites — every `i < 0` arm, every `v.cap - 1` with
+// `cap <= 0`, every `v.count - 1` with `count <= 0` — unguarded, and no unit in
+// the suite before this trio would have said so.
+//
+// Together the three assert the property the trap actually has to have, which
+// is not "traps at the boundary" but **"does not return, for any `i`"**.
+// RX-143. One case per file: a trapping call cannot be followed by an
+// assertion in the same program.
+mod:vec_oob_selfcheck_negative;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:argv) {
+    // −1, computed at run time: `argv.len` is 1 with no arguments.
+    int64:k = 0i64 - argv.len;
+
+    drop vec_oob(k);
+
+    exit 50i32;                     // reached only if the stop returned
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

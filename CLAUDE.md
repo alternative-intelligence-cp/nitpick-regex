@@ -16,8 +16,13 @@ diffs and judges them, **and proves first that it can fail**; and since 0.0.4
 `src/core/` is real — `Vec<T>`, `Bytes`, `ByteSet`, `SparseSet` and `limits.npk`,
 with 18 unit programs of their own. **No matching happens yet**: `src/syntax/`,
 `src/hir/`, `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are
-still one placeholder module each. A full green run is **108 units** and seven
-tree checks; take those numbers from the runner's summary rather than from here.
+still one placeholder module each. A full green run is **141 units and one
+PENDING**, plus seven tree checks; take those numbers from the runner's summary
+rather than from here. **The pending one is not a failure and is not a pass**:
+`tests/unit/bytes_copy_string_empty.npk` is correct and red because the leak it
+asserts against is a compiler defect (DEF-25) fixed at a commit this tree is not
+pinned to, so it carries `pending-until: fe42dba`, sits outside the denominator,
+and reddens the run the day it starts passing.
 **This file said 98 and six in one paragraph and *four* tree checks 220 lines
 lower**, and the cycle 0.0 audit found it (N-2) in the document every session is
 told to read first. Two sections of one file disagreeing is the shape this

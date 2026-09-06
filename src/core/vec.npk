@@ -107,6 +107,21 @@
 // `vec_init_zeroed` both floor the block to one element — so it costs one
 // perfectly-predicted compare and fires only on a use-after-free.
 //
+// **"LIKE EVERY OTHER MISUSE IN THIS FILE" WAS NOT TRUE OF THE FREE PATHS, AND
+// NOW IS — RX-144.** RX-139 put the guard on the three GROWTH paths and left
+// the two DESTRUCTION paths alone, so a double `vec_free`, a `vec_free_owning`
+// after a `vec_free`, and a double `sset_free` all exited **95, `Unreachable`**
+// — measured at `3d15ac9`. They stopped, deterministically, on the ALLOCATOR's
+// double-free check. That is precisely the complaint this header makes six
+// paragraphs above about `vec_push` and `vec_insert` — *they stop on the
+// runtime's check of a size, not on this library's check of its own invariant,
+// and they report the wrong thing* — fixed there and left standing here, in the
+// same header that states it. **A sentence that says "like every other X"
+// is a claim about a set, and the set was never enumerated.** The same
+// `cap <= 0` guard now heads `vec_free` and `vec_free_owning`, and `sset_free`
+// inherits it by calling them; a double free is `OutOfBounds` at this library's
+// own check, not `Unreachable` from inside `dalloc`.
+//
 // ============================================================================
 // LIFETIME, AND WHAT `exit 0` PROVES ABOUT IT (P-20, S-22)
 // ============================================================================
@@ -143,27 +158,70 @@ pub struct:Vec<T> = {
 
 // ---- the trap --------------------------------------------------------------
 
-// THE OUT-OF-RANGE STOP, FOR THE WHOLE `core` LAYER. Never returns. `i` is
-// passed only so the trap is reached with a value the optimiser cannot prove
-// constant.
+// THE OUT-OF-RANGE STOP, FOR THE WHOLE `core` LAYER. **IT DOES NOT RETURN, FOR
+// ANY `i`** — and the first spelling of it did return, for exactly one.
+//
+// **RX-143, AND IT IS THE LARGEST DEFECT THIS CYCLE FOUND.** The body used to
+// be `discard(guard[i]);`, which is out of range for every `i` EXCEPT 0 —
+// and 0 is precisely the index that nine `i >= <count|len>` guards in this
+// layer pass when the container is EMPTY. Every call site is `drop vec_oob(…)`
+// and `drop` CONTINUES, so for those nine the guard branch was taken, the stop
+// did not stop, and the accessor performed the very read or write it had just
+// refused. Measured at `3d15ac9`: `vec_get` on an empty `Vec` returned a heap
+// word; `vec_set` on a FREED `Vec` completed the write through a dangling
+// `items`; `vec_remove` left `count == -1`, after which `vec_push` wrote at
+// `items[-1]`, before the block, and the damage surfaced later as a corrupted
+// heap header; `sset_at` returned a phantom member — verbatim the failure
+// `sparseset.npk`'s own header warns of.
+//
+// **THE INDEX IS NEGATIVE FOR EVERY `i`, WHICH IS THE WHOLE OF THE FIX**, and
+// negative rather than merely-not-zero on purpose: a negative index is out of
+// range for an array of ANY length, so the trap does not depend on the guard
+// array one line below it staying one element long. `i & 1i64` is 0 or 1, so
+// the index is −1 or −2 — never in range, for this array or for any array, at
+// any `i` including `int64`'s minimum and maximum.
+//
+// `i` IS STILL A PARAMETER, AND THE REASON PRINTED HERE BEFORE WAS WRONG.
+// It said `i` was passed "only so the trap is reached with a value the
+// optimiser cannot prove constant". **Measured at `3d15ac9` and it is false:**
+// a literal out-of-range index compiles at exit 0, `npkc` folds it to an
+// unconditional `call void @npk_trap(i32 -4099)`, and the program exits 94 at
+// −O0 and through `opt -O2` alike. Folding does not defeat this trap at this
+// pin. The reasons the parameter survives are the two that are true — the call
+// site says WHICH index was out of range, which is the whole of the diagnosis a
+// reader gets; and a compiler that later refuses a constant out-of-range index
+// outright would stop a parameterless spelling from compiling at all.
 //
 // `pub`, and called from `bytes.npk` as well, because ONE definition of the
 // stop is worth an odd-looking prefix: two copies would be two places for the
 // trap to weaken, which is the argument RX-123 makes about a rule restated
 // rather than cited. B-14 gives it the declaring module's prefix, so it stays
-// `vec_oob` at every call site.
+// `vec_oob` at every call site. **That argument is now paid for twice over:
+// one definition meant one line to fix, and nine broken call sites needed no
+// edit at all.**
 //
 // obligation, in the syntax it will take at the compiler's 1.5.3:
 //     never fails ensures false
 // — it is `never fails` and it carries a contract, which is legal since the
 // compiler's D-241 retired D-163 rule 2's row (RX-127). This library's own
 // cycle 0.0.0 record says the pair is a permanent `NITPICK-TYPE-037` refusal;
-// that was true at pin `950bb1d` and is false now.
+// that was true at pin `950bb1d` and is false now. **`ensures false` was the
+// stated obligation while the body returned for `i == 0`, so the contract was
+// false at the one value that mattered and no instrument in this repository
+// could see it — the clause is a comment until 1.5.3.**
+//
+// GUARDED BY `vec_oob_selfcheck.npk`, which asserts the stop for
+// k ∈ {−1, 0, 1} and is the one unit that would have caught this. Twelve
+// out-of-range units existed when the defect shipped and all twelve passed a
+// non-zero argument.
 pub func:vec_oob = NIL(int64:i) never fails {
     // `int64[1]` CARRIES A LENGTH, so D-070's guard is emitted for it and the
     // index traps. This is the language's `OutOfBounds`, not an invented code.
     int64[1]:guard = [0i64];
-    discard(guard[i]);
+    // −1 or −2. Out of range for every `i`, and out of range for any length
+    // this array could later be given. See the header for why not `guard[i]`.
+    int64:below = 0i64 - 1i64 - (i & 1i64);
+    discard(guard[below]);
     pass NIL;
 };
 
@@ -192,6 +250,11 @@ pub func:vec_init<T> = Vec<T>(int64:cap) never fails {
 // anything stored in an array), and a name that warned on every call would stop
 // being read.
 pub func:vec_free<T> = NIL(Vec<T>->:v) never fails {
+    // DEAD `Vec` -- see the header. Without this, a double free reaches
+    // `dalloc` with a pointer the allocator has already reclaimed and stops on
+    // ITS check, reporting `Unreachable` about a heap invariant instead of
+    // `OutOfBounds` about this library's. RX-144.
+    if (v.cap <= 0i64) { drop vec_oob(v.cap - 1i64); }
     dalloc(v.items =>! wild int8->);
     v.count = 0i64;
     v.cap = 0i64;
@@ -410,6 +473,11 @@ pub func:vec_init_zeroed<T> = Vec<T>(int64:n) never fails {
 //
 // obligation: never fails ensures v.cap == 0i64
 pub func:vec_free_owning<T> = NIL(Vec<T>->:v) never fails {
+    // DEAD `Vec` -- see the header (RX-144). Worse here than in `vec_free`:
+    // without it the loop below MOVES elements out of a freed block and drops
+    // them, so a `vec_free_owning` after a `vec_free` runs destructors over
+    // reclaimed memory before `dalloc` ever notices.
+    if (v.cap <= 0i64) { drop vec_oob(v.cap - 1i64); }
     int64:j = 0i64;
     while (j < v.count) {
         // Bound, then dropped at the end of this iteration's scope. Binding is

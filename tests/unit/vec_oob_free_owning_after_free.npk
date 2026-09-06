@@ -1,0 +1,40 @@
+// expect-exit: 94
+//
+// `Vec<T>` — OUT OF RANGE: `vec_free_owning` on an already-freed `Vec`.
+//
+// RX-144, and the worse half of the pair. `vec_free_owning` does not merely
+// `dalloc`: it walks `0 .. count` MOVING each element out of the block and
+// dropping it. Without the `cap <= 0` guard, a call after `vec_free` would run
+// element destructors over memory the allocator has reclaimed, and only reach
+// `dalloc`'s own check afterwards. Measured **exit 95, `Unreachable`** at
+// `3d15ac9`.
+//
+// That it is currently survivable is an accident of `vec_free` also setting
+// `count = 0`, which makes the loop body execute zero times. The guard does not
+// rely on that: `count` is a field a caller can write, since a `pub struct` has
+// no private fields (D-149), and the poison that matters is `cap`.
+mod:vec_oob_free_owning_after_free;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:argv) {
+    Vec<int64>:v = raw vec_init::<int64>(4i64);
+    drop vec_push(@v, 11i64);
+    drop vec_free(@v);
+    drop vec_free_owning(@v);       // cap is already 0
+
+    exit 65i32;                     // reached only if neither call trapped
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

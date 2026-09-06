@@ -352,17 +352,58 @@ than a style note:**
   through its reason rather than its membership. Seen to fail in both, with
   `src/core/core.npk` — which names both patterns in comments — as the clean
   control. RX-136.
-- **A VIOLATION TRAPS `OutOfBounds` (RX-130).** `vec_get`, `vec_set`,
-  `bytes_get` and `bytes_set` do not return a `Result` on an out-of-range
-  index: S-4 says matching cannot fail and `regex_find` returns `Match?` and not
-  `Result<Match?>`, so an error channel here would land on the search path. The
-  trap is spelled by indexing a one-element **fixed array** — a type that does
-  carry a length — so it is the language's own `OutOfBounds` rather than a code
-  this library invented, and it is what a `requires` clause will do by itself
-  when the compiler's 1.5.3 lands it (D-241's trap route, measured for `limit`
-  in RX-127). Four cases are gated, one file each because a trapping call cannot
-  be followed by an assertion: `i == count`, a negative `i`, the write side of
-  `i == count`, and a pop from empty.
+- **A VIOLATION TRAPS `OutOfBounds` (RX-130, and the trap itself was broken —
+  RX-143).** `vec_get`, `vec_set`, `bytes_get` and `bytes_set` do not return a
+  `Result` on an out-of-range index: S-4 says matching cannot fail and
+  `regex_find` returns `Match?` and not `Result<Match?>`, so an error channel
+  here would land on the search path. The trap is spelled by indexing a
+  one-element **fixed array** — a type that does carry a length — so it is the
+  language's own `OutOfBounds` rather than a code this library invented, and it
+  is what a `requires` clause will do by itself when the compiler's 1.5.3 lands
+  it (D-241's trap route, measured for `limit` in RX-127).
+
+  **THIS BULLET WAS UNQUALIFIED AND IT WAS FALSE, FOR ONE VALUE, FOR THE WHOLE
+  OF CYCLE 0.0.** The stop's index into that one-element array was the caller's
+  own `i`, and **0 is in range for a one-element array**, so `vec_oob(0)`
+  returned. Every call site is `drop vec_oob(…)` and `drop` continues, so **nine
+  `pub` entry points then performed the access they had just refused** — every
+  guard of the form `i >= <count|len>` reached with an empty or freed container.
+  Measured at `3d15ac9`: `vec_get` on an empty `Vec` returned a heap word,
+  `vec_set` on a freed one completed the write through a dangling `items`,
+  `vec_remove` left `count == -1` and the next `vec_push` corrupted the heap
+  header, and `sset_at` returned the phantom member the bullet below predicts in
+  writing. The stop now indexes at `0i64 - 1i64 - (i & 1i64)`, which is −1 or −2
+  and therefore out of range for an array of **any** length. RX-143.
+
+  **THE CASES GATED WERE FOUR AND THIS SENTENCE READ AS EXHAUSTIVE; THEY ARE NOW
+  SIXTEEN, AND THE FIFTH WAS THE UNGUARDED ONE.** One file each, because a
+  trapping call cannot be followed by an assertion. The original four: `i ==
+  count`, a negative `i`, the write side of `i == count`, and a pop from empty.
+  RX-139 added four more for a `Vec` with `cap <= 0` — `vec_reserve`,
+  `vec_push`, `vec_insert` on a freed `Vec`, and `vec_init_zeroed` of a negative
+  — and one for `bytes_get` after a clear. **RX-143 added the twelve that
+  matter most:** `i == 0` at each of the nine broken entry points, plus a
+  three-file self-check asserting `vec_oob(k)` does not return for
+  k ∈ {−1, 0, 1}. **The self-check is the durable one**, because it tests the
+  primitive rather than an entry point: it fails for the next spelling of the
+  trap whatever that spelling is, and it does not have to be extended when a
+  tenth accessor is written. Twelve out-of-range units existed when RX-143 was
+  found and every one of them passed a non-zero argument — **a count of gated
+  cases is not a measure of coverage, and a list of boundaries is not the list
+  of boundaries that break.**
+- **THE DESTRUCTION PATHS TRAP TOO, AND DID NOT — RX-144.** RX-139 gave the
+  three growth paths a `cap <= 0` guard and wrote that `cap <= 0` traps
+  `OutOfBounds` *"like every other misuse in this file"*. Measured at
+  `3d15ac9`, it was not true of the free paths: `vec_free` twice,
+  `vec_free_owning` after `vec_free` and `sset_free` twice all exited **95,
+  `Unreachable`** — stopping deterministically, but on the **allocator's**
+  double-free check, reporting a broken heap invariant where what happened is
+  that a freed container was used. The same guard now heads `vec_free` and
+  `vec_free_owning`; `sset_free` inherits it, because the guard belongs to the
+  container that owns the block. **A claim of the form "like every other X" is a
+  claim about a set, and that set was never enumerated** — it was written while
+  five entry points were being fixed and was false about the two nobody had
+  looked at.
 - **An unchecked index is a WRONG ANSWER, not a crash.** That inverts the
   failure mode §1 advertises. A wrong program counter in an engine reads an
   unrelated heap word as an instruction; a wrong sparse-set probe adds a thread
@@ -529,6 +570,37 @@ exit does not notice: `nitpick-time` measured a `Vec<string>` retaining
 a trap" without saying which allocations that covers.** It was written four
 different ways in this repository's own plan and was false of managed bodies in
 every one of them.
+
+**AND IT WAS WRITTEN A FIFTH TIME, IN `src/`, AFTER THIS RULE EXISTED — RX-146.**
+`bytes_copy_string`'s header justified its empty path with *"Measured … exit 0"*,
+twenty lines from a test file that says in as many words that `exit 0` proves
+nothing here. The empty path leaks **32.2 bytes per call**: measured at
+`3d15ac9` under this rule's own instrument, 8 000 000 calls under a 64 MiB cap
+exit **92 `HeapOom`** where the non-empty control exits 0, with `/bin/true`
+passing under the same cap. The cited measurement was **not in the tree** — no
+committed test called the function on an empty `Bytes` at all.
+
+Three things worth keeping from it:
+
+- **The root cause was a COMPILER defect** (`@npk_string_concat` has no empty
+  short-circuit while `@npk_string_slice` does), confirmed as DEF-25 and fixed
+  at `fe42dba`. It was raised rather than guarded around: a
+  `if (b.len == 0i64) { pass ""; }` in this library would outlive the bug.
+- **The gate is the pair** `bytes_copy_string_empty.npk` /
+  `bytes_copy_string_nonempty.npk`, the shape `vec_owning_leak` /
+  `vec_owning_freed` established. **Neither half means anything alone**, and the
+  `/bin/true` control at the same cap is what makes the number a statement.
+- **The empty half is committed RED**, carrying `pending-until: fe42dba`,
+  because this tree is not pinned to the fix. It is counted as neither a pass
+  nor a failure, and **it reddens the run the day it starts passing** so the
+  marker cannot outlive its reason. A test that is correct and red is worth more
+  than no test, and worth far more than a weakened one.
+
+**The general form: a citation of `exit 0` in a comment about a managed body is
+a defect in the comment, and it will be written again — it has now been written
+five times in this repository by four different sessions, three of them after
+this rule was in force.** The instrument is the cap; if the cap has not been
+run, the honest sentence is "not measured".
 
 ---
 

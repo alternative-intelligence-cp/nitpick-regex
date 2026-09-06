@@ -1,0 +1,40 @@
+// expect-exit: 94
+//
+// `vec_oob` — THE SELF-CHECK AT `i == 1`. The second CONTROL.
+//
+// The upper half of the pair `vec_oob_selfcheck_negative` explains: a repair
+// that traps at 0 by ceasing to trap at a small positive index would leave
+// `vec_insert`'s `i > v.count` arm — the one sound call site that passes a
+// value ≥ 1 rather than a negative one — reporting success on an insertion
+// past the end.
+//
+// It also pins the shape of the fix. The index `vec_oob` now hands the guard
+// array is NEGATIVE for every `i` rather than merely non-zero, so that it is
+// out of range for an array of any length and not only for the `int64[1]` one
+// line above it. `k ∈ {−1, 0, 1}` across these three files is the smallest set
+// that distinguishes that fix from the two obvious near-misses. RX-143.
+mod:vec_oob_selfcheck_positive;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:argv) {
+    // 1, computed at run time: `argv.len` is 1 with no arguments.
+    int64:k = argv.len;
+
+    drop vec_oob(k);
+
+    exit 50i32;                     // reached only if the stop returned
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

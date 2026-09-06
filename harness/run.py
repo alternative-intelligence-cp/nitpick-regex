@@ -86,8 +86,19 @@ class Report:
     def __init__(self):
         self.rows = []          # (suite, unit, ok, msg)
         self.build_failures = []
+        self.pending = []       # stages.Pending -- neither a pass nor a failure
 
     def unit(self, suite, name, fl):
+        # A `pending-until:` unit leaves the stage as a single `Pending` and is
+        # kept OUT of `rows` entirely, so it is counted as neither passing nor
+        # failing. `selfcheck.py` P-18 states the rule this follows: a pending
+        # case is not a passing case, and a denominator that quietly absorbs one
+        # is a denominator that lies. It is printed in the summary regardless, so
+        # "not counted" never means "not seen".
+        if len(fl) == 1 and isinstance(fl[0], stages.Pending):
+            fl[0].suite = suite
+            self.pending.append(fl[0])
+            return
         self.rows.append((suite, name, not fl, " | ".join(fl)))
 
     def step(self, what, fl):
@@ -297,6 +308,12 @@ def _suites(c, m, rep, only, say):
             if suite != t["name"]:
                 continue
             say(f"  {'ok  ' if ok else 'FAIL'}  {name}" + ("" if ok else f": {msg}"))
+        # Pending units are not in `rows`, and the entry's unit count above DOES
+        # include them, so they are listed here or the two numbers disagree with
+        # nothing to explain the gap.
+        for p in rep.pending:
+            if getattr(p, "suite", None) == t["name"]:
+                say(f"  PEND  {p.line()}")
 
 
 def _summary(c, rep, a, say, secs):
@@ -327,6 +344,13 @@ def _summary(c, rep, a, say, secs):
             for suite, name, ok, msg in rep.rows:
                 fh.write(f"{'PASS' if ok else 'FAIL'}\t{suite}\t{name}\t{msg}\n")
         say(f"      {total} verdict line(s) written to {a.verdicts}")
+    for p in rep.pending:
+        say(f"PEND  {p.line()}")
+    if rep.pending:
+        say(f"      {len(rep.pending)} unit(s) PENDING on a compiler commit this "
+            f"tree is not pinned to. They are OUTSIDE the denominator below, and "
+            f"each goes RED the day it starts passing so the marker cannot outlive "
+            f"its reason (expect.py's fourth marker).")
     say(f"{total - bad}/{total} unit(s) passed in {secs:.1f} s.")
     for suite, name, ok, msg in rep.failed:
         say(f"FAIL  {suite}/{name}: {msg}")

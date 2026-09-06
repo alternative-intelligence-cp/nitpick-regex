@@ -1,0 +1,51 @@
+// expect-exit: 94
+//
+// `vec_oob` — THE SELF-CHECK AT `i == 0`. **THE ONE UNIT THAT WOULD HAVE CAUGHT
+// RX-143, AND THE REASON THE OTHER TWELVE DID NOT.**
+//
+// `vec_oob` is the ONLY out-of-range stop in the whole `core` layer, and every
+// one of its 28 call sites is `drop vec_oob(…)` — `drop` discards and
+// CONTINUES. So a `vec_oob` that returns is not a weakened guard, it is no
+// guard at all: the accessor performs the read or write it had just refused.
+//
+// The first spelling was `discard(guard[i])` over an `int64[1]`, which is out
+// of range for every `i` EXCEPT 0. **Twelve out-of-range units existed and all
+// twelve passed a non-zero argument** — 3, 1, −1, 2, −1, 3, 16, −1, −1, −1, −1,
+// −5 — so a suite of twelve avoided the single value at which the stop did not
+// stop, and nine `pub` entry points fell through whenever their container was
+// empty. Adding a thirteenth case of the same shape would not have found it.
+//
+// **THIS FILE TESTS THE PRIMITIVE INSTEAD OF AN ENTRY POINT**, which is why it
+// is the case that generalises: it fails for the NEXT spelling of the trap too,
+// whatever that spelling is, and it does not care how many accessors there are.
+// Its two siblings take −1 and 1. One case per file: a trapping call cannot be
+// followed by an assertion in the same program.
+mod:vec_oob_selfcheck_zero;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:argv) {
+    // 0, computed at run time: `argv.len` is 1 with no arguments. Derived from
+    // `argv` so that nothing here is a literal the frontend could fold — the
+    // value under test must arrive the way a call site's index arrives.
+    int64:k = argv.len - 1i64;
+
+    drop vec_oob(k);
+
+    // REACHED ONLY IF THE STOP RETURNED. This is the exit the shipped tree
+    // produced: measured 50 at −O0 and through `opt -O2` alike, at `3d15ac9`.
+    exit 50i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

@@ -616,8 +616,27 @@ _UNDATED = re.compile(r'\bat (?:the|this|the current) pin\b', re.IGNORECASE)
 #                     against that rule. Seven lines in it are in this class, and
 #                     the remedy for a decision whose dating went stale is a
 #                     SUPERSEDING decision, not a sed.
-_UNDATED_SKIP_DIRS = ("meta/roadmap/", "meta/audits/", ".internal/", ".git/")
+_UNDATED_SKIP_DIRS = ("meta/roadmap/", "meta/audits/")
 _UNDATED_SKIP_NAMES = ("TRANSCRIPT.txt", "RX120.txt", "DECISIONS.md")
+
+# DIRECTORIES PRUNED BY NAME, AND *BY NAME* IS THE WHOLE POINT -- RX-145.
+#
+# The walk used to prune `not d.startswith(".")`, which reads as "skip the
+# machinery" and actually means "SKIP `.github/`". `.yml` is in `_UNDATED_EXTS`
+# and the docstring's scope sentence ends "and the workflow", so the check
+# declared a file class, named the file in prose, and then made the only
+# directory it can live in unreachable. The cycle 0.0 second audit instrumented
+# it: 115 files opened, **0 of them `.yml`**, `failures: []` -- while the
+# check's own regex found two violations in `.github/workflows/ci.yml`.
+#
+# The tell was already in the tree: `_UNDATED_SKIP_DIRS` carried `.internal/`
+# and `.git/`, which the leading-dot prune had already removed, so they were
+# DEAD CODE -- and dead code in a skip list is evidence that the author expected
+# the list to be doing the skipping. It is now doing it.
+#
+# `__pycache__` and `build` are not dotted and were always walked; they hold no
+# tracked text file, so naming them here costs nothing and states the intent.
+_UNDATED_PRUNE_DIRS = (".git", ".internal", "__pycache__", "build")
 
 # One line may opt out by carrying this marker, which is greppable and has to be
 # written on purpose. The only intended user is a line that QUOTES the forbidden
@@ -655,8 +674,10 @@ def check_dated_measurements(root):
     harness, `src/`, the probe headers, the manifest and the workflow."""
     fl, notes = [], []
     seen = 0
+    by_ext = {}
     for dirpath, dirnames, names in os.walk(root):
-        dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+        # BY NAME, NEVER BY LEADING DOT -- see `_UNDATED_PRUNE_DIRS` (RX-145).
+        dirnames[:] = [d for d in dirnames if d not in _UNDATED_PRUNE_DIRS]
         for n in sorted(names):
             if not n.endswith(_UNDATED_EXTS):
                 continue
@@ -671,6 +692,8 @@ def check_dated_measurements(root):
             except OSError:
                 continue
             seen += 1
+            ext = os.path.splitext(n)[1]
+            by_ext[ext] = by_ext.get(ext, 0) + 1
             for ln, line in enumerate(text.split("\n"), 1):
                 if _UNDATED_EXEMPT in line:
                     continue
@@ -682,10 +705,21 @@ def check_dated_measurements(root):
                               f"true or becomes checkably false when the pin moves. "
                               f"RX-142. (A line that quotes the phrase in order to "
                               f"forbid it says `{_UNDATED_EXEMPT}`.)")
-    notes.append(f"records are out of scope: {', '.join(_UNDATED_SKIP_DIRS[:2])} and "
+    notes.append(f"records are out of scope: {', '.join(_UNDATED_SKIP_DIRS)} and "
                  f"{', '.join(_UNDATED_SKIP_NAMES)} say what was true when they were "
                  f"written and are superseded rather than edited (W-28).")
-    return Result("check_dated_measurements", "RX-142",
+    # PER-EXTENSION DENOMINATORS, BECAUSE THAT IS WHAT WOULD HAVE CAUGHT RX-145.
+    # This file's own docstring says a check finding nothing because it LOOKED
+    # NOWHERE is indistinguishable in the output from one that found nothing
+    # because there was nothing to find -- and then this check declared `.yml`
+    # and opened zero of them for a whole subcycle while reporting a single
+    # aggregate number that looked healthy. A class with a zero beside it is a
+    # question a reader can ask; a class absorbed into a total is not.
+    covered = ", ".join(f"{e} {by_ext.get(e, 0)}" for e in sorted(_UNDATED_EXTS))
+    notes.append(f"opened by declared extension -- {covered}. A ZERO HERE IS A "
+                 f"FINDING, not a clean bill: it means the class is declared and "
+                 f"the walk reaches none of it (RX-145).")
+    return Result("check_dated_measurements", "RX-142, RX-145",
                   f"{seen} text file(s) outside the records", fl, notes)
 
 

@@ -1,0 +1,38 @@
+// expect-exit: 94
+//
+// `SparseSet` — OUT OF RANGE: `sset_free` on an already-freed set.
+//
+// RX-144 reaching a second type WITHOUT A SECOND GUARD, which is the point of
+// committing this file rather than trusting the two `Vec` units. `sset_free` is
+// two `vec_free` calls and a `count = 0`; it declares no capacity poison of its
+// own and needs none, because the guard belongs to the container that owns the
+// block. Measured **exit 95, `Unreachable`** before the fix, at `3d15ac9`.
+//
+// This is the case that would silently regress if a later cycle gave
+// `SparseSet` its own free path — the unit fails then, and the header in
+// `vec.npk` explains why.
+mod:sparseset_oob_free_twice;
+
+use "../../src/core/sparseset.npk".*;
+
+func:main = int32(cstring[]:argv) {
+    SparseSet:s = raw sset_init(16i64);
+    drop sset_insert(@s, 3i64);
+    drop sset_free(@s);
+    drop sset_free(@s);             // both vectors already freed
+
+    exit 66i32;                     // reached only if neither call trapped
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

@@ -1,0 +1,43 @@
+// expect-exit: 94
+//
+// `SparseSet` — OUT OF RANGE: `sset_insert(s, 0)` on a FREED set.
+//
+// RX-143's ninth and last site. `sset_contains_freed` explains why the freed
+// set is the right container for this pair rather than an empty one. This is
+// the write half, and it is the more dangerous: past its `k >= s.sparse.count`
+// guard it calls `vec_set(@s.dense, s.count, …)` and `vec_set(@s.sparse, k, …)`
+// — two writes through dangling `items` — and then increments `s.count` on a
+// set with no storage.
+//
+// The existing `sparseset_oob_insert` covers the same entry point at
+// `k == capacity == 16` and passed throughout: the same guard, the same
+// function, the value that works. That pair is the clearest statement of what
+// RX-143 cost — twelve out-of-range units, none of them at zero.
+mod:sparseset_oob_insert_freed;
+
+use "../../src/core/sparseset.npk".*;
+
+func:main = int32(cstring[]:argv) {
+    int64:zero = argv.len - 1i64;
+
+    SparseSet:s = raw sset_init(16i64);
+    drop sset_insert(@s, 3i64);
+    drop sset_free(@s);             // both vectors freed; sparse.count == 0
+
+    drop sset_insert(@s, zero);
+
+    exit 57i32;                     // reached only if the stop returned
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

@@ -1,0 +1,44 @@
+// expect-exit: 94
+//
+// `Vec<T>` — OUT OF RANGE: `vec_set` at index 0 on a FREED `Vec`.
+//
+// **THE WORST OF RX-143'S NINE, and the reason the finding is a use-after-free
+// rather than a wrong answer.** `vec_free` sets `count` and `cap` to 0 and
+// leaves `items` dangling, deliberately, as a poison postcondition. `vec_set`'s
+// `i >= v.count` guard therefore fires at `i == 0` — and under the shipped
+// spelling `vec_oob(0)` returned, `drop` continued, and `v.items[i] = move(x)`
+// **completed the write through the dangling pointer**. Measured exit 62 at
+// `3d15ac9`: the program ran to its own end having written into freed memory.
+//
+// The freed `Vec` is used rather than a merely empty one because it is the case
+// where falling through is a WRITE to memory the allocator has handed back,
+// which is qualitatively worse than the read `vec_oob_get_empty` records; an
+// empty live `Vec` reaches the identical guard with the identical index.
+mod:vec_oob_set_empty;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:argv) {
+    int64:zero = argv.len - 1i64;
+
+    Vec<int64>:v = raw vec_init::<int64>(4i64);
+    drop vec_push(@v, 11i64);
+    drop vec_free(@v);              // count 0, cap 0, `items` dangling
+
+    drop vec_set(@v, zero, 999i64);
+
+    exit 62i32;                     // the shipped tree's actual exit
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

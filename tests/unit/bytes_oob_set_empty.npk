@@ -1,0 +1,40 @@
+// expect-exit: 94
+//
+// `Bytes` — OUT OF RANGE: `bytes_set` at index 0 on an EMPTY `Bytes`.
+//
+// The write half of `bytes_oob_get_empty`, and the pair is kept whole for the
+// same reason `SAFETY.md` keeps `vec_get`/`vec_set` whole: the two guards are
+// separate lines of source and a fix applied to one is not a fix applied to
+// both. Under RX-143's shipped spelling this program wrote a byte at `ptr[0]`
+// of a `Bytes` whose live length was 0 — inside the allocated capacity, so the
+// consequence is a wrong answer later rather than corruption now, which is the
+// quieter of the two failures and the harder to attribute.
+//
+// It is still a use of memory the type says is not in use: `bytes_len` reports
+// 0 both before and after, so the byte written here is invisible to every
+// accessor and reappears the moment a `bytes_push` extends `len` over it.
+mod:bytes_oob_set_empty;
+
+use "../../src/core/bytes.npk".*;
+
+func:main = int32(cstring[]:argv) {
+    int64:zero = argv.len - 1i64;
+
+    Bytes:b = raw bytes_init(16i64);
+    drop bytes_set(@b, zero, 65u8);
+
+    exit 54i32;                     // the shipped tree's actual exit
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

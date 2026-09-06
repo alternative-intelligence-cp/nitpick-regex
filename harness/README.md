@@ -21,7 +21,7 @@ reporting it.
 | `run.py` | the driver: build steps, then the suites in manifest order, then the summary |
 | `manifest.py` | `nitpick.toml`, in the compiler's own subset, with the compiler's schema |
 | `toolchain.py` | `llc`, `opt`, `ld.lld` asked their versions and held to the pinned LLVM 20.1.2 |
-| `expect.py` | the `// expect-…` grammar, marker for marker with `npkg/expect.npk` |
+| `expect.py` | the `// expect-…` grammar, marker for marker with `npkg/expect.npk`, **plus two markers of this runner's own** — `mem-cap-mib:` and `pending-until:` (`BUILD.md` B-5b, RX-146), each declared there so the parity stage has a row rather than a surprise |
 | `elf.py` | an ELF64 symbol table, read with `struct` — no fourth tool |
 | `irscan.py` | the emitted IR's call edges to the floor |
 | `build.py` | the pipeline, and `npkc`'s exit alphabet |

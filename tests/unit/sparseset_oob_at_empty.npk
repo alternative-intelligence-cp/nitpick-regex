@@ -1,0 +1,42 @@
+// expect-exit: 94
+//
+// `SparseSet` — OUT OF RANGE: `sset_at` at index 0 on an EMPTY, LIVE set.
+//
+// **THE ONE THIS LIBRARY'S OWN HEADER PREDICTED IN WRITING.**
+// `src/core/sparseset.npk`'s header says a wrong sparse-set probe *"adds a
+// thread for a state the automaton is not in and the library returns a match
+// that is not there"* — and under RX-143's shipped spelling that is exactly
+// what `sset_at` did. A fresh `sset_init(16i64)` has `count == 0`, so
+// `i >= s.count` fires at `i == 0`, `vec_oob(0)` returned, `drop` continued,
+// and `vec_get(s.dense, 0)` handed back **a phantom member** of an empty set.
+// Measured exit 55 at `3d15ac9`.
+//
+// Nothing about that call is exotic: `sset_at` is how the Pike VM walks its
+// thread list, and index 0 of an empty list is the ordinary first iteration of
+// a loop over a set that happens to have no members this byte.
+mod:sparseset_oob_at_empty;
+
+use "../../src/core/sparseset.npk".*;
+
+func:main = int32(cstring[]:argv) {
+    int64:zero = argv.len - 1i64;
+
+    SparseSet:s = raw sset_init(16i64);      // live, capacity 16, count 0
+    discard(raw sset_at(@s, zero));
+
+    drop sset_free(@s);
+    exit 55i32;                     // the shipped tree's actual exit
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

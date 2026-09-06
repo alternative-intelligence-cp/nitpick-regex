@@ -1,0 +1,41 @@
+// expect-exit: 94
+//
+// `Vec<T>` — OUT OF RANGE: `vec_swap_remove` at index 0 on an EMPTY `Vec`.
+//
+// The O(1) sibling of `vec_oob_remove_empty`, and it is listed separately
+// because it fails differently: falling through its `i >= v.count` guard runs
+// `v.items[i] = move(v.items[v.count - 1i64])`, which **READS `items[-1]` and
+// WRITES `items[0]`** before setting `count` to −1. So the order-preserving
+// remove corrupts only `count`, while this one touches memory before the block
+// on the way there.
+//
+// Both are in the suite because RX-143's rule is one unit per affected entry
+// point: the nine sites share a cause and not a consequence, and a single case
+// standing in for all nine would have been the reasoning that let twelve
+// out-of-range units miss the defect in the first place.
+mod:vec_oob_swap_remove_empty;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:argv) {
+    int64:zero = argv.len - 1i64;
+
+    Vec<int64>:v = raw vec_init::<int64>(4i64);
+    drop vec_swap_remove(@v, zero);
+
+    drop vec_free(@v);
+    exit 61i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

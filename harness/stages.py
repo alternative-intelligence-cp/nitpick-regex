@@ -137,6 +137,29 @@ def run_binary(exe, args, stress, want, name, tail, mem_cap_mib=0):
 
 # --- the stages ----------------------------------------------------------------------
 
+class Pending:
+    """A unit that is CORRECT and RED because the pinned compiler is the defect.
+
+    Carried out of the stage rather than reported as a finding, so the runner can
+    count it as neither a pass nor a failure -- `expect.py`'s fourth marker says
+    why. It holds what the file asked for and what the tree actually did, because
+    "pending" without the observed exit is an assertion that nothing checks.
+    """
+
+    def __init__(self, name, until, want, got, capped):
+        self.name = name
+        self.until = until
+        self.want = want
+        self.got = got
+        self.capped = capped
+
+    def line(self):
+        cap = f", under a {self.capped} MiB cap" if self.capped else ""
+        return (f"{self.name}: PENDING until compiler `{self.until}` -- wants exit "
+                f"{self.want}{cap} and this tree gives {self.got}. NOT A PASS and not "
+                f"counted in the denominator.")
+
+
 def _program_like(c, path, name, exp, with_opt_leg):
     if not exp.ok:
         return [expect_mod.unreadable_message(name, exp)]
@@ -145,7 +168,13 @@ def _program_like(c, path, name, exp, with_opt_leg):
     c.scanned[name] = scanned
     fl = build.emit_and_link(c, path, name, base, scanned=scanned)
     if fl:
+        # A PENDING UNIT STILL HAS TO BUILD. The marker excuses a wrong exit
+        # code, which is a statement about the compiler's runtime; it does not
+        # excuse a refusal, a link error or a failed scan, which are statements
+        # about this file.
         return fl
+    if exp.pending_until:
+        return _pending(c, base, name, exp)
     # `argv:` tokens pass verbatim; fixture substitution arrives with the corpus
     # stage at cycle 0.5, and there is nothing to substitute before then.
     fl = run_binary(base, exp.argv, exp.stress, exp.exit_code, name,
@@ -157,6 +186,38 @@ def _program_like(c, path, name, exp, with_opt_leg):
         return fl
     return run_binary(base + ".opt", exp.argv, exp.stress, exp.exit_code, name,
                       " (through opt -O2 + llc -O2 -- B-3)", exp.mem_cap_mib)
+
+
+def _pending(c, base, name, exp):
+    """Run a `pending-until:` unit once and report what it actually did.
+
+    ONE RUN, NOT `stress`: a pending unit is not being asserted, it is being
+    OBSERVED, and repeating an observation that is expected to disagree buys
+    nothing. The `/bin/true` control still runs when a cap is in force -- the
+    reason for the control is that a low cap measures the loader, and that is
+    just as true of a measurement as of an assertion.
+    """
+    if exp.mem_cap_mib:
+        ctl = build.Run([TRUE_CONTROL], timeout=build.RUN_TIMEOUT,
+                        mem_cap_mib=exp.mem_cap_mib)
+        if ctl.timed_out or ctl.code != 0:
+            return [f"{name}: THE CONTROL FAILED under this file's "
+                    f"{exp.mem_cap_mib} MiB cap, so nothing the file reports -- "
+                    f"pending or not -- is about the file"]
+    r = build.Run([base] + list(exp.argv), timeout=build.RUN_TIMEOUT,
+                  mem_cap_mib=exp.mem_cap_mib)
+    got = "timed out" if r.timed_out else r.code
+    if got == exp.exit_code:
+        # THE MARKER HAS OUTLIVED ITS REASON, WHICH IS THIS ECOSYSTEM'S OWN
+        # RECURRING DEFECT. Red, deliberately: the run that moves the pin is the
+        # run that has to notice, and nobody re-reads a green line.
+        return [f"{name}: `pending-until: {exp.pending_until}` IS NOW STALE -- the "
+                f"file met its expectation (exit {exp.exit_code}) against the "
+                f"compiler this tree is pinned to. "
+                f"DELETE THE MARKER; the case is live and belongs in the "
+                f"denominator. A pending marker that survives the day it stops "
+                f"being true is the dormant rule this repository keeps finding."]
+    return [Pending(name, exp.pending_until, exp.exit_code, got, exp.mem_cap_mib)]
 
 
 def parse_sweep(c, path, name, exp):

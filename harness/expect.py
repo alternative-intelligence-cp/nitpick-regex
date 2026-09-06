@@ -56,6 +56,31 @@ does not either -- both flip at the same cap, between 2688 and 2816 KiB. A cap
 a trivial program also fails is not a statement about your program, so the
 control turns that warning into a mechanism.
 
+FOURTH, ALSO AN ADDITION: `pending-until: <compiler-commit>`. `npkg` has no
+such marker either. It exists for the case cycle 0.0.5 met head-on -- **a test
+that is CORRECT and RED, because the defect it asserts against lives in the
+pinned compiler and is already fixed in a commit this repository has not pinned
+yet.** The three wrong answers available were to weaken the test, to guard
+around the compiler defect in library code (which `CLAUDE.md`'s last
+non-negotiable rule forbids by name), and to not write the test until the
+re-pin -- which is how a defect gets forgotten between the day it is understood
+and the day it could be caught.
+
+**A PENDING UNIT IS BUILT AND RUN LIKE ANY OTHER AND ITS ACTUAL EXIT IS
+PRINTED.** It is counted as neither a pass nor a failure, exactly as
+`selfcheck.py`'s three pending cases are (P-18): *a pending case is not a
+passing case*, and a denominator that quietly absorbs one is a denominator that
+lies.
+
+**AND IT RETIRES ITSELF, WHICH IS THE HALF THAT MATTERS.** If a pending unit
+starts MEETING its expectation, the run goes **RED** and says to delete the
+marker. That is deliberate and it is the opposite of what a "known failure" list
+usually does: this ecosystem's recurring defect is the rule that outlives its
+reason -- a dead skip entry, an allowlist nobody re-derives, a check whose scope
+drifted -- and a marker that survives the day it stops being true is one more.
+Here the day the pin moves past the named commit, the harness itself says so, in
+the run that moves it.
+
 SECOND: `stress: 0`. Here the divergence is smaller and the reason is
 different, and it is worth stating exactly because the first draft of this
 comment got it wrong. `npkg` does NOT run the program zero times: `run_binary`
@@ -80,6 +105,7 @@ class Expect:
         self.stress = 1
         self.argv = []
         self.mem_cap_mib = 0    # 0 = uncapped. `mem-cap-mib: N` sets it.
+        self.pending_until = ""  # a compiler commit. `pending-until: X` sets it.
         self.no_parse_error = False
         self.ok = True
         self.bad_line = 0
@@ -192,6 +218,15 @@ def read(text):
                                   f"load a process at all, so it would measure the "
                                   f"dynamic loader rather than the program")
             e.mem_cap_mib = v
+            continue
+        if body.startswith("pending-until:"):
+            v = _after_colon(body)
+            if not v or len(v.split()) != 1:
+                return _bad(e, n, "a `pending-until:` that does not name exactly one "
+                                  "compiler commit. The marker EXCUSES A RED, so a "
+                                  "blank or discursive value would silence a test "
+                                  "while looking like documentation")
+            e.pending_until = v
             continue
 
         if body.startswith("argv:"):

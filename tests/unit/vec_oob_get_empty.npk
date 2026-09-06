@@ -1,0 +1,44 @@
+// expect-exit: 94
+//
+// `Vec<T>` — OUT OF RANGE: `vec_get` at index 0 on an EMPTY `Vec`.
+//
+// ONE OF THE NINE ENTRY POINTS RX-143 LEFT UNGUARDED, and the shape is the same
+// at all nine: a guard of the form `i >= <count|len>` fires correctly, calls
+// `drop vec_oob(i)` with `i == 0`, and the stop RETURNS, because the shipped
+// spelling indexed a one-element array at `i` and 0 is in range for that array.
+// `drop` continues, so control fell into `pass v.items[i]`.
+//
+// Measured against the shipped tree at `3d15ac9`: this program **exited 51**,
+// having read and returned a heap word from a block with no elements in it.
+// `vec_oob_get_at_count` covers the same accessor at `i == count == 2` and
+// passed throughout, which is the whole finding — the boundary a suite tests is
+// not the boundary that breaks. The empty container is a boundary of its own.
+mod:vec_oob_get_empty;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:argv) {
+    // 0, computed at run time: `argv.len` is 1 with no arguments.
+    int64:zero = argv.len - 1i64;
+
+    // Live, well-formed, and EMPTY: `vec_init` gives cap 4 and count 0, so
+    // there is a block to read from and nothing legal to read.
+    Vec<int64>:v = raw vec_init::<int64>(4i64);
+    discard(raw vec_get(v, zero));
+
+    drop vec_free(@v);
+    exit 51i32;                     // the shipped tree's actual exit
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

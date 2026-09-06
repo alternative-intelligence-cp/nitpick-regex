@@ -1,0 +1,41 @@
+// expect-exit: 94
+//
+// `Vec<T>` — OUT OF RANGE: `vec_free` on an already-freed `Vec`.
+//
+// RX-144. `vec_free` sets `cap = 0` as poison and, until this unit, did not
+// read that poison on the way IN. A second call therefore handed `dalloc` a
+// pointer the allocator had already reclaimed and stopped on **its** check:
+// measured **exit 95, `Unreachable`**, at `3d15ac9`.
+//
+// It stopped — this was never a silent failure — but it reported the wrong
+// thing, and `vec.npk`'s own header states that complaint about `vec_push` and
+// `vec_insert` six paragraphs before claiming `cap <= 0` traps `OutOfBounds`
+// *"like every other misuse in this file"*. The free paths were the exception
+// the sentence did not know it had. **`Unreachable` says a heap invariant
+// broke; `OutOfBounds` says a freed container was used**, and only the second
+// points at the line the caller has to change.
+mod:vec_oob_free_twice;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:argv) {
+    Vec<int64>:v = raw vec_init::<int64>(4i64);
+    drop vec_push(@v, 11i64);
+    drop vec_free(@v);
+    drop vec_free(@v);              // cap is already 0
+
+    exit 64i32;                     // reached only if neither call trapped
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};
