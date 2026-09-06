@@ -1,0 +1,153 @@
+// `src/core/sparseset.npk` — `SparseSet`, THE STRUCTURE THE LINEAR-TIME
+// GUARANTEE RESTS ON.
+//
+// Rule B-11 (RX-006): the Pike VM's thread set — an integer-keyed set with
+// `O(1)` insert, `O(1)` membership and, the one that matters, **`O(1)` CLEAR**.
+// It is in `core` rather than in `engine` because the lazy DFA's state-set
+// construction uses it too.
+//
+// ============================================================================
+// WHY O(1) CLEAR IS THE WHOLE POINT (`ENGINES.md` §3, `SAFETY.md` S-1)
+// ============================================================================
+//
+// The Pike VM visits every haystack byte once and, at each byte, walks the
+// current thread set. The set must be emptied between bytes. If clearing were
+// `O(program size)` the search would be `O(n · m)` **with the m paid on every
+// byte whether or not any thread was live**, which is the same complexity class
+// but a constant factor that makes the engine useless on a large program. The
+// bound `SAFETY.md` S-1 promises is `O(m · n)`; this is what keeps the constant
+// honest.
+//
+// Clearing is `count = 0`. Nothing is erased, and that is legal because
+// membership never trusts `sparse` alone:
+//
+//     member(k)  ==  sparse[k] < count  &&  dense[sparse[k]] == k
+//
+// Stale data in `sparse` fails the second half. This is the classic trick and
+// it is worth naming what it depends on: **that reading `sparse[k]` is
+// defined**. Cycle 0.0.4 does not rely on reading uninitialised storage —
+// `sparse` is built with `vec_init_zeroed`, one `calloc`, so every key reads a
+// defined 0 before anything is written. Zeroing at construction costs one pass
+// once; `clear` stays `O(1)` regardless, because only `count` is reset.
+// `0.0.4.md` P-22 left the choice to depend on probe 08's verdict and this is
+// the safe side of it: the trick's PERFORMANCE property is what the engine
+// needs, and its reliance on uninitialised reads is not part of that.
+//
+// ============================================================================
+// EVERY INDEX HERE IS THROUGH THE `Vec` ACCESSOR PAIR
+// ============================================================================
+//
+// `dense` and `sparse` are `Vec<int32>`, so `.items` is a `wild int32->` and an
+// out-of-range index reads a heap word rather than trapping (`SAFETY.md` §5.3,
+// S-23, RX-111). The failure mode that makes this structure dangerous is
+// concrete and it is in S-23 in as many words: *a wrong sparse-set probe adds a
+// thread for a state the automaton is not in and the library returns a match
+// that is not there* — silent, and reachable from bytes the caller does not
+// control. So every read below is `vec_get` and every write `vec_set`, and the
+// bounds check they carry is not a formality.
+//
+// **AND `sparse[k]` IS AN `int32` USED AS AN INDEX**, which is exactly the
+// signed hazard S-23 names: a negative value there would be accepted by
+// `i < count` and would read backwards off the block. `vec_get` checks
+// `0 <= i` as well, so the read traps instead.
+//
+// LAYERING (`BUILD.md` §6, B-16). `core` to `core`, which is not a leftward
+// edge and is what `check_layering` permits.
+mod:sparseset;
+
+use "./vec.npk".*;
+
+pub struct:SparseSet = {
+    Vec<int32>:dense;    // the members, in insertion order; the first `count` are live
+    Vec<int32>:sparse;   // key -> its position in `dense`, meaningful only below `count`
+    int64:count;         // live members
+};
+
+// ---- construction ----------------------------------------------------------
+
+// obligation: never fails ensures result.count == 0i64
+//
+// `cap` is the KEY SPACE, not the member count: `sparse` is indexed by key, so
+// it must have a slot for every key that will ever be offered. In the Pike VM
+// that is the program size, which `NREGEX_PROGRAM_INSTRUCTIONS` bounds.
+pub func:sset_init = SparseSet(int64:cap) never fails {
+    int64:n = cap;
+    if (n < 1i64) { n = 1i64; }
+    pass SparseSet{
+        dense: raw vec_init_zeroed::<int32>(n),
+        sparse: raw vec_init_zeroed::<int32>(n),
+        count: 0i64
+    };
+};
+
+// obligation: never fails ensures both blocks are released
+//
+// `int32` is POD, so the blocks ARE the whole obligation and `exit 0` covers
+// this exactly (`SAFETY.md` §8b). That is not luck: TYPE-046 forbids an owning
+// field in a value stored in an array, which is what forces the POD shape here
+// and is the main practical reason it is worth its awkwardness.
+pub func:sset_free = NIL(SparseSet->:s) never fails {
+    drop vec_free(@s.dense);
+    drop vec_free(@s.sparse);
+    s.count = 0i64;
+    pass NIL;
+};
+
+// obligation: never fails ensures result == s.sparse.count
+pub func:sset_capacity = int64(SparseSet->:s) never fails {
+    pass s.sparse.count;
+};
+
+// ---- the O(1) trio ---------------------------------------------------------
+
+// obligation: never fails requires k >= 0i64 && k < sset_capacity(s)
+pub func:sset_contains = bool(SparseSet->:s, int64:k) never fails {
+    if (k < 0i64)                  { drop vec_oob(k); }
+    if (k >= s.sparse.count)       { drop vec_oob(k); }
+    int64:pos = (raw vec_get(s.sparse, k)) =>! int64;
+    if (pos < 0i64)                { pass false; }
+    if (pos >= s.count)            { pass false; }
+    pass (raw vec_get(s.dense, pos)) == (k =>! int32);
+};
+
+// obligation: never fails requires k >= 0i64 && k < sset_capacity(s)
+//             ensures sset_contains(s, k)
+//
+// IDEMPOTENT. Inserting a member twice must not grow `count`, or `dense` fills
+// with duplicates and the VM walks the same thread more than once per byte —
+// which is a correctness bug and not merely a slow one, because a Pike VM
+// depends on visiting each state at most once per position.
+pub func:sset_insert = NIL(SparseSet->:s, int64:k) never fails {
+    if (k < 0i64)                  { drop vec_oob(k); }
+    if (k >= s.sparse.count)       { drop vec_oob(k); }
+    if (raw sset_contains(s, k))   { pass NIL; }
+    drop vec_set(@s.dense, s.count, k =>! int32);
+    drop vec_set(@s.sparse, k, s.count =>! int32);
+    s.count = s.count + 1i64;
+    pass NIL;
+};
+
+// obligation: never fails ensures s.count == 0i64
+//
+// **O(1), AND NOTHING IS ERASED.** See the header: membership never trusts
+// `sparse` alone, so the stale entries left behind are harmless.
+pub func:sset_clear = NIL(SparseSet->:s) never fails {
+    s.count = 0i64;
+    pass NIL;
+};
+
+// ---- reading the members ---------------------------------------------------
+
+// obligation: never fails requires i >= 0i64 && i < s.count
+//
+// The i-th member in insertion order. This is how the VM walks its thread list.
+pub func:sset_at = int32(SparseSet->:s, int64:i) never fails {
+    if (i < 0i64)      { drop vec_oob(i); }
+    if (i >= s.count)  { drop vec_oob(i); }
+    pass raw vec_get(s.dense, i);
+};
+
+// obligation: never fails ensures result == s.count
+pub func:sset_len = int64(SparseSet->:s) never fails {
+    pass s.count;
+};

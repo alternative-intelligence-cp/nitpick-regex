@@ -101,8 +101,15 @@ pub struct:Vec<T> = {
 
 // ---- the trap --------------------------------------------------------------
 
-// THE OUT-OF-RANGE STOP. Never returns. `i` is passed only so the trap is
-// reached with a value the optimiser cannot prove constant.
+// THE OUT-OF-RANGE STOP, FOR THE WHOLE `core` LAYER. Never returns. `i` is
+// passed only so the trap is reached with a value the optimiser cannot prove
+// constant.
+//
+// `pub`, and called from `bytes.npk` as well, because ONE definition of the
+// stop is worth an odd-looking prefix: two copies would be two places for the
+// trap to weaken, which is the argument RX-123 makes about a rule restated
+// rather than cited. B-14 gives it the declaring module's prefix, so it stays
+// `vec_oob` at every call site.
 //
 // obligation, in the syntax it will take at the compiler's 1.5.3:
 //     never fails ensures false
@@ -110,7 +117,7 @@ pub struct:Vec<T> = {
 // compiler's D-241 retired D-163 rule 2's row (RX-127). This library's own
 // cycle 0.0.0 record says the pair is a permanent `NITPICK-TYPE-037` refusal;
 // that was true at pin `950bb1d` and is false now.
-func:vec_oob = NIL(int64:i) never fails {
+pub func:vec_oob = NIL(int64:i) never fails {
     // `int64[1]` CARRIES A LENGTH, so D-070's guard is emitted for it and the
     // index traps. This is the language's `OutOfBounds`, not an invented code.
     int64[1]:guard = [0i64];

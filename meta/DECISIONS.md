@@ -1708,3 +1708,76 @@ the residue without failing (printing is what green-because-it-never-ran looks
 like, `PLAYBOOK.md` §6); per-program residue lists rather than the union (it
 would catch more, and it would also make every new test file a two-file change,
 which is how a check acquires a `--skip` flag).
+
+### RX-132 — `src/` contains no `/` and no `%`, because a division charges every consumer two `failsafe` arms
+
+**2026-09-06, found by a refusal nobody was looking for.** `bytes_put_uint` was
+written the obvious way — `x % 10u64` for the digit, `x / 10u64` for the rest —
+and compiled cleanly. Two OTHER files then refused to compile:
+`tests/unit/bytes_oob_get_at_len.npk` and `tests/unit/bytes_oob_set_negative.npk`
+**call only `bytes_init`, `bytes_push` and the accessor pair**, and were refused
+`NITPICK-REACH-002` for both `DivByZero` and `DivOverflow`.
+
+**Reachability is import-scoped.** A division anywhere in a module is a division
+every importer pays for, whether or not it calls the function containing it. So
+the cost of that `/` was not on `bytes_put_uint`'s callers; it was on **every
+program that would ever import `nregex`**, and it is two arms against
+`SAFETY.md` S-8's promise of exactly one.
+
+| | consumer's bill |
+|---|---|
+| `bytes.npk` with `x / 10u64` | `NITPICK-REACH-002` × 2 — `DivByZero`, `DivOverflow` |
+| the same file, digits by subtraction | compiles, ordinary arm set, both programs trap 94 as intended |
+
+**Neither arm could ever have fired.** The divisor was the literal `10u64` and
+the operands are unsigned: there is no zero and no `MIN / -1`. That is what
+makes this worth a rule rather than a shrug — **a budget is charged by what CAN
+reach `failsafe`**, the reachability walk does not reason about values, and
+`(*)` discharges nothing. A library cannot buy the arm back by being careful.
+
+**The decision.** No `/` and no `%` under `src/`. `SAFETY.md` gains **S-25**, and
+`check_no_division` enforces it over 13 files on every full run — because
+`PLAYBOOK.md`'s standing lesson is to prefer a check that fails to a rule that
+asks for care, and this rule is exactly the kind a later cycle would break
+without noticing, since the code that breaks it compiles perfectly and the
+failure appears in a different file.
+
+*The substitutes are exact, not approximations.* On a power of two a shift and a
+mask are the same operation the emitter would have produced: `byteset.npk`'s
+`b / 64` and `b % 64` are now `b >> 6` and `b & 63`. Where the divisor is not a
+power of two, subtraction against a descending power of ten — at most nine
+subtractions per digit, twenty digits, against an allocation the function exists
+to avoid. The rewrite is also SHORTER, because emitting most-significant-first
+removes the reversal staging array.
+
+*Two things the rewrite ran into, both worth keeping.* The power table cannot be
+spelled: 10^19 is `NITPICK-LEX-004`, *"outside the 64-bit literal envelope
+(D-148); a type's outermost values are constructed arithmetically, not
+spelled"* — the envelope is **signed** 64-bit, so the ceiling is about 9.22e18
+even for a `u64` that holds 1.8e19 comfortably. That is the same rule that stops
+`int64`'s minimum being written down, met at the other end of the range. And the
+table's length is read as `p10.len` rather than written as `20`, because a fixed
+array carries its length in its type — which is also why indexing it traps.
+
+*A defect in `check_constants_named`, found by this change and fixed with it.*
+Its pattern was `[<>]=?\s*(\d+)`, and on `x >> 6i64` the **second** `>` matched,
+so it reported the shift width as an unnamed bound — three times in
+`byteset.npk`, on the very lines this decision created. A shift is not a
+comparison; the pattern now excludes `<<` and `>>` from both ends. The check was
+right about its rule and wrong about its mechanism, which is the shape this
+repository keeps finding.
+
+*Scope, stated because a wider rule would be wrong.* `tests/` may divide. A test
+declares its own arms and nobody imports a test, so the consumer cost this
+decision is about does not exist there — and `sparseset_unit.npk`'s PRNG avoids
+division anyway, to keep one habit rather than two.
+
+*Alternatives declined:* declaring `DivByZero` and `DivOverflow` in the
+consumer's expected arm set and amending S-8 to "one arm plus two" (S-8 is this
+library's headline API property, and paying it for a division that cannot fail
+is the worst possible trade); moving `bytes_put_uint` to its own module so only
+its importers pay (it would work, and it splits `Bytes` in half for the sake of
+one function — and `api` will import both, so the consumer pays anyway);
+asking the compiler to prove the divisor non-zero and drop the arm (a real
+request, and one this library should not block on: the rewrite costs nothing and
+the arms are gone today).

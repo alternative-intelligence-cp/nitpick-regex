@@ -597,3 +597,43 @@ movemask intrinsic, which is a better request than a speculative one.
   the program contains, and keeps whole-program verification available.
   Revisit only if build times become a real complaint from someone building a
   real program.
+
+- **O-B3 — what a consumer's `failsafe` will actually owe once `api` reaches
+  `core`, and whether S-8 survives it as written.** *Raised at cycle 0.0.4,
+  2026-09-06.*
+
+  `SAFETY.md` S-8 (RX-060) promises the strongest thing in this repository:
+  *importing `nregex` costs your program's `failsafe` exactly one arm.* Cycle
+  0.0.4 met **two** separate ways for that promise to be broken by something
+  that is not an `error:` declaration at all, and both were measured rather than
+  argued:
+
+  - a **`limit<Rules>`** anywhere in the reachable graph arms `LimitViolated`,
+    at `pub` and at module-private visibility alike (RX-127). Closed by
+    declining the construct — **S-24**.
+  - a **`/` or `%`** anywhere in a module arms `DivByZero` and `DivOverflow` in
+    every importer, whether or not it calls the function containing it
+    (RX-132). Closed by removing both from `src/` — **S-25**, with a tree check.
+
+  Both are closed, and the pattern is not: **the budget is charged by anything
+  that can reach `failsafe`, and this library has now found three kinds of
+  charge where its own specification counts one.** Nothing today enumerates the
+  bill. The instrument exists and it is the compiler itself —
+  `NITPICK-REACH-003` on a program that imports a module and has no `failsafe`
+  **lists every identity a consumer of that module will owe**, which is the
+  mechanically checkable form of *"and no more"*, the half no build can catch
+  because a superset of the required arms compiles and runs perfectly.
+
+  **Recommendation:** at the cycle that first makes `api` reach `core`, run that
+  diagnostic against `tests/conformance/import.npk` and diff the identities it
+  names against `SAFETY.md` §4's table, as a harness check beside
+  `check_error_budget` — which today counts `error:` declarations and would have
+  reported green through both of the above. **The count is PER PROGRAM**, so the
+  check reads each fixture's own bill and never generalises one. If the bill is
+  larger than one plus the arms a program owes for its own arithmetic, S-8 is
+  amended by a numbered decision rather than by hope; if it is not, S-8 has been
+  verified for the first time instead of asserted.
+
+  It is filed rather than done here because this subcycle builds `core` and
+  `api` does not reach it yet: the diagnostic would report today's bill, which is
+  one, and prove nothing about the one that is coming.

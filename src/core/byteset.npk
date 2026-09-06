@@ -1,0 +1,157 @@
+// `src/core/byteset.npk` — `ByteSet`, A 256-BIT CLASS BITMAP.
+//
+// Rule B-11 (RX-006): the unit of a byte-level character class after
+// compilation, and small enough to live inside an instruction. `#size_of` is
+// **32** — measured at cycle 0.0.0's probe 11 and not derived from field
+// widths, which is a rule this ecosystem has broken twice in one table.
+//
+// WHY A BITMAP AND NOT A `Vec<bool>` OR A RANGE LIST. Membership is on the
+// hottest path in every engine, once per haystack byte per thread. A bitmap
+// answers in a shift and an AND, it is four machine words, it fits in
+// registers, and union/intersection/complement are one instruction per word —
+// which is what makes class algebra during compilation cheap enough that
+// `UNICODE.md`'s folding can be done eagerly.
+//
+// THE INDEX IS A `uint8`, WHICH IS THE WHOLE SAFETY ARGUMENT. `b >> 6i64` is
+// 0..3 for every value a `uint8` can hold, so the word index cannot leave
+// `uint64[4]` — and `uint64[4]` is a FIXED ARRAY, which carries its length, so
+// D-070's guard is emitted for it and an index that somehow did leave would
+// TRAP rather than read a neighbouring word. This is the one structure in
+// `src/core/` that needs no accessor pair of its own, and the reason is the
+// type rather than care: `SAFETY.md` §5.3's table says a fixed array traps and
+// a `wild T->` does not, and this is the former.
+//
+// THE WORD INDEX IS A SHIFT AND THE BIT INDEX A MASK -- `>> 6` and `& 63`, and
+// NOT `/ 64` and `% 64`. That is `SAFETY.md` S-25 (RX-132): `/` and `%` arm
+// `DivByZero` and `DivOverflow`, reachability is import-scoped, and a division
+// anywhere in a module charges EVERY consuming program both arms whether or not
+// it calls the function. Neither could fire here -- the divisor would be the
+// literal 64 -- and the budget is charged by what CAN reach `failsafe`. On a
+// power of two the shift and the mask are exact, and they are what the emitter
+// would have produced anyway.
+//
+// 64, 6, 63 and 4 are arithmetic here, not policy: `SAFETY.md` S-12 is about
+// the nine named bounds, and a bit width is structure.
+//
+// LAYERING (`BUILD.md` §6, B-16). `core` imports nothing outside `core`; this
+// file imports nothing at all.
+mod:byteset;
+
+pub struct:ByteSet = {
+    uint64[4]:w;     // 4 x 64 = 256 bits, one per byte value
+};
+
+// ---- construction ----------------------------------------------------------
+
+// obligation: never fails ensures every byte is absent
+pub func:byteset_empty = ByteSet() never fails {
+    pass ByteSet{ w: [0u64, 0u64, 0u64, 0u64] };
+};
+
+// obligation: never fails ensures every byte is present
+pub func:byteset_full = ByteSet() never fails {
+    // The all-ones `uint64`. Written as a complement of zero rather than as a
+    // 20-digit literal, because the literal envelope makes the maximum of a
+    // 64-bit type awkward to spell and a bound written by symmetry from a
+    // working one is exactly what stops compiling.
+    uint64:ones = ~0u64;
+    pass ByteSet{ w: [ones, ones, ones, ones] };
+};
+
+// ---- membership ------------------------------------------------------------
+
+// obligation: never fails
+//
+// `>>` on an UNSIGNED operand is a LOGICAL shift and on a signed one it is
+// arithmetic — the operand's signedness decides, there is one shift arm in the
+// emitter, and there is no `>>>`. Both operands here are unsigned, deliberately.
+pub func:byteset_contains = bool(ByteSet->:s, uint8:b) never fails {
+    int64:i = (b =>! int64) >> 6i64;
+    uint64:bit = 1u64 << ((b =>! uint64) & 63u64);
+    pass (s.w[i] & bit) != 0u64;
+};
+
+// obligation: never fails ensures byteset_contains(s, b)
+pub func:byteset_add = NIL(ByteSet->:s, uint8:b) never fails {
+    int64:i = (b =>! int64) >> 6i64;
+    s.w[i] = s.w[i] | (1u64 << ((b =>! uint64) & 63u64));
+    pass NIL;
+};
+
+// obligation: never fails ensures !byteset_contains(s, b)
+pub func:byteset_remove = NIL(ByteSet->:s, uint8:b) never fails {
+    int64:i = (b =>! int64) >> 6i64;
+    s.w[i] = s.w[i] & ~(1u64 << ((b =>! uint64) & 63u64));
+    pass NIL;
+};
+
+// ---- algebra ---------------------------------------------------------------
+//
+// BY VALUE, RETURNING A NEW SET. A `ByteSet` is 32 bytes of POD with no owning
+// field, so it copies freely (TYPE-046 is about owners) and a functional shape
+// costs nothing. It also keeps class algebra during compilation obviously
+// side-effect-free, which is what `HIR.md`'s folding wants.
+
+// obligation: never fails ensures result contains exactly a's and b's members
+pub func:byteset_union = ByteSet(ByteSet:a, ByteSet:b) never fails {
+    pass ByteSet{ w: [a.w[0i64] | b.w[0i64], a.w[1i64] | b.w[1i64],
+                      a.w[2i64] | b.w[2i64], a.w[3i64] | b.w[3i64]] };
+};
+
+// obligation: never fails ensures result contains exactly the members of both
+pub func:byteset_intersect = ByteSet(ByteSet:a, ByteSet:b) never fails {
+    pass ByteSet{ w: [a.w[0i64] & b.w[0i64], a.w[1i64] & b.w[1i64],
+                      a.w[2i64] & b.w[2i64], a.w[3i64] & b.w[3i64]] };
+};
+
+// obligation: never fails ensures result contains exactly a's non-members
+//
+// This is the one that makes a negated class `[^abc]` a compile-time operation
+// rather than a run-time test, which is why `SAFETY.md` S-2 can refuse
+// lookaround without refusing negation: complement of a regular set is regular.
+pub func:byteset_complement = ByteSet(ByteSet:a) never fails {
+    pass ByteSet{ w: [~a.w[0i64], ~a.w[1i64], ~a.w[2i64], ~a.w[3i64]] };
+};
+
+// obligation: never fails ensures result contains a's members that b lacks
+pub func:byteset_difference = ByteSet(ByteSet:a, ByteSet:b) never fails {
+    pass ByteSet{ w: [a.w[0i64] & ~b.w[0i64], a.w[1i64] & ~b.w[1i64],
+                      a.w[2i64] & ~b.w[2i64], a.w[3i64] & ~b.w[3i64]] };
+};
+
+// ---- iteration -------------------------------------------------------------
+
+// obligation: never fails requires from >= 0i64 && from <= 256i64
+//
+// THE LOWEST MEMBER AT OR ABOVE `from`, or **256** for "there is none". Not an
+// `Optional`: an `Optional` is not `pick`-able and has no readable members
+// (measured at 0.0.0), so a caller would test `== NIL` and unwrap with `??`
+// anyway, and a sentinel one past the last byte value is cheaper and reads the
+// same in a `while`.
+//
+// A STRUCT WITH `next` IS THE ITERATOR SHAPE THIS ECOSYSTEM USES (RX-052) AND
+// THIS IS NOT ONE, deliberately: there are no closures (D-018) and a borrow
+// cannot be returned (D-004), so an iterator over a set held elsewhere would
+// have to carry a borrow it cannot own. A cursor the caller keeps is the shape
+// that survives, and it is what `while (b < 256)` wants anyway.
+pub func:byteset_next = int64(ByteSet->:s, int64:from) never fails {
+    int64:b = from;
+    if (b < 0i64) { b = 0i64; }
+    while (b < 256i64) {
+        // The cast is safe by the loop bound: `b` is 0..255 here.
+        if (raw byteset_contains(s, b =>! uint8)) { pass b; }
+        b = b + 1i64;
+    }
+    pass 256i64;
+};
+
+// obligation: never fails ensures 0 <= result && result <= 256
+pub func:byteset_count = int64(ByteSet->:s) never fails {
+    int64:n = 0i64;
+    int64:b = 0i64;
+    while (b < 256i64) {
+        if (raw byteset_contains(s, b =>! uint8)) { n = n + 1i64; }
+        b = b + 1i64;
+    }
+    pass n;
+};

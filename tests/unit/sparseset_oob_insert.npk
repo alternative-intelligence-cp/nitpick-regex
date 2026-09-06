@@ -1,0 +1,41 @@
+// expect-exit: 94
+//
+// `SparseSet` — OUT OF RANGE: `sset_insert` at a key equal to the capacity.
+//
+// THE KEY SPACE IS THE PROGRAM SIZE IN THE PIKE VM, so a key past it is a
+// program counter past the end of the program — and `sparse` is a `Vec<int32>`
+// whose `.items` is a `wild int32->`, which D-070 does not guard
+// (`SAFETY.md` §5.3, S-23, RX-111). Unchecked, this would write a position into
+// unrelated heap memory and then read it back as a member, which is `S-23`'s
+// named failure: *a thread for a state the automaton is not in, and a match
+// that is not there*.
+//
+// `expect-exit: 94` is this file's `OutOfBounds` arm.
+mod:sparseset_oob_insert;
+
+use "../../src/core/sparseset.npk".*;
+
+func:main = int32(cstring[]:argv) {
+    int64:past = argv.len;          // 1 with no arguments, computed at run time
+
+    SparseSet:s = raw sset_init(16i64);
+    drop sset_insert(@s, 0i64);
+    // `capacity` exactly: the first key that is not a key.
+    drop sset_insert(@s, (raw sset_capacity(@s)) + past - 1i64);
+
+    drop sset_free(@s);
+    exit 50i32;                     // unreachable while the check exists
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

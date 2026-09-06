@@ -1,0 +1,175 @@
+// expect-exit: 0
+//
+// `SparseSet` — THE PROPERTY TEST, OVER TEN THOUSAND RANDOM OPERATION
+// SEQUENCES, AGAINST A REFERENCE.
+//
+// P-22 says this is the one primitive with a real invariant, and that it gets a
+// property test rather than unit cases. The reason is in `SAFETY.md` S-23: a
+// wrong sparse-set probe *"adds a thread for a state the automaton is not in
+// and the library returns a match that is not there"* — silent, and reachable
+// from bytes the caller does not control. A handful of unit cases would not
+// find that; ten thousand sequences against an independent reference will.
+//
+// THE REFERENCE IS A `Vec<int32>` USED AS A DENSE BOOLEAN ARRAY. It shares no
+// code with the structure it judges — the argument `BUILD.md` B-17 makes about
+// the oracle, applied one layer down: a shared bug would make them agree.
+//
+// THE RANDOMNESS IS A SEEDED XORSHIFT AND NOT A CLOCK, for two reasons and both
+// matter. `PLAYBOOK.md` §4 and D-076: no library or its tests reads a clock, so
+// the same inputs give the same bytes. And a failing sequence has to be
+// reproducible or the finding evaporates — a property test that cannot be
+// re-run has reported a rumour.
+//
+// **THE SWEEP PRINTS ITS COUNT.** An exhaustive or long-running test that
+// returns early exits 0 exactly like one that ran. The operation counter is
+// compared against the declared 10 000 at the end, with its own exit code.
+mod:sparseset_unit;
+
+use "../../src/core/sparseset.npk".*;
+use "../../src/core/vec.npk".*;
+
+// xorshift64. Shifts and XORs only: no multiply, so no D-210 overflow trap, and
+// no `/` or `%`, which under `SAFETY.md` S-25 would cost a consumer two arms --
+// this is a test and owes nothing, but writing it the same way keeps one habit.
+func:xs_next = uint64(uint64:s) never fails {
+    uint64:x = s;
+    x = x ^ (x << 13u64);
+    x = x ^ (x >> 7u64);
+    x = x ^ (x << 17u64);
+    pass x;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    // The key space. Small enough that collisions and re-insertions are common
+    // -- a key space far larger than the operation count would make almost
+    // every insert a first insert and the idempotence path would never run.
+    int64:cap = 64i64;
+
+    SparseSet:s = raw sset_init(cap);
+
+    // ---- the boundaries, before the random sequences -----------------------
+
+    if ((raw sset_len(@s)) != 0i64)                     { exit 10i32; }
+    if ((raw sset_capacity(@s)) != cap)                 { exit 11i32; }
+    // Nothing is a member of a fresh set -- including key 0, which is the one
+    // the zeroed `sparse` array makes most likely to be wrongly reported, since
+    // `sparse[0]` reads 0 and `dense[0]` also reads 0.
+    if (raw sset_contains(@s, 0i64))                    { exit 12i32; }
+    if (raw sset_contains(@s, cap - 1i64))              { exit 13i32; }
+
+    drop sset_insert(@s, 0i64);
+    if (!(raw sset_contains(@s, 0i64)))                 { exit 14i32; }
+    if ((raw sset_len(@s)) != 1i64)                     { exit 15i32; }
+    // IDEMPOTENT: a second insert must not grow the count, or `dense` fills
+    // with duplicates and a Pike VM walks the same thread twice per position.
+    drop sset_insert(@s, 0i64);
+    if ((raw sset_len(@s)) != 1i64)                     { exit 16i32; }
+    if ((raw sset_at(@s, 0i64)) != 0i32)                { exit 17i32; }
+    // O(1) CLEAR: nothing is erased, and membership must still be right.
+    drop sset_clear(@s);
+    if ((raw sset_len(@s)) != 0i64)                     { exit 18i32; }
+    if (raw sset_contains(@s, 0i64))                    { exit 19i32; }
+
+    // ---- ten thousand random operations against a reference ---------------
+
+    // The reference: one `int32` per key, 1 for member and 0 for not.
+    Vec<int32>:ref = raw vec_init_zeroed::<int32>(cap);
+    int64:ref_count = 0i64;
+
+    uint64:rng = 88172645463325252u64;      // xorshift64's classic seed
+    int64:ops = 0i64;
+    int64:inserts = 0i64;
+    int64:clears = 0i64;
+
+    while (ops < 10000i64) {
+        rng = raw xs_next(rng);
+        // Two low bits choose the operation; the next bits choose the key.
+        int64:choice = (rng & 15u64) =>! int64;
+        int64:k = ((rng >> 8u64) & 63u64) =>! int64;
+
+        if (choice == 0i64) {
+            // CLEAR, about one operation in sixteen -- often enough that the
+            // set is repeatedly refilled over stale `sparse` entries, which is
+            // the case the O(1) clear exists for and the one it can get wrong.
+            drop sset_clear(@s);
+            int64:j = 0i64;
+            while (j < cap) {
+                drop vec_set(@ref, j, 0i32);
+                j = j + 1i64;
+            }
+            ref_count = 0i64;
+            clears = clears + 1i64;
+        } else {
+            drop sset_insert(@s, k);
+            if ((raw vec_get(ref, k)) == 0i32) {
+                drop vec_set(@ref, k, 1i32);
+                ref_count = ref_count + 1i64;
+            }
+            inserts = inserts + 1i64;
+        }
+
+        // AFTER EVERY OPERATION: membership agrees with the reference at EVERY
+        // key, not just at the one just touched. A stale `sparse` entry shows
+        // up as a false positive at a key nobody has mentioned for a thousand
+        // operations, which is precisely what a spot check misses.
+        int64:c = 0i64;
+        while (c < cap) {
+            bool:want = (raw vec_get(ref, c)) == 1i32;
+            if ((raw sset_contains(@s, c)) != want)     { exit 30i32; }
+            c = c + 1i64;
+        }
+        if ((raw sset_len(@s)) != ref_count)            { exit 31i32; }
+
+        // AND THE STRUCTURAL INVARIANT: for every live position `i`,
+        // `sparse[dense[i]] == i`. This is the one P-22 names, and it is
+        // checked directly against the two backing arrays rather than inferred
+        // from membership -- membership could be right while the mapping was
+        // corrupt, and the next insert would then overwrite a live slot.
+        int64:i = 0i64;
+        while (i < (raw sset_len(@s))) {
+            int32:key = raw sset_at(@s, i);
+            if ((raw vec_get(s.sparse, key =>! int64)) != (i =>! int32)) {
+                exit 32i32;
+            }
+            i = i + 1i64;
+        }
+
+        ops = ops + 1i64;
+    }
+
+    // THE DOMAIN THE HEADER DECLARES, ASSERTED. A loop bound computed one short,
+    // or a `break` on a boundary, would exit 0 and take no less time worth
+    // noticing -- so the count is the program's own testimony.
+    if (ops != 10000i64)                                { exit 40i32; }
+    // And both branches were actually taken, so a sequence that never cleared
+    // (or never inserted) cannot pass as ten thousand operations.
+    if (clears < 1i64)                                  { exit 41i32; }
+    if (inserts < 1i64)                                 { exit 42i32; }
+    if ((clears + inserts) != 10000i64)                 { exit 43i32; }
+
+    // ---- the out-of-range boundary is a TRAP and lives in its own file -----
+    //
+    // `sset_insert` and `sset_contains` at `k == capacity` trap, so they cannot
+    // be asserted here. `sparseset_oob_insert.npk` is that case.
+
+    drop vec_free(@ref);
+    drop sset_free(@s);
+
+    // `int32` is POD, so both `Vec` blocks ARE the whole obligation and `exit 0`
+    // covers this exactly (`SAFETY.md` §8b). That is TYPE-046 forcing the
+    // representation rather than luck.
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

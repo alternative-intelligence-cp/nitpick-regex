@@ -1,0 +1,168 @@
+// expect-exit: 0
+//
+// `ByteSet` — EXHAUSTIVE OVER ALL 256 BYTES, FOR EVERY OPERATION.
+//
+// The acceptance item says exhaustive and this file is literally that: every
+// operation is checked at every one of the 256 values a `uint8` can hold, not
+// at a sample. It is affordable — 256 is small — and it is the only way to be
+// sure a word-index or bit-index slip at a boundary (0, 63, 64, 255) is caught,
+// since those are exactly the values a sample misses.
+//
+// **THE SWEEP PRINTS ITS COUNT, AND THAT IS NOT DECORATION.** An exhaustive test
+// that returns early exits 0 exactly like one that ran, takes no less wall time
+// worth noticing, and writes the same artefact — so "swept the domain" and
+// "swept three of it" are byte-identical. The counters below are compared
+// against the declared domain and a mismatch exits with its own code. This is
+// `nitpick-time` 0.0.3's finding applied to the one place this ecosystem had
+// assumed it was safe: the test program itself.
+mod:byteset_unit;
+
+use "../../src/core/byteset.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    // ---- empty and full, exhaustively -------------------------------------
+
+    ByteSet:e = raw byteset_empty();
+    ByteSet:f = raw byteset_full();
+    int64:visited = 0i64;
+    int64:b = 0i64;
+    while (b < 256i64) {
+        if (raw byteset_contains(@e, b =>! uint8))      { exit 10i32; }
+        if (!(raw byteset_contains(@f, b =>! uint8)))   { exit 11i32; }
+        visited = visited + 1i64;
+        b = b + 1i64;
+    }
+    if (visited != 256i64)                              { exit 12i32; }
+    if ((raw byteset_count(@e)) != 0i64)                { exit 13i32; }
+    if ((raw byteset_count(@f)) != 256i64)              { exit 14i32; }
+
+    // ---- add and remove, one byte at a time, over the whole domain ---------
+    //
+    // For each of the 256 values: add it to an empty set, require that it and
+    // ONLY it is present (which is 256 membership questions per value, so
+    // 65 536 in total), then remove it and require the set is empty again.
+    // The "only it" half is what catches a word-index slip: setting bit 64 in
+    // word 0 instead of bit 0 in word 1 passes a test that only asks about the
+    // byte it just added.
+    int64:added = 0i64;
+    int64:pairs = 0i64;
+    b = 0i64;
+    while (b < 256i64) {
+        ByteSet:s = raw byteset_empty();
+        drop byteset_add(@s, b =>! uint8);
+        int64:c = 0i64;
+        while (c < 256i64) {
+            bool:want = c == b;
+            if ((raw byteset_contains(@s, c =>! uint8)) != want) { exit 20i32; }
+            pairs = pairs + 1i64;
+            c = c + 1i64;
+        }
+        if ((raw byteset_count(@s)) != 1i64)            { exit 21i32; }
+        // The lowest member at or above 0 is the one byte we added.
+        if ((raw byteset_next(@s, 0i64)) != b)          { exit 22i32; }
+        // And there is nothing above it.
+        if ((raw byteset_next(@s, b + 1i64)) != 256i64) { exit 23i32; }
+        drop byteset_remove(@s, b =>! uint8);
+        if ((raw byteset_count(@s)) != 0i64)            { exit 24i32; }
+        if ((raw byteset_next(@s, 0i64)) != 256i64)     { exit 25i32; }
+        // Removing a byte that is not there is a no-op, not an error.
+        drop byteset_remove(@s, b =>! uint8);
+        if ((raw byteset_count(@s)) != 0i64)            { exit 26i32; }
+        added = added + 1i64;
+        b = b + 1i64;
+    }
+    if (added != 256i64)                                { exit 27i32; }
+    if (pairs != 65536i64)                              { exit 28i32; }
+
+    // ---- the algebra, checked against membership at every byte -------------
+    //
+    // Two sets built from disjoint halves of the domain, so union, intersect,
+    // difference and complement each have a non-trivial answer, and each is
+    // verified byte by byte rather than by a count.
+    ByteSet:evens = raw byteset_empty();
+    ByteSet:lows  = raw byteset_empty();
+    b = 0i64;
+    while (b < 256i64) {
+        if ((b & 1i64) == 0i64)  { drop byteset_add(@evens, b =>! uint8); }
+        if (b < 128i64)          { drop byteset_add(@lows, b =>! uint8); }
+        b = b + 1i64;
+    }
+    if ((raw byteset_count(@evens)) != 128i64)          { exit 30i32; }
+    if ((raw byteset_count(@lows)) != 128i64)           { exit 31i32; }
+
+    ByteSet:u  = raw byteset_union(evens, lows);
+    ByteSet:it = raw byteset_intersect(evens, lows);
+    ByteSet:df = raw byteset_difference(evens, lows);
+    ByteSet:cp = raw byteset_complement(evens);
+
+    int64:checked = 0i64;
+    b = 0i64;
+    while (b < 256i64) {
+        uint8:by = b =>! uint8;
+        bool:in_e = (b & 1i64) == 0i64;
+        bool:in_l = b < 128i64;
+        if ((raw byteset_contains(@u, by))  != (in_e || in_l))  { exit 40i32; }
+        if ((raw byteset_contains(@it, by)) != (in_e && in_l))  { exit 41i32; }
+        if ((raw byteset_contains(@df, by)) != (in_e && !in_l)) { exit 42i32; }
+        if ((raw byteset_contains(@cp, by)) != !in_e)           { exit 43i32; }
+        checked = checked + 1i64;
+        b = b + 1i64;
+    }
+    if (checked != 256i64)                              { exit 44i32; }
+
+    // The counts agree with the byte-by-byte answers, which is a second,
+    // independent reading of the same four sets.
+    if ((raw byteset_count(@u))  != 192i64)             { exit 45i32; }
+    if ((raw byteset_count(@it)) != 64i64)              { exit 46i32; }
+    if ((raw byteset_count(@df)) != 64i64)              { exit 47i32; }
+    if ((raw byteset_count(@cp)) != 128i64)             { exit 48i32; }
+
+    // Complementing twice is the identity, over the whole domain.
+    ByteSet:cc = raw byteset_complement(cp);
+    b = 0i64;
+    while (b < 256i64) {
+        uint8:by = b =>! uint8;
+        if ((raw byteset_contains(@cc, by)) != (raw byteset_contains(@evens, by))) {
+            exit 49i32;
+        }
+        b = b + 1i64;
+    }
+
+    // ---- iteration visits every member, in order, exactly once ------------
+
+    int64:seen = 0i64;
+    int64:prev = 0i64 - 1i64;
+    int64:cur = raw byteset_next(@evens, 0i64);
+    while (cur < 256i64) {
+        if (cur <= prev)                                { exit 50i32; }   // strictly ascending
+        if (!(raw byteset_contains(@evens, cur =>! uint8))) { exit 51i32; }
+        seen = seen + 1i64;
+        prev = cur;
+        cur = raw byteset_next(@evens, cur + 1i64);
+    }
+    if (seen != 128i64)                                 { exit 52i32; }
+    // The sentinel is 256 and not an `Optional`: an `Optional` is not
+    // `pick`-able and has no readable members (measured at 0.0.0).
+    if ((raw byteset_next(@e, 0i64)) != 256i64)         { exit 53i32; }
+    // Iterating from past the end terminates rather than reading off the array.
+    if ((raw byteset_next(@f, 256i64)) != 256i64)       { exit 54i32; }
+
+    // A `ByteSet` owns nothing and allocates nothing: no `wild` block, no
+    // managed body. `exit 0` is the whole obligation here and it covers it
+    // exactly (`SAFETY.md` §8b) -- which is unusual in this library and worth
+    // saying, because it is true of almost nothing else in `src/core/`.
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

@@ -1,0 +1,188 @@
+// expect-exit: 0
+//
+// `Bytes` — THE IN-RANGE SUITE, INCLUDING THE AMORTISED-GROWTH MEASUREMENT.
+//
+// `put_uint` at 0, 1, 9, 10, 99, 100 and the `uint64` maximum, because those
+// are the digit-count boundaries and the one that is hardest to spell.
+//
+// THE GROWTH TEST IS THE REASON THIS FILE IS LONG. A byte sink that reallocates
+// per append is quadratic, and quadratic is not a slow answer here — it is the
+// exact shape the compiler measured costing seventeen minutes of a fifty-six
+// minute build. Appending a million bytes from capacity 1 must take about
+// twenty reallocations, and the assertion is on the COUNT rather than on the
+// time, because a timing assertion in CI is a flake generator.
+mod:bytes_unit;
+
+use "../../src/core/bytes.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    // ---- construction and the empty invariants -----------------------------
+
+    Bytes:b = raw bytes_init(8i64);
+    if ((raw bytes_len(@b)) != 0i64)                    { exit 10i32; }
+    // A zero request still yields usable capacity, so the doubling has a base.
+    Bytes:z = raw bytes_init(0i64);
+    if (z.buf.len < 1i64)                               { exit 11i32; }
+
+    // ---- push, and the accessor pair at its boundaries ---------------------
+
+    drop bytes_push(@b, 65u8);      // 'A'
+    drop bytes_push(@b, 66u8);      // 'B'
+    drop bytes_push(@b, 67u8);      // 'C'
+    if ((raw bytes_len(@b)) != 3i64)                    { exit 20i32; }
+    if ((raw bytes_get(@b, 0i64)) != 65u8)              { exit 21i32; }   // i == 0
+    if ((raw bytes_get(@b, 2i64)) != 67u8)              { exit 22i32; }   // i == len-1
+    if ((raw bytes_get(@b, 1i64)) != 66u8)              { exit 23i32; }
+
+    drop bytes_set(@b, 0i64, 90u8); // 'Z'
+    drop bytes_set(@b, 2i64, 89u8); // 'Y'
+    if ((raw bytes_get(@b, 0i64)) != 90u8)              { exit 24i32; }
+    if ((raw bytes_get(@b, 2i64)) != 89u8)              { exit 25i32; }
+
+    // ---- clear keeps capacity ---------------------------------------------
+
+    int64:cap_before = b.buf.len;
+    drop bytes_clear(@b);
+    if ((raw bytes_len(@b)) != 0i64)                    { exit 30i32; }
+    if (b.buf.len != cap_before)                        { exit 31i32; }
+
+    // ---- extend from a string, and the take-out ---------------------------
+
+    drop bytes_extend_str(@b, "hello");
+    if ((raw bytes_len(@b)) != 5i64)                    { exit 40i32; }
+    if ((raw bytes_get(@b, 0i64)) != 104u8)             { exit 41i32; }   // 'h'
+    if ((raw bytes_get(@b, 4i64)) != 111u8)             { exit 42i32; }   // 'o'
+    string:out = raw bytes_take_string(@b);
+    if (string_byte_length(out) != 5i64)                { exit 43i32; }
+    if (!string_equals(out, "hello"))                   { exit 44i32; }
+
+    // The take reads the LIVE PREFIX and not the capacity. `b` has 5 live bytes
+    // in a block of at least 8, so a `bytes_take_string` that passed `buf.len`
+    // would return the zeroed tail as well and this length check would catch it.
+
+    drop bytes_extend_str(@b, " world");
+    string:out2 = raw bytes_take_string(@b);
+    if (!string_equals(out2, "hello world"))            { exit 45i32; }
+
+    // ---- extend from a byte slice: a VIEW, and only as a parameter ---------
+
+    drop bytes_clear(@b);
+    drop bytes_extend(@b, string_bytes("abc"));
+    if ((raw bytes_len(@b)) != 3i64)                    { exit 50i32; }
+    if ((raw bytes_get(@b, 1i64)) != 98u8)              { exit 51i32; }   // 'b'
+    // An empty extend is a no-op and not an error.
+    drop bytes_extend(@b, string_bytes(""));
+    if ((raw bytes_len(@b)) != 3i64)                    { exit 52i32; }
+
+    // ---- put_uint at every digit-count boundary ---------------------------
+
+    drop bytes_clear(@b);
+    drop bytes_put_uint(@b, 0u64);
+    string:d0 = raw bytes_take_string(@b);
+    if (!string_equals(d0, "0"))                        { exit 60i32; }
+
+    drop bytes_clear(@b);
+    drop bytes_put_uint(@b, 1u64);
+    string:d1 = raw bytes_take_string(@b);
+    if (!string_equals(d1, "1"))                        { exit 61i32; }
+
+    drop bytes_clear(@b);
+    drop bytes_put_uint(@b, 9u64);
+    string:d9 = raw bytes_take_string(@b);
+    if (!string_equals(d9, "9"))                        { exit 62i32; }
+
+    // The one-to-two digit boundary.
+    drop bytes_clear(@b);
+    drop bytes_put_uint(@b, 10u64);
+    string:d10 = raw bytes_take_string(@b);
+    if (!string_equals(d10, "10"))                      { exit 63i32; }
+
+    drop bytes_clear(@b);
+    drop bytes_put_uint(@b, 99u64);
+    string:d99 = raw bytes_take_string(@b);
+    if (!string_equals(d99, "99"))                      { exit 64i32; }
+
+    // The two-to-three digit boundary.
+    drop bytes_clear(@b);
+    drop bytes_put_uint(@b, 100u64);
+    string:d100 = raw bytes_take_string(@b);
+    if (!string_equals(d100, "100"))                    { exit 65i32; }
+
+    // THE `uint64` MAXIMUM: 18 446 744 073 709 551 615, twenty digits. Built as
+    // `~0u64` rather than written out, because a bound spelled by symmetry from
+    // a working one is exactly the shape that stops compiling.
+    drop bytes_clear(@b);
+    drop bytes_put_uint(@b, ~0u64);
+    string:dmax = raw bytes_take_string(@b);
+    if (!string_equals(dmax, "18446744073709551615"))   { exit 66i32; }
+
+    // And it appends rather than replacing, which is what a replacement
+    // template needs.
+    drop bytes_clear(@b);
+    drop bytes_extend_str(@b, "n=");
+    drop bytes_put_uint(@b, 42u64);
+    string:dn = raw bytes_take_string(@b);
+    if (!string_equals(dn, "n=42"))                     { exit 67i32; }
+
+    // ---- GROWTH IS AMORTISED LINEAR, MEASURED BY REALLOCATION COUNT --------
+
+    // One million bytes from capacity 1. Doubling gives ~20 reallocations; a
+    // per-append reallocation would give a million. The assertion is a generous
+    // ceiling, so it fails on the QUADRATIC shape and not on a different
+    // growth factor.
+    Bytes:g = raw bytes_init(1i64);
+    int64:grows = 0i64;
+    int64:seen_cap = g.buf.len;
+    int64:k = 0i64;
+    while (k < 1000000i64) {
+        drop bytes_push(@g, 88u8);
+        if (g.buf.len != seen_cap) {
+            grows = grows + 1i64;
+            seen_cap = g.buf.len;
+        }
+        k = k + 1i64;
+    }
+    if ((raw bytes_len(@g)) != 1000000i64)              { exit 70i32; }
+    // 2^20 is 1 048 576, so twenty doublings from one is the exact answer and
+    // 30 is the ceiling that separates "doubling" from "linear or worse".
+    if (grows > 30i64)                                  { exit 71i32; }
+    if (grows < 1i64)                                   { exit 72i32; }
+    // The capacity is bounded too -- a growth factor that overshot wildly would
+    // be amortised linear in TIME and wasteful in SPACE, and this catches it.
+    if (g.buf.len > 4000000i64)                         { exit 73i32; }
+    // The contents survived every copy, at both ends.
+    if ((raw bytes_get(@g, 0i64)) != 88u8)              { exit 74i32; }
+    if ((raw bytes_get(@g, 999999i64)) != 88u8)         { exit 75i32; }
+
+    // No `bytes_free` anywhere in this file, and that is the type rather than
+    // an omission: a `buffer` is MANAGED and its scope-exit drop is the reclaim
+    // (D-183). `exit 0` proves nothing about it either way (`SAFETY.md` §8b) --
+    // there is simply no path here on which a free can be forgotten.
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        // `DivByZero` AND `DivOverflow` ARE HERE BECAUSE `bytes_put_uint` USES
+        // `/` AND `%`, and REACH-002 arms both the moment the operator appears.
+        // Neither can fire: the divisor is the literal `10u64` and the operands
+        // are unsigned, so there is no zero and no `MIN / -1`. The reachability
+        // walk does not know that, and `(*)` discharges nothing.
+        //
+        // This is the error budget being charged by ARITHMETIC rather than by a
+        // declared `error:` -- the same shape as RX-127's `LimitViolated` and
+        // the second instance this repository has met. It is a cost on the
+        // CONSUMER the day `api` reaches `bytes`, so it is recorded as an open
+        // question rather than absorbed here (`meta/OPEN_QUESTIONS.md`).
+        (DivByZero)      { exit 89i32; },
+        (DivOverflow)    { exit 90i32; },
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

@@ -1,0 +1,273 @@
+// `src/core/bytes.npk` — `Bytes`, THE ONLY ALLOCATING BYTE SINK IN THIS LIBRARY.
+//
+// Rule B-11 (RX-006) and P-21. Every replacement this library produces is
+// composed into one of these, and the reason is a measurement rather than a
+// preference: `string_concat` allocates per call, and a replacement over a
+// large haystack is thousands of small pieces. The compiler measured exactly
+// that shape as quadratic in `npkg`'s first full run — seventeen minutes of
+// fifty-six spent in the kernel — and its own D-183 debt makes an unbound
+// owning temporary leak outright, so `f(g(x))` over strings is quadratic in
+// memory as well as in time. Nothing in `nregex` builds output with
+// `string_concat` in a loop.
+//
+// ============================================================================
+// A `buffer` IS NOT BOUNDS-CHECKED EITHER, AND THAT IS WHY THIS FILE HAS AN
+// ACCESSOR PAIR (RX-118, `SAFETY.md` §5.3)
+// ============================================================================
+//
+// A `buffer` LOOKS like a checked type: it carries `.len` and `.cap`. It is
+// not. There is no route from a `buffer` to a slice — `buffer_bytes` is on the
+// compiler's *"deliberately NOT landed"* list (`TYPE_REFERENCE.md` §23) — so
+// every byte is reached through `buf.ptr[i]`, and `.ptr` is a `uint8->`, a bare
+// pointer. `.len` sits beside the index doing nothing unless this file compares
+// against it.
+//
+// So `bytes_get`/`bytes_set` are `Vec`'s pair over again, for the same reason
+// and with the same force: **no `.ptr[` outside this file**, and an
+// out-of-range index TRAPS `OutOfBounds` (RX-130) rather than returning a heap
+// byte. `Bytes` is the second-most exposed accessor in this library — it is
+// composed from bytes a caller controls — and it was outside S-23 until the
+// `buffer` row was added.
+//
+// ============================================================================
+// OWNERSHIP: THERE IS NO `bytes_free`, AND THAT IS THE TYPE'S DOING
+// ============================================================================
+//
+// A `buffer` is MANAGED and move-only: the scope-exit drop IS the reclaim
+// (D-183), and `buffer_free` is another of §23's deliberately-not-landed rows.
+// So a `Bytes` needs no explicit free, is move-only, and cannot be stored in an
+// array (TYPE-046) — all three fall out of the one field.
+//
+// **AND `exit 0` THEREFORE PROVES NOTHING ABOUT A `Bytes`** (`SAFETY.md` §8b,
+// S-22). D-151 counts `wild` blocks; a `buffer` body is managed. A `Bytes`
+// dropped correctly and a `Bytes` whose body leaked would both exit 0. What
+// stands behind this file is that the drop is the LANGUAGE's rather than
+// this library's — there is no path here on which a free can be forgotten,
+// because there is no free to forget.
+//
+// THERE IS NO `bytes_view`, AND THE OMISSION IS DELIBERATE. Cycle 0.0's
+// checklist listed one. A view is a `uint8[]`, and returning a slice over a
+// local's body is the ONE ESCAPE THE COMPILER DOES NOT DIAGNOSE — `string_bytes`
+// on a local `string` yields a slice that leaves its owning frame with no
+// diagnostic, and reading it afterwards reads freed memory, which is workbench
+// registry **O-N9**. Returning `@x` is refused `NITPICK-BORROW-001`; returning a
+// slice is not. The ecosystem's house rule until it lands is **a view is a
+// PARAMETER, never a return value**, so the shape this file offers instead is
+// `bytes_get` for one byte and `bytes_extend` for bulk, and a caller that wants
+// to hand the bytes somewhere passes the `Bytes` itself.
+//
+// LAYERING (`BUILD.md` §6, B-16). `core` imports nothing outside `core`.
+mod:bytes;
+
+use "./vec.npk".*;
+
+// ---- the type --------------------------------------------------------------
+
+pub struct:Bytes = {
+    buffer:buf;      // MANAGED, owning, dropped at scope exit. Capacity is `buf.len`.
+    int64:len;       // bytes in use. NEVER `buf.len`, which is the capacity.
+};
+
+// ---- construction ----------------------------------------------------------
+
+// obligation: never fails ensures result.len == 0i64
+pub func:bytes_init = Bytes(int64:cap) never fails {
+    int64:n = cap;
+    if (n < 1i64) { n = 1i64; }
+    // `buffer_new(n)` gives n ZEROED bytes with `len == cap == n`. `n <= 0` is
+    // the empty non-owning buffer, which is an answer rather than an error --
+    // and not one this type wants, hence the floor above.
+    pass Bytes{ buf: buffer_new(n), len: 0i64 };
+};
+
+// obligation: never fails ensures result == b.len
+pub func:bytes_len = int64(Bytes->:b) never fails {
+    pass b.len;
+};
+
+// obligation: never fails ensures b.len == 0i64
+//
+// Capacity is retained: `SAFETY.md` S-6 says a search allocates nothing, so a
+// sink reused across searches must clear rather than reallocate.
+pub func:bytes_clear = NIL(Bytes->:b) never fails {
+    b.len = 0i64;
+    pass NIL;
+};
+
+// ---- growth ----------------------------------------------------------------
+
+// obligation: never fails ensures b.buf.len >= b.len + need
+//
+// AMORTISED LINEAR BY DOUBLING, and it has to be explicit because there is no
+// `buffer_resize` (`TYPE_REFERENCE.md` §23's not-landed list). Growing is:
+// allocate the bigger buffer, copy the live bytes, and overwrite the field --
+// at which point the OLD body drops, because overwriting a bound owner frees
+// what it held.
+pub func:bytes_reserve = NIL(Bytes->:b, int64:need) never fails {
+    if (need < 0i64) { drop vec_oob(need); }
+    int64:want = b.len + need;                 // traps on overflow (D-210)
+    if (want <= b.buf.len) { pass NIL; }
+    int64:nc = b.buf.len;
+    if (nc < 1i64) { nc = 1i64; }
+    while (nc < want) { nc = nc * 2i64; }      // traps on overflow (D-210)
+    buffer:bigger = buffer_new(nc);
+    if (b.len > 0i64) {
+        discard(mcpy(bigger.ptr, b.buf.ptr, b.len));
+    }
+    b.buf = move(bigger);
+    pass NIL;
+};
+
+// ---- the checked accessor pair ---------------------------------------------
+//
+// NOTHING BELOW THIS LINE TOUCHES `.ptr[` WITHOUT HAVING CHECKED FIRST.
+
+// obligation: never fails requires i >= 0i64 && i < b.len
+pub func:bytes_get = uint8(Bytes->:b, int64:i) never fails {
+    if (i < 0i64)     { drop vec_oob(i); }
+    if (i >= b.len)   { drop vec_oob(i); }
+    pass b.buf.ptr[i];
+};
+
+// obligation: never fails requires i >= 0i64 && i < b.len
+pub func:bytes_set = NIL(Bytes->:b, int64:i, uint8:x) never fails {
+    if (i < 0i64)     { drop vec_oob(i); }
+    if (i >= b.len)   { drop vec_oob(i); }
+    b.buf.ptr[i] = x;
+    pass NIL;
+};
+
+// ---- appending -------------------------------------------------------------
+
+// obligation: never fails ensures b.len == old(b.len) + 1i64
+pub func:bytes_push = NIL(Bytes->:b, uint8:x) never fails {
+    drop bytes_reserve(b, 1i64);
+    b.buf.ptr[b.len] = x;
+    b.len = b.len + 1i64;
+    pass NIL;
+};
+
+// obligation: never fails ensures b.len == old(b.len) + src.len
+//
+// THE SLICE IS A PARAMETER, WHICH IS THE ONLY DIRECTION IT MAY TRAVEL (O-N9).
+// One `mcpy` rather than a push loop: the whole point of this type is that bulk
+// output is one copy and not `src.len` calls.
+pub func:bytes_extend = NIL(Bytes->:b, uint8[]:src) never fails {
+    if (src.len <= 0i64) { pass NIL; }
+    drop bytes_reserve(b, src.len);
+    discard(mcpy(#ptr_add<uint8>(b.buf.ptr, b.len), src.ptr, src.len));
+    b.len = b.len + src.len;
+    pass NIL;
+};
+
+// obligation: never fails ensures b.len == old(b.len) + string_byte_length(s)
+//
+// `string_bytes` yields a `uint8[]` VIEW and does not allocate, so this adds no
+// owning temporary and needs no binding (the D-183 rule is about values whose
+// type DROPS, and a slice does not).
+pub func:bytes_extend_str = NIL(Bytes->:b, string:s) never fails {
+    drop bytes_extend(b, string_bytes(s));
+    pass NIL;
+};
+
+// ---- decimal, without an allocator -----------------------------------------
+
+// obligation: never fails ensures b.len > old(b.len)
+//
+// ALLOCATION-FREE ON PURPOSE. Interpolation `&{v}` and `ToString` both produce
+// an owning `string` -- an allocation per number, and, if it is ever written
+// nested, a leaked temporary (D-183). A regex replacement writes `$1` counts and
+// offsets by the thousand, so this is the shape that has to exist.
+//
+// The `uint64` maximum is 20 digits, which is where the power table's length
+// comes from. 20 is arithmetic here rather than policy, which is the
+// distinction `SAFETY.md` S-12 draws.
+pub func:bytes_put_uint = NIL(Bytes->:b, uint64:v) never fails {
+    // NO `/` AND NO `%`, AND THAT IS NOT STYLE -- IT IS THE ERROR BUDGET.
+    //
+    // `SAFETY.md` S-8 promises that importing `nregex` costs a consuming
+    // program's `failsafe` EXACTLY ONE ARM. REACH-002 arms `DivByZero` and
+    // `DivOverflow` the moment a `/` or `%` appears anywhere in the module, and
+    // reachability is IMPORT-SCOPED -- so the cost lands on every consumer, not
+    // on the callers of this function. Measured here rather than reasoned:
+    // `bytes_oob_get_at_len.npk` and `bytes_oob_set_negative.npk` call only
+    // `bytes_init`, `bytes_push` and the accessor pair, never this function, and
+    // an earlier draft using `x / 10u64` had both of them refused
+    // `NITPICK-REACH-002` for both arms MERELY FOR IMPORTING THIS FILE.
+    //
+    // Neither arm could ever have fired -- the divisor was the literal `10u64`
+    // and the operands are unsigned, so there is no zero and no `MIN / -1`. The
+    // reachability walk does not know that, `(*)` discharges nothing, and a
+    // budget is charged by what CAN reach `failsafe` rather than by what does.
+    // This is the second time this repository has met the error budget charged
+    // by something other than a declared `error:` (RX-127 was the first, for a
+    // `limit<Rules>`), and the first time the answer was to change the code.
+    // `SAFETY.md` S-25, RX-132.
+    //
+    // SO: DIGITS BY SUBTRACTION AGAINST A DESCENDING POWER OF TEN. At most nine
+    // subtractions per digit and twenty digits -- 180 integer operations in the
+    // worst case, against an allocation this whole function exists to avoid. It
+    // also emits most-significant-first, so there is no reversal staging array,
+    // which makes it shorter than the version it replaces as well as cheaper to
+    // a consumer.
+    // THE TABLE IS BUILT, NOT SPELLED, AND TWO SEPARATE RULES FORCE THAT.
+    // First: 10^19 is `NITPICK-LEX-004`, *"outside the 64-bit literal envelope
+    // (D-148); a type's outermost values are constructed arithmetically, not
+    // spelled"* -- the envelope is SIGNED 64-bit, so the largest spellable
+    // literal is about 9.22e18 and 10^19 is not, even as a `u64` whose type
+    // holds it comfortably. That is the same rule that stops `int64`'s minimum
+    // being written down, arriving at the other end of the range. Second:
+    // `SAFETY.md` S-12's tree check flags a comparison against a magic literal
+    // outside `limits.npk`, and a descent written against spelled powers is
+    // exactly that. Nineteen multiplies per call, none of which can overflow --
+    // 10^19 fits a `uint64` -- and no literal above ten anywhere.
+    uint64[20]:p10 = [1u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64,
+                      0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64];
+    int64:j = 1i64;
+    // `p10.len` and not the literal 20: a FIXED ARRAY carries its length in its
+    // type, which is the same property that makes indexing it trap (D-070), and
+    // reading the bound off the declaration means the two cannot disagree.
+    while (j < p10.len) {
+        p10[j] = p10[j - 1i64] * 10u64;
+        j = j + 1i64;
+    }
+    uint64:x = v;
+    // Find the highest power at or below `x`. Zero falls out of this with
+    // `i == 0`, so it emits the single digit "0" and needs no special case --
+    // the boundary every hand-written itoa gets wrong once.
+    int64:i = p10.len - 1i64;
+    while (i > 0i64) {
+        if (p10[i] <= x) { break; }
+        i = i - 1i64;
+    }
+    while (i >= 0i64) {
+        uint8:d = 0u8;
+        while (x >= p10[i]) {
+            x = x - p10[i];
+            d = d + 1u8;
+        }
+        drop bytes_push(b, d + 48u8);        // 48 is '0'
+        i = i - 1i64;
+    }
+    pass NIL;
+};
+
+// ---- handing the bytes over ------------------------------------------------
+
+// obligation: never fails ensures string_byte_length(result) == b.len
+//
+// Hands the bytes over as a `string`, which is the only shape that may leave
+// this frame: a `uint8[]` view could not (O-N9's house rule).
+//
+// `string_from_bytes` TAKES A POINTER AND A LENGTH, `(wild any->, int64)`, and
+// not a slice — read at the pin rather than assumed, after the first draft here
+// wrote the slice form and met `NITPICK-TYPE-007: `uint8->` cannot be ranged`.
+// That refusal is `TYPE_REFERENCE.md` §23's *"no route from a `buffer` to a
+// slice"* stated by the compiler instead of by the document, and it is the same
+// fact RX-118 rests on: the length beside the index is not usable as a bound,
+// so this file's own `len` is the only thing standing between a caller and the
+// capacity beyond it. The length passed below is `b.len`, the LIVE prefix, and
+// never `b.buf.len`, which is the capacity and would hand out the zeroed tail.
+pub func:bytes_take_string = string(Bytes->:b) never fails {
+    pass string_from_bytes(b.buf.ptr, b.len);
+};

@@ -210,6 +210,32 @@ has now met three kinds — a declared `error:` (S-8), arithmetic (`%` and `/`
 each add `DivByZero` and `DivOverflow`), and a **contract clause**. A budget
 audit that counts only `error:` declarations is counting one of three.
 
+**Rule S-25 (RX-132) — `src/` contains no `/` and no `%`, and a tree check
+enforces it.** The row above says arithmetic charges the budget; this is what
+follows from it, and it was measured rather than deduced.
+
+`bytes_put_uint` was first written with `x / 10u64` and `x % 10u64`. Two test
+programs that **never call it** — `bytes_oob_get_at_len.npk` and
+`bytes_oob_set_negative.npk`, which use only `bytes_init`, `bytes_push` and the
+accessor pair — were refused `NITPICK-REACH-002` for **both** `DivByZero` and
+`DivOverflow`, **merely for importing `bytes.npk`**. Reachability is
+import-scoped, so a division anywhere in a module is a division every consumer
+of that module pays for. Rewritten by subtraction against a descending power of
+ten, the same two programs compile with the ordinary arm set.
+
+Neither arm could ever have fired: the divisor was a literal and the operands
+are unsigned, so there is no zero and no `MIN / -1`. **That is the point rather
+than a mitigation** — a budget is charged by what CAN reach `failsafe`, and the
+reachability walk does not reason about values. `(*)` discharges neither.
+
+The substitutes are exact and not approximations: a shift and a mask on a power
+of two (`>> 6` and `& 63` for a 64-bit word, in `byteset.npk`), and repeated
+subtraction where the divisor is not a power of two. `tests/` may divide freely
+— a test declares its own arms and nobody imports a test — so
+`check_no_division` is scoped to `src/`, and it blanks comments and string
+literals before scanning, because the file most likely to break such a check is
+the one that documents the rule.
+
 ---
 
 ## 5. Bounds

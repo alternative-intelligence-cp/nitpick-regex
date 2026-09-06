@@ -288,8 +288,14 @@ def check_error_budget(root):
 # `limits.npk`. Deliberately narrow: 0, 1, 2 and the small powers are arithmetic,
 # not policy, and a check that flagged them would be turned off within a week.
 _SMALL = {0, 1, 2, 3, 4, 7, 8, 15, 16, 24, 31, 32, 63, 64, 100, 127, 128, 255, 256}
+# A SHIFT IS NOT A COMPARISON, and the first version of this pattern could not
+# tell them apart: on `x >> 6i64` the SECOND `>` matched `[<>]` and the `6` was
+# reported as a bound. Found 2026-09-06 when `byteset.npk` replaced `/ 64` with
+# `>> 6` for SAFETY.md S-25's reason, and the check failed the file three times
+# for an operator it was never about. `(?<![<>])` and `(?![<>])` exclude `<<`
+# and `>>` from both ends.
 _CMP_LITERAL = re.compile(
-    r'[<>]=?\s*(\d+)(?:i8|i16|i32|i64|u8|u16|u32|u64)?\b')
+    r'(?<![<>])[<>]=?(?![<>])\s*(\d+)(?:i8|i16|i32|i64|u8|u16|u32|u64)?\b')
 
 
 def check_constants_named(root):
@@ -346,6 +352,90 @@ def check_constants_named(root):
                      f"SAFETY.md §5's named bounds are declared.")
     return Result("check_constants_named", "SAFETY.md S-12 (RX-062)",
                   f"{len(files)} file(s) outside {LIMITS_FILE}", fl, notes)
+
+
+# --- check_no_division ----------------------------------------------------------------
+
+_DIV_OP = re.compile(r'(?<![/*])[/%](?![/*=])')
+
+
+def _blank_prose(text):
+    """Blank `//` comment bodies and string literals, keeping line structure.
+
+    A CHECK OVER SOURCE MUST NOT READ PROSE, and the file most likely to break
+    one is the file that DOCUMENTS the rule: `bytes.npk`'s header explains why
+    there is no `/` in it, and says `/` while doing so. Blanking is therefore
+    not tidiness -- without it this check fails the repository on the paragraph
+    arguing for it, which is the most confusing failure available."""
+    out = []
+    for line in text.split("\n"):
+        buf, i, in_str, n = [], 0, False, len(line)
+        while i < n:
+            ch = line[i]
+            if in_str:
+                if ch == "\\" and i + 1 < n:
+                    buf.append("  ")
+                    i += 2
+                    continue
+                buf.append(" ")
+                if ch == '"':
+                    in_str = False
+                i += 1
+                continue
+            if ch == '"':
+                in_str = True
+                buf.append(" ")
+                i += 1
+                continue
+            if ch == "/" and i + 1 < n and line[i + 1] == "/":
+                buf.append(" " * (n - i))
+                break
+            buf.append(ch)
+            i += 1
+        out.append("".join(buf))
+    return "\n".join(out)
+
+
+def check_no_division(root):
+    """No `/` or `%` under `src/` -- `SAFETY.md` S-25 (RX-132).
+
+    THIS IS AN ERROR-BUDGET CHECK AND NOT AN ARITHMETIC PREFERENCE. REACH-002
+    arms `DivByZero` and `DivOverflow` the moment a `/` or `%` appears in a
+    module, reachability is IMPORT-SCOPED, and `(*)` discharges neither. So a
+    single division anywhere under `src/` charges EVERY consuming program two
+    mandatory `failsafe` arms -- against S-8's promise of exactly one, and for
+    an arm that in this library's actual code could never fire.
+
+    Measured before the rule was written: two test programs calling only
+    `bytes_init`, `bytes_push` and the accessor pair were refused
+    `NITPICK-REACH-002` for both arms MERELY FOR IMPORTING a `bytes.npk` whose
+    `bytes_put_uint` used `x / 10u64`. Rewritten by subtraction, the same two
+    programs compile with the ordinary arm set. That is the whole case.
+
+    The check is deliberately over `src/` alone. `tests/` may divide -- a test
+    that needs a division declares its own arms and costs a consumer nothing,
+    because nobody imports a test."""
+    fl, notes = [], []
+    files = npk_files(root, "src")
+    for p in files:
+        rel = os.path.relpath(p, root)
+        try:
+            text = open(p, encoding="utf-8", errors="replace").read()
+        except OSError:
+            continue
+        for ln, line in enumerate(_blank_prose(text).split("\n"), 1):
+            for m in _DIV_OP.finditer(line):
+                fl.append(f"{rel}:{ln}:{m.start() + 1}: `{m.group(0)}` under src/. "
+                          f"A `/` or `%` ANYWHERE IN A MODULE arms `DivByZero` and "
+                          f"`DivOverflow` in EVERY program that imports it, because "
+                          f"reachability is import-scoped and `(*)` discharges "
+                          f"neither -- two mandatory arms against SAFETY.md S-8's "
+                          f"promise of exactly one. Use a shift and a mask on a "
+                          f"power of two, or subtraction (S-25, RX-132).")
+    notes.append("the rule is about the CONSUMER's failsafe, not about arithmetic: "
+                 "tests/ may divide freely, because nobody imports a test.")
+    return Result("check_no_division", "SAFETY.md S-25 (RX-132)",
+                  f"{len(files)} file(s) under src/", fl, notes)
 
 
 # --- check_specs_current --------------------------------------------------------------
@@ -410,7 +500,8 @@ def check_specs_current(root):
                   [], reports)
 
 
-ALL = [check_layering, check_error_budget, check_constants_named, check_specs_current]
+ALL = [check_layering, check_error_budget, check_constants_named,
+       check_no_division, check_specs_current]
 REPORTING_ONLY = {"check_specs_current"}
 
 

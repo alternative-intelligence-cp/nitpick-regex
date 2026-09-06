@@ -1,0 +1,44 @@
+// expect-exit: 94
+//
+// `Bytes` — OUT OF RANGE: bytes_set at a NEGATIVE index.
+//
+// A `buffer` LOOKS bounds-checked — it carries `.len` and `.cap` — and it is
+// not (RX-118). There is no route from a `buffer` to a slice, so every byte is
+// `buf.ptr[i]` through a bare `uint8->`, and `.len` sits beside the index doing
+// nothing unless `bytes.npk` compares against it. Without `bytes_get`/
+// `bytes_set` this program would exit 0 having read or written past the live
+// bytes into the buffer's zeroed tail or beyond it.
+//
+// `expect-exit: 94` is this file's `OutOfBounds` arm, so reaching failsafe
+// through it IS the assertion. One case per file: a trapping call cannot be
+// followed by an assertion in the same program.
+mod:bytes_oob_set_negative;
+
+use "../../src/core/bytes.npk".*;
+
+func:main = int32(cstring[]:argv) {
+    int64:past = argv.len;          // 1 with no arguments, computed at run time
+
+    Bytes:b = raw bytes_init(16i64);
+    drop bytes_push(@b, 65u8);
+    drop bytes_push(@b, 66u8);
+    // The capacity is 16 and the live length is 2, so an unchecked index here
+    // would succeed and read a zero rather than trapping — which is why the
+    // check is against `len` and never against `buf.len`.
+    drop bytes_set(@b, 0i64 - past, 7u8);
+
+    exit 50i32;                     // unreachable while the check exists
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

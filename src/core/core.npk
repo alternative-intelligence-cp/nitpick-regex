@@ -41,6 +41,7 @@ pub use "./limits.npk".NREGEX_LITERAL_BYTES;
 // out-of-range index reads a heap word instead of trapping. No `.items[` may
 // appear outside `vec.npk`, and a tree check says so.
 pub use "./vec.npk".Vec;
+pub use "./vec.npk".vec_oob;
 pub use "./vec.npk".vec_init;
 pub use "./vec.npk".vec_init_zeroed;
 pub use "./vec.npk".vec_free;
@@ -55,3 +56,57 @@ pub use "./vec.npk".vec_remove;
 pub use "./vec.npk".vec_swap_remove;
 pub use "./vec.npk".vec_truncate;
 pub use "./vec.npk".vec_clear;
+
+// ---- `Bytes`, and the SECOND accessor pair (RX-118) ------------------------
+//
+// A `buffer` is not bounds-checked either: there is no route to a slice, so
+// every byte is `buf.ptr[i]` through a bare `uint8->`. No `.ptr[` outside
+// `bytes.npk`. There is deliberately no `bytes_view` — a slice may travel DOWN
+// the call stack and not up, and returning one is the escape the compiler does
+// not diagnose (O-N9).
+pub use "./bytes.npk".Bytes;
+pub use "./bytes.npk".bytes_init;
+pub use "./bytes.npk".bytes_len;
+pub use "./bytes.npk".bytes_clear;
+pub use "./bytes.npk".bytes_reserve;
+pub use "./bytes.npk".bytes_get;
+pub use "./bytes.npk".bytes_set;
+pub use "./bytes.npk".bytes_push;
+pub use "./bytes.npk".bytes_extend;
+pub use "./bytes.npk".bytes_extend_str;
+pub use "./bytes.npk".bytes_put_uint;
+pub use "./bytes.npk".bytes_take_string;
+
+// ---- `ByteSet`, and the one structure that needs no accessor pair ----------
+//
+// `uint64[4]` is a FIXED ARRAY, which carries its length, so D-070's guard IS
+// emitted for it — the opposite of `Vec` and `Bytes`, and the reason is the
+// type rather than care (`SAFETY.md` §5.3's table). The index is a `uint8`, so
+// the word index is 0..3 by construction.
+pub use "./byteset.npk".ByteSet;
+pub use "./byteset.npk".byteset_empty;
+pub use "./byteset.npk".byteset_full;
+pub use "./byteset.npk".byteset_contains;
+pub use "./byteset.npk".byteset_add;
+pub use "./byteset.npk".byteset_remove;
+pub use "./byteset.npk".byteset_union;
+pub use "./byteset.npk".byteset_intersect;
+pub use "./byteset.npk".byteset_complement;
+pub use "./byteset.npk".byteset_difference;
+pub use "./byteset.npk".byteset_next;
+pub use "./byteset.npk".byteset_count;
+
+// ---- `SparseSet`, on which the linear-time guarantee rests -----------------
+//
+// O(1) insert, membership and CLEAR. The clear is the one that matters: without
+// it the Pike VM would pay the program size on every haystack byte whether or
+// not a thread was live.
+pub use "./sparseset.npk".SparseSet;
+pub use "./sparseset.npk".sset_init;
+pub use "./sparseset.npk".sset_free;
+pub use "./sparseset.npk".sset_capacity;
+pub use "./sparseset.npk".sset_contains;
+pub use "./sparseset.npk".sset_insert;
+pub use "./sparseset.npk".sset_clear;
+pub use "./sparseset.npk".sset_at;
+pub use "./sparseset.npk".sset_len;
