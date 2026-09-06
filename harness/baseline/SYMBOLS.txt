@@ -2,32 +2,5 @@
 # Recorded by `harness/run.py --record-baseline` against the pinned
 # npkc. A DIFFERENCE HERE IS A PRELUDE CHANGE, not a library change,
 # and re-recording it is a deliberate act reviewed on its own.
-__divti3
-npk_alloc
-npk_chain_push
-npk_chain_reset
 npk_dalloc
-npk_exec
-npk_exit
-npk_int_to_string
-npk_io_register
-npk_io_unwatch
-npk_join_deadline
-npk_mono_now
 npk_ofd_close
-npk_open
-npk_park_until
-npk_read
-npk_run_until
-npk_string_concat
-npk_string_equals
-npk_string_from_bytes
-npk_string_slice
-npk_sys6
-npk_thread_join
-npk_to_cstring
-npk_trap
-npk_windup_all
-npk_windup_grace
-npk_windup_note
-npk_write
