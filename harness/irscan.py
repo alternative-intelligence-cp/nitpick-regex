@@ -8,17 +8,28 @@ library newly NEEDS. It cannot catch a floor symbol the library newly CALLS,
 because at 950bb1d every syscall in the language goes through ONE symbol the
 baseline already carries.
 
-Measured 2026-09-04 at the pin, two four-line programs differing only in a
-`sys(39i64)` call in `main`:
+Measured 2026-09-04 AT COMPILER `950bb1d` -- naming the commit rather than
+saying "at the pin", because the pin moves and a measurement dated to a moving
+name goes false with nobody editing it (cycle 0.0.5). Two four-line programs
+differing only in a `sys(39i64)` call in `main`:
 
     baseline    29 undefined symbols   2 `call i64 @npk_sys6` sites
     syscaller   29 undefined symbols   3 `call i64 @npk_sys6` sites
     symmetric difference of the symbol sets: EMPTY
 
-So the symbol scan alone reports a clean run on a program that has just made a
+So the symbol scan alone reported a clean run on a program that had just made a
 syscall, and 0.0.2's acceptance item -- "a deliberately introduced `sys(...)`
 call fails `check_no_syscalls`, by name" -- could not have been met by the
 instrument that was specified for it. RX-120.
+
+AT `3d15ac9` THAT HALF HAS EXPIRED AND THIS MODULE IS STILL THE ANSWER. D-262
+emits a prelude item only when it is referenced, so the floor is 2 symbols with
+no `npk_sys6`, the syscaller is 3, and the difference IS that symbol -- both
+pins run back to back in `harness/baseline/RX120.txt`. What does not expire is
+the reason this scan exists in the form it has: the symbol layer reports THAT a
+kernel symbol is needed and can never report WHERE it is called from, and a
+prelude that starts emitting `npk_sys6` again would blind it a second time.
+RX-131 corrects the clause; RX-120's decision stands.
 
 WHAT THIS SCANS. Every `(enclosing function, callee)` edge in the -O0 IR whose
 callee is DECLARED and not DEFINED in the module. The baseline's edge set is
@@ -118,8 +129,8 @@ def scan(ir_text, baseline_edges, name):
             continue
         fl.append(f"{name}: `{fn}` calls `{callee}`, and the baseline does not. "
                   f"`nregex` makes no syscall and touches no descriptor (RX-008); "
-                  f"this is the check that says so, because the undefined-symbol "
-                  f"set cannot -- `{callee}` is already in the prelude's floor "
-                  f"(RX-120). If this call is legitimate, removing the symbol from "
+                  f"this is the check that NAMES THE CALLING FUNCTION, which the "
+                  f"undefined-symbol layer cannot do at any pin (RX-120, RX-131). "
+                  f"If this call is legitimate, removing the symbol from "
                   f"`harness/irscan.py` DENIED is a decision, not a fix.")
     return fl

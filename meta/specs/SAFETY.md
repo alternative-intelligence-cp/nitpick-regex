@@ -330,6 +330,16 @@ than a style note:**
   controls — so it is the second-most exposed accessor here and it was outside
   this rule until the `buffer` row was added.
   Before this rule that pair was tidiness; it is now the only bounds check.
+  **The tree check named twice above is `check_accessor_confinement`, and it did
+  not exist until cycle 0.0.5** — this rule asserted an enforcement for five
+  subcycles while `treecheck.ALL` held four checks and neither of them. It runs
+  over `src/` on every full invocation, blanks prose first (the files that
+  document this rule name the banned text while doing so), and checks **both
+  directions**: a use outside the owning file fails, and an owning file that no
+  longer contains its own accessor fails too, because a confinement list decays
+  through its reason rather than its membership. Seen to fail in both, with
+  `src/core/core.npk` — which names both patterns in comments — as the clean
+  control. RX-136.
 - **A VIOLATION TRAPS `OutOfBounds` (RX-130).** `vec_get`, `vec_set`,
   `bytes_get` and `bytes_set` do not return a `Result` on an out-of-range
   index: S-4 says matching cannot fail and `regex_find` returns `Match?` and not
@@ -362,8 +372,16 @@ call stack and never up (D-004, D-070). A function therefore **cannot return
 one**, so:
 
 ```nitpick
-pub struct:Match = { int64:start; int64:end; };     // byte offsets, half-open
+pub struct:Match = { int64:lo; int64:hi; };     // byte offsets, half-open [lo, hi)
 ```
+
+*(The fields read `start` and `end` here until cycle 0.0.5. `API.md` A-3 and
+`BUILD.md` B-18 had said `lo`/`hi` since 0.0.0 — **three documents declare this
+struct and two of them were updated**, leaving the rule that OWNS the
+offsets-not-slices decision spelling it the old way. B-18 even says "stated in
+`API.md` §2 and here", naming two of the three. **The correction is the field
+names only; RX-134 measured that the stated REASON was false** — a struct field
+MAY be named `end`, at all three kept pins.)*
 
 The caller slices its own haystack. This is not a workaround — it is better
 than the alternative in three ways that are worth stating, because a reader
@@ -392,7 +410,10 @@ locals and `comptime func:` calls (`MACRO_REFERENCE.md` §8), so this looks
 available.
 
 It is not. Measured at the compiler's cycle 1.5.0, reading
-`src/frontend/resolve_type.npk`:
+`src/frontend/resolve_type.npk` — **which is now `src/frontend/type_resolve.npk`;
+the file was renamed and this citation was re-verified under the new name at pin
+`3d15ac9` on 2026-09-06, both claims unchanged.** Cite `fold_expr` and
+`fold_string_builtin` by name, since a symbol survives a rename:
 
 - `fold_expr` dispatches on integer, bool, char and string literals; `comptime`
   expressions; unary, binary, cast and unchecked-cast expressions; builtins;
@@ -406,10 +427,26 @@ So a `comptime func:` can concatenate, compare and measure a pattern string,
 and cannot **look at a byte of it**. A pattern walker is not expressible, and
 therefore neither is compile-time validation.
 
-The gap is small — one more `fold_expr` arm for indexing a string literal, or
-`string_slice` in the foldable set — and the payoff is a property no regex
-library in any language offers. It is raised as **O-G1** and this section is
-the evidence for the request.
+**PROBE 09 MEASURED THIS AND MOVED THE WALL ONE STEP EARLIER THAN THE READING
+ABOVE PREDICTED.** The prediction from the source was *"no arm for an INDEX
+expression"*. It is not the index. Nine `comptime func:` bodies, each adding one
+construct: a plain constant, a mutable local with arithmetic, a counted `while`,
+and all four foldable string builtins **fold**; `string_bytes` followed by
+`.len` **does not**, and neither does `string_bytes` followed by an index.
+**`string_bytes` is the wall and `.len` alone is already past it** — the view is
+never produced, so the index never gets a chance.
+
+So the gap is **two** arms rather than one: fold `string_bytes` (or add a
+comptime byte accessor), *and* an index arm on the slice it yields. It is raised
+as **O-G1**, whose entry in `meta/OPEN_QUESTIONS.md` carries the isolation
+table, the verbatim diagnostic and the request in raisable form.
+
+*(This paragraph said "the gap is small — one more `fold_expr` arm" until cycle
+0.0.5, while calling itself "the evidence for the request". The evidence
+document was the stale one: probe 09 reported at 0.0.0 and the correction landed
+in `OPEN_QUESTIONS.md` and not here. Re-verified at pin `3d15ac9`: the probe
+still refuses, the diagnostic is byte-identical, `fold_string_builtin` still
+handles exactly four names, and `fold_expr` still has no index arm — RX-135.)*
 
 *(A related documentation defect found in the same reading:
 `MACRO_REFERENCE.md` §8 says "a `const` global folds", and `const` was retired

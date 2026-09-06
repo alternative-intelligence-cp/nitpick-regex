@@ -167,7 +167,14 @@ without reporting it; it always terminates.
 random bytes, invalid UTF-8, very long runs, and strings derived from the
 pattern itself — and requires: every engine agrees; the naive oracle agrees
 where it finishes; no search allocates; no search traps; offsets are within the
-haystack and, in Unicode mode, on UTF-8 boundaries.
+haystack and, in Unicode mode, on UTF-8 boundaries; **and no accessor is ever
+called with an out-of-range index**, asserted in the debug build.
+
+*(The last invariant was added at cycle 0.0.5. `SAFETY.md` §5.3 has stated since
+0.0.0 that "`TESTING.md`'s fuzzer invariants gain one" — as something already
+done — and this list did not have it. A consequence written in the document that
+DISCOVERED it, in the future tense, and never carried to the document that OWNS
+it: the reader of either one sees a complete page. RX-136.)*
 
 **Rule V-18 — anything a fuzzer finds becomes a permanent fixture**, minimised,
 with the defect named.
@@ -189,6 +196,8 @@ run on every full invocation.
 | `check_hir_kinds_total` | the same for `HirKind` |
 | `check_layering` | every `use` edge against `BUILD.md` §6, including the oracle's restriction |
 | `check_constants_named` | no bound outside `src/core/limits.npk` |
+| `check_no_division` | no `/` or `%` under `src/` — `SAFETY.md` S-25 (RX-132), because a division arms two `failsafe` arms in every importer |
+| `check_accessor_confinement` | no `.items[` outside `src/core/vec.npk`, no `.ptr[` outside `src/core/bytes.npk` — `SAFETY.md` S-23, **the only bounds check this library has** (RX-136) |
 | `check_no_syscalls` | the object's undefined symbols, **and the IR's floor call edges**, against the committed baseline — RX-116 and RX-120, §2 |
 | `check_byte_class_partition` | `COMPILE.md` C-9's property, over every corpus program |
 | `check_specs_current` | reports, does not fail: spec citations that no longer resolve |

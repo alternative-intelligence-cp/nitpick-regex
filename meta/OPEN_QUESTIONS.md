@@ -64,7 +64,7 @@ deliberately *not* rewritten.
    `nitpick-regex O-N3`.** That line is in the workbench, which this repository
    does not write. It is raised in 0.0.1's report for the author to correct.
 
-**`meta/roadmap/0.0/0.0.0.md` was deliberately NOT renumbered.** It is a closed
+**`meta/roadmap/done/0.0/0.0.0.md` was deliberately NOT renumbered.** It is a closed
 subcycle's execution record, independently verified at `9b80d69`, and a verified
 artifact is not edited afterwards — the workbench's own `RECORD.md` keeps a
 misnumbered `O-N7` for exactly this reason. Its `O-N1` and `O-N4` mean the
@@ -72,13 +72,13 @@ misnumbered `O-N7` for exactly this reason. Its `O-N1` and `O-N4` mean the
 those citations resolve.
 
 ### ~~O-N1~~ — **RENUMBERED to `O-G1`** (this repository's legacy local id), RX-114
-Cited under the old number only in `meta/roadmap/0.0/0.0.0.md`, which is frozen.
+Cited under the old number only in `meta/roadmap/done/0.0/0.0.0.md`, which is frozen.
 **The workbench registry's `O-N1` is a different thing** — `clone_exec` has no
 signal-mask slot, raised by `nitpick-tui` — and this library has no interest in
 it.
 
 ### ~~O-N4~~ — **RENUMBERED to `O-G4`** (this repository's legacy local id), RX-114
-Cited under the old number only in `meta/roadmap/0.0/0.0.0.md`, which is frozen.
+Cited under the old number only in `meta/roadmap/done/0.0/0.0.0.md`, which is frozen.
 **The workbench registry's `O-N4` is a different thing** — `npkc` is quadratic
 in the size of one declaration, raised by `nitpick-time`, the compiler's DEF-1.
 `nregex` generates no large single declaration before cycle 0.3's Unicode
@@ -409,7 +409,9 @@ offers that.
 Nitpick has a real `comptime` interpreter with loops, mutable locals,
 `comptime func:` calls and strings (`MACRO_REFERENCE.md` §8), so it looks
 available. It is not. Measured at the compiler's 1.5.0, reading
-`src/frontend/resolve_type.npk`:
+`src/frontend/resolve_type.npk` — **renamed since to
+`src/frontend/type_resolve.npk`; both claims below re-verified there at pin
+`3d15ac9`, see the raisable form at the end of this entry**:
 
 - `fold_expr` dispatches on integer, bool, char and string literals; `comptime`
   expressions; unary, binary, cast and unchecked-cast expressions; builtins;
@@ -464,6 +466,87 @@ missing is exclusively the ability to look at a byte.
 empty-pattern check are enforceable at compile time with `string_byte_length`
 and `string_is_empty` alone — `probe10`'s `pattern_len_ok`. That is not
 `#regex(…)`, and it is not nothing.
+
+#### O-G1, re-verified at `3d15ac9` and written in raisable form — cycle 0.0.5
+
+**Everything above was measured at `950bb1d`, and this section exists because
+that is not good enough to raise on.** Two of this repository's probe verdicts
+have already reversed under a re-pin (RX-125's derives, RX-127's `limit<Rules>`),
+so a request built on a nine-month-old — here, three-day-old — source reading is
+a request that can bounce. Re-measured 2026-09-06 at the working pin:
+
+| Claim | At `3d15ac9` | How checked |
+|---|---|---|
+| the probe still refuses | **yes**, `NITPICK-TYPE-004`, exit 1, no `.ll` written | `npkc tests/probe/refused/probe09_comptime_walker.npk -o …` |
+| the diagnostic's text | **byte-identical**, span included | stderr compared to the quotation above |
+| `fold_string_builtin`'s names | **exactly four**, unchanged | the four `string_eq(name, …)` arms in its body |
+| `fold_expr`'s dispatch | **fourteen `ExprKind` arms**, none for an index, a member access, an array literal or a struct literal | every `ExprKind.*` in the function body |
+| **the file's NAME** | **CHANGED** — it is `src/frontend/type_resolve.npk` | `git -C ../../nitpick grep -l 'func:fold_expr' 3d15ac9` |
+
+**The last row is the whole argument for re-verifying.** Everything above cites
+`src/frontend/resolve_type.npk`, and **there is no such file at the pin.** A
+request naming a path the maintainer cannot open is a request that costs a round
+trip before it is even read. Cite `fold_expr` and `fold_string_builtin` **by
+name**, per `PLAYBOOK.md` §6 — a symbol survives a rename and a line number does
+not survive anything.
+
+---
+
+**THE REQUEST, self-contained. Everything below is quotable into the compiler
+repository as it stands; it names no file of ours and assumes nothing a reader
+there does not have.**
+
+> **Request: fold `string_bytes`, and add an index arm to `fold_expr`.**
+>
+> **What is wanted.** A `comptime func:` that can read a byte of a string
+> literal. Today it can concatenate, compare and measure one, and cannot look
+> inside it.
+>
+> **Measured at `3d15ac9`.** Nine `comptime func:` bodies, each adding one
+> construct, each compiled and its exit code recorded. Seven fold: a plain
+> constant, a mutable local with arithmetic, a counted `while`, and all four of
+> `string_byte_length`, `string_is_empty`, `string_equals`, `string_concat`. Two
+> do not: `string_bytes` followed by `.len`, and `string_bytes` followed by an
+> index. **The wall is `string_bytes` and `.len` alone is already past it** —
+> the view is never produced, so the index never gets a chance.
+>
+> **Where, by name rather than by line.** In `src/frontend/type_resolve.npk`:
+> `fold_string_builtin` dispatches on exactly four names — `string_concat`,
+> `string_equals`, `string_byte_length`, `string_is_empty` — and
+> `string_bytes` is not one of them. `fold_expr` dispatches on fourteen
+> `ExprKind`s and has **no arm for an index expression**, a member access, an
+> array literal or a struct literal.
+>
+> **The diagnostic, verbatim:**
+>
+> ```
+> NITPICK-TYPE-004 …:77:16: `comptime` requires an expression that folds at
+> compile time, and this one does not
+> ```
+>
+> **A second, smaller ask, and it may be the better-value one.** That message is
+> exact about the fact and **silent about the cause** — it does not say which
+> sub-expression refused to fold. Diagnosing this without building the
+> nine-body isolation table above costs an afternoon; with one named
+> sub-expression it costs a minute. The isolation table is the evidence that the
+> silence is expensive, and it was built precisely because the message would not
+> say.
+>
+> **Why a consumer wants it.** A regex library can then offer `#regex("…")`: a
+> malformed pattern literal becomes a **compile error at the line that wrote
+> it**, with no run-time error path and no `Result` for the caller to ignore.
+> **No regex library in any language offers that**, and under REACH-002 it is
+> worth more here than elsewhere — it removes an entire error identity from
+> every consuming program's `failsafe`.
+>
+> **What already works is the argument for the size of the ask.** Loops, mutable
+> locals and every string operation a validator needs to *report* with are
+> foldable today. The missing capability is exclusively *reading a byte*, and the
+> two arms above are the whole of it.
+>
+> **Not blocking anything.** The library ships without it; `regex_compile`
+> returns `Result<Regex>` and always will, because a pattern can arrive at run
+> time. This is a request, not a defect, and not a date.
 
 ### O-G2 — `MACRO_REFERENCE.md` §8 says `const`, which no longer exists
 **A documentation defect, found in the same reading.** §8's "What a name means

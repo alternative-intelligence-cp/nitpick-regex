@@ -438,6 +438,96 @@ def check_no_division(root):
                   f"{len(files)} file(s) under src/", fl, notes)
 
 
+# --- check_accessor_confinement -------------------------------------------------------
+
+# `.items[` and `.ptr[`, with the dot. Written as two patterns rather than one
+# alternation so a failure names which accessor was reached around.
+_ACCESSORS = (
+    (".items[", "src/core/vec.npk",   "vec_get / vec_set"),
+    (".ptr[",   "src/core/bytes.npk", "bytes_get / bytes_set"),
+)
+
+
+def check_accessor_confinement(root):
+    """No `.items[` outside `vec.npk`, no `.ptr[` outside `bytes.npk` -- S-23.
+
+    THIS IS THE ONLY BOUNDS CHECK THIS LIBRARY HAS, AND UNTIL CYCLE 0.0.5
+    NOTHING ENFORCED IT. `SAFETY.md` §5.3 has said since 0.0.0 that "a tree
+    check enforces that no `.items[` appears outside `src/core/vec.npk`", and
+    RX-118 added the identical sentence for `.ptr[`. Both were true as
+    intentions and false as descriptions: `treecheck.ALL` held four checks and
+    neither of them. The specification asserted an enforcement, the reader had
+    no way to tell, and the rule it guards is the one S-23 calls the only thing
+    standing between a caller and a silently wrong answer.
+
+    WHY THAT MATTERS MORE HERE THAN A MISSING CHECK USUALLY WOULD. D-070's
+    bounds guard is emitted for a slice, a fixed array and a SIMD lane, and for
+    nothing else. `Vec<T>.items` is a `wild T->` and a `buffer`'s bytes are
+    reached through `.ptr`, a bare `uint8->`, so an out-of-range index in
+    either READS AND RETURNS A HEAP WORD at exit 0 -- probe 08b measured 7 992
+    bytes past the allocation. An accessor bypassed anywhere is not a crash to
+    debug; it is a wrong answer with a green suite beside it.
+
+    BOTH DIRECTIONS, because a confinement list decays the same way an
+    exemption list does (`PLAYBOOK.md`). A use outside the owning file fails.
+    AND AN OWNER THAT NO LONGER CONTAINS ITS OWN PATTERN FAILS TOO -- otherwise
+    the day `vec.npk` is rewritten to reach its storage some other way, this
+    check keeps passing over a rule that has quietly stopped being about
+    anything. Membership is checked; so is the reason.
+
+    Prose is blanked first. The files most likely to trip this are the four
+    that DOCUMENT it -- `vec.npk`, `bytes.npk` and `core.npk` all name
+    `.items[` or `.ptr[` in comments while explaining the prohibition -- so
+    `core.npk` is the standing clean control: it contains the banned text, in a
+    comment, and must not be reported."""
+    fl, notes = [], []
+    files = npk_files(root, "src")
+    owners_seen = {pat: False for pat, _, _ in _ACCESSORS}
+
+    for path in files:
+        rel = os.path.relpath(path, root).replace(os.sep, "/")
+        try:
+            text = open(path, encoding="utf-8", errors="replace").read()
+        except OSError:
+            continue
+        code = _blank_prose(text)
+        for pat, owner, pair in _ACCESSORS:
+            for ln, line in enumerate(code.split("\n"), 1):
+                col = line.find(pat)
+                while col != -1:
+                    if rel == owner:
+                        owners_seen[pat] = True
+                    else:
+                        fl.append(
+                            f"{rel}:{ln}:{col + 1}: `{pat}` outside `{owner}`. "
+                            f"`Vec<T>.items` is a `wild T->` and a `buffer`'s "
+                            f"bytes are reached through a bare `uint8->`, so "
+                            f"D-070 emits NO bounds guard for either -- an "
+                            f"out-of-range index READS AND RETURNS A HEAP WORD "
+                            f"at exit 0. Go through `{pair}`, which is the only "
+                            f"bounds check this library has "
+                            f"(SAFETY.md S-23, RX-111, RX-118).")
+                    col = line.find(pat, col + 1)
+
+    for pat, owner, pair in _ACCESSORS:
+        if not owners_seen[pat]:
+            fl.append(
+                f"{owner}: this file is the NAMED OWNER of `{pat}` and no "
+                f"longer contains it. Either the accessor pair `{pair}` stopped "
+                f"reaching its storage that way -- in which case this "
+                f"confinement rule now guards nothing and S-23 needs rewriting "
+                f"-- or the file moved. A confinement list checks MEMBERSHIP "
+                f"and its REASON, because only the second one decays quietly.")
+
+    notes.append("both directions: a use outside the owner fails, and an owner "
+                 "that no longer uses its own accessor fails too.")
+    notes.append("`src/core/core.npk` names both patterns in comments and is the "
+                 "clean control -- prose is blanked, so the file documenting the "
+                 "rule is not failed by it.")
+    return Result("check_accessor_confinement", "SAFETY.md S-23 (RX-111, RX-118)",
+                  f"{len(files)} file(s) under src/, 2 confined accessors", fl, notes)
+
+
 # --- check_specs_current --------------------------------------------------------------
 
 _SPEC_LINK = re.compile(r'\[[^\]]*\]\(([^)]+\.md)(?:#[^)]*)?\)')
@@ -501,7 +591,7 @@ def check_specs_current(root):
 
 
 ALL = [check_layering, check_error_budget, check_constants_named,
-       check_no_division, check_specs_current]
+       check_no_division, check_accessor_confinement, check_specs_current]
 REPORTING_ONLY = {"check_specs_current"}
 
 

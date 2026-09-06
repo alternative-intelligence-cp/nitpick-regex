@@ -224,11 +224,23 @@ def _case4(d):
 def _case8(d):
     """A program that MAKES A SYSCALL -- `harness/selfcheck/syscall_consumer.npk`.
 
-    Must fail rule B-2a by naming the function AND `npk_sys6`. It is the
-    committed fixture rather than one constructed here, because RX-120's whole
-    finding is that the OTHER layer cannot see this: the undefined-symbol sets
-    are identical, 29 each way, since `npk_sys6` is already the prelude's. A
-    case that passed on the symbol difference would be proving the wrong thing.
+    Must fail rule B-2a by naming the function AND `npk_sys6`.
+
+    WHY IT IS THE COMMITTED FIXTURE RATHER THAN ONE BUILT HERE — AND THE REASON
+    HAS CHANGED UNDER US, WHICH IS WORTH MORE THAN THE REASON. This docstring
+    read, until cycle 0.0.5: "RX-120's whole finding is that the OTHER layer
+    cannot see this: the undefined-symbol sets are identical, 29 each way, since
+    `npk_sys6` is already the prelude's." THAT WAS TRUE AT `950bb1d` AND IS
+    FALSE AT `3d15ac9`. D-262 stopped emitting an unreferenced prelude item, so
+    the floor is 2 symbols with no `npk_sys6`, the syscaller is 3, and the
+    difference is exactly that symbol -- both pins run back to back in
+    `harness/baseline/RX120.txt`.
+
+    THE CASE IS UNCHANGED AND SO IS ITS VALUE, for a reason that does not
+    depend on the prelude: the symbol layer can say THAT a syscall exists and
+    can never say WHERE. This case's `must_say` requires the calling function
+    to be named, which only the call-edge scan does -- and which stays true
+    whichever items the prelude decides to emit next.
 
     THE FIXTURE MUST REACH `src/`, or neither scan applies to it (RX-121) and
     the case would pass because the check never ran -- which is the failure
@@ -308,7 +320,7 @@ CASES = [
          "THE CASE PROVING RX-041 IS DOING WORK -- the most important in the list",
          None, (), "0.8 -- there is more than one engine only from 0.8"),
     Case(8, "a program that makes a syscall",
-         "B-2a, and the layer the symbol difference CANNOT see (RX-120)",
+         "B-2a: the symbol difference can see THAT, never WHERE (RX-120, RX-131)",
          _case8, ["syscall_consumer.npk", "`main` calls `npk_sys6`"]),
     Case(9, "a program needing a floor symbol neither the baseline nor the residue list has",
          "B-2, RX-116 as amended by RX-131 -- the other layer, and neither "

@@ -84,7 +84,7 @@ path  = "tests/conformance"
 #
 # So the 7 moved to `tests/probe/refused/`, the compiler's own convention of a
 # directory per kind. Cycle 0.0.0's execution record cites their old paths and
-# is a verified artifact that is not rewritten; `meta/roadmap/0.0/0.0.2.md` has
+# is a verified artifact that is not rewritten; `meta/roadmap/done/0.0/0.0.2.md` has
 # the redirect table, in the pattern RX-114 established for the O-G renumbering.
 
 [[test]]

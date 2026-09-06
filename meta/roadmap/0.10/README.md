@@ -28,7 +28,7 @@ a `comptime` parameter — recommendation: a value).
 ### 0.10.0 — `Regex`, `Cache`, `Match`
 - [ ] `regex_compile`, `regex_compile_opts`, `regex_escape`, `regex_cache`
 - [ ] `regex_is_match`, `regex_find`, `regex_find_at` — **none returning `Result`** (A-1, RX-061)
-- [ ] `Match` is `{lo, hi}` (RX-050), and **the fields are `lo` and `hi`** because `end` does not parse (A-3)
+- [ ] `Match` is `{lo, hi}` (RX-050), and **the fields are `lo` and `hi`** by A-3 — *not* because `end` cannot be a field name, which RX-134 measured to be false at all three kept pins
 - [ ] **`regex_find_at`'s `at` is where the search starts, not where the haystack starts** (A-5): `^` still means the start of `hay` and `\b` at `at` still looks at the byte before it. A test asserts searching `hay[at..]` gives a *different* answer, so the distinction is protected
 - [ ] `ERegexPattern` is the **only** `error:` in the library; `check_error_budget` green
 
@@ -82,6 +82,6 @@ and a real program compiled and run from the examples directory.
   invisible until a pattern uses `^` or `\b`.
 - **The empty-match rule in one place.** Three iterators each implementing it is
   three chances for one of them not to terminate.
-- **`end` does not parse as a field name.** It will be reached for repeatedly.
+- **`end` is refused as a BINDING name and accepted as a FIELD name** (RX-134, measured). The field is `hi` by A-3's choice, not by the compiler's. What will actually bite is `int64:end = …` in a loop, which is `NITPICK-PARSE-002`.
 - **A returned iterator is refused** and a consumer arriving from Rust will try.
   The rejection test is documentation as much as it is a test.

@@ -1,0 +1,144 @@
+THE RX-120 EXPIRY, REPRODUCED.  cycle 0.0.5, 2026-09-06.
+
+WHY THIS FILE EXISTS. RX-120 is this repository's most travelled finding: the
+undefined-symbol difference cannot see a syscall, therefore `check_no_syscalls`
+needs a second layer that scans the IR's call edges. It was measured at compiler
+`950bb1d` and it was correct there. IT IS NO LONGER CORRECT AT `3d15ac9`, and
+until this file existed that reversal was recorded in three places as an
+ASSERTION -- `harness/build.py`, `meta/DECISIONS.md` RX-131, and `0.0.4.md` --
+with no transcript behind any of them, unlike the original measurement, which
+`0.0.2.md` did back with a table.
+
+That gap mattered more than usual because the finding is PIN-DEPENDENT and was
+being carried to four sibling repositories as current fact. A claim that four
+repositories are about to act on should be reproducible by running a file, not
+by trusting a sentence.
+
+WHAT IS SHOWN, AND IT IS BOTH PINS RATHER THAN ONE. Sections A-C measure the
+floor and a syscaller at the working pin. Section D re-runs the identical two
+commands under the SUPERSEDED compiler, which this workbench still keeps -- so
+the expiry is demonstrated inside one transcript instead of being an argument
+between two dated claims. Section E says what did not expire.
+
+READ THE EXIT CODES. Every command is followed by `exit=$?` on its own line
+with no pipeline between, because `$?` after a pipeline is the last filter's
+status and this ecosystem has shipped a whole sweep on that bug.
+
+ONE SUBSTITUTION, DECLARED BECAUSE A TRANSCRIPT THAT CLAIMS TO BE VERBATIM MUST
+SAY WHERE IT WAS TOUCHED. The two `npkc` paths below were absolute when the
+commands ran; the workbench root is rewritten to `$TOOLCHAIN` so no absolute
+path is committed. Nothing else is edited, and the two sha256 lines are the
+identities that actually matter -- they pin which binaries produced these
+numbers regardless of where anyone keeps them.
+
+    $TOOLCHAIN = <workbench>/.internal/toolchain
+
+-------------------------------------------------------------------------------
+# THE RX-120 EXPIRY, REPRODUCED RATHER THAN ASSERTED.
+# Every command below was run in this order from the repository root on
+# 2026-09-06 at pinned compiler 3d15ac9, LLVM 20.1.2. Verbatim.
+
+npkc  = $TOOLCHAIN/3d15ac9/npkc
+sha256(npkc) = 3b7d6aa0d86215b37e0b24bf00fc9481cb651057d93e5cad89b2763c6e82c9e7
+
+## A. The floor -- harness/baseline/baseline.npk, which imports nothing.
+$ $NPKC harness/baseline/baseline.npk -o .internal/rx120/floor.ll   # stdout redirected: npkc emits IR to it
+exit=0
+$ llc -O0 -filetype=obj -relocation-model=static .internal/rx120/floor.ll -o .internal/rx120/floor.o
+exit=0
+$ llvm-nm --undefined-only .internal/rx120/floor.o
+exit=0
+                 U npk_dalloc
+                 U npk_ofd_close
+-- count --
+2
+
+## B. The syscaller -- harness/selfcheck/syscall_consumer.npk, whose main
+##    calls sys(39i64). It imports src/lib.npk so that both B-2 scans
+##    apply to it at all (RX-121).
+$ $NPKC harness/selfcheck/syscall_consumer.npk -o .internal/rx120/sys.ll
+exit=0
+$ llc -O0 -filetype=obj -relocation-model=static .internal/rx120/sys.ll -o .internal/rx120/sys.o
+exit=0
+$ llvm-nm --undefined-only .internal/rx120/sys.o
+exit=0
+                 U npk_dalloc
+                 U npk_ofd_close
+                 U npk_sys6
+-- count --
+3
+
+## C. The difference at 3d15ac9 -- the whole claim, in one command.
+$ diff <(llvm-nm --undefined-only .internal/rx120/floor.o) <(llvm-nm --undefined-only .internal/rx120/sys.o)
+2a3
+>                  U npk_sys6
+exit=1
+
+## D. THE HISTORICAL CONTROL, AND IT IS WHY THIS FILE EXISTS.
+##
+## RX-120 was measured at compiler 950bb1d and said the two sets are
+## IDENTICAL, 29 each way. That pin is still kept, so the expiry is
+## SHOWN here rather than argued: the same two source files, the same
+## two commands, the older compiler. This is a CONTROL at a superseded
+## pin and not the toolchain this subcycle was worked at (W-18) -- the
+## work above is 3d15ac9, and section A's sha256 is the one that counts.
+##
+## npkc(950bb1d) = $TOOLCHAIN/950bb1d/npkc
+## sha256        = fbb7d022e6a98ebcc9bc138aa01305310249eff54ddbf1aa0fc307aa52f8419f
+$ $NPKC_950bb1d harness/baseline/baseline.npk -o .internal/rx120/floor_old.ll
+exit=0
+$ $NPKC_950bb1d harness/selfcheck/syscall_consumer.npk -o .internal/rx120/sys_old.ll
+exit=0
+$ llc -O0 -filetype=obj -relocation-model=static .internal/rx120/floor_old.ll -o .internal/rx120/floor_old.o
+exit=0
+$ llvm-nm --undefined-only .internal/rx120/floor_old.o   # count only; the 29 names are RX-120's
+exit=0
+-- count --
+29
+$ llc -O0 -filetype=obj -relocation-model=static .internal/rx120/sys_old.ll -o .internal/rx120/sys_old.o
+exit=0
+$ llvm-nm --undefined-only .internal/rx120/sys_old.o   # count only; the 29 names are RX-120's
+exit=0
+-- count --
+29
+$ diff .internal/rx120/floor_old.undef .internal/rx120/sys_old.undef
+exit=0   # 0 = the sets are IDENTICAL; this is RX-120's finding, reproduced
+$ grep -c npk_sys6 .internal/rx120/floor_old.undef
+1
+exit=0   # npk_sys6 is in the OLD FLOOR, which is the whole mechanism
+
+## E. WHY RX-120'S REMEDY IS NOT RETIRED BY ANY OF THE ABOVE.
+##
+## The symbol layer now sees THAT a syscall exists. It does not say WHERE.
+## The IR call-edge scan does, and it is unaffected by what the prelude
+## chooses to emit -- so it survives the next prelude change too.
+$ python3 -c "import harness.irscan as s; print(s.kernel_call_edges(open('.internal/rx120/sys.ll').read()))"
+irscan public names: ['DENIED', 'edges', 'normalise', 're', 'scan']
+exit=0
+
+-------------------------------------------------------------------------------
+THE READING.
+
+  compiler    floor   syscaller   difference          RX-120's claim
+  950bb1d     29      29          EMPTY               TRUE
+  3d15ac9      2       3          {npk_sys6}          FALSE
+
+The mechanism is the compiler's D-262 (its 1.5.2d): a prelude item is emitted
+only when it is referenced. `npk_sys6` was in every translation unit and is now
+in the ones that use it, so the symbol that could never be a difference is now
+exactly the difference.
+
+WHAT DOES NOT EXPIRE, and it is why RX-120's DECISION stands while one of its
+CLAUSES does not. The symbol layer answers "does this object need a kernel
+symbol". The call-edge layer answers "which function calls it". The second
+question is the one a reviewer needs, no symbol set has ever been able to
+answer it, and the answer does not depend on what the prelude emits -- so a
+future prelude carrying `npk_sys6` again would blind the first layer and leave
+this one exactly as strong. Rule B-2a keeps both.
+
+AND THE GENERAL LESSON, which is the part a sibling repository should take:
+A MEASUREMENT AGAINST A MOVING COMPILER IS DATED BY ITS COMMIT OR IT IS NOT
+DATED. Three sites in this tree said "measured at the pin". "The pin" is a
+name that re-points, so those sentences became false while nobody edited them
+and no check could see it -- there is nothing lexically wrong with a true
+sentence about a different compiler. Name the commit.

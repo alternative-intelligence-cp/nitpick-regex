@@ -116,10 +116,30 @@ inductive ones at each engine.
 
 ---
 
-## 5. `limit<Rules>` — the types that carry their range
+## 5. `limit<Rules>` — the types this library DECLINED to carry
 
-**Rule P-4.** When 1.5.2 lands, these become `limit`ed and the checks inject at
-initialisation, at every assignment, and at parameter entry:
+> **1.5.2 HAS LANDED AND §5 IS NOT TAKEN — `SAFETY.md` S-24 (RX-127).** This
+> section was written as a plan for the day the rung opened. The rung opened,
+> the construct was measured, and **the answer was no**: a `limit`ed binding
+> anywhere in the reachable call graph makes `(LimitViolated)` a mandatory
+> `failsafe` arm in every consuming program — at module-private visibility as
+> well as `pub`, because reachability follows the call graph and not visibility
+> — and no `?|`, `?!` or `is_err` at the call site can decline it, because the
+> violation takes D-241's trap route. That is a **second** arm against S-8's
+> promise of exactly one, and S-8 is this library's headline API property.
+>
+> **The section is kept rather than deleted**, because the four `Rules` below
+> are the right *ranges* and are what `src/core/limits.npk` and the accessor
+> pairs check by hand; and because a later reader will propose exactly this and
+> should meet the measurement rather than repeat it. **P-4 is superseded by
+> S-24 and is not a live obligation** — corrected at cycle 0.0.5, where the
+> reconciliation found §2 of this same file already saying *"LANDED, and §5 does
+> NOT take it"* while §5 still read as a plan (RX-137).
+
+**Rule P-4 — SUPERSEDED by `SAFETY.md` S-24.** Written as: *when 1.5.2 lands,
+these become `limit`ed and the checks inject at initialisation, at every
+assignment, and at parameter entry.* The ranges stand as ranges; the construct
+is declined:
 
 ```nitpick
 Rules:ProgramIndex = { $ >= 0i32; $ < 100000i32; };   // NREGEX_PROGRAM_INSTRUCTIONS
@@ -128,10 +148,14 @@ Rules:Codepoint    = { $ <= 1114111u32; };
 Rules:ByteClassId  = { $ < 256u32; };
 ```
 
-The value of doing it here rather than by hand-written checks: a `limit`ed
-parameter's precondition is discharged **at the caller**, where the caller's own
-knowledge proves it, and retained as a runtime check only where it cannot be —
-and the manifest records which is which, per site.
+The argument that was made for doing it here rather than by hand-written
+checks — **and it is still a good argument, which is why the answer had to be
+measured rather than assumed**: a `limit`ed parameter's precondition is
+discharged **at the caller**, where the caller's own knowledge proves it, and
+retained as a runtime check only where it cannot be, with the manifest recording
+which is which per site. What defeats it is not the mechanism but its price to
+somebody else: the arm lands in **every consuming program**, including one that
+only wants to ask whether a codepoint is alphabetic.
 
 **Rule P-5 — the prototype used this construct** (`ARCHIVE/nregx`'s
 `regex_types.npk` declares `pub Rules<int64>:r_valid_regex_len = { $ > 0i64, $

@@ -53,8 +53,19 @@ Nitpick has no exceptions and no unhandled errors: every function returns
 default regime is static ownership with destruction at scope exit, owning
 values are move-only, and borrows are second class — they pass down the call
 stack and never up, which is why a `Match` in this library carries byte offsets
-rather than a slice. Plain integer overflow **traps**, and so does an
-out-of-range index. There are no closures, which is why replacement takes a
+rather than a slice. Plain integer overflow **traps**. **An out-of-range index traps only on a type
+that CARRIES A LENGTH** — a slice `T[]` or a fixed array `T[N]`; on a
+`wild T->` block, and on a `buffer`'s bytes through `.ptr`, it reads and returns
+a heap word in silence, which is why every `Vec` and `Bytes` access in this
+library goes through an accessor pair that checks (`SAFETY.md` §5.3, S-23,
+RX-111).
+*(This sentence said "and so does an out-of-range index" until cycle 0.0.5 —
+the belief probe 08b refuted at 0.0.0, surviving in the specifications' own
+index page for five subcycles after every other site was fixed. It cites no
+decision, so no citation sweep could find it; it was found by re-reading the
+verdict table against the documents. **The paragraph a newcomer reads first is
+the one least likely to be reached by a correction**, because corrections are
+aimed at the rule that owns the topic.)* There are no closures, which is why replacement takes a
 template rather than a callback. `defer` runs on every normal exit path and
 **not** on a trap. Read the compiler's `meta/specs/` for the full statement;
 the pieces that bite hardest here are enumerated in [`SAFETY.md`](SAFETY.md) §1.

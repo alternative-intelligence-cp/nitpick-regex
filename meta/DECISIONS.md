@@ -1781,3 +1781,293 @@ one function — and `api` will import both, so the consumer pays anyway);
 asking the compiler to prove the divisor non-zero and drop the arm (a real
 request, and one this library should not block on: the rewrite costs nothing and
 the arms are gone today).
+
+---
+
+### RX-133 — the compiler's emission is INVOCATION-independent and TREE-POSITION-dependent, so CI records its digest and the cross-machine comparison is legitimate
+
+**2026-09-06, cycle 0.0.5.** The compiler side asked this workbench for one
+measurement it cannot make itself: its own emission, `npkc.ll`, digested on a
+second machine (its `OPEN_DECISIONS` S-42, recommendation (c);
+`BUILD_REFERENCE.md` §5). Their claim is that the linked `npkc` **binary** may
+differ across machines — D-204 pins LLVM by *version*, and a version is not a
+binary — while the **emission** is the same text anywhere, so a difference there
+would be a compiler defect.
+
+**This decision is that CI prints it, and asserts nothing.** A workflow that
+failed on a digest whose expected value it has never been told would be
+asserting a guess. The step prints size and sha256 for every artefact the ladder
+leaves, so the first one that differs names the stage.
+
+**The reason it needed a decision rather than a line of YAML** is that
+`PLAYBOOK.md` carries a rule which, read quickly, says the comparison cannot
+work: *"an emitted `.ll`'s byte count is path-dependent; the object's is not.
+Quote the object."* If an emission's bytes depend on where it was built, then
+two machines must disagree and the measurement is worthless before it is taken.
+
+**Measured here rather than reasoned about, with the pinned `npkc` and four
+controls over one source file.**
+
+| | working directory | argument | recorded site path | sha256 | bytes |
+|---|---|---|---|---|---|
+| A | repository root | absolute | `.internal/pathdep/aa/pd.npk` | `ee0dc87d…` | 52 467 |
+| C | `…/aa` | **relative**, `pd.npk` | `.internal/pathdep/aa/pd.npk` | `ee0dc87d…` | 52 467 |
+| E | `/tmp` | absolute, **not under cwd** | `.internal/pathdep/aa/pd.npk` | `ee0dc87d…` | 52 467 |
+| B | repository root | the same file copied to `…/bbbbbbbbbb/` | `.internal/pathdep/bbbbbbbbbb/pd.npk` | `107da499…` | 52 491 |
+
+**A, C and E are byte-identical.** Three invocations that share nothing —
+different working directory, different argument form, one where the source is
+not below the cwd at all — emit the same IR. **B differs by 24 bytes**, which is
+8 characters of directory name across the file's 3 site rows, exactly the
+one-byte-per-entry arithmetic the playbook describes.
+
+**The mechanism, read out of the compiler at the pin rather than inferred.**
+D-236 (its 1.4.8): a `SourceFile` carries two paths, and the one the site table
+and every diagnostic print is `shown` — *"the same file rendered RELATIVE TO THE
+MANIFEST ROOT, so the emitted bytes cannot depend on how the compiler was
+invoked"*. `front_set_root` finds that root by walking up from the main file's
+directory for a `nitpick.toml`. A control confirms the front half is live: an
+absolute argument produces a **relative** diagnostic path.
+
+**So the playbook's rule is right about the observation and imprecise about the
+cause, and the difference decides this measurement.** The dependence is not on
+the working directory and not on the absolute prefix; it is on the source file's
+position **inside its own tree**. The compiler's `src/npkc.npk` sits at the same
+position relative to its own `nitpick.toml` on every checkout in the world.
+**Therefore its emission is checkout-path-independent by construction, and
+comparing that digest across two machines is legitimate.** Had the dependence
+been on the absolute prefix, the comparison would have been guaranteed to differ
+for a reason that says nothing about any compiler.
+
+**One difference deliberately left in place, and named so it is diagnosed rather
+than discovered.** The compiler side's number comes from `npkg build`, which
+writes `build/npkc.ll`. Our CI never runs `npkg build`; it runs the bootstrap
+harness's `quickemit.py`, which has the **same committed snapshot builder**
+compile the **same entry file** (`harness.EMIT_CHECK` is `src/npkc.npk`) and
+leaves the result as `npkc.ll` in `.internal/quickemit/`. Same source, same
+builder, different output directory — and the output directory does not enter the
+IR. If the two disagree, **that** is the finding, and the candidate causes are
+named in the workflow beside the step.
+
+*Alternatives declined:* asserting the digest against the compiler's published
+`05457db4…` (this workbench has not seen its own value yet, and a check whose
+expected value is a number somebody reported is not a check — it is the same
+mistake as an allowlist added by reasoning, which RX-131 already paid for);
+running `npkg build` in CI to produce `build/npkc.ll` exactly (it is the
+compiler's own bootstrap ladder, minutes of work for byte-equality with an
+artefact we already have, and W-18 keeps this workbench out of the business of
+building the compiler more than once); digesting the object or the binary
+instead (those are the artefacts S-42 has already shown to differ legitimately —
+the emission is the whole point).
+
+---
+
+### RX-134 — `end` is refused as a BINDING name and accepted as a FIELD name, so RX-050's field names stand and its justification does not
+
+**2026-09-06, cycle 0.0.5, measured at three pins.** Cycle 0.0.0 recorded that
+`Match.end` "does not parse" because `end` is a reserved word, and chose `lo`
+and `hi`. The choice is right. **The reason was never measured and is false.**
+
+| program | `950bb1d` | `94874ce` | `3d15ac9` |
+|---|---|---|---|
+| `pub struct:Match = { int64:start; int64:end; };`, built by struct literal, read as `m.end` | **npkc 0** | **npkc 0** | **npkc 0** |
+| the same, through `llc`, `ld.lld`, and run | — | — | **0 / 0 / exit 3**, which is `4 - 1` read out of a field named `end` |
+| `int64:end = 5i64;` as a local binding | **`NITPICK-PARSE-002`** | — | **`NITPICK-PARSE-002`**, *"expected an expression"* |
+| `int64:hi = 5i64;` — the control | — | — | **0** |
+| `pub struct:K = { int64:range; int64:limit; int64:in; };` | — | — | **0** |
+
+**So a reserved word is refused in BINDING position and accepted as a STRUCT
+FIELD NAME; fields are their own namespace.** This is not a pin-dependent
+expiry like RX-125's derives or RX-127's `limit<Rules>` — it is false at the
+oldest pin too, so it was false the day it was written.
+
+**Where it came from is the useful part.** `end` *is* reserved, and cycle 0.0.0
+met that fact for real: probe 05 lost about an hour to `Vec<Frame>:stack`, a
+reserved word in binding position, whose diagnostic points at a brace dozens of
+lines away. **The rule was learned correctly in one position and generalised to
+another without a measurement** — and because the *decision* it justified was
+right, nothing ever contradicted it.
+
+**That is why it survived five subcycles and reached seven sites**: `CLAUDE.md`,
+`meta/specs/API.md` A-3, `meta/specs/BUILD.md` §7, `meta/roadmap/0.10/README.md`
+twice, `tests/probe/probe06a_offsets_returned.npk`, and RX-050's own text. **An
+unmeasured justification attached to a correct decision is invisible**, because
+every check that could fire is a check on the decision. Nothing in this
+repository — not `check_refs`, not `check_specs_current`, not a green suite —
+can see a true rule resting on a false reason. Only running it can.
+
+**The decision.** `Match` keeps `lo` and `hi`: they are shorter, they match
+`SYNTAX.md`'s half-open interval, and renaming a settled public field to prove a
+point is worse than the wrong justification was. **RX-050's text is not edited**
+(W-28) — it is a settled decision and this supersedes the one clause of it that
+made a claim about the compiler. Every live site now states the choice as a
+choice.
+
+*Alternatives declined:* renaming the fields to `start`/`end` now that they are
+known to be legal (`lo`/`hi` are better names, and `API.md` A-3 and `BUILD.md`
+B-18 have shipped them since 0.0.0); deleting the justification silently (it has
+travelled to a cycle-0.10 checklist that a future session will read as a
+constraint, so it needs a correction with a number, not a deletion); adding a
+harness check for reserved words in field position (there is nothing to check —
+the compiler permits it, so the check would assert this repository's taste).
+
+---
+
+### RX-135 — cycle 0.0's probe verdicts reached some documents and not others, and the specifications were the ones left behind
+
+**2026-09-06, cycle 0.0.5, step 1.** The close re-read all 23 verdicts in
+`0.0.0.md` §7 against `meta/specs/` — **by reading the specifications, not by
+remembering them** — and the pattern in what it found is worth more than the
+individual fixes.
+
+**Six verdicts had a consequence that landed somewhere and not in the document
+that owns it:**
+
+| Verdict | Landed in | Missing from |
+|---|---|---|
+| 08b — a `wild T->` index does not trap | `SAFETY.md` §1 and §5.3, `VERIFICATION.md` §3, two checklists | **`meta/specs/README.md`**, whose one-paragraph summary still read *"and so does an out-of-range index"* |
+| 09 — the wall is `string_bytes`, not the index | `OPEN_QUESTIONS.md` O-G1 | **`SAFETY.md` §7**, which calls itself *"the evidence for the request"* |
+| 12 / 12b — `for … in` over a borrowing iterator is refused | `OPEN_QUESTIONS.md` O-A1 | **`API.md` §8**, still saying *"decide … after probe 12 says what the trait actually admits"* |
+| 06a — an `Optional` is not `pick`-able | `CLAUDE.md`, the roadmap | **`API.md` §2**, which the probe's own header named as the owner |
+| 06a — the field names | `API.md` A-3, `BUILD.md` B-18 | **`SAFETY.md` §6**, the rule that *owns* the offsets-not-slices decision |
+| 02 — `#size_of` = 24 | `CLAUDE.md`'s measured list | it is the size of the **payload spelling `HIR.md` H-2 declined**, quoted as the specified `HirNode`'s |
+
+**Three shapes, and each defeats a different instrument.**
+
+1. **The summary page is corrected last.** `meta/specs/README.md`'s "the
+   language in one paragraph, for a reader arriving from C" cites no decision
+   and no rule, so **no citation sweep can reach it** — the mechanism RX-123
+   already named, arriving in the document a newcomer reads *first*.
+2. **The discovering document is not the owning document.** A probe reports; the
+   finding is written where it was found — an open question, a record — and the
+   normative rule is amended later or not at all. Each page then reads
+   complete. `SAFETY.md` §7 is the sharpest case: it says of itself that it is
+   the evidence, and it was the stale copy.
+3. **A number attached to the alternative that was declined.** `#size_of<HirNode>`
+   = 24 measures the shape H-2 rejected. The accepted shape has never been
+   measured and does not exist in `src/` until cycle 0.2 — so the honest entry is
+   *unmeasured*, not a derived 20.
+
+**The decision.** All six corrected in the owning document, each with a dated
+note saying what it previously said, per W-28. `CLAUDE.md` drops `HirNode` from
+the measured list rather than substituting an arithmetic answer, because
+substituting one would be the exact error `PLAYBOOK.md` records costing 37% of a
+decision's headline number.
+
+**And one thing this reconciliation could not have found by grepping**, which is
+why the step is specified as a re-read: every one of the six is a claim about
+**tense or truth** rather than presence. The stale sentences contain no wrong
+token. `check_specs_current` was green across all of them and correctly so — it
+checks that citations resolve, and a citation to a stale section resolves
+perfectly.
+
+*Alternatives declined:* rewriting `0.0.0.md` §7's verdict table to match
+today's specifications (it is a verified record of a run at `950bb1d`; RX-114 set
+the redirect pattern and RX-125 reused it); leaving `API.md` O-A1 open on the
+grounds that cycle 0.10 decides it anyway (the recommendation rested on an
+argument the probe voided, and a plan carrying a dead argument is how the wrong
+thing gets built three cycles later).
+
+---
+
+### RX-136 — `SAFETY.md` asserted two enforcements that did not exist, and the one guarding the only bounds check is now built
+
+**2026-09-06, cycle 0.0.5.** Two sentences in `SAFETY.md` §5.3 described
+machinery in the present tense that no file implemented.
+
+**(a) The accessor confinement check — the serious one.** §5.3 has said since
+0.0.0 that *"a tree check enforces that no `.items[` appears outside
+`src/core/vec.npk`"*, and RX-118 added the identical sentence for `.ptr[` and
+`src/core/bytes.npk`. **`treecheck.ALL` held four checks and neither of them.**
+
+That is not a missing convenience. S-23 calls the accessor pair *"the only
+bounds check this library has"*, because D-070's guard is emitted for a slice, a
+fixed array and a SIMD lane and for nothing else — a `Vec<T>.items` is a
+`wild T->` and a `buffer`'s bytes are reached through `.ptr`, so an out-of-range
+index in either **reads and returns a heap word at exit 0**; probe 08b measured
+7 992 bytes past the allocation. An accessor bypassed anywhere is a wrong answer
+with a green suite beside it.
+
+**`check_accessor_confinement` is built, registered, and seen to fail in both
+directions**, with the denominator printed on every run:
+
+| control | result |
+|---|---|
+| the clean tree | **0 failures** over 13 files, 2 confined accessors |
+| `src/core/core.npk`, which names both patterns **in comments** | **not reported** — prose is blanked, so the file documenting the rule is not failed by it |
+| a `.items[` added to `src/hir/hir.npk` | **failed**, naming `file:line:col` |
+| `src/core/vec.npk` stops containing `.items[` | **failed** in the other direction |
+
+The fourth row is the point. A confinement list is an exemption list wearing a
+different hat, and `PLAYBOOK.md` records that such a list's **membership** is
+checked while its **reason** decays silently. So the owning file must still
+contain its own accessor: the day `vec.npk` reaches its storage some other way,
+this check stops guarding anything, and it says so instead of passing.
+
+**(b) The fuzzer invariant.** §5.3 also states *"`TESTING.md`'s fuzzer
+invariants gain one: no accessor is ever called with an out-of-range index"* —
+as something already done. `TESTING.md` V-17's haystack-fuzzer list did not have
+it. Added there now.
+
+**Both are the same failure and it is not carelessness.** A consequence is
+written in the document that **discovered** it, in a tense that reads as
+discharged, and never carried to the document that **owns** it. Each page reads
+complete on its own. Nothing mechanical compares them — `check_specs_current`
+verifies that citations resolve, and *"a tree check enforces this"* names no
+citation at all.
+
+**`TESTING.md` §8's check table was short in both directions** and is corrected
+with them: it omitted `check_no_division`, which exists and which S-25 says
+enforces a rule, and it omitted this one, which did not exist and which S-23
+said enforced a rule. **A table that is wrong in both directions at once is the
+clearest possible statement that nothing was comparing it to the code.**
+
+*Alternatives declined:* weakening §5.3 to say the check is *planned* (the
+specification is the authority under RX-002, so code that disagrees is the
+defect — and the rule it guards is the library's only bounds check, which is the
+last one to leave unenforced); deferring the check to cycle 0.2 when `src/hir/`
+starts indexing (the sentence claiming it exists is in the tree today, and both
+owning files exist today); checking `items[` and `ptr[` without the leading dot
+(it would match `v.items[` and also any local named `items`, and a check with
+false positives gets disabled — the playbook's own warning).
+
+---
+
+### RX-137 — `VERIFICATION.md` §5 planned to adopt `limit<Rules>`, and §2 of the same file already recorded that it was declined
+
+**2026-09-06, cycle 0.0.5.** RX-127 measured `limit<Rules>` at the `3d15ac9`
+re-pin and declined it: a limited binding anywhere in the reachable call graph
+charges **every** consuming program a mandatory `(LimitViolated)` `failsafe`
+arm, at module-private visibility as well as `pub`, and the violation takes
+D-241's trap route so no `?|`, `?!` or `is_err` can decline it. `SAFETY.md`
+gained **S-24**, and `VERIFICATION.md` §2's rung table was updated to read
+*"LANDED, and §5 does NOT take it — RX-127."*
+
+**§5 itself was not.** Its heading still read *"the types that carry their
+range"*, and **Rule P-4 — a numbered, normative rule — still said "when 1.5.2
+lands, these become `limit`ed"**, with P-5 supplying supporting evidence for
+adopting it. 1.5.2 had landed. A reader opening §5, which is where a
+verification question sends them, met a live rule contradicting S-24 in another
+file, with the correction sitting eighty lines above it in the same document.
+
+**The decision.** §5 is retitled *"the types this library DECLINED to carry"*,
+P-4 is marked **superseded by S-24** and P-5's argument is kept as an argument
+rather than a recommendation. **The four `Rules` declarations stay**, for two
+reasons: they are the right *ranges*, and they are what `src/core/limits.npk`
+and the accessor pairs now check by hand; and a later reader will propose
+exactly this construct, so the section should hand them the measurement instead
+of making them repeat it.
+
+**What this instance adds to RX-135's pattern.** The other five were a
+correction that reached one document and not another. **This one did not leave
+the file.** §2 and §5 of `VERIFICATION.md` disagreed, one paragraph of §2 knew
+it, and the disagreement survived a subcycle — because a rung table is read when
+you want to know what the compiler supports and §5 is read when you want to know
+what this library does, and nobody has both questions at once. **Proximity is
+not review.**
+
+*Alternatives declined:* deleting §5 (it is the record of a real decision and
+the ranges are live); leaving P-4 as a conditional promise (it is written as
+normative, it is numbered, and `VERIFICATION.md` is cited by `SAFETY.md` §3 as
+the machine-checked form of S-5 — a dead rule in that position is exactly the
+dormant-rule shape cycle 0.1's gate exists to catch).

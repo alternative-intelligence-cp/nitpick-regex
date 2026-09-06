@@ -12,6 +12,11 @@
 // a borrow cannot travel up the call stack (D-004 rule 2). If this half failed
 // the library would have no way to report WHERE a match was.
 //
+// [CORRECTED 2026-09-06, cycle 0.0.5, RX-134: `Match.end` DOES parse. `end` is
+// refused as a BINDING name and accepted as a FIELD name, measured at all three
+// kept pins. The line below is what this probe's header asserted at 0.0.0 and it
+// was never measured; the `lo`/`hi` choice it justifies is unaffected and
+// stands. Left in place rather than rewritten, so the error is legible.]
 // `Match.end` DOES NOT PARSE -- `end` is a reserved word -- so the fields are
 // `lo` and `hi`, which is `CLAUDE.md`'s ecosystem-wide substitution and not a
 // local invention.

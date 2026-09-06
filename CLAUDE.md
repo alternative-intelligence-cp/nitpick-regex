@@ -12,9 +12,12 @@ then 17 / 6 when the `94874ce` re-pin discharged O-N10 and `probe02b` stopped
 being refused — RX-125; then 19 / 6 when the `3d15ac9` re-pin made
 `limit<Rules>` live and `probe13b` stopped being refused — RX-127);
 `tests/rejection/` holds two consumer-facing refusals; `harness/` builds, sweeps,
-diffs and judges them, **and proves first that it can fail**; `src/` holds the
-module skeleton and one public `error:` identity, and nothing else. No matching
-happens yet.
+diffs and judges them, **and proves first that it can fail**; and since 0.0.4
+`src/core/` is real — `Vec<T>`, `Bytes`, `ByteSet`, `SparseSet` and `limits.npk`,
+with 13 unit programs of their own. **No matching happens yet**: `src/syntax/`,
+`src/hir/`, `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are
+still one placeholder module each. A full green run is **98 units** and six tree
+checks; take those numbers from the runner's summary rather than from here.
 
 ## Before starting a session here
 
@@ -111,8 +114,11 @@ unclosed brace and the braces are balanced, look for a local named after a
 qualifier before you touch a brace.*
 
 The substitutes this library uses, so the tree stays consistent: **`hi`** for a
-range's upper bound and for a `Match`'s end (`Match.end` does not parse — the
-fields are `lo` and `hi`), **`src`** for an input cursor, **`bound`** for a
+range's upper bound and for a `Match`'s end (the fields are `lo` and `hi` by
+`API.md` A-3's choice — **not** because `Match.end` is refused, which **RX-134
+measured to be false at all three kept pins**: a reserved word is refused as a
+**binding** name and accepted as a **field** name), **`src`** for an input
+cursor, **`bound`** for a
 limit, **`rng`** for a range value, **`dot`** for the any-character construct,
 **`sel`** for a selection.
 
@@ -124,8 +130,8 @@ file's `mod:` name must equal its basename.
 ## What cycles 0.0.0, 0.0.1 and 0.0.2 measured, that a reader would otherwise assume
 
 Each of these was written the other way round in some document here before it
-was measured. `meta/roadmap/0.0/0.0.0.md` §7,
-`tests/conformance/TRANSCRIPT.txt` and `meta/roadmap/0.0/0.0.2.md` §5 are the
+was measured. `meta/roadmap/done/0.0/0.0.0.md` §7,
+`tests/conformance/TRANSCRIPT.txt` and `meta/roadmap/done/0.0/0.0.2.md` §5 are the
 evidence.
 
 - **An `Optional` is not `pick`-able.** `pick (m) { (NIL) {…}, (Match:g) {…} }`
@@ -133,8 +139,9 @@ evidence.
   `== NIL`, read with `??`. This is caller-visible on every entry point in
   `API.md` §2, because `regex_find` returns `Match?`.
 - **`npkc` exit 0 does not mean a program is well-formed** (registry O-N11), and
-  this library is a standing example: **all eight files in `src/` compile at
-  exit 0 and all eight are refused by `llc`** (RX-115), because a library file
+  this library is a standing example: **every file in `src/` compiles at
+  exit 0 and every one is refused by `llc`** (RX-115) — eight files when this was
+  measured, 13 today — because a library file
   cannot define `@npk_failsafe` and `npkc` never declares it. **There is no
   library object.** `src/` reaches the compiler only through a program root, and
   `tests/conformance/import.npk` is the smallest one. Run all four steps —
@@ -182,7 +189,15 @@ evidence.
   threads an error channel and charges `SAFETY.md` §4's budget; it is a cycle 0.2
   decision, not a free deletion.
 - **Measure `#size_of`, never derive it.** `Inst` is 12, `Match` is 16,
-  `ByteSet` is 32, `string` is 24, `HirNode` is 24.
+  `ByteSet` is 32, `string` is 24.
+  **`HirNode` is NOT on that list, and the reason is the rule itself.** The
+  measured 24 belongs to the **payload spelling** of `HirKind` — the shape
+  `HIR.md` H-2 examined and **declined** — not to the specified `HirNode`, which
+  is a tag plus three `int32`s plus a `uint32` and does not exist in `src/` until
+  cycle 0.2. Quoting 24 for it would be attributing a measurement of the rejected
+  alternative to the accepted one, in the same sentence that says to measure.
+  Its size is **unmeasured**; measure it when it is written, and make the probe's
+  exit code be `#size_of` so the number cannot be transcribed wrongly (RX-135).
 - **`npkc`'s exit codes are an alphabet, and `2` is not a refusal.** `0`
   success; `1` **refused, with diagnostics**; `2` the driver **could not proceed
   and judged nothing**, silently, with an empty stderr; `3` a trap. A test
@@ -193,10 +208,18 @@ evidence.
   moved passes for the wrong reason, and only B-7's code-set equality tells the
   two refusals apart. Every import here is relative until O-G3 closes, so this
   is the ordinary case, not the exotic one.
-- **`check_no_syscalls` needs two layers, because the undefined-symbol
-  difference cannot see a syscall** (RX-120). A program with a `sys(…)` call has
-  the *same* 29 undefined symbols as one without — `npk_sys6` is already the
-  prelude's. The IR call-edge scan is what sees it.
+- **`check_no_syscalls` needs two layers, and the reason changed under it —
+  which is the more useful half** (RX-120, amended by RX-131). At `950bb1d` the
+  undefined-symbol difference **could not see a syscall at all**: a program with
+  `sys(…)` had the *same* 29 symbols as one without, because `npk_sys6` was
+  already the prelude's. At **`3d15ac9` it can** — D-262 emits a prelude item
+  only when referenced, so the floor is **2** symbols, a syscaller **3**, and
+  the difference is exactly `npk_sys6`. Both pins are run back to back in
+  `harness/baseline/RX120.txt`. **The second layer is not retired**: a symbol
+  set reports *that* a kernel symbol is needed and never *where* it is called
+  from, and a prelude that emits `npk_sys6` again blinds the first layer once
+  more. **The moral is the durable part — that measurement was recorded as a
+  permanent property and was a property of one compiler commit.**
 - **An exit status is one byte.** `exit 321` reports 65, silently. Compose
   weights that cannot sum past 255, or print the value and assert on stdout.
 

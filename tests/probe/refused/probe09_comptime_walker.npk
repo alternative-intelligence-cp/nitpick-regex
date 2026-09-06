@@ -17,6 +17,11 @@
 // `src/frontend/resolve_type.npk` has no arm for an index expression, and
 // `fold_string_builtin` handles exactly four names, none of which reads a byte.
 //
+// THAT FILE IS NOW `src/frontend/type_resolve.npk` (renamed; re-verified under
+// the new name at pin `3d15ac9`, 2026-09-06 -- both claims unchanged, and the
+// diagnostic below is byte-identical at that pin). The names `fold_expr` and
+// `fold_string_builtin` are what to search for: a symbol survives a rename.
+//
 // THE DIAGNOSTIC, verbatim, from compiler commit 950bb1d:
 //
 //   NITPICK-TYPE-004 …:77:16: `comptime` requires an expression that folds at

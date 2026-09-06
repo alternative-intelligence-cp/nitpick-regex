@@ -66,9 +66,38 @@ pub struct:Match = { int64:lo; int64:hi; };     // byte offsets, half-open [lo, 
 borrow and cannot be returned (D-004, D-070, `SAFETY.md` §6). The caller slices
 its own haystack.
 
-**Rule A-3 — the fields are `lo` and `hi`, not `start` and `end`.** `end` is
-the `when`/`then`/`end` terminator and does not parse as a field name
-(`BUILD.md` §7). `match_len(m)` is `hi - lo`.
+**Rule A-2a — an `Optional` is NOT `pick`-able, so every caller in this document
+tests `== NIL` and reads with `??`.** Measured by probe 06a:
+`pick (m) { (NIL) {…}, (Match:g) {…} }` is `NITPICK-PARSE-005` — an `Optional`
+has no readable members. This is caller-visible on **every** entry point in §1
+that returns `Match?`, which is most of them, and a reader arriving from Rust
+will reach for the match arm first. The shape is:
+
+```nitpick
+Match?:m = regex_find(@re, @cache, hay);
+if (m == NIL) { /* no match */ }
+Match:got = m ?? Match{ lo: 0i64, hi: 0i64 };
+```
+
+*(Added at cycle 0.0.5. Probe 06a's own header named this section as the owner —
+"which is `API.md` §2's business, because every example in it shows a caller
+reading a `Match?`" — and the fact landed in `CLAUDE.md` and the roadmap and not
+here. An omission rather than a contradiction, and the probe had already said
+where it belonged. RX-135.)*
+
+**Rule A-3 — the fields are `lo` and `hi`, not `start` and `end`.**
+`match_len(m)` is `hi - lo`.
+
+**The rule stands and the reason it used to give was false (RX-134).** This read
+*"`end` is the `when`/`then`/`end` terminator and does not parse as a field
+name"*. **It parses.** Measured at all three kept pins — `950bb1d`, `94874ce`
+and `3d15ac9` — `pub struct:Match = { int64:start; int64:end; };` compiles, is
+built by struct literal, is read as `m.end`, links and runs. `end` is refused in
+**binding** position (`int64:end = 5i64;` is `NITPICK-PARSE-002`) and accepted
+as a **field name**: fields are their own namespace. The names `lo`/`hi` are
+kept — they are shorter, they match `SYNTAX.md`'s half-open interval, and
+renaming a settled public field to prove a point would be worse than the wrong
+justification was.
 
 **Rule A-4 — an empty match has `lo == hi`** and is a real match
 (`SYNTAX.md` Y-21).
@@ -222,10 +251,22 @@ worth knowing before it appears in a loop.
 ## 8. Open items
 
 - **O-A1 — whether `Matches` should implement the prelude `Iterator` trait or
-  only expose `matches_next`.** The trait gives `for … in`, which is
-  ergonomic; it also requires an associated type, which disqualifies the trait
-  from `dyn` (D-160) — irrelevant here, since nothing erases an iterator.
-  Recommendation: implement it, and keep `matches_next` as the explicit form.
-  Decide at cycle 0.10, after probe 12 says what the trait actually admits.
+  only expose `matches_next`. PROBE 12 HAS REPORTED, AND IT VOIDED THE ARGUMENT
+  THIS ENTRY USED TO MAKE.** The entry read: *"the trait gives `for … in`, which
+  is ergonomic … Recommendation: implement it … Decide at cycle 0.10, after
+  probe 12 says what the trait actually admits."* Probe 12 said, at cycle 0.0.0.
+  **The impl is accepted** on a struct holding a `Regex->` borrow and a `uint8[]`
+  view; **`for … in` over it is refused**, `NITPICK-BORROW-009` — *"a borrow
+  cannot be iterated over: a `for` binding is not tracked by the escape
+  analysis"* — and a `Matches` must borrow, because a struct holding a borrow
+  cannot be returned (D-004) and an owning one would consume the pattern it
+  iterates with. **So the ergonomic argument is gone and only the cost is left.**
+  Recommendation now: `matches_next` is the driver; implement the trait only if
+  something else asks for it. Still decided at cycle 0.10 — the question is
+  narrower, not answered. `meta/OPEN_QUESTIONS.md` carries the full verdict.
+  *(Corrected at 0.0.5: the verdict reached `OPEN_QUESTIONS.md` at 0.0.0 and
+  never reached the specification, which is the authority — so the document a
+  reader is told to trust was the one still waiting for a probe that had
+  reported three days earlier. RX-135.)*
 - **O-A2 — a `RegexSet` API over `COMPILE.md` §6's multi-pattern programs.**
   The format supports it at 1.0; the API does not. Cycle 1.1.

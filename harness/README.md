@@ -66,7 +66,7 @@ red is unreachable, which is the exact failure this file exists to prevent.
 B-7's equality half reddens cases 3 and 3a and nothing else; disabling the IR
 call-edge scan reddens case 8 and **not** case 9, which is RX-120's own finding
 reproduced from the other side; comparing exit codes by truthiness instead of by
-value reddens case 1. `../meta/roadmap/0.0/0.0.3.md` §4 has the transcripts.
+value reddens case 1. `../meta/roadmap/done/0.0/0.0.3.md` §4 has the transcripts.
 
 ## What it does not assert yet
 

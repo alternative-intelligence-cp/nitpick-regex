@@ -52,7 +52,7 @@ cycle 0.0.
 
 | Cycle | Topic | Gated on |
 |---|---|---|
-| **0.0** | **Foundations** — the language probes, the harness, `src/core/` | — |
+| ~~**0.0**~~ | **Foundations** — the language probes, the harness, `src/core/` — **DONE 2026-09-06, archived at [`done/0.0/`](done/0.0/README.md)** | — |
 | **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors | 0.0 |
 | **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction | 0.1 |
 | **0.3** | **Unicode** — generated tables, properties, scripts, simple case folding | 0.0 |
@@ -73,7 +73,25 @@ cycle 0.0.
 
 ## What each cycle produces
 
-### 0.0 — Foundations
+### 0.0 — Foundations — **DONE, 2026-09-06. Archived: [`done/0.0/`](done/0.0/README.md).**
+
+**What it actually produced**, against what this section planned: **25** probes
+rather than fourteen (five questions split into a positive and a negative half
+that neither file could carry alone), all with recorded verdicts; a harness of
+**98 units** in about 32 s with a self-check that runs first and proves the
+runner can fail eight of eleven ways; **six** tree checks; `src/core/`'s five
+modules with 13 unit programs; and **28 numbered decisions**, RX-110 … RX-137.
+
+**Two probes refuted their own hypothesis**, which is the cycle's best return:
+`probe06b`'s slice return was *expected refused* and is **accepted** (a compiler
+defect, not a licence — RX-112), and `probe08b`'s unguarded read was claimed to
+**trap** and does not — it returns an unrelated heap word, which added
+`SAFETY.md` §5.3 and made the accessor pair the only bounds check this library
+has (RX-111).
+
+The findings a sibling repository should read are `done/0.0/0.0.5.md` §A —
+25 of them — and §D, *what cycle 0.0 taught*.
+
 The **language probes** first: fourteen small programs asking the compiler
 whether the shapes this design depends on are spellable — a POD instruction
 array, a payload enum in a `pick`, an explicit-stack parser, a `SparseSet` over

@@ -26,7 +26,7 @@
 // MODULE-PRIVATE limited callee reached only through a `pub` wrapper — so
 // visibility does not contain it and reachability follows the call graph. Both
 // controls, without the clause, compiled at exit 0. The commands and the
-// verdicts are in `meta/roadmap/0.0/0.0.4.md` §7; the decision they forced is
+// verdicts are in `meta/roadmap/done/0.0/0.0.4.md` §7; the decision they forced is
 // RX-127.
 mod:probe13f_limit_arm_missing;
 

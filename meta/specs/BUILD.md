@@ -140,7 +140,10 @@ deliberately introduced `sys(…)` call fails `check_no_syscalls`, by name"* —
 could not have been met by the instrument that was specified for it.
 
 Three things the first run over the real suite forced, each of them a false
-positive on all sixteen probes:
+positive on all sixteen probes *(the suite held sixteen `program`-stage probes
+when this was measured at 0.0.2; it holds **19** today, 25 counting
+`refused/` — the number is left as the historical one because it describes that
+run, and flagged because the next sentence's is not)*:
 
 - **`llvm.*` is not the floor.** `llvm.sadd.with.overflow.i64` is declared,
   never defined, and is an *instruction* — it reaches no symbol table.
@@ -160,9 +163,12 @@ program object"* and the distinction is load-bearing: `tests/probe/` holds
 **language** probes that import nothing from `src/` and never will
 (`tests/probe/README.md` P-1). They allocate, they trap, they `await`. Holding
 them to a library's zero-syscall rule costs the check its teeth — the residue
-over the sixteen is `npk_trap`, the `defer` chain, the allocator and
-`npk_string_concat`, and widening the rule to swallow those would swallow a
-real finding with them. **The harness says, per run, how many units the scans
+over **the 19 program-stage probes** is `npk_trap`, the `defer` chain, the
+allocator and `npk_string_concat`, and widening the rule to swallow those would
+swallow a real finding with them. *(This said "over the sixteen" in the present
+tense until cycle 0.0.5, describing a suite three probes smaller. The harness
+prints the number it actually ran on, per run, precisely so this sentence never
+has to be the source of truth — read that instead.)* **The harness says, per run, how many units the scans
 ran on and how many they did not**, because a check that quietly did not apply
 reads exactly like one that passed.
 
@@ -176,6 +182,28 @@ its first run there found a real defect that had passed for six cycles.
 working directories produce byte-identical IR. `nregex` inherits this from the
 compiler (D-078, D-204, D-236) and the harness has a `repro` stage that
 measures it.
+
+**Rule B-4c (RX-133) — an emission depends on a file's POSITION IN ITS TREE and
+not on how the compiler was invoked, and CI records the compiler's own digest
+because of it.** D-236 renders every site-table path relative to the **manifest
+root** — the directory holding `nitpick.toml` — so the working directory and
+whether the argument was absolute or relative change nothing, while moving a
+file *within* the tree changes the bytes. Measured here with four controls at
+`3d15ac9`: three invocations sharing no directory, no argument form and no
+common working directory emitted byte-identical IR; the same source copied to a
+sibling directory whose name is eight characters longer emitted 24 more bytes,
+one per character per site row.
+
+Two things follow, and the second is the point. **State the rule as
+tree-position-dependent rather than "path-dependent"** — the looser wording
+reads as *"an emission cannot be compared between machines"*, which is false and
+would have made the next rule pointless. And **the compiler's own emission is
+therefore comparable across machines**, since `src/npkc.npk` sits at one
+position relative to its own manifest on every checkout — so CI prints
+`sha256sum` and the byte count for every artefact the pinned compiler's build
+leaves, `npkc.ll` first. It **prints and asserts nothing**: this repository has
+not been given an expected value it could honestly check against, and the
+comparison belongs to whoever holds both numbers.
 
 ---
 
@@ -437,8 +465,9 @@ an ordinary name and is not:
 | `Rules`, `fixed`, `Self`, `impl`, `trait`, `assoc` | keywords |
 
 The substitutes this library uses, fixed here so they are used consistently:
-`hi` for a range's upper bound and for a `Match`'s end offset (`Match.end` is
-refused, so the field is `hi` and the accessor is `match_end()`); `src` for an
+`hi` for a range's upper bound and for a `Match`'s end offset (**not** because
+`Match.end` is refused — it is not, RX-134; because the pair reads better and
+`API.md` A-3 settled it); `src` for an
 input cursor; `bound` for a limit; `dot` for the any-character construct;
 `rng` for a codepoint range value; `sel` for a selection.
 

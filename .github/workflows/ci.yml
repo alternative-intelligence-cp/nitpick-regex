@@ -7,19 +7,32 @@
 # that are not its own. Bumping either pin is a deliberate commit, and the
 # commit that bumps it is the one that runs the full suite.
 #
-# WHAT THIS PROVES, UPDATED 2026-09-06 BY CYCLE 0.0.4. A green run is evidence
+# WHAT THIS PROVES, UPDATED 2026-09-06 BY CYCLE 0.0.5. A green run is evidence
 # that the pinned compiler builds from a clean checkout, that LLVM is exactly
-# 20.1.2, and that all 67 declared units build, link, run and are judged by
+# 20.1.2, and that all 98 declared units build, link, run and are judged by
 # their exit codes — 19 probes twice each at -O0 and through `opt -O2`, 6
-# refusal probes held to their exact code sets, 1 conformance program, 2
-# rejection fixtures, and a 39-file sweep of every `.npk` in the tree as a root.
-# Four tree checks run on every invocation. AND SINCE 0.0.3 IT IS ALSO EVIDENCE
+# refusal probes held to their exact code sets, 13 `src/core/` unit programs,
+# 1 conformance program, 2 rejection fixtures, and a 57-file sweep of every
+# `.npk` in the tree as a root.
+# SIX tree checks run on every invocation — five that can fail the run and
+# `check_specs_current`, which reports. AND SINCE 0.0.3 IT IS ALSO EVIDENCE
 # THAT THE RUNNER CAN FAIL: the self-check runs FIRST and feeds it eight kinds
 # of wrong expectation, requiring a red for each. Three more of V-20's eleven
 # cases print as PENDING on stages that do not exist until 0.3, 0.5 and 0.8, so
 # the green covers eight of the eleven ways the harness is meant to fail and
-# says so. It is still NOT evidence about this library's BEHAVIOUR: `src/` is a
-# skeleton and nothing matches yet.
+# says so. It is still NOT evidence about this library's BEHAVIOUR: `src/core/`
+# is real and carries its own suites, but nothing matches yet.
+#
+# THESE COUNTS WENT STALE ONCE AND THE STALENESS WAS INVISIBLE (cycle 0.0.5).
+# They read "67 declared units … a 39-file sweep … Four tree checks" — the
+# composition before `src/core/` landed 13 unit programs, 18 more files for the
+# parse sweep, and `check_no_division`. The count then moved AGAIN inside the
+# very subcycle that corrected it, when `check_accessor_confinement` landed —
+# which is the argument, not a footnote to it. Nothing failed: the harness prints its
+# own totals and this comment is prose, so the two disagreed silently for a
+# whole subcycle. The number that is CHECKED is the one the runner prints; the
+# number a reader believes is this one. Re-derive these from a green run's
+# summary rather than by adding to them.
 #
 # THE COMPILER CI BUILDS IS NOT BYTE-IDENTICAL TO THE ONE THIS WORKBENCH PINS,
 # AND THAT IS NOT A DEFECT. The pinned commit's own subject records it: at
@@ -147,6 +160,60 @@ jobs:
           test -f .nitpick/.internal/quickemit/npkrt.o
           echo "NPKC=$GITHUB_WORKSPACE/.nitpick/.internal/quickemit/npkc"   >> "$GITHUB_ENV"
           echo "NPKRT=$GITHUB_WORKSPACE/.nitpick/.internal/quickemit/npkrt.o" >> "$GITHUB_ENV"
+
+      # THE CROSS-MACHINE MEASUREMENT THE COMPILER SIDE ASKED THIS WORKBENCH FOR
+      # (its OPEN_DECISIONS S-42, recommendation (c); BUILD_REFERENCE.md §5).
+      #
+      # IT PRINTS AND ASSERTS NOTHING, DELIBERATELY. The comparison belongs to
+      # whoever holds both numbers; a workflow that failed on a digest it has
+      # never been told the expected value of would be asserting a guess.
+      #
+      # WHAT IS AND IS NOT A CROSS-MACHINE CLAIM. The compiler's `npkc` BINARY
+      # is not one — S-42 measured it differing between this workbench and a
+      # runner because D-204's pin is a VERSION of LLVM and a version is not a
+      # binary. The EMISSION is: same source, same committed snapshot builder,
+      # same text anywhere (D-078, D-236). A difference in the emission would be
+      # a compiler defect; a difference in the binary is expected.
+      #
+      # WHY THE PATH BELOW IS NOT `build/npkc.ll`. That is what `npkg build`
+      # writes, and this workflow does not run `npkg build` — it runs the
+      # bootstrap harness's `quickemit.py`, which has the same snapshot builder
+      # compile the same entry file (`harness.EMIT_CHECK` is `src/npkc.npk`) and
+      # leaves the result as `npkc.ll` in `.internal/quickemit/`. Same source,
+      # same builder, different output directory; the output directory does not
+      # enter the IR. If the two ever disagree, that difference is the finding.
+      #
+      # AND THE EMISSION REALLY IS INVOCATION-INDEPENDENT — measured here at
+      # cycle 0.0.5 against the pinned npkc rather than taken from the compiler's
+      # word for it (RX-133). D-236 renders every site-table path relative to the
+      # MANIFEST ROOT — the directory holding `nitpick.toml`, walked up to from
+      # the main file — so the same file compiled from three different working
+      # directories, by absolute and by relative argument, emits byte-identical
+      # IR; only the file's position INSIDE its own tree changes it. That is what
+      # makes comparing this digest across two machines legitimate, and it is a
+      # sharper statement than "an emitted .ll is path-dependent": it is
+      # tree-position-dependent and invocation-independent.
+      #
+      # It runs on a cache hit too, because `npkc.ll` is inside the cached
+      # directory and a cached artefact is still the artefact built at this pin.
+      - name: The compiler's emission, digested for cross-machine comparison
+        working-directory: .nitpick
+        run: |
+          set -euo pipefail
+          cd .internal/quickemit
+          echo "compiler pin: $NITPICK_COMMIT"
+          echo "the cross-machine claim is npkc.ll and nothing else on this list:"
+          # Every artefact the ladder leaves, so the FIRST digest that differs
+          # names the stage (S-42). Size beside the digest: two files that differ
+          # in length differ for a reason a digest alone will not tell you.
+          for f in builder.o builder npkrt.o npkc.ll npkc.o npkc; do
+            if [ -f "$f" ]; then
+              printf '%-12s %10s bytes  %s\n' \
+                "$f" "$(stat -c '%s' "$f")" "$(sha256sum "$f" | cut -d' ' -f1)"
+            else
+              printf '%-12s %s\n' "$f" "absent"
+            fi
+          done
 
       - name: Run the harness
         run: python3 harness/run.py

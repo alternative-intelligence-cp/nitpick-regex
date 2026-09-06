@@ -1,4 +1,36 @@
-# Cycle 0.0 — Foundations
+# Cycle 0.0 — Foundations — **DONE and ARCHIVED, 2026-09-06**
+
+> ## The redirect, and why this note is here rather than in 41 edits
+>
+> This cycle lived at **`meta/roadmap/0.0/`** until 2026-09-06 and now lives at
+> `meta/roadmap/done/0.0/`. **Any citation of the form `meta/roadmap/0.0/X`
+> written before that date means `meta/roadmap/done/0.0/X`.** There are 41 such
+> mentions across 15 files.
+>
+> **They are deliberately not rewritten.** Most sit in settled `RX-` decision
+> texts, in closed execution records, and in committed REPORT blocks — all of
+> which W-28 says are superseded rather than edited, and which this repository
+> has twice chosen not to touch before (RX-114's `O-N` renumbering left
+> `0.0.0.md` alone; RX-125 reused the pattern). **The live navigational
+> pointers WERE corrected** — `CLAUDE.md`, `harness/README.md`, `nitpick.toml`,
+> `meta/OPEN_QUESTIONS.md` and three probe headers — because those exist to send
+> a reader somewhere and a pointer that misses is worth nothing.
+>
+> **Two archived files were touched, and here is exactly what changed.**
+> `0.0.0.md` (4 occurrences) and `0.0.1.md` (2) carried markdown **links** of the
+> form `../../../tests/…`, which the extra directory level broke outright; they
+> are now `../../../../tests/…`. **The depth changed and no claim did.** They are
+> recorded here rather than silently, because a document promising it is never
+> rewritten owes an account of every time it was.
+>
+> **And the gate did not catch any of this.** `check_refs.py` reported *clean*
+> across all 41 mentions, correctly: it checks markdown **link syntax** in
+> markdown **files**, and every one of the 41 is either an inline code span or
+> sits in a `.npk`, `.toml` or `.txt` file — 83 of this repository's 145 tracked
+> files are outside its denominator entirely. It found the six broken links and
+> could not see the mentions. **A whole-directory move is exactly the change that
+> separates those two populations**, which is worth knowing before the next one.
+
 
 **The probes, the harness, and `src/core/`.** Nothing in this cycle matches
 anything. What it produces is the ability to find out whether the rest of the
@@ -141,8 +173,14 @@ settled. **Nothing in this cycle is blocked on a question.**
 - [~] ~~**`check_no_syscalls`**: the object's undefined symbols held to a committed expected list~~
       — **STRUCK AND REPLACED, and the replacement is the subcycle's main finding.** The committed
       list was already dead (RX-116). The *difference* that replaced it **also cannot see a
-      syscall**: measured at the pin, a program with `sys(39i64)` in `main` has the same 29
-      undefined symbols as one without, because `npk_sys6` is already the prelude's. So
+      syscall**: measured **at compiler `950bb1d`**, a program with `sys(39i64)` in `main` has the same 29
+      undefined symbols as one without, because `npk_sys6` is already the prelude's.
+      *(Dated 2026-09-06 at 0.0.5: this line said "measured at the pin", and **the pin moved twice
+      underneath it** — at `3d15ac9` the floor is 2 symbols and the difference IS `npk_sys6`, so the
+      sentence went false with nobody editing it. The commit is named here for that reason; the
+      finding itself is RX-131's, the reproduction of both pins is `harness/baseline/RX120.txt`, and
+      the two-layer conclusion below is unchanged because the second layer names the calling
+      function and no symbol set can.)* So
       `check_no_syscalls` is now **two** layers — the symbol difference, and an IR call-edge scan
       that names the function (**RX-120**). RX-008's rule is unchanged; both layers apply to
       programs whose graph reaches `src/` (**RX-121**), and the runner says per run how many that
@@ -240,11 +278,25 @@ settled. **Nothing in this cycle is blocked on a question.**
       the harness runs that control on every capped file.
 
 ### 0.0.5 — close
-- [ ] every probe verdict reconciled against the specifications
-- [ ] the cycle's findings written as a numbered list
-- [ ] the harness self-check green, the full run green
-- [ ] `0.1/0.1.0.md` written execution-grade
-- [ ] cycle archived to `done/0.0/`, `ROADMAP.md` updated
+- [x] every probe verdict reconciled against the specifications
+      **DONE, and six of the 23 had a consequence that landed somewhere other than the document
+      that owns it.** Read file by file rather than grepped, because every one of the six is a
+      claim about TENSE OR TRUTH and contains no wrong token: `meta/specs/README.md` still said an
+      out-of-range index traps (the belief probe 08b refuted on day one, in the paragraph a
+      newcomer reads first, citing no decision so no sweep could reach it); `SAFETY.md` §7 still
+      gave probe 09's *refuted* prediction while calling itself "the evidence for the request";
+      `API.md` §8 still said "decide after probe 12 says what the trait actually admits" three days
+      after probe 12 said; `API.md` §2 lacked the `Optional`-is-not-`pick`-able fact the probe's own
+      header assigned to it; `SAFETY.md` §6 still spelled `Match` as `start`/`end` where two other
+      specs had said `lo`/`hi` since 0.0.0; and `CLAUDE.md` quoted `#size_of<HirNode>` = 24, which
+      measures **the payload spelling `HIR.md` H-2 declined**. RX-135, RX-136, RX-137.
+- [x] the cycle's findings written as a numbered list — **25 of them, `0.0.5.md` §A**, in three
+      groups (the language, the instruments, the documents) so a sibling can act on one without
+      reading the rest
+- [x] the harness self-check green, the full run green — **98/98 in 32.0 s**, self-check first,
+      eight live cases and three printed as PENDING rather than as passing
+- [x] `0.1/0.1.0.md` written execution-grade
+- [x] cycle archived to `done/0.0/`, `ROADMAP.md` updated
 
 ## Gate
 
