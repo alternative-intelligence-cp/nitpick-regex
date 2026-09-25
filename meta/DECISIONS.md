@@ -1588,6 +1588,11 @@ error, as probe04's own header notes); a mix, methods for reading and free
 functions for mutating (two vocabularies for one type).
 
 ### RX-130 — an out-of-range accessor TRAPS, and the trap is the language's own `OutOfBounds`
+> **SUPERSEDED IN PART by RX-143 (2026-09-06)** — its sentence *"the helper is
+> `vec_oob`, it never returns"*, which was false at `i == 0`. The decision — a
+> violation traps `OutOfBounds`, the language's own trap — stands. *(Marker added
+> 2026-09-25 at cycle 0.0.4b, when `check_refs` began requiring one; the third
+> audit's N-17.)*
 
 **2026-09-06.** `SAFETY.md` S-23 says `vec_get`/`vec_set` "check against
 `count`" and does not say what a violation does. Three answers were available
