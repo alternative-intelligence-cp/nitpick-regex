@@ -36,6 +36,16 @@ A `Program` is therefore **copyable, comparable, and dumpable** — which is wha
 makes a compiled program a committed fixture (`TESTING.md` §4) and a compiler
 change a visible diff rather than a behaviour nobody can inspect.
 
+*(Flagged 2026-09-25 — RX-160, the fourth cycle 0.0 audit's BL-8. **"Copyable" here
+means the CONTENT: plain data, compared and dumped element by element.** A BINDING
+copy — `Program:q = p;` — copies three `Vec` headers and is a second handle on each
+block: freeing both is a double free and reading one after the other is freed
+reads freed memory (`../../tests/unit/vec_alias_struct_copy.npk`, measured). The
+author decided on the board's question 9 that `Vec` becomes MOVE-ONLY BY
+CONSTRUCTION at 0.0.4d, before cycle 0.0 closes; a struct holding one is then
+move-only too, and a copy of a `Program` is written element by element into fresh
+`Vec`s. Cycle 0.6 builds `Program` against whatever 0.0.4d lands.)*
+
 ---
 
 ## 2. UTF-8 range compilation

@@ -29,12 +29,23 @@ because its GREEN message said "EIGHT" for a subcycle after that was the only
 number it could be.
 
 THE PENDING MARKER IS A WAY TO FAIL AND IT HAS THREE CASES (11, 12, 13), since
-the third cycle-0.0 audit (BL-6). `pending-until:` is the runner's only route
-for a red to leave a green run's denominator, it shipped with no case at all,
+the third cycle-0.0 audit (BL-6). `pending-until:` shipped with no case at all,
 and one comment line was measured moving a wrong expectation out of the count
 -- which is case 1's own fault, defeated. Each of its three reds is a case:
 a marker the reviewed list does not name, a pending unit failing for another
-reason, and a marker that has outlived its reason (RX-154).
+reason, and a marker that has outlived its reason (RX-154). Case 11 also
+requires the unit to have been OBSERVED THROUGH `opt -O2`, which a pending unit
+was not until RX-159 (the fourth audit's N-19).
+
+AND THE MARKER WAS NOT THE ONLY ROUTE OUT, WHICH THE FOURTH AUDIT PROVED (BL-7):
+a `use` inside a SIBLING's `/* */` took a red unit out of the count through the
+"imported by a sibling" skip. Case 15 is that route, and it must go red (RX-157).
+Cases 16 and 17 are the second directions of the two reviewed lists -- a
+`PENDING.txt` line no marker matches, a `RESIDUE.txt` entry no program
+references -- which nothing tested (N-20, RX-159). Case 18 feeds the harness's
+one reading of source every lexical form the compiler has, and requires the
+imports and the code the compiler would see (RX-157), because eight checks now
+stand on it.
 
 WHY CASE 7 IS THE MOST IMPORTANT ONE IN THE LIST, though it cannot run for
 five more cycles: it is the case that proves RX-041 -- "every engine gives the
@@ -338,6 +349,147 @@ def _case13(d):
     return TOML % PROGRAM_ENTRY
 
 
+def _case15(d):
+    """A RED UNIT NAMED ONLY BY A `use` INSIDE A SIBLING'S `/* */` -- BL-7.
+
+    The fourth cycle-0.0 audit's plant, exactly: a unit whose expectation is
+    wrong by one (case 1's fault) and a sibling carrying, in a block comment, a
+    `use` of it. The compiler sees no import -- measured, the sibling compiles,
+    links and runs at exit 0 -- and the "imported by a sibling" skip used to see
+    one, so the red unit was never judged: `173/173`, GREEN. Two defences now
+    stand between the comment and the count, the reader that skips comments and
+    the rule that a file declaring `main` is never skipped (RX-157); this case
+    goes red if either holds, and was mutation-tested with each removed alone and
+    with both removed together."""
+    _write(d, "tests/case/commented_red.npk", _program("commented_red", 41, 42))
+    _write(d, "tests/case/commented_sibling.npk",
+           "// expect-exit: 0\n"
+           "mod:commented_sibling;\n"
+           "/*\n"
+           'use "commented_red.npk".*;\n'
+           "*/\n\n"
+           "func:main = int32(cstring[]:_~argv) {\n"
+           "    exit 0i32;\n"
+           "};\n" + FAILSAFE)
+    return TOML % PROGRAM_ENTRY
+
+
+def _case16(d):
+    """A `PENDING.txt` LINE THAT NO PENDING UNIT MATCHES -- N-20, RX-159.
+
+    The list's second direction. The unit it names carries no marker and passes,
+    so nothing is red but the stale line -- which is the audit's point about it:
+    a line that outlives its marker PRE-AUTHORISES the next one, and hiding a unit
+    then takes one edit instead of RX-154's two. Deleting this direction left the
+    self-check green until this case existed."""
+    _write(d, "tests/case/listed_no_marker.npk", _program("listed_no_marker", 0, 0))
+    _write(d, "harness/baseline/PENDING.txt",
+           _pending_list_line("tests/case/listed_no_marker.npk", 41,
+                              "the self-check's case 16: listed, and no marker"))
+    return TOML % PROGRAM_ENTRY
+
+
+def _case17(d):
+    """A `RESIDUE.txt` ENTRY THAT NO SCANNED PROGRAM REFERENCES -- N-20, RX-159.
+
+    The residue list's second direction. The tree reaches `src/` through a
+    program that references nothing beyond the floor, and its list is ITS OWN --
+    one entry, a symbol no program can reference -- so the direction applies here
+    as it does in the real tree, and the one red is the unused entry. A fixture
+    that borrows the library's list byte for byte is exempt from this direction,
+    because that list describes another tree (RX-154); this one does not borrow."""
+    _lib(d)
+    _write(d, "harness/baseline/RESIDUE.txt",
+           "# the self-check's case 17: a list of this fixture's own\n"
+           "npk_selfcheck_case17\tpermitted here, and referenced by nothing\n")
+    _write(d, "tests/case/floor_only.npk",
+           "// expect-exit: 0\n"
+           "mod:floor_only;\n\n"
+           'use "../../src/lib.npk".*;\n\n'
+           "func:main = int32(cstring[]:_~argv) {\n"
+           "    exit 0i32;\n"
+           "};\n\n"
+           "func:failsafe = int32(Error:e) {\n"
+           "    pick (e) {\n"
+           "        (HeapBadRequest) { exit 91i32; },\n"
+           "        (HeapOom)        { exit 92i32; },\n"
+           "        (IntOverflow)    { exit 93i32; },\n"
+           "        (OutOfBounds)    { exit 94i32; },\n"
+           "        (Unreachable)    { exit 95i32; },\n"
+           "        (WildLeak)       { exit 96i32; },\n"
+           "        (ERegexPattern)  { exit 60i32; },\n"
+           "        (StackExhausted) { exit 106i32; },\n"
+           "        (MachineFault)   { exit 107i32; },\n"
+           "        (*)              { exit 99i32; }\n"
+           "    }\n"
+           "    exit 9i32;\n"
+           "};\n")
+    return TOML % PROGRAM_ENTRY
+
+
+# CASE 18'S TEXT: one of every lexical form the compiler's lexer has at
+# `c3bdae2`, each hiding a `use` and a `/`, beside the ones that are real code.
+_LEX_TEXT = (
+    'mod:lexcase;\n'                                        # 1
+    'use "./real_a.npk".*;\n'                               # 2  an import
+    'pub use "./real_b.npk".name;\n'                        # 3  a re-export
+    '// use "./line_comment.npk".*; a / b\n'                # 4
+    '/*\n'                                                  # 5
+    'use "./block_comment.npk".*; a / b\n'                  # 6
+    '*/\n'                                                  # 7
+    'string:s = "use \\"./in_string.npk\\" a / b";\n'       # 8
+    'string:r = r"use a / b"; use "./after_raw.npk".*;\n'   # 9  an import
+    'string:k = """\n'                                      # 10
+    'use "./block_string.npk".*; a / b\n'                   # 11
+    '""";\n'                                                # 12
+    "char8:q = '\"'; use \"./after_char.npk\".*;\n"         # 13 an import
+    'string:t = `use "./template.npk" a / b &{ n / 2 }`;\n' # 14 one `/` is code
+    'pub /* gap */ use /* gap */ "./gapped.npk".*;\n'       # 15 a re-export
+    'int64:x = y.use;\n'                                    # 16 a field, not a keyword
+)
+_LEX_IMPORTS = [(2, "./real_a.npk", False), (3, "./real_b.npk", True),
+                (9, "./after_raw.npk", False), (13, "./after_char.npk", False),
+                (15, "./gapped.npk", True)]
+
+
+def _run_case18(case):
+    """Case 18, on the instrument itself -- as case 10 is. `lexical.py` is read
+    by the program suites' skip, by B-2's reach and by every tree check, so a
+    regression in it weakens all of them at once and reddens none: this is the
+    red it would otherwise not have."""
+    import lexical
+    wrong = []
+    got = lexical.imports(_LEX_TEXT)
+    if got != _LEX_IMPORTS:
+        wrong.append(f"imports read {got!r}, and the compiler reads {_LEX_IMPORTS!r}")
+    code = lexical.blank(_LEX_TEXT)
+    if len(code) != len(_LEX_TEXT) or code.count("\n") != _LEX_TEXT.count("\n"):
+        wrong.append("blanking moved a byte or a line")
+    lines = code.split("\n")
+    for ln in (4, 6, 8, 9, 11):
+        if "/" in lines[ln - 1]:
+            wrong.append(f"line {ln}: a `/` inside a comment or a literal survived")
+    if lines[13].count("/") != 1:
+        wrong.append("line 14: the template's text was read as code, or its "
+                     "interpolation was not")
+    if "after_char" in lines[12] or "use" not in lines[12]:
+        wrong.append("line 13: the `'\"'` literal hid the rest of the line, or was "
+                     "not blanked")
+    if lexical.declares_main("// func:main = x\n/* func:main = y */"):
+        wrong.append("a `func:main` in a comment was read as a declaration")
+    if not lexical.declares_main("func:main = int32(cstring[]:_~argv) {"):
+        wrong.append("a real `func:main` was not seen")
+    if wrong:
+        return Outcome(case, False, "the harness's one reading of source disagrees "
+                       "with the compiler's lexer: " + "; ".join(wrong))
+    return Outcome(case, True, f"read {len(got)} imports and blanked every comment "
+                               f"and literal form as the compiler's lexer does")
+
+
+def _case18(d):
+    return None                                   # handled by `_run_case18`
+
+
 def _case10(d):
     """A NON-DETERMINISTIC EMISSION -- the `repro` check must report the offset.
 
@@ -413,8 +565,10 @@ CASES = [
          _case10, ["first difference at byte 17"]),
     Case(11, "a red hidden behind a pending marker the reviewed list does not name",
          "RX-154: one comment line must not move a red out of a green run's "
-         "denominator -- the third audit's M3, which defeated case 1",
-         _case11, ["hidden_red.npk", "NOT ON THE REVIEWED PENDING LIST"]),
+         "denominator -- the third audit's M3, which defeated case 1 -- and RX-159: "
+         "the unit is observed through opt -O2 as well, which it was not (N-19)",
+         _case11, ["hidden_red.npk", "NOT ON THE REVIEWED PENDING LIST",
+                   "41 through opt -O2"]),
     Case(12, "a pending unit failing for a reason other than the one its marker names",
          "RX-154: the marker excuses the failure it names and no other -- the "
          "third audit's M2, B-7's reasoning applied to the marker",
@@ -427,6 +581,23 @@ CASES = [
          "the oracle stage -- V-20 has named it since 0.0.0 and this list did not "
          "carry it until the third audit's triage",
          None, (), "0.5 -- there is no oracle stage yet"),
+    Case(15, "a red unit named only by a `use` inside a sibling's block comment",
+         "RX-157: a comment in ANOTHER file must not move a red out of a green run "
+         "-- the fourth audit's BL-7, 173/173 GREEN through the fix for BL-6",
+         _case15, ["commented_red.npk", "exited 41, expected 42"]),
+    Case(16, "a PENDING.txt line that no pending unit matches",
+         "RX-159: the list's second direction, which nothing tested (N-20) -- a "
+         "stale line pre-authorises the next marker",
+         _case16, ["listed_no_marker.npk", "no PENDING unit matches it"]),
+    Case(17, "a RESIDUE.txt entry that no scanned program references",
+         "RX-159: the residue list's second direction, which nothing tested since "
+         "the third triage scoped it out of every inner run (N-20)",
+         _case17, ["`npk_selfcheck_case17` is permitted and NO SCANNED PROGRAM "
+                   "REFERENCES IT"]),
+    Case(18, "the harness's one reading of source, fed every lexical form",
+         "RX-157: the program suites' skip, B-2's reach and every tree check stand "
+         "on it, so its regression would weaken all of them and redden none",
+         _case18, ()),
 ]
 
 
@@ -516,6 +687,8 @@ def _repro_message(a, b):
 def _run_case(case, keep):
     if case.num == 10:
         return _run_case10(case)
+    if case.num == 18:
+        return _run_case18(case)
     d = tempfile.mkdtemp(prefix=f"nregex-selfcheck-{case.num}-")
     try:
         toml = case.build_tree(d)

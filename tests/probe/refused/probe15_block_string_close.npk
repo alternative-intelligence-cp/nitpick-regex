@@ -1,0 +1,57 @@
+// expect-error: NITPICK-LEX-005
+// expect-error-at: 42:23
+// expect-error: NITPICK-PARSE-001
+// expect-error-at: 42:23
+// expect-error: NITPICK-PARSE-003
+// expect-error-at: 41:37
+//
+// PROBE 15 -- A BLOCK STRING CLOSES AT THE FIRST `""`, NOT AT `"""`.
+// Found 2026-09-25 at compiler `c3bdae2`, by cycle 0.0.5's fourth audit
+// triage, while writing `harness/lexical.py` to read source the way the
+// compiler does (RX-157).
+//
+// WHAT THE SPECIFICATION SAYS. `LEXICAL_REFERENCE.md` §6.3:
+//     BlockStringLiteral ::= '"""' (SourceCharacter - '"""')* '"""'
+// so a block string's body may hold `""` -- `"""a""b"""` is one literal whose
+// body is `a""b`.
+//
+// WHAT THE COMPILER DOES. `lexer_next` (`src/frontend/lexer.npk`, read at
+// `c3bdae2` with `git show`) ends a block string at the first `""` it meets and
+// then consumes three characters there. So below, `"""a""` is one literal with
+// body `a`, the `""b` after it is swallowed as its "closing quotes", and the
+// last `"""` opens a SECOND block string that never closes: `NITPICK-LEX-005`,
+// then the parser's cascade -- `PARSE-001` at the same place and `PARSE-003`
+// for `main`'s brace. The control `"""ab"""` compiles and runs, exit 2, at -O0
+// and through `opt -O2`.
+//
+// WHAT IT BLOCKS HERE: NOTHING. No `.npk` in this repository holds a block
+// string (`git grep '"""' -- '*.npk'` found none but this file). Raised to the
+// orchestrator by path as a compiler-defect candidate (W-27: it blocks nothing,
+// so the stream did not stop). A regex library will want block strings for
+// patterns with quotes in them, which is why it is recorded rather than noted.
+//
+// WHAT TO DO WHEN THIS REDDENS -- it will compile cleanly on the day the lexer
+// follows §6.3, or refuse differently on the day §6.3 follows the lexer:
+// move it out of `refused/` with an `expect-exit: 4`, AND CHANGE
+// `harness/lexical.py`'s block-string close to match, because that module
+// mirrors the lexer and not the grammar -- this probe is what keeps the two in
+// step.
+mod:probe15_block_string_close;
+
+func:main = int32(cstring[]:_~argv) {
+    string:s = """a""b""";
+    exit (string_byte_length(s) =>! int32);
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault)   { exit 107i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

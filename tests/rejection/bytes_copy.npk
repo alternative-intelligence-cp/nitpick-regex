@@ -1,0 +1,48 @@
+// expect-error: NITPICK-TYPE-046
+// expect-error-at: 27:5
+//
+// A CONSUMER CANNOT COPY A `Bytes`: IT IS MOVE-ONLY BY CONSTRUCTION ALREADY --
+// the fourth cycle-0.0 audit's BL-8, and the control for 0.0.4d.
+//
+// WHAT IT PINS. `Bytes` holds a `buffer`, which owns its body (D-183, D-200),
+// so the compiler makes the whole struct move-only: `Bytes:c = b;` is
+// `NITPICK-TYPE-046`, "copying it here would leave two owners and one double
+// free". That is why `Bytes` is OUTSIDE N-15, and it is the shape the author
+// decided for `Vec` on the board's question 9 (2026-09-25): MOVE-ONLY BY
+// CONSTRUCTION, landing as 0.0.4d before cycle 0.0 closes. Today a `Vec` copy
+// compiles and aliases its block (`../unit/vec_alias_*.npk`); on that day it is
+// refused the way this one is, and those units become fixtures like this.
+//
+// A TEST OF THE LANGUAGE'S RULE AT THIS LIBRARY'S TYPE, NOT OF THIS FILE: the
+// same program copying a `Vec` compiles, links and runs
+// (`../unit/vec_alias_double_free.npk`), so the refusal here is `Bytes`' field
+// and not a refusal of every whole-struct copy. Measured at `c3bdae2` (RX-160).
+mod:bytes_copy;
+
+use "../../src/core/bytes.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Bytes:b = raw bytes_init(4i64);
+    drop bytes_push(@b, 65u8);
+    Bytes:c = b;
+    exit 0i32;
+};
+
+// A SUPERSET of what REACH asks, on purpose: a later change in the compiler's
+// phase order must not add a stray `REACH-002` beside this file's one code.
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

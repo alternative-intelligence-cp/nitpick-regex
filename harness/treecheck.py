@@ -26,9 +26,21 @@ THE ONE THAT ONLY REPORTS. `check_specs_current` never fails the run
 which no longer resolve. It reports rather than fails because a citation can go
 stale for a good reason mid-cycle, and a check that blocks a commit for that
 would be routinely bypassed -- which is worse than one that is read.
+
+EVERY CHECK HERE READS SOURCE THROUGH `lexical.py` -- RX-157. Code is what is
+left when every comment, string, character literal and template text has been
+blanked, and an import is what the compiler's parser would read. Until the
+fourth cycle-0.0 audit this file had its own blanker, which knew `//` and `"`
+and nothing else -- so a `'"'` character literal hid the rest of its line from
+three checks (N-18's M12) -- and its own import pattern, one of three in the
+harness that disagreed.
 """
 import os
 import re
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import lexical                                                # noqa: E402
 
 # `BUILD.md` §6, rule B-16 -- the layering, and the direction of every arrow.
 # A module may not import a module to its LEFT in this list; `core` is
@@ -48,8 +60,6 @@ RANK = {name: i for i, name in enumerate(LAYERS)}
 # Rule B-17 -- `tests/oracle/` may import `core` and `hir` and nothing else,
 # so that a shared bug cannot make the oracle and the engine it judges agree.
 ORACLE_MAY_IMPORT = {"core", "hir"}
-
-_USE = re.compile(r'^\s*(?:pub\s+)?use\s+"([^"]+)"')
 
 # `SAFETY.md` §5, rule S-12 -- every bound is a named constant in
 # `src/core/limits.npk`. Nine of them, and the table there is the authority.
@@ -97,18 +107,17 @@ def npk_files(root, under):
     return sorted(out)
 
 
-def _uses(path):
-    """Every `use`/`pub use` target in one file, as a path relative to it."""
-    out = []
+def _read(path):
     try:
-        text = open(path, encoding="utf-8", errors="replace").read()
+        return open(path, encoding="utf-8", errors="replace").read()
     except OSError:
-        return out
-    for n, line in enumerate(text.split("\n"), 1):
-        m = _USE.match(line)
-        if m:
-            out.append((n, m.group(1)))
-    return out
+        return ""
+
+
+def _uses(path):
+    """Every `use`/`pub use` target in one file, as a path relative to it --
+    read the way the compiler reads it (`lexical.imports`, RX-157)."""
+    return [(n, target) for n, target, _ in lexical.imports(_read(path))]
 
 
 def _layer_of(root, path):
@@ -209,12 +218,8 @@ def _check_umbrella(root, lib):
         text = open(lib, encoding="utf-8", errors="replace").read()
     except OSError as e:
         return [f"src/lib.npk: {e}"]
-    for ln, line in enumerate(text.split("\n"), 1):
-        m = _USE.match(line)
-        if not m:
-            continue
-        target = m.group(1)
-        if line.lstrip().startswith("pub "):
+    for ln, target, is_pub in lexical.imports(text):
+        if is_pub:
             pub.setdefault(target, []).append(ln)
         else:
             plain.setdefault(target, []).append(ln)
@@ -251,7 +256,7 @@ def check_error_budget(root):
             text = open(p, encoding="utf-8", errors="replace").read()
         except OSError:
             continue
-        for ln, line in enumerate(text.split("\n"), 1):
+        for ln, line in enumerate(lexical.blank(text).split("\n"), 1):
             m = _PUB_ERROR.match(line)
             if m:
                 found.append((m.group(1), rel, ln))
@@ -316,10 +321,7 @@ def check_constants_named(root):
             text = open(p, encoding="utf-8", errors="replace").read()
         except OSError:
             continue
-        for ln, line in enumerate(text.split("\n"), 1):
-            if line.lstrip().startswith("//"):
-                continue
-            code = line.split("//")[0]
+        for ln, code in enumerate(lexical.blank(text).split("\n"), 1):
             for m in _CMP_LITERAL.finditer(code):
                 v = int(m.group(1))
                 if v in _SMALL:
@@ -360,40 +362,22 @@ _DIV_OP = re.compile(r'(?<![/*])[/%](?![/*=])')
 
 
 def _blank_prose(text):
-    """Blank `//` comment bodies and string literals, keeping line structure.
+    """Comments and literals blanked, lines kept -- `lexical.blank`, RX-157.
 
     A CHECK OVER SOURCE MUST NOT READ PROSE, and the file most likely to break
     one is the file that DOCUMENTS the rule: `bytes.npk`'s header explains why
     there is no `/` in it, and says `/` while doing so. Blanking is therefore
     not tidiness -- without it this check fails the repository on the paragraph
-    arguing for it, which is the most confusing failure available."""
-    out = []
-    for line in text.split("\n"):
-        buf, i, in_str, n = [], 0, False, len(line)
-        while i < n:
-            ch = line[i]
-            if in_str:
-                if ch == "\\" and i + 1 < n:
-                    buf.append("  ")
-                    i += 2
-                    continue
-                buf.append(" ")
-                if ch == '"':
-                    in_str = False
-                i += 1
-                continue
-            if ch == '"':
-                in_str = True
-                buf.append(" ")
-                i += 1
-                continue
-            if ch == "/" and i + 1 < n and line[i + 1] == "/":
-                buf.append(" " * (n - i))
-                break
-            buf.append(ch)
-            i += 1
-        out.append("".join(buf))
-    return "\n".join(out)
+    arguing for it, which is the most confusing failure available.
+
+    THIS WAS A BLANKER OF ITS OWN UNTIL THE FOURTH CYCLE-0.0 AUDIT, and it knew
+    `//` and `"` only. A `'"'` character literal opened a "string" that ran to
+    the end of its line, so everything after it on that line was hidden from
+    `check_no_division`, `check_accessor_confinement` and
+    `check_vec_elements_own_nothing` alike (N-18's M12); a `/* */` block, a raw
+    or block string and a template's text were read as code. It is now the
+    harness's one reading of source, which mirrors the compiler's lexer."""
+    return lexical.blank(text)
 
 
 def check_no_division(root):
@@ -530,64 +514,145 @@ def check_accessor_confinement(root):
 
 # --- check_vec_elements_own_nothing --------------------------------------------------
 
-# WHAT "OWNS" MEANS HERE, and it is wider than what the language drops: a `T`
-# that DROPS something (a `string`, a `buffer`, a `Bytes`, a `dyn`, an
-# `OwnedFd`) or that HOLDS A BLOCK OF ITS OWN (a `Vec`, a `SparseSet`, a `List`,
-# any `wild` pointer). The first kind is what `vec_get` moves out of its slot and
-# six verbs orphan (RX-155); the second is what a copied header aliases (the
-# board's question 9, N-15). Matched as whole words in the element's type text,
-# and in the fields and payloads of any type declared under `src/` it names.
-_OWNS = ("string", "buffer", "Bytes", "dyn", "OwnedFd",
-         "Vec", "SparseSet", "List", "wild")
-_OWNS_RE = re.compile(r"\b(" + "|".join(_OWNS) + r")\b")
+# DEFAULT-DENY, SINCE RX-158 (the fourth cycle-0.0 audit's N-18). An element PASSES
+# only if every type it names is one of the non-owning scalars below, or a struct or
+# enum declared under `src/` whose fields and payloads pass the same way. ANYTHING
+# ELSE FAILS: an owning builtin, a prelude type, a bare type parameter, a name this
+# lexical check cannot resolve, a pointer, a slice, a `Vec` -- because what the check
+# cannot see it cannot clear. The check this replaced was a DENYLIST of nine words
+# matched in the element's text, and the audit walked twelve shapes past it, eleven
+# of which compile and run and six of which showed BL-5's move-out: a lowercase
+# struct name, two prelude types, an enum payload, an `arena`, a `wildx` pointer, a
+# generic wrapper, a generic function, `Vec <string>` with a space, a non-generic
+# struct appended to `vec.npk`, a POD namesake shadowing an owning one, and a `'"'`
+# earlier on the line. The compiler's owning kinds at `c3bdae2` are twelve and the
+# denylist named four of them; an allowlist cannot be one word short of the
+# language, because the language's new kinds are not on it.
+#
+# THE SCALARS ARE THE COMPILER'S, read at `c3bdae2` with `git show`:
+# `LEXICAL_REFERENCE.md` §4's `BuiltinType`, less every kind `type_drops_recorded`
+# (`src/frontend/types.npk`) says owns, less every kind that holds or views a block
+# (a pointer, a slice) or is not a plain value (`any`, `dyn`, `func`, `Handle`,
+# `Channel`, `Future`, `atomic`, `simd`, `complex`, `Optional`, `Result`, `range`,
+# `array`, `cstring`, `NIL`). What is left IS ITS BITS -- the integers, the
+# balanced-ternary, fixed-point and floating families, `bool`, the characters, and
+# the kernel ids and flag families that function's own comment lists as plain
+# integers. Widening it is a decision, never an edit to make a red run green.
+_POD_SCALARS = frozenset(
+    [f"int{w}" for w in (8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096)]
+    + [f"uint{w}" for w in (8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096)]
+    + [f"tbb{w}" for w in (8, 16, 32, 64, 128, 256)]
+    + [f"frac{w}" for w in (8, 16, 32, 64)]
+    + [f"tfp{w}" for w in (32, 64, 128, 256)] + ["dim256"]
+    + [f"flt{w}" for w in (32, 64, 128, 256, 512)]
+    + ["bool", "char8", "char16", "char32", "trit", "tryte", "nit", "nyte",
+       "fd", "pid", "tid", "uid", "gid", "oflags", "prot", "mflags", "fmode"])
+# A field's qualifiers are not types: `sealed`, `hidden`, and `limit<Rules>`
+# (D-313, D-314, D-308). The memory qualifiers ARE judged -- `wild`, `wildx` and
+# `stack` qualify a pointer, and a pointer is a block.
+_FIELD_QUALS = re.compile(r"\b(?:sealed|hidden)\b|\blimit\s*<[^<>]*>")
+_BLOCK_QUALS = frozenset(["wild", "wildx", "stack", "defer"])
+_IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _TYPE_DECL = re.compile(
-    r"\b(?:struct|enum):([A-Za-z_]\w*)\s*(?:<[^=]*>)?\s*=\s*\{(.*?)\};", re.S)
-_NAME = re.compile(r"\b([A-Z]\w*)\b")
+    r"(?<![A-Za-z0-9_])(struct|enum)\s*:\s*([A-Za-z_]\w*)\s*(?:<([^=]*)>)?\s*=\s*\{(.*?)\};",
+    re.S)
+_GENERIC_PARAMS = re.compile(
+    r"(?<![A-Za-z0-9_])(?:func|struct|enum)\s*:\s*[A-Za-z_]\w*\s*<([^=(]*?)>\s*=")
+# `Vec<…>` with or without a space before the bracket (M9), and a generic call into
+# `vec.npk` spelled with a turbofish, which instantiates `Vec<X>` without writing it.
+_VEC_OPEN = re.compile(r"(?<![A-Za-z0-9_])Vec\s*<")
+_VEC_TURBOFISH = re.compile(r"(?<![A-Za-z0-9_])vec_[A-Za-z0-9_]*\s*::\s*<")
 _VEC_OWNER = os.path.join("src", "core", "vec.npk")
 
 
-def _vec_args(code):
-    """(offset, element-type text) for every `Vec<...>` in blanked source.
-
-    `->` is a pointer arrow and not a closing bracket, so it is stepped over;
+def _angle_args(code, j):
+    """The text between the `<` at `j - 1` and its closing `>`, and the index past
+    it. `->` is a pointer arrow and not a closing bracket, so it is stepped over;
     nesting is counted, so `Vec<Vec<int32>>` yields its outer element whole."""
-    out, i = [], 0
-    while True:
-        i = code.find("Vec<", i)
-        if i < 0:
-            return out
-        if i > 0 and (code[i - 1].isalnum() or code[i - 1] == "_"):
-            i += 4
-            continue
-        j, depth = i + 4, 1
-        while j < len(code) and depth:
-            ch = code[j]
-            if ch == "<":
-                depth += 1
-            elif ch == ">" and code[j - 1] != "-":
-                depth -= 1
-            j += 1
-        out.append((i, code[i + 4:j - 1].strip()))
-        i = j
+    i, depth = j, 1
+    while j < len(code) and depth:
+        ch = code[j]
+        if ch == "<":
+            depth += 1
+        elif ch == ">" and code[j - 1] != "-":
+            depth -= 1
+        j += 1
+    return code[i:j - 1].strip(), j
 
 
-def _owning_reason(text, decls, seen):
-    """Why a type text owns, or None. Follows names declared under `src/`."""
-    m = _OWNS_RE.search(text)
-    if m:
-        return f"`{m.group(1)}`"
-    for name in _NAME.findall(text):
-        if name in seen or name not in decls:
+def _vec_elements(code):
+    """`(offset, element text, how)` for every `Vec` element this file names."""
+    out = []
+    for rx, how in ((_VEC_OPEN, "Vec"), (_VEC_TURBOFISH, "turbofish")):
+        for m in rx.finditer(code):
+            elem, _ = _angle_args(code, m.end())
+            out.append((m.start(), elem, how))
+    return sorted(out)
+
+
+def _params_of(code):
+    """Every generic parameter name a file declares, by name."""
+    names = set()
+    for m in _GENERIC_PARAMS.finditer(code):
+        for p in m.group(1).split(","):
+            p = p.strip().split(":")[0].strip()
+            if _IDENT_RE.fullmatch(p):
+                names.add(p)
+    return names
+
+
+def _members(kind, body):
+    """The type texts a declaration's values are made of: a struct's field types,
+    an enum's payload types. An enum variant with no payload is a tag, and owns
+    nothing."""
+    out = []
+    if kind == "struct":
+        for field in body.split(";"):
+            if field.strip():
+                out.append(field.rpartition(":")[0] if ":" in field else field)
+    else:
+        for m in re.finditer(r"\(([^()]*)\)", body):
+            out += [t for t in m.group(1).split(",") if t.strip()]
+    return out
+
+
+def _deny_reason(text, decls, params, seen):
+    """Why a type text is NOT cleared, or None when every name in it is."""
+    t = _FIELD_QUALS.sub(" ", text)
+    if "->" in t:
+        return "a pointer (`->`), which holds a block"
+    if re.search(r"\[\s*\]", t):
+        return "a slice (`[]`), a view of a block"
+    t = re.sub(r"\[[^\]]*\]", " ", t)          # a fixed array's size is not a type
+    for name in _IDENT_RE.findall(t):
+        if name in _POD_SCALARS:
             continue
-        seen.add(name)
-        why = _owning_reason(decls[name][1], decls, seen)
-        if why:
-            return f"`{name}` ({decls[name][0]}) holds {why}"
+        if name in _BLOCK_QUALS:
+            return f"`{name}` storage, a block"
+        if name in params:
+            return (f"`{name}`, a bare type parameter -- a lexical check cannot "
+                    f"follow an instantiation, so it clears none")
+        if name not in decls:
+            return (f"`{name}`, which is neither a scalar this check clears nor a "
+                    f"type declared under src/ -- a prelude type, a type parameter or "
+                    f"a name it cannot resolve, and it clears nothing it cannot see")
+        if name in seen:
+            continue
+        seen = seen | {name}
+        many = len(decls[name]) > 1
+        for rel, kind, own_params, body in decls[name]:
+            for member in _members(kind, body):
+                why = _deny_reason(member, decls, own_params, seen)
+                if why:
+                    also = (f", one of {len(decls[name])} declarations of that name, "
+                            f"all judged because this check does not resolve imports"
+                            if many else "")
+                    return f"`{name}` ({rel}{also}) holds {why}"
     return None
 
 
 def check_vec_elements_own_nothing(root):
-    """Every `Vec<X>` under `src/` names an element that owns nothing -- S-23a.
+    """Every `Vec` element named under `src/` is CLEARED as owning nothing -- S-23a.
 
     `Vec<T>` IS SPECIFIED FOR A NON-OWNING `T` (RX-155), AND NOTHING IN THE
     LANGUAGE SAYS SO. Until the third cycle 0.0 audit (BL-5) this repository
@@ -602,58 +667,78 @@ def check_vec_elements_own_nothing(root):
     `c3bdae2`, and pinned per verb by the `vec_owning_*` units.
 
     So the restriction is this library's, and this is what makes it a rule
-    rather than a request: `src/` is the code that ships, and a `Vec` of owners
-    written there fails the run. Every `Vec` the specification declares already
-    owns nothing (C-1, H-2, R-8), so today this examines `SparseSet`'s two
-    `Vec<int32>`s; cycle 0.1's parser is its first real subject.
+    rather than a request: `src/` is the code that ships, and a `Vec` whose
+    element this check cannot clear fails the run. Today that is `SparseSet`'s
+    two `Vec<int32>` fields and its two `vec_init_zeroed::<int32>` calls; cycle
+    0.1's parser is its first real subject.
 
-    WHAT IT CANNOT SEE, stated rather than implied: a generic's `Vec<T>` is
-    judged where it is instantiated, which a lexical check does not follow --
-    `vec.npk` itself is the one such file today and is excluded by name, being
-    the definition. And `tests/` is out of scope on purpose: the owning units
-    instantiate `Vec<string>` precisely to measure what the verbs do there.
+    DEFAULT-DENY, SINCE RX-158 -- the paragraph above `_POD_SCALARS` says what is
+    cleared and why the denylist before it was walked past twelve ways. What it
+    examines: every `Vec<...>` (a space before the bracket too) and every
+    `vec_...::<...>` turbofish, which instantiates a `Vec` without writing one;
+    every name in the element is cleared as a scalar, or followed into EVERY
+    struct or enum of that name under `src/` -- all of them, because this check
+    does not resolve imports and a POD namesake must not clear an owning one.
 
-    Prose is blanked first, so a comment naming `Vec<string>` is not reported --
-    the clean control, measured with a planted comment when this was written,
-    beside four plants it did report (`Vec<string>`, a `Vec` of a struct holding
-    a `string`, `Vec<Vec<int32>>`, `Vec<SparseSet>`) and a POD struct it did
-    not."""
+    WHAT IT DOES NOT FOLLOW, stated rather than implied: an instantiation. A
+    `Vec<T>` over a bare type parameter FAILS -- anywhere but `vec.npk`'s own
+    generic definition, where the element is exactly one of that file's type
+    parameters and is exempt. Any other `Vec` in `vec.npk` is judged. A generic
+    struct is judged with its parameters unbound, so it fails too; teaching the
+    check to substitute is the widening a decision would make, if a cycle needs
+    one. And `tests/` is out of scope on purpose: the owning units instantiate
+    `Vec<string>` precisely to measure what the verbs do there.
+
+    Source is read through `lexical.py` (RX-157), so a comment or string naming
+    `Vec<string>` is not reported and a `'"'` earlier on the line hides nothing.
+    Measured when RX-158 was written: the audit's twelve plants all fail, the
+    third triage's four positive plants still fail, and its comment plant and
+    POD plant still pass."""
     fl, notes = [], []
     files = npk_files(root, "src")
     codes, decls = {}, {}
     for path in files:
-        try:
-            text = open(path, encoding="utf-8", errors="replace").read()
-        except OSError:
-            continue
-        code = _blank_prose(text)
+        code = lexical.blank(_read(path))
         rel = os.path.relpath(path, root).replace(os.sep, "/")
         codes[rel] = code
         for m in _TYPE_DECL.finditer(code):
-            decls.setdefault(m.group(1), (rel, m.group(2)))
-    examined = 0
+            own = set()
+            for p in (m.group(3) or "").split(","):
+                p = p.strip().split(":")[0].strip()
+                if _IDENT_RE.fullmatch(p):
+                    own.add(p)
+            decls.setdefault(m.group(2), []).append((rel, m.group(1), own, m.group(4)))
+    owner = _VEC_OWNER.replace(os.sep, "/")
+    counts = {"Vec": 0, "turbofish": 0}
+    exempt = 0
     for rel, code in sorted(codes.items()):
-        if rel == _VEC_OWNER.replace(os.sep, "/"):
-            continue
-        for off, elem in _vec_args(code):
-            examined += 1
-            why = _owning_reason(elem, decls, set())
+        params = _params_of(code)
+        for off, elem, how in _vec_elements(code):
+            if rel == owner and elem in params:
+                exempt += 1
+                continue
+            counts[how] += 1
+            why = _deny_reason(elem, decls, params, set())
             if why:
                 ln = code.count("\n", 0, off) + 1
                 col = off - (code.rfind("\n", 0, off) + 1) + 1
+                shown = f"`Vec<{elem}>`" if how == "Vec" else f"a `vec_...::<{elem}>` call"
                 fl.append(
-                    f"{rel}:{ln}:{col}: `Vec<{elem}>` -- the element owns: {why}. "
-                    f"`Vec<T>` is for a NON-OWNING `T` (SAFETY.md S-23a, RX-155): at "
+                    f"{rel}:{ln}:{col}: {shown} -- the element is not cleared: {why}. "
+                    f"`Vec<T>` is for a NON-OWNING `T` (SAFETY.md S-23a, RX-155), and "
+                    f"this check clears only what it can see owns nothing (RX-158): at "
                     f"an owning `T`, `vec_get` MOVES the element out of its slot and "
-                    f"six verbs orphan what they discard, invisibly to `exit 0`. "
-                    f"Keep the element POD -- an offset into a `Bytes`, as HIR.md H-2 "
-                    f"does for group names -- or lift the restriction by a decision.")
-    notes.append(f"{len(decls)} struct/enum declaration(s) under src/ followed by "
-                 f"name; {_VEC_OWNER} excluded as the definition, whose `Vec<T>` is "
-                 f"judged where it is instantiated.")
-    return Result("check_vec_elements_own_nothing", "SAFETY.md S-23a (RX-155)",
-                  f"{examined} `Vec<...>` element type(s) in {len(files)} file(s) "
-                  f"under src/", fl, notes)
+                    f"six verbs orphan what they discard, invisibly to `exit 0`. Keep "
+                    f"the element POD -- an offset into a `Bytes`, as HIR.md H-2 does "
+                    f"for group names -- or widen the check by a decision.")
+    ndecl = sum(len(v) for v in decls.values())
+    notes.append(f"{ndecl} struct/enum declaration(s) under src/, every one of a "
+                 f"name followed; {exempt} exempt as {owner}'s own `Vec<T>` over its "
+                 f"type parameter, and nothing else there.")
+    return Result("check_vec_elements_own_nothing", "SAFETY.md S-23a (RX-155, RX-158)",
+                  f"{counts['Vec'] + counts['turbofish']} element type(s) -- "
+                  f"{counts['Vec']} `Vec<...>` and {counts['turbofish']} "
+                  f"`vec_...::<...>` -- in {len(files)} file(s) under src/", fl, notes)
 
 
 # --- check_specs_current --------------------------------------------------------------

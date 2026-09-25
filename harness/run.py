@@ -13,8 +13,13 @@ the same way, with a parity stage first.
 WHAT A GREEN RUN HERE ASSERTS, and the boundary is worth stating because the
 stub this replaced could assert almost nothing:
 
-  * every declared suite's every file was built by the PINNED npkc, assembled by
-    `llc`, scanned, linked closed-world against `npkrt.o`, and RUN;
+  * every `program`-stage and `compile`/`positive` file was built by the PINNED
+    npkc, assembled by `llc`, scanned, linked closed-world against `npkrt.o`, and
+    RUN; every other file -- the `parse` sweep, the refusals, the rejection
+    fixtures -- was compiled by the same npkc and judged by its exit and its
+    diagnostic codes, and NEITHER LINKS NOR RUNS. *(This bullet said "every
+    declared suite's every file ... and RUN" until the fourth cycle-0.0 audit
+    (N-23): 107 of that run's 174 units link and run nothing.)*
   * every `program`-stage file gave the SAME exit code at -O0 and again through
     `opt -O2` + `llc -O2` (rule B-3);
   * every rejection fixture was refused with EXACTLY the codes it names, no more
@@ -40,8 +45,13 @@ stub this replaced could assert almost nothing:
     the list, and the run prints each);
   * every unit a `pending-until:` marker took out of the denominator is on the
     reviewed list `harness/baseline/PENDING.txt`, gave exactly the exit its
-    marker names, and did not meet its expectation (RX-154) -- so one comment
-    line cannot move a red out of a green run;
+    marker names on every leg and every run, and did not meet its expectation
+    (RX-154, RX-159); and every file of a program suite that declares `main` was
+    judged, whatever a sibling's text seems to import (RX-157) -- so neither a
+    marker line nor a comment in another file can move a red out of a green run.
+    *(Until the fourth cycle-0.0 audit this bullet ended at the marker and said
+    "one comment line cannot move a red out of a green run". It could, from a
+    sibling: a `use` inside a `/* */` took a unit out, `173/173` GREEN -- BL-7.)*
   * AND THE RUNNER WAS SHOWN ABLE TO FAIL FIRST (V-21, cycle 0.0.3): the
     self-check feeds it every live kind of wrong expectation `TESTING.md` V-20
     names and requires a red for each, before any suite runs.
@@ -64,10 +74,13 @@ USAGE
     --keep                keep the scratch directory and print its path
     --tree PATH           run against a different tree root (the self-check's)
     --selfcheck-inner     "you are being run BY the self-check": skip the
-                          self-check itself, and skip the tree checks. Both for
-                          one reason -- the tree under test is a throwaway
-                          fixture and not this library -- and it is ONE flag so
-                          that no ordinary invocation can turn either off.
+                          self-check itself, and skip the tree checks and
+                          `rx120.sh`. All for one reason -- the tree under test
+                          is a throwaway fixture and not this library -- and it
+                          is ONE flag so that no ordinary invocation can turn
+                          any of them off. The residue list's unused-entry
+                          direction is skipped only where the fixture borrowed
+                          this library's list byte for byte (RX-159).
 """
 import argparse
 import os
@@ -381,6 +394,22 @@ def _pending_list(c, rep, full):
     return len(entries)
 
 
+def _residue_borrowed(root, a):
+    """Is this a self-check fixture holding the LIBRARY'S residue list, byte for
+    byte? Then the list describes another tree, and its unused-entry direction
+    would report the fixture for not being this library (RX-154's finding). A
+    fixture that writes its own list is held to it both ways (RX-159, case 17),
+    and the real run -- never `--selfcheck-inner` -- always is."""
+    if not a.selfcheck_inner:
+        return False
+    mine = os.path.join(root, build.BASELINE_RESIDUE)
+    lib = os.path.join(ROOT, build.BASELINE_RESIDUE)
+    try:
+        return open(mine, "rb").read() == open(lib, "rb").read()
+    except OSError:
+        return False
+
+
 def _summary(c, rep, a, say, secs, sc_counts=None, listed=0):
     say("")
     total = len(rep.rows)
@@ -399,15 +428,23 @@ def _summary(c, rep, a, say, secs, sc_counts=None, listed=0):
     # The unused half is only meaningful over the WHOLE tree: `--only` scans a
     # subset, so every filtered run would report the rest as dead entries.
     #
-    # AND ONLY OVER THIS TREE. The list is a statement about this library, and
-    # `PLAYBOOK.md` says such a list fires on every run against any other tree --
-    # which the self-check's fixture trees are. `_lib` copies `RESIDUE.txt` into
-    # each (the other direction needs it), no fixture references more than two of
-    # its entries, and so EVERY inner run was red here for a reason that was not
-    # its case's: the exit-code half of every case was vacuous and `must_say` was
-    # the only thing telling a detection from noise. Found at the third cycle-0.0
-    # audit's triage, when case 12 passed with its own check removed (RX-154).
-    if not a.only and not a.selfcheck_inner:
+    # AND ONLY OVER THE TREE THE LIST DESCRIBES. The list is a statement about
+    # this library, and `PLAYBOOK.md` says such a list fires on every run against
+    # any other tree -- which the self-check's fixture trees are. `_lib` copies
+    # `RESIDUE.txt` into each (the other direction needs it), no fixture
+    # references more than two of its entries, and so EVERY inner run was red
+    # here for a reason that was not its case's: the exit-code half of every case
+    # was vacuous and `must_say` was the only thing telling a detection from
+    # noise. Found at the third cycle-0.0 audit's triage, when case 12 passed with
+    # its own check removed (RX-154).
+    #
+    # THAT FIX SKIPPED THE DIRECTION IN EVERY INNER RUN, AND SO NOTHING TESTED IT
+    # (the fourth audit's N-20: this block deleted, the self-check still passed).
+    # Now it is skipped only where the fixture BORROWED the library's list byte for
+    # byte -- a statement about another tree -- and a fixture that writes a list of
+    # its own is held to it both ways, which is self-check case 17 (RX-159). The
+    # real run is never an inner run, so it is always held.
+    if not a.only and not _residue_borrowed(c.root, a):
         for m in build.residue_unused(c):
             rep.rows.append(("baseline", "residue", False, m))
             rep.failed.append(("baseline", "residue", False, m))
@@ -432,10 +469,11 @@ def _summary(c, rep, a, say, secs, sc_counts=None, listed=0):
         return 1 if bad else 0
     if bad or rep.build_failures:
         return 1
-    say("GREEN. Every declared suite built, linked, ran and was judged by its exit "
-        "code; every program agreed with itself under opt -O2; every rejection "
-        "reported exactly the codes it names; every .npk in the tree was swept as "
-        "a root; and the tree checks agreed with the specifications.")
+    say("GREEN. Every program built, linked, ran and was judged by its exit code, "
+        "and agreed with itself under opt -O2; every rejection reported exactly the "
+        "codes it names; every .npk in the tree was swept as a root by npkc, which "
+        "neither links nor runs it; and the tree checks agreed with the "
+        "specifications.")
     if sc_counts is not None:
         live, pend, total = sc_counts
         say(f"      AND THE RUNNER WAS SHOWN ABLE TO FAIL FIRST (V-21): the "

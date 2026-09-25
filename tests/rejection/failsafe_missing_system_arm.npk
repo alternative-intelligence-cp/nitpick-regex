@@ -32,8 +32,8 @@ mod:failsafe_missing_system_arm;
 use "../../src/lib.npk".*;
 
 func:main = int32(cstring[]:_~argv) {
-    // ONE parameter (D-089 §4): a second is NITPICK-TYPE-083 from the compiler's
-    // 1.6.0 (DEF-96), a code beside this file's, which B-7 fails. Cycle 0.0.4c.
+    // ONE parameter (D-089 §4). The compiler seat's advance notice says its 1.6.0
+    // step 3c WILL refuse a second, NITPICK-TYPE-083 (DEF-96) -- B-7 would fail it.
     exit 0i32;
 };
 

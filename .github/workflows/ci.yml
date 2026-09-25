@@ -7,15 +7,17 @@
 # that are not its own. Bumping either pin is a deliberate commit, and the
 # commit that bumps it is the one that runs the full suite.
 #
-# WHAT THIS PROVES, UPDATED 2026-09-25 BY THE CYCLE 0.0 CLOSE'S THIRD AUDIT
+# WHAT THIS PROVES, UPDATED 2026-09-25 BY THE CYCLE 0.0 CLOSE'S FOURTH AUDIT
 # TRIAGE. A green run is evidence that the pinned compiler builds from a clean
-# checkout, that LLVM is exactly 20.1.2, and that all 174 units build, link, run
-# and are judged by their exit codes — 22 probes twice each at -O0 and through
-# `opt -O2`, 5 refusal probes held to their exact code sets, 44 `src/core/` unit
-# programs (8 of them what each `Vec` verb does at an owning element, RX-155), 1
-# conformance program, 7 rejection fixtures (5 of them the seal's, since
-# 0.0.4c), and a 95-file sweep of every `.npk` in the tree as a root. None is
-# PENDING.
+# checkout, that LLVM is exactly 20.1.2, that every PROGRAM builds, links, runs
+# and meets its exit code -- the probes and the `src/core/` unit programs twice
+# each, at -O0 and through `opt -O2`, and the conformance program -- and that
+# every OTHER unit is judged by `npkc` alone: the refusal probes and the
+# rejection fixtures held to their exact code sets, and the sweep of every
+# `.npk` in the tree as a root. Those neither link nor run. *(This said "all 174
+# units build, link, run and are judged by their exit codes" until the fourth
+# audit (N-23): 107 of those 174 were compile-only.)* The runner prints each
+# suite's count on every run; take the numbers from there. None is PENDING.
 # THE ONE THAT WAS PENDING, AND ALL THAT HAPPENED TO IT. Through cycle 0.0.5 a
 # unit asserting against a compiler defect (DEF-25, fixed at `fe42dba`) was
 # committed red under a `pending-until:` marker and counted as neither a pass
@@ -29,9 +31,9 @@
 # EIGHT tree checks run on every invocation — seven that can fail the run and
 # `check_specs_current`, which reports. AND SINCE 0.0.3 IT IS ALSO EVIDENCE
 # THAT THE RUNNER CAN FAIL: the self-check runs FIRST and feeds it every live
-# kind of wrong expectation, requiring a red for each -- 11 live and 4 PENDING
-# on stages that do not exist until 0.3, 0.5 and 0.8, 15 cases in V-20's list at
-# the cycle 0.0 close's third triage, and the run prints the counts itself, so
+# kind of wrong expectation, requiring a red for each -- 15 live and 4 PENDING
+# on stages that do not exist until 0.3, 0.5 and 0.8, 19 cases in V-20's list at
+# the cycle 0.0 close's fourth triage, and the run prints the counts itself, so
 # the green says how much of the list it covers. It is still NOT evidence about this library's BEHAVIOUR: `src/core/`
 # is real and carries its own suites, but nothing matches yet.
 #

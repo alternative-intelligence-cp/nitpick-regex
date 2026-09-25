@@ -1,0 +1,57 @@
+// expect-exit: 0
+//
+// A BY-VALUE PARAMETER IS A SECOND HANDLE: A CALLEE CAN FREE ITS CALLER'S
+// `Vec` -- N-15's reach, the fourth cycle-0.0 audit's BL-8.
+//
+// PINNED, NOT ENDORSED. No copy binding is written anywhere. `consume` takes
+// `Vec<int64>` by value, which copies the header into the parameter, and frees
+// through it; the caller's `v` still says `count == 1`, and its next
+// `vec_get` reads the reclaimed block -- the `0xAA` poison, **exit 0 here**
+// (21: the value survived; 22: something else came back). `vec_get` itself
+// takes its `Vec` by value and is harmless only because it never frees -- and
+// `sparseset.npk` reads `vec_get(s.sparse, k)` that way, as `CLAUDE.md`
+// prescribes. So move-only changes `vec_get`'s signature too, which is why it
+// is a subcycle of its own.
+//
+// DEFERRED TO 0.0.4d, BEFORE CYCLE 0.0 CLOSES, by the author's decision on the
+// board's question 9 (2026-09-25): `Vec` becomes MOVE-ONLY BY CONSTRUCTION. On
+// that day this file stops compiling -- `NITPICK-TYPE-046`, as a `Bytes` copy
+// already does (`../rejection/bytes_copy.npk`) -- and 0.0.4d turns it into a
+// rejection fixture, so the shape it pins is proved REFUSED rather than argued.
+//
+// Measured at `c3bdae2`: 0 at -O0 and through `opt -O2` (RX-160).
+mod:vec_alias_param_free;
+
+use "../../src/core/vec.npk".*;
+
+func:consume = NIL(Vec<int64>:v) never fails {
+    drop vec_free(@v);
+    pass NIL;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    Vec<int64>:v = raw vec_init::<int64>(4i64);
+    drop vec_push(@v, 7i64);
+    drop consume(v);
+    int64:x = raw vec_get(v, 0i64);
+    if (x == 7i64) { exit 21i32; }
+    if ((x & 255i64) != 170i64) { exit 22i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

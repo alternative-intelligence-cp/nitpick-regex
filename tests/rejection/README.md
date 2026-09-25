@@ -54,6 +54,16 @@ its instruments live here, one code each, at a measured position:
 - **`sparseset_dense_address.npk`** — `NITPICK-TYPE-079`. The ADDRESS of a
   sealed field is a write form, whatever the callee does with it.
 
+## The copy that is already refused — the cycle 0.0 close's fourth triage
+
+- **`bytes_copy.npk`** — `NITPICK-TYPE-046`. `Bytes` holds a `buffer`, which owns
+  its body, so the compiler makes the whole struct move-only and a consumer's
+  `Bytes:c = b;` is refused. It is the control for the board's question 9, which
+  the author decided on 2026-09-25: `Vec` becomes MOVE-ONLY BY CONSTRUCTION at
+  0.0.4d, before cycle 0.0 closes. Today a `Vec` copy compiles and aliases its
+  block (`../unit/vec_alias_*.npk`, `../unit/sparseset_alias_*.npk`); on that day
+  those become fixtures here, refused the way this one is (RX-160).
+
 **Each is a test of the seal and not of its own file, and both halves are
 measured.** Against the tree before 0.0.4c's declarations all five compile
 cleanly (`../../meta/roadmap/0.0/0.0.4c.md` step 4, the control), and
@@ -96,8 +106,9 @@ every run and requires the harness to catch it.
   The harness says so by name; a test that treated `!= 0` as a refusal would
   pass on a broken command line.
 - **`main` takes ONE parameter: `func:main = int32(cstring[]:_~argv)`.** The
-  compiler's D-089 §4 fixes it, and from its 1.6.0 step 3c any other `main` is
-  refused `NITPICK-TYPE-083` (its DEF-96) — a code beside the one the fixture
-  names, which B-7's equality fails. The two `failsafe_*` fixtures declared
+  compiler's D-089 §4 fixes it, and its 1.6.0 step 3c **will** refuse any other
+  `main` `NITPICK-TYPE-083` (its DEF-96) — per the compiler seat's advance notice;
+  no pin carries it yet — a code beside the one the fixture names, which B-7's
+  equality would fail. The two `failsafe_*` fixtures declared
   `int32(int32:argc, cstring[]:argv)` until cycle 0.0.4c; `npkc` accepted it
   without a word through `c3bdae2`.

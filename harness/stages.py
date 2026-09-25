@@ -10,7 +10,11 @@ to `npkg` the day O-G3 closes is a change of runner and not a change of suite
   * `recursive` DEFAULTS FALSE, so a subdirectory is excluded -- which is what
     makes `tests/probe/` and `tests/probe/refused/` two declarable suites
     (RX-119);
-  * a file another file in the same suite imports is not run standalone.
+  * a file another file in the same suite imports is not run standalone --
+    AND, HERE ONLY, A FILE THAT DECLARES `main` IS ALWAYS RUN (RX-157). `npkg`
+    has no such exception and needs none while its reader agrees with the
+    compiler; this runner's did not, and the fourth cycle-0.0 audit (BL-7) took
+    a red unit out of a GREEN run with a `use` inside a sibling's `/* */`.
 
 RULE B-7 (D-237) IS IMPLEMENTED HERE AND IT IS LOAD-BEARING. The set of
 diagnostic codes a rejection test reports must EQUAL the set its expectations
@@ -29,9 +33,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build                                                  # noqa: E402
 import expect as expect_mod                                   # noqa: E402
+import lexical                                                # noqa: E402
 from manifest import paths_of                                 # noqa: E402
-
-_USE = 'use "'
 
 
 def files_of(root, paths, recursive, suffix=".npk"):
@@ -58,31 +61,50 @@ def files_of(root, paths, recursive, suffix=".npk"):
 
 
 def imported_by_others(paths):
-    """A file another file in the SAME SUITE imports is not run standalone."""
+    """The files of one suite that are NOT run standalone -- RX-157.
+
+    `npkg`'s rule: a file another file in the SAME SUITE imports is a helper, and
+    is judged through its importer rather than on its own. Two things make that
+    safe here, and until the fourth cycle-0.0 audit (BL-7) neither held:
+
+      * THE IMPORT IS READ THE WAY THE COMPILER READS IT -- `lexical.imports`,
+        the harness's one reading of source, which skips comments, strings and
+        templates and sees `pub use` as well as `use`. This reader used to take
+        any line that STARTED `use "`, so a `use` inside a sibling's `/* */`
+        block named a unit the compiler never imported: `173/173`, GREEN, exit 0,
+        over a unit giving 94 where it expected 77 -- one edit, in a file other
+        than the red one.
+      * A FILE THAT DECLARES `main` IS NEVER SKIPPED. It is a program, and a
+        program is judged. D-248 already refuses a REAL import of one
+        (`NITPICK-RESOLVE-013`, measured at `c3bdae2`), so the exception costs
+        nothing legitimate -- and it holds whatever the next reader gets wrong,
+        which the first bullet cannot promise about itself.
+
+    Either defence alone closes BL-7's route; both are kept, because the second
+    is what survives a defect in the first."""
     used = set()
     for p in paths:
         for target in _uses(p):
             if os.path.normpath(target) != os.path.normpath(p):
                 used.add(os.path.normpath(target))
-    return used
+    return {os.path.normpath(p) for p in paths
+            if os.path.normpath(p) in used and not _declares_main(p)}
+
+
+def _read(path):
+    try:
+        return open(path, encoding="utf-8", errors="replace").read()
+    except OSError:
+        return ""
 
 
 def _uses(path):
-    out = []
-    try:
-        text = open(path, encoding="utf-8", errors="replace").read()
-    except OSError:
-        return out
-    for line in text.split("\n"):
-        s = line.strip()
-        if not s.startswith(_USE):
-            continue
-        rest = s[len(_USE):]
-        end = rest.find('"')
-        if end < 0:
-            continue
-        out.append(os.path.normpath(os.path.join(os.path.dirname(path), rest[:end])))
-    return out
+    return [os.path.normpath(os.path.join(os.path.dirname(path), target))
+            for _, target, _ in lexical.imports(_read(path))]
+
+
+def _declares_main(path):
+    return lexical.declares_main(_read(path))
 
 
 def empty_suite(name, rel):
@@ -142,6 +164,12 @@ def run_binary(exe, args, stress, want, name, tail, mem_cap_mib=0):
 # by the driver. One comment line must never be able to move a red out of a
 # green run, and the third cycle-0.0 audit's M3 did exactly that: a unit given a
 # wrong expectation plus a marker printed `140/140` and GREEN.
+#
+# AND THE MARKER WAS NOT THE ONLY ROUTE OUT, which RX-154 had said it was. The
+# fourth audit's BL-7 moved a red unit out through a `use` inside a SIBLING's
+# `/* */` -- no marker, no line here -- because the "imported by a sibling"
+# skip read that comment as an import. RX-157 closes the route twice (see
+# `imported_by_others`), and self-check case 15 is its red.
 PENDING_LIST = "harness/baseline/PENDING.txt"
 
 
@@ -159,9 +187,9 @@ class Pending:
         self.name = name
         self.until = until
         self.want = want
-        self.got = got
+        self.got = got           # what every leg gave, as text: "92 at -O0 and 92 through opt -O2"
         self.capped = capped
-        self.named = named       # the exit the marker is pending on; `got` equals it
+        self.named = named       # the exit the marker is pending on; every leg gave it (RX-159)
 
     def line(self):
         cap = f", under a {self.capped} MiB cap" if self.capped else ""
@@ -214,7 +242,19 @@ def _program_like(c, path, name, exp, with_opt_leg):
         # about this file.
         return fl
     if exp.pending_until:
-        return _pending(c, base, name, exp)
+        # AND IT BUILDS ON EVERY LEG AN ORDINARY UNIT DOES -- RX-159, the fourth
+        # cycle-0.0 audit's N-19. It used to return here, before the optimised
+        # leg was built, so a pending unit had no `opt -O2`, no B-2 re-scan of
+        # the optimised object (where `opt` MINTS libcalls) and no `stress`,
+        # while the summary counted it among the units "B-2's two scans ran on"
+        # and the GREEN line said every program agreed with itself under -O2.
+        legs = [("at -O0", base)]
+        if with_opt_leg:
+            fl = build.check_optimised(c, name, base, scanned=scanned)
+            if fl:
+                return fl
+            legs.append(("through opt -O2", base + ".opt"))
+        return _pending(c, legs, name, exp)
     # `argv:` tokens pass verbatim; fixture substitution arrives with the corpus
     # stage at cycle 0.5, and there is nothing to substitute before then.
     fl = run_binary(base, exp.argv, exp.stress, exp.exit_code, name,
@@ -228,22 +268,33 @@ def _program_like(c, path, name, exp, with_opt_leg):
                       " (through opt -O2 + llc -O2 -- B-3)", exp.mem_cap_mib)
 
 
-def _pending(c, base, name, exp):
-    """Run a `pending-until:` unit once and report what it actually did.
+def _pending(c, legs, name, exp):
+    """Observe a `pending-until:` unit on EVERY LEG, `stress` times each, and
+    report what it actually did.
 
-    ONE RUN, NOT `stress`: a pending unit is not being asserted, it is being
-    OBSERVED, and repeating an observation that is expected to disagree buys
-    nothing. The `/bin/true` control still runs when a cap is in force -- the
-    reason for the control is that a low cap measures the loader, and that is
-    just as true of a measurement as of an assertion.
+    EVERY LEG AND EVERY RUN, SINCE RX-159 (the fourth cycle-0.0 audit's N-19).
+    This said "ONE RUN, NOT `stress`: a pending unit is not being asserted, it is
+    being OBSERVED" -- and an observation taken once, at −O0 only, excused
+    everything the −O2 leg and a repeated run would have shown: a different exit
+    through `opt -O2`, an answer that changes from run to run. The marker excuses
+    ONE failure, so it is held to that failure wherever the unit runs. The
+    `/bin/true` control still runs first when a cap is in force, because a low cap
+    measures the loader whatever the unit is being held to.
 
-    THREE OUTCOMES, AND ONLY ONE OF THEM IS PENDING (RX-154). The file meets its
-    expectation: the marker has outlived its reason, RED. The file gives the exit
-    its marker names: PENDING. The file gives ANY OTHER exit, or hangs: RED,
-    because the marker excuses the failure it names and no other. Until the third
-    cycle-0.0 audit (BL-6, M2) the third case was PENDING too -- a unit made to
-    trap 94 instead of its DEF-25 leak's 92 printed "this tree gives 94" and the
-    run stayed GREEN.
+    THREE OUTCOMES, AND ONLY ONE OF THEM IS PENDING (RX-154). Every run on every
+    leg meets the expectation: the marker has outlived its reason, RED. Every run
+    on every leg gives the exit the marker names: PENDING. ANYTHING ELSE -- another
+    exit, a hang, one leg disagreeing with the other, a run disagreeing with the
+    one before it -- is RED, because the marker excuses the failure it names and
+    no other. Until the third cycle-0.0 audit (BL-6, M2) a unit made to trap 94
+    instead of its DEF-25 leak's 92 printed "this tree gives 94" and the run
+    stayed GREEN.
+
+    WHAT IS STILL KEYED ON THE EXIT ALONE, stated rather than implied (`BUILD.md`
+    B-5b): a code is an identity, not a cause. A unit pending on 92 is excused for
+    ANY `HeapOom` under its cap, and one pending on a trap's code for any trap of
+    that identity. Where the defect allows, a pending unit should exit with a code
+    of its own, which only its own assertion can produce.
     """
     if exp.mem_cap_mib:
         ctl = build.Run([TRUE_CONTROL], timeout=build.RUN_TIMEOUT,
@@ -252,11 +303,22 @@ def _pending(c, base, name, exp):
             return [f"{name}: THE CONTROL FAILED under this file's "
                     f"{exp.mem_cap_mib} MiB cap, so nothing the file reports -- "
                     f"pending or not -- is about the file"]
-    r = build.Run([base] + list(exp.argv), timeout=build.RUN_TIMEOUT,
-                  mem_cap_mib=exp.mem_cap_mib)
-    got = "timed out" if r.timed_out else r.code
+    observed = []
+    for label, exe in legs:
+        seen = {}
+        for _ in range(exp.stress):
+            r = build.Run([exe] + list(exp.argv), timeout=build.RUN_TIMEOUT,
+                          mem_cap_mib=exp.mem_cap_mib)
+            got = "timed out" if r.timed_out else r.code
+            seen[got] = seen.get(got, 0) + 1
+        observed.append((label, seen))
+    gives = " and ".join(
+        ", ".join(f"{k} ({v}x)" if v > 1 else f"{k}"
+                  for k, v in sorted(seen.items(), key=lambda kv: str(kv[0])))
+        + f" {label}" for label, seen in observed)
+    runs = f", {exp.stress} run(s) each" if exp.stress > 1 else ""
     marker = f"`pending-until: {exp.pending_until} exit {exp.pending_exit}`"
-    if got == exp.exit_code:
+    if all(list(seen) == [exp.exit_code] for _, seen in observed):
         # THE MARKER HAS OUTLIVED ITS REASON, WHICH IS THIS ECOSYSTEM'S OWN
         # RECURRING DEFECT. Red, deliberately: the run that first meets the
         # expectation is the run that has to notice, and nobody re-reads a green
@@ -264,19 +326,20 @@ def _pending(c, base, name, exp):
         # label nothing here resolves (RX-154).
         return [f"{name}: {marker} IS NOW STALE -- the file met its expectation "
                 f"(exit {exp.exit_code}) against the compiler this tree is pinned "
-                f"to. DELETE THE MARKER AND ITS LINE IN {PENDING_LIST}; the case is "
-                f"live and belongs in the denominator. A pending marker that survives "
-                f"the day it stops being true is the dormant rule this repository "
-                f"keeps finding."]
-    if got != exp.pending_exit:
+                f"to, on every leg. DELETE THE MARKER AND ITS LINE IN {PENDING_LIST}; "
+                f"the case is live and belongs in the denominator. A pending marker "
+                f"that survives the day it stops being true is the dormant rule this "
+                f"repository keeps finding."]
+    if not all(list(seen) == [exp.pending_exit] for _, seen in observed):
         return [f"{name}: PENDING ON A DIFFERENT FAILURE -- the marker names exit "
-                f"{exp.pending_exit} and this tree gives {got}. {marker} excuses the "
-                f"failure it names and no other (RX-154): rule B-7's reasoning applied "
-                f"to this marker, because a unit held only to 'it failed' passes for "
-                f"the wrong reason. The defect changed shape or something else broke; "
-                f"read the file before touching the marker."]
-    return [Pending(name, exp.pending_until, exp.exit_code, got, exp.mem_cap_mib,
-                    exp.pending_exit)]
+                f"{exp.pending_exit} and this tree gives {gives}{runs}. {marker} "
+                f"excuses the failure it names, on every leg and every run, and no "
+                f"other (RX-154, RX-159): rule B-7's reasoning applied to this marker, "
+                f"because a unit held only to 'it failed' passes for the wrong reason. "
+                f"The defect changed shape or something else broke; read the file "
+                f"before touching the marker."]
+    return [Pending(name, exp.pending_until, exp.exit_code, gives + runs,
+                    exp.mem_cap_mib, exp.pending_exit)]
 
 
 def parse_sweep(c, path, name, exp):
@@ -437,7 +500,9 @@ def run_entry(c, entry, only, record):
         record(name, rels[0], [empty_suite(name, rels[0])])
         return 1
     # `parse` judges every file AS A ROOT, so the "imported by a sibling" skip
-    # does not apply to it -- see `parse_sweep`.
+    # does not apply to it -- see `parse_sweep`. Everywhere else a file skipped
+    # here is a helper that a sibling REALLY imports and that declares no `main`
+    # (RX-157): never a program, and never on the strength of a comment.
     skip = set() if stage == "parse" else imported_by_others(files)
     n = 0
     for p in files:

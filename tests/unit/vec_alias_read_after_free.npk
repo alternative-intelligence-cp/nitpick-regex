@@ -1,0 +1,50 @@
+// expect-exit: 0
+//
+// A READ THROUGH A WHOLE-`Vec` COPY AFTER THE ORIGINAL IS FREED RETURNS THE
+// FREE POISON, SILENTLY -- N-15, the fourth cycle-0.0 audit's BL-8.
+//
+// PINNED, NOT ENDORSED. `w` is a copy of `v`'s header, so after `vec_free(@v)`
+// it still says `count == 1`: `vec_get(w, 0)` passes both of its checks and
+// reads the reclaimed block, which the runtime has filled with `0xAA` (D-183).
+// **Exit 0 here means the poison was read**: 21 would mean the value pushed
+// survived the free, 22 that something other than the poison came back. No
+// trap, no diagnostic -- a use-after-free returning a plausible word.
+//
+// DEFERRED TO 0.0.4d, BEFORE CYCLE 0.0 CLOSES, by the author's decision on the
+// board's question 9 (2026-09-25): `Vec` becomes MOVE-ONLY BY CONSTRUCTION. On
+// that day this file stops compiling -- `NITPICK-TYPE-046`, as a `Bytes` copy
+// already does (`../rejection/bytes_copy.npk`) -- and 0.0.4d turns it into a
+// rejection fixture, so the shape it pins is proved REFUSED rather than argued.
+//
+// Measured at `c3bdae2`: 0 at -O0 and through `opt -O2` (RX-160).
+mod:vec_alias_read_after_free;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Vec<int64>:v = raw vec_init::<int64>(4i64);
+    drop vec_push(@v, 7i64);
+    Vec<int64>:w = v;
+    drop vec_free(@v);
+    int64:x = raw vec_get(w, 0i64);
+    if (x == 7i64) { exit 21i32; }
+    if ((x & 255i64) != 170i64) { exit 22i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

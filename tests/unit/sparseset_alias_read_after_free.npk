@@ -1,0 +1,54 @@
+// expect-exit: 0
+//
+// THROUGH A WHOLE-`SparseSet` COPY, A MEMBER READS AS ABSENT WHILE THE COUNT
+// SAYS ONE -- A SILENT WRONG ANSWER, NO TRAP -- N-15's reach, BL-8.
+//
+// PINNED, NOT ENDORSED, AND THE WORST ROW OF THE FOURTH AUDIT'S TABLE. After
+// `sset_free(@s)`, the copy `t` keeps `count == 1` and its `sparse` header;
+// `sset_contains(@t, 3)` reads `sparse[3]` from the reclaimed block -- the
+// `0xAA` poison, a negative `int32` -- so `pos < 0` and it answers FALSE for
+// the key it holds, while `sset_len(@t)` answers 1. In the Pike VM's thread set
+// that is a thread lost or a thread invented, and the library returns a wrong
+// match with a green suite beside it (`SAFETY.md` S-23's own warning).
+// **Exit 0 here means that wrong answer was given**: 21 would be the member
+// found, 22 a count other than one.
+//
+// DEFERRED TO 0.0.4d, BEFORE CYCLE 0.0 CLOSES, by the author's decision on the
+// board's question 9 (2026-09-25): `Vec` becomes MOVE-ONLY BY CONSTRUCTION. On
+// that day this file stops compiling -- `NITPICK-TYPE-046`, as a `Bytes` copy
+// already does (`../rejection/bytes_copy.npk`) -- and 0.0.4d turns it into a
+// rejection fixture, so the shape it pins is proved REFUSED rather than argued.
+//
+// Measured at `c3bdae2`: 0 at -O0 and through `opt -O2` (RX-160).
+mod:sparseset_alias_read_after_free;
+
+use "../../src/core/sparseset.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    SparseSet:s = raw sset_init(8i64);
+    drop sset_insert(@s, 3i64);
+    SparseSet:t = s;
+    drop sset_free(@s);
+    bool:has = raw sset_contains(@t, 3i64);
+    int64:n = raw sset_len(@t);
+    if (has) { exit 21i32; }
+    if (n != 1i64) { exit 22i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

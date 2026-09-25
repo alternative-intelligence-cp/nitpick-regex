@@ -3062,6 +3062,9 @@ at pinned toolchain `c3bdae2` under LLVM 20.1.2. The audit measured at `3d15ac9`
 every number below was re-taken at `c3bdae2` unless it says otherwise.*
 
 ### RX-154 — the `pending-until:` marker names the exit it excuses, a reviewed list names every pending unit, and the commit is a label nothing reads
+> **SUPERSEDED IN PART by RX-157 and RX-159 (2026-09-25)** — its sentence that the one other route out of
+> the count "is closed by the language" (a sibling's `/* */` took a unit out, BL-7), and its scoping of
+> `RESIDUE.txt`'s unused direction out of every inner run (N-20). The marker, the list and cases 11–13 stand.
 
 **2026-09-25, the third audit's BL-6.** It supersedes RX-146 in part — B-5b's
 one-token grammar, and the claim that the harness notices "the day the pin moves
@@ -3161,6 +3164,9 @@ the pending exit written in the list only — the marker is what a reader of the
 unit sees, so it must say which failure it excuses.
 
 ### RX-155 — `Vec<T>` is for a `T` that owns nothing, because nothing in the language keeps an owner out; the restriction is stated per verb, measured per verb, and enforced over `src/`
+> **SUPERSEDED IN PART by RX-158 (2026-09-25)** — the check's mechanism, a denylist of nine words the fourth
+> audit walked twelve shapes past (N-18), and the unqualified "enforced over `src/`" made on it. The rule stands;
+> the check is default-deny.
 > *(A precision added the same day, by the subcycle that wrote it, before any
 > verifier saw it: "Every `Vec` the specification declares already holds one"
 > is true of `Inst`, `ByteSet`, `uint8`, `HirNode`, `ClassRange` and the
@@ -3263,6 +3269,9 @@ public API change for a rule a tree check enforces over the code that ships;
 later cycle can break by writing one `Vec<string>` is a rule that asks for care.
 
 ### RX-156 — a double free traps `OutOfBounds` at this library's guard, which is a TRADE against the language's own code; and the guard reaches one binding
+> **SUPERSEDED IN PART by RX-160 (2026-09-25)** — its premise that R-8's capture copy at cycle 0.8 is the one
+> place the specification copies a `Vec` (false three ways, BL-8), the reach it gave N-15, and N-15's disposition:
+> DEFERRED TO 0.0.4d, before the close, by the author's decision on question 9. The guard and the 94 stand.
 
 **2026-09-25, the third audit's N-14 and N-15.** It supersedes RX-144 in part —
 its reading that the free paths' 95 "reported a broken heap invariant where
@@ -3308,3 +3317,261 @@ so the identity matches the language's — it would split the dead-`Vec` stop in
 `failsafe` sees, for a distinction no consumer can act on; **removing the guard
 and letting `dalloc` answer** — it would reopen `vec_free_owning`'s walk over a
 freed block.
+
+---
+
+## The cycle 0.0 close, re-attempted again — the fourth audit's triage (cycle 0.0.5)
+
+*Appended 2026-09-25 by stream 1, working `meta/roadmap/0.0/0.0.5.md` against
+[`audits/nitpick-regex-0.0-2026-09-25-fourth.md`](audits/nitpick-regex-0.0-2026-09-25-fourth.md),
+at pinned toolchain `c3bdae2` under LLVM 20.1.2. Every number below was taken
+here, at `c3bdae2`, and every audit measurement it rests on was reproduced
+before anything was changed.*
+
+### RX-157 — the harness reads Nitpick source ONE way, the compiler's, and a file that declares `main` is never skipped
+
+**2026-09-25, the fourth cycle 0.0 audit's BL-7.** It supersedes RX-154 in part
+— its sentence that the one other route by which a `program`-stage unit could
+leave the count *"is closed by the language"*, and so its *"taking a unit out of
+the count is then two edits in two files"*. RX-154's marker, list and cases
+stand.
+
+**Reproduced here before anything changed**, a full run over a clone of
+`4420c45`: `tests/unit/bytes_oob_get_empty.npk`'s `expect-exit` 94 → 77 (it
+exits 94), and in its sibling `tests/unit/vec_unit.npk`, after
+`mod:vec_unit;`, a `/* */` block holding `use "bytes_oob_get_empty.npk".*;`.
+The unit suite judged **43** units where the baseline judged 44, and the run
+printed **`173/173 unit(s) passed`, GREEN, exit 0** — the red unit's only line
+the parse sweep's `ok`. One edit, in a file other than the red one: no marker,
+no `PENDING.txt` line.
+
+**Why.** The program suites' "imported by a sibling" skip — `npkg`'s rule: a
+file another file in the same suite imports is judged through its importer —
+took an import to be any line whose stripped text began `use "`, and a line
+inside `/* */` is such a line. The compiler reads it as a comment: the audit's
+control compiles, links and runs it, and a REAL `use` of a file declaring `main`
+is refused `NITPICK-RESOLVE-013` (D-248). So RX-154's argument was right about
+the compiler and wrong about this harness. And the harness held **three** import
+readers that disagreed — `stages._uses` and `build.reaches_src` matched `use "`
+only and missed `pub use`, `treecheck._USE` matched both, none skipped a comment
+or a string — plus a blanker, `treecheck._blank_prose`, that knew `//` and `"`
+and nothing else, so a `'"'` character literal hid the rest of its line from
+three checks (N-18's M12).
+
+**The decision — the audit's remedies (1), (2) and (3).**
+
+1. **One reading of source, `harness/lexical.py`**, mirroring the compiler's
+   lexer at `c3bdae2` — `src/frontend/lexer.npk` read with `git show`, and
+   `LEXICAL_REFERENCE.md` §2, §6.3 and §6.4: `//`; `/* */`, which does not nest;
+   `"…"` with `\` escapes, ended by a newline; `""`; `"""…"""`; `r"…"` when the
+   `r` begins a token; `'x'` with its escapes and the lexer's resync; and
+   templates, whose text is literal and whose `&{…}` interpolations are code.
+   `imports()` reads a `use` the way the parser's `p_parse_import` does — the
+   keyword, then a plain string literal — with `pub` before it; `blank()`
+   replaces every comment and literal with spaces and keeps every newline. The
+   program suites' skip, B-2's reach and every tree check read through it, and
+   there is no other reader.
+2. **A file that declares `main` is never skipped.** It is a program, and a
+   program is judged. D-248 already refuses a real import of one, so the
+   exception costs nothing legitimate — and it holds whatever the reader gets
+   wrong next, which part 1 cannot promise about itself. `npkg` has no such
+   exception and needs none while its reader is the compiler's own.
+3. **Self-check case 15** is the audit's plant — a red unit named only inside a
+   sibling's `/* */` — and requires the run to go red naming it. **Case 18**
+   feeds `lexical.py` one text holding every form, and requires exactly the
+   imports the compiler reads and exactly the code it sees.
+
+**Measured.** Case 15 over copies of the harness: the old reader alone restored
+— it still passes, part 2 holding; the `main` exception alone removed — it still
+passes, part 1 holding; both — *"THE HARNESS PASSED IT"*. The two defences are
+independent, which is the point of keeping both. Case 18 with the character
+literal's handling removed, and separately the block comment's: each fails
+alone. On the real tree every denominator is unchanged — 63 `use` edges over 13
+files, the same units scanned by B-2, every check green over the same files —
+because the tree holds no block comment, raw or block string, template or
+character literal in code (swept, 95 `.npk`).
+
+**And the lexer disagrees with its own specification in one place**, found while
+mirroring it: a block string closes at the first `""`, not at `"""` as §6.3's
+grammar says, so `"""a""b"""` is refused `NITPICK-LEX-005`. `lexical.py` follows
+the lexer, because agreeing with the compiler is its purpose; probe 15
+(`tests/probe/refused/probe15_block_string_close.npk`) records the refusal, and
+reddens the day the two agree — which is also the day `lexical.py` must change.
+Nothing here uses a block string, so it blocks nothing (W-27).
+
+The audit's remedy (4) — RX-154, `run.py`'s docstring, `PENDING.txt`'s header
+and 0.0.5 §10's sentence — is done: the first by this supersession and its
+marker, the next two in place, the last in §11, because §10's REPORT block is
+W-28's.
+
+*Alternatives declined:* **asserting per suite that the judged and pending units
+equal the files declaring `main`** (the audit's alternative in its remedy 1) —
+part 2 makes skipping a program impossible rather than detected, and a count
+that cannot differ is a check of nothing; **blanking comments in the old line
+reader only** — it leaves three readers, `pub use` unseen, and the next form (a
+string, a template) as the next audit's finding; **reading imports from the
+compiler** — `npkc` has no mode that prints a module graph (its usage line at
+`c3bdae2`: a root, `-o`, `--obligations`, `--elide`, `--extra-picky`), and W-18
+keeps the compiler's tree out of this harness.
+
+### RX-158 — `check_vec_elements_own_nothing` is DEFAULT-DENY: it clears only what it can see owns nothing
+
+**2026-09-25, the fourth cycle 0.0 audit's N-18.** It supersedes RX-155 in part
+— its check's mechanism (a denylist of nine words matched in the element's
+text, following only Capitalised names declared under `src/`, the first
+declaration of a name winning, `vec.npk` skipped whole) and the unqualified
+*"enforced over `src/`"* made on it in `SAFETY.md` S-23a and `0.1/0.1.0.md`.
+RX-155's rule stands; so do its verbs, units and table.
+
+**What the audit found, reproduced here** by running the committed check over a
+copy of `src/` with one change each: all twelve of its shapes PASS it — a
+lowercase struct holding a `string`; the prelude's `Path` and `ByteReader`; an
+enum with a `Path` payload; a struct holding an `arena`; a `wildx` pointer; a
+generic `Stack<T>` over `Vec<T>`; a generic function's `Vec<T>` local;
+`Vec <string>` with a space; a non-generic `Vec<string>` appended to `vec.npk`;
+a POD `Frame` shadowing an owning namesake; and a `'"'` earlier on the line —
+while its own control, `Vec<string>`, fails it. Eleven compile and run, and six
+show BL-5's move-out (the audit's table). The compiler's owning kinds at
+`c3bdae2` are twelve and the denylist named four.
+
+**The decision — default-deny, the audit's remedy.** An element passes only if
+every name in it is one of the language's non-owning scalars, or a struct or
+enum declared under `src/` whose fields and payloads pass the same way. The
+scalars are read at `c3bdae2` from `LEXICAL_REFERENCE.md` §4's `BuiltinType`
+and `src/frontend/types.npk`'s `type_drops_recorded`: the integer,
+balanced-ternary, fixed-point and floating families, `bool`, the characters, and
+the kernel ids and flag families that function lists as plain integers. A
+pointer, a slice, `wild`/`wildx`/`stack` storage, any other builtin, a prelude
+type, a bare type parameter and a name the check cannot resolve all FAIL, each
+with its reason. It examines `Vec<…>` with or without a space before the bracket,
+**and every `vec_…::<…>` turbofish**, which instantiates a `Vec` without
+writing one; it judges EVERY declaration of a name, because it does not resolve
+imports; it exempts only `vec.npk`'s own `Vec<T>` over that file's type
+parameter; and it reads source through RX-157's `lexical.py`.
+
+**Measured.** The twelve plants fail, each naming why; the third triage's four
+positive plants still fail; its comment plant and POD plant still pass, and so
+do four more controls — a payload-less enum, an enum with scalar payloads,
+`Vec<ByteSet>`, and `Vec<string>` inside a raw and a plain string. A slice
+element and an owning turbofish fail. On the real tree it clears four element
+types — `SparseSet`'s two `Vec<int32>` fields and its two
+`vec_init_zeroed::<int32>` calls — and exempts fifteen in `vec.npk`.
+
+**What it still cannot see, stated rather than implied:** an instantiation. A
+generic struct is judged with its parameters unbound, so it fails; teaching the
+check to substitute is the widening a decision would make if a cycle needs one.
+Today that costs nothing — `src/` has no generic outside `vec.npk`.
+
+*Alternatives declined:* **narrowing S-23a, RX-155 and `0.1.0.md` to what the
+denylist enforced** (the audit's other remedy) — it leaves a check twelve shapes
+wide of its rule on the day cycle 0.1 writes its first `Vec<Frame>`; **a reviewed
+list of cleared prelude types, now** — no element under `src/` needs one, an
+empty list checked both ways is N-20's shape with nothing to check, and its
+first entry should be a decision; **the compiler's own ownership predicate** —
+reachable only by building the compiler, which W-18 forbids.
+
+### RX-159 — a pending unit is observed on every leg and every run, and both reviewed lists are held both ways in any tree that owns one
+
+**2026-09-25, the fourth cycle 0.0 audit's N-19 and N-20.** It supersedes RX-154
+in part — its scoping of `RESIDUE.txt`'s unused-entry direction out of every
+self-check run by `--selfcheck-inner`, which left that direction with nothing
+testing it. It amends `BUILD.md` B-5b.
+
+**N-19.** `_program_like` returned a pending unit before its optimised leg was
+built, so it had no `opt -O2`, no B-2 re-scan of the optimised object (where
+`opt` MINTS libcalls), no optimised run, and one run whatever `stress` said —
+while the summary counted it among the units B-2's scans ran on and GREEN said
+every program agreed with itself under −O2. **The decision:** a pending unit is
+built, scanned and linked on every leg an ordinary unit is, and run `stress`
+times on each; it is PENDING only when every run on every leg gives the exit its
+marker names, STALE only when every one meets its expectation, and RED
+otherwise. **Measured on `stages._pending` itself**, with stand-in executables:
+a unit giving the named 92 at −O0 and 94 through −O2 was PENDING under the
+committed code and is red now; one whose second of three runs gives 94 was
+PENDING (one run) and is red now. **Self-check case 11** now requires its
+pending unit to have been seen *"through opt -O2"*, and with the −O2 leg removed
+from the pending path it fails alone.
+
+**What is still keyed on the exit alone**, stated in `expect.py` and B-5b: a code
+is an identity, not a cause. A unit pending on 92 is excused for any `HeapOom`
+under its cap, and one pending on a trap's code for any trap of that identity;
+where the defect allows, a pending unit should exit with a code of its own.
+
+**N-20.** Neither reviewed list's second direction had a case: deleting either
+left the self-check green. **Case 16** — a `PENDING.txt` line naming a unit
+with no marker — and **case 17** — a fixture's own `RESIDUE.txt` holding an
+entry no scanned program references — must each redden the run. For case 17
+the unused direction now runs in any tree that holds a list of its own, and is
+skipped only in a self-check fixture that borrowed the library's list byte for
+byte — a statement about another tree, which is RX-154's finding and stays
+right. The real run is never an inner run, so it is always held. **Measured:**
+each direction deleted in a copy of the harness fails its case alone; the
+scoping put back on the flag fails case 17 alone.
+
+*Alternatives declined:* **one observation of a pending unit** — the observation
+taken once, at −O0, is the one that excused the −O2 leg; **a fixture list written
+per case for cases 8 and 9** — their programs' symbols move with the pin, so the
+lists would redden the self-check at re-pins for reasons not their own;
+**stating the residue direction as unguarded** (the audit's other remedy) — a
+guard costs one case.
+
+### RX-160 — N-15's premise was false and its reach was wider; the author has decided it: `Vec` becomes MOVE-ONLY BY CONSTRUCTION at 0.0.4d, before cycle 0.0 closes
+
+**2026-09-25, the fourth cycle 0.0 audit's BL-8, and the author's answer to the
+board's question 9, the same day.** It supersedes RX-156 in part — its statement
+that *"the one place this library's specification copies a `Vec` is
+`ENGINES.md` R-8's per-thread capture slots, cycle 0.8"*, the reach it gave
+N-15 (*"a whole-`Vec` copy"*), and N-15's disposition, *"OPEN … the author's to
+choose"*. RX-156's decisions on the guard and on 94 stand.
+
+**The premise was false three ways**, read in the specifications rather than
+inherited from the triage that stated it:
+
+- `COMPILE.md` C-1 declares `Program = { Vec<Inst>; Vec<ByteSet>; Vec<uint8>; … }`
+  *"copyable, comparable, and dumpable"* — a binding copy of one is three
+  whole-`Vec` copies — and cycle 0.6 builds it (`roadmap/ROADMAP.md`);
+- `ENGINES.md` R-5 swaps two `SparseSet`s, two `Vec` headers each, every
+  haystack byte, at subcycle 0.7.0 (`roadmap/0.7/README.md`);
+- R-8's capture copy is subcycle 0.7.2, not cycle 0.8, which is the lazy DFA;
+- and from cycle 0.1 any struct holding a `Vec` is silently copyable — the
+  parser holds a `Vec<Frame>` (`SYNTAX.md` Y-9).
+
+The third triage's sweep phrases could not match *"copyable"* or *"swapped"*,
+and the premise reached the board and a dispatch without being checked.
+
+**The reach, measured at `c3bdae2`, −O0 and `opt -O2` alike, and committed as
+units** so the next reader runs it rather than reads it:
+
+| shape | unit | result |
+|---|---|---|
+| `Vec<int64>:w = v;`, then `vec_free(@v)` and `vec_free(@w)` | `vec_alias_double_free` | **95**, `Unreachable` — the guard sees `w`'s `cap` |
+| the same, then `vec_get(w, 0)` | `vec_alias_read_after_free` | the `0xAA` free poison, no trap |
+| a by-value `Vec<int64>` parameter the callee frees through | `vec_alias_param_free` | the caller's next read is the poison — no copy binding written |
+| a struct holding a `Vec` (C-1's `Program` shape), copied | `vec_alias_struct_copy` | the copy's read is the poison |
+| `SparseSet:t = s;`, then `sset_free` of both | `sparseset_alias_double_free` | **95** |
+| the same, then `sset_contains(@t, 3)` and `sset_len(@t)` | `sparseset_alias_read_after_free` | **FALSE and 1: a member reads as absent while the count says one — a silent wrong answer in the Pike VM's thread set** |
+| R-5's swap through a temporary, each block freed once | `sparseset_alias_swap` | 0 — harmless: the alias is never used |
+| `Bytes:c = b;` | `tests/rejection/bytes_copy.npk` | refused `NITPICK-TYPE-046`: `Bytes` holds a `buffer` and is move-only already |
+
+**The decision.** The premise and the reach are corrected wherever the tree
+states them: RX-156, by this supersession and its marker; `src/core/vec.npk`'s
+two paragraphs; `SAFETY.md` §5.3's two notes; `VERIFICATION.md` §3; `COMPILE.md`
+C-1's *"copyable"*, flagged; `ENGINES.md` R-5 and R-8; `roadmap/0.7/README.md`;
+`roadmap/0.0/0.0.5.md` §11, for §10's sentences and its REPORT block (W-28);
+and `roadmap/0.1/0.1.0.md`, which carries N-15.
+
+**N-15 is DEFERRED TO 0.0.4d, BEFORE CYCLE 0.0 CLOSES, by the author's decision
+on the board's question 9 (2026-09-25): `Vec` becomes move-only by
+construction.** The design and its plan are 0.0.4d's, from a planner dispatched
+after this subcycle reports; nothing here implements it. What this subcycle
+hands it: seven units that must STOP COMPILING — `TYPE-046`, as `bytes_copy.npk`
+shows a `Bytes` copy already does — and become rejection fixtures; one,
+`sparseset_alias_swap`, that must still run once spelled with `move(...)`; and
+the consequence the audit named, that `vec_get` takes `Vec<T>` by value and
+`sparseset.npk` reads `vec_get(s.sparse, k)` that way, so move-only changes
+`vec_get`'s signature and every by-value read in `src/core/` — this cycle's own
+deliverable, which is why it lands before the close and not after.
+
+*Not decided here:* the shape of move-only — an owning field behind `items`, a
+marker the compiler treats as owning, or another — which is 0.0.4d's plan's to
+measure and choose.

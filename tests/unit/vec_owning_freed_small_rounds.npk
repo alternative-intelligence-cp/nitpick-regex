@@ -1,0 +1,63 @@
+// expect-exit: 0
+// mem-cap-mib: 64
+//
+// THE CONTROL FOR `vec_owning_remove_orphans.npk` AND
+// `vec_owning_swap_remove_orphans.npk`: THE SAME ROUNDS, WITHOUT THE VERB.
+//
+// Those two build 40 000 rounds of a 16-element `Vec<string>` and apply their
+// verb to every element before `vec_free_owning`; under the 64 MiB cap they meet
+// `HeapOom`, 92, because each removed element is orphaned. This file is the same
+// program with the verb's loop deleted and nothing else changed, so every
+// element is still counted when `vec_free_owning` drops it -- and it must exit
+// **0** under the same cap. A pair means something only when its two halves end
+// differently under ONE cap, and the harness runs `/bin/true` under that cap first,
+// because a low cap measures the loader (`0.0.5.md` A13).
+//
+// WHY IT EXISTS: `SAFETY.md` S-23a and both units' headers named
+// `vec_owning_freed.npk` as their control, "the same rounds without the verb" --
+// true of the set, truncate and clear units, which share its 500 rounds of 1 000,
+// and FALSE of these two, whose rounds are 40 000 of 16. The fourth cycle-0.0
+// audit (N-23) built this control by hand, measured it at exit 0, and found it
+// was not committed. It is now, and the sentences name it.
+mod:vec_owning_freed_small_rounds;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    string:filler = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+
+    int64:round = 0i64;
+    while (round < 40000i64) decreases 40000i64 - round {
+        Vec<string>:v = raw vec_init::<string>(16i64);
+        int64:k = 0i64;
+        while (k < 16i64) decreases 16i64 - k {
+            // BOUND, NEVER NESTED -- an owning temporary passed straight into
+            // `vec_push` would be the compiler's D-183 leak, which this pair does not measure.
+            string:e = string_concat(filler, "k");      // 257 bytes of heap body
+            drop vec_push(@v, move(e));
+            k = k + 1i64;
+        }
+        // NO VERB: every element is still counted, and `vec_free_owning` drops it.
+        drop vec_free_owning(@v);
+        round = round + 1i64;
+    }
+
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault) { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated) { exit 109i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

@@ -1,0 +1,49 @@
+// expect-exit: 95
+//
+// A WHOLE-`SparseSet` COPY HOLDS TWO `Vec` HEADERS, AND FREEING BOTH COPIES IS
+// A DOUBLE FREE -- N-15's reach, the fourth cycle-0.0 audit's BL-8.
+//
+// PINNED, NOT ENDORSED. `SparseSet:t = s;` copies `dense` and `sparse` -- two
+// `Vec` headers -- and `count`. `sset_free(@s)` frees both blocks through `s`;
+// `t`'s headers still say `cap == 8`, so `sset_free(@t)` reaches `dalloc` with
+// reclaimed blocks: **95**, `Unreachable`. `ENGINES.md` R-5 swaps two of these
+// every haystack byte from subcycle 0.7.0 (`sparseset_alias_swap.npk` is that
+// shape, and it is harmless) -- which is why "nothing copies a `Vec` before cycle
+// 0.8" was false, and N-15 could not be deferred on it.
+//
+// DEFERRED TO 0.0.4d, BEFORE CYCLE 0.0 CLOSES, by the author's decision on the
+// board's question 9 (2026-09-25): `Vec` becomes MOVE-ONLY BY CONSTRUCTION. On
+// that day this file stops compiling -- `NITPICK-TYPE-046`, as a `Bytes` copy
+// already does (`../rejection/bytes_copy.npk`) -- and 0.0.4d turns it into a
+// rejection fixture, so the shape it pins is proved REFUSED rather than argued.
+//
+// Measured at `c3bdae2`: 95 at -O0 and through `opt -O2` (RX-160).
+mod:sparseset_alias_double_free;
+
+use "../../src/core/sparseset.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    SparseSet:s = raw sset_init(8i64);
+    drop sset_insert(@s, 3i64);
+    SparseSet:t = s;
+    drop sset_free(@s);
+    drop sset_free(@t);
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

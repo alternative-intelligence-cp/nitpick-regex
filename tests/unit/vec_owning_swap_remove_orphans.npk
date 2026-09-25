@@ -9,10 +9,13 @@
 // discards an element without moving it out. Each round builds a `Vec<string>`
 // of 257-byte bodies, applies `vec_swap_remove`, and releases the rest with
 // `vec_free_owning`; the orphans accumulate across rounds and the program
-// meets `HeapOom` under the 64 MiB cap -- **92**. `vec_owning_freed.npk` is
-// the control: the same rounds without the verb, the same cap, exit 0 -- and
-// the harness runs `/bin/true` under the cap first, because a low cap measures
-// the loader.
+// meets `HeapOom` under the 64 MiB cap -- **92**. `vec_owning_freed_small_rounds.npk`
+// is the control: the same 40 000 rounds of 16 without the verb, the same cap,
+// exit 0 -- and the harness runs `/bin/true` under the cap first, because a low
+// cap measures the loader. *(This named `vec_owning_freed.npk` until the fourth
+// cycle-0.0 audit (N-23). That file's rounds are 500 of 1 000 -- the set,
+// truncate and clear units' shape, not this one's. The audit built the
+// matching control by hand; it is committed now.)*
 //
 // Measured at `c3bdae2` with the runtime's `NPK_HEAP_STATS` over 1 000 rounds
 // of two elements: `peak_live` grows linearly with the rounds for this verb

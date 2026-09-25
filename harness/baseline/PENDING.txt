@@ -15,8 +15,16 @@
 # to an ordinary unit with a wrong expectation: `140/140`, GREEN. So the runner
 # checks this list BOTH WAYS: a marker it does not name is a FAILURE, and on a
 # full run a line no pending unit matches is a failure too. Taking a unit out of
-# the denominator is then two edits in two files, one of them a reviewed line
-# with a reason -- which is what `RESIDUE.txt` asks of a runtime symbol (RX-131).
+# the denominator BY A MARKER is then two edits in two files, one of them a
+# reviewed line with a reason -- which is what `RESIDUE.txt` asks of a runtime
+# symbol (RX-131). Each direction has a self-check case: 11 and 16 (RX-159).
+#
+# THE MARKER WAS NOT THE ONLY WAY OUT, and this header said it was until the
+# fourth cycle-0.0 audit (BL-7): a `use` inside a SIBLING's `/* */` took a red
+# unit out through the "imported by a sibling" skip -- one edit, no marker, no
+# line here, `173/173` GREEN. That route is closed twice by RX-157 (the harness
+# reads imports the compiler's way, and a file declaring `main` is never
+# skipped), and self-check case 15 is its red.
 #
 # THE COMMIT IS A LABEL. The runner checks its shape and never resolves it; it
 # tells whoever moves the pin which fix the unit waits on. What retires a marker

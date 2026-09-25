@@ -157,6 +157,16 @@
 // is N-15, OPEN against the board's question 9 with the rest of what a header
 // copy reaches -- see the paragraph above `struct:Vec`.)*
 //
+// *(Dated 2026-09-25, the fourth cycle-0.0 audit's BL-8 -- RX-160. N-15 was
+// deferred on a false premise -- that nothing copies a `Vec` before cycle 0.8 --
+// and its reach is wider than one binding: a whole-`SparseSet` copy freed twice
+// exits 95 too, and read after the free reports a member ABSENT while its count
+// says one, with no trap. N-15 is DEFERRED TO 0.0.4d, BEFORE CYCLE 0.0 CLOSES,
+// by the author's decision on the board's question 9: `Vec` becomes MOVE-ONLY
+// BY CONSTRUCTION, after which the second handle this guard cannot see does
+// not compile. `tests/unit/vec_alias_*.npk` and `sparseset_alias_*.npk` pin
+// today's behaviour and are what 0.0.4d turns into rejection fixtures.)*
+//
 // ============================================================================
 // LIFETIME, AND WHAT `exit 0` PROVES ABOUT IT (P-20, S-22)
 // ============================================================================
@@ -196,7 +206,7 @@
 // specification declares holds one -- `Inst`, `ByteSet`, `uint8`, `HirNode`,
 // `ClassRange`, and the engines' `int32` and `int64` -- or a type it has not yet
 // shaped, `Literal`, `GroupInfo` and the parser's `Frame`, which S-23a requires
-// to be shaped the way H-2 shapes group names: offsets into a `Bytes`. **`check_vec_elements_own_nothing` enforces it over `src/`**, which is
+// to be shaped the way H-2 shapes group names: offsets into a `Bytes`. **`check_vec_elements_own_nothing` enforces it over `src/`**, default-deny since RX-158 -- it clears only what it can see owns nothing -- which is
 // the code that ships; `tests/` instantiates `Vec<string>` on purpose, to
 // measure the table above. A cycle that needs an owning element lifts S-23a by a
 // decision, and the compiler's own `List<T>` is the shape it would take:
@@ -233,6 +243,13 @@ mod:vec;
 // `vec_free_owning` through a copy, which first walks the freed block (95).
 // `meta/roadmap/0.0/0.0.4c.md` records both; the board's question 9 carries
 // them to the author.
+// *(Dated 2026-09-25 -- RX-160. The copy is not the only second handle: a
+// BY-VALUE `Vec<T>` parameter is one, and a callee may free its caller's block
+// through it (`tests/unit/vec_alias_param_free.npk`); and any struct holding a
+// `Vec` copies it silently (`vec_alias_struct_copy.npk`). `vec_get` below takes
+// its `Vec` by value and is harmless only because it never frees -- so the
+// author's answer, MOVE-ONLY BY CONSTRUCTION at 0.0.4d before cycle 0.0
+// closes, changes its signature and every by-value read in `src/core/`.)*
 pub struct:Vec<T> = {
     hidden wild T->:items;                 // WILD, DELIBERATELY. See the header.
     sealed limit<ListLen> int64:count;     // elements in use

@@ -84,5 +84,13 @@ and never leaves it.
   slots between threads. That is wrong under leftmost-first: two threads have
   different capture histories and sharing them silently reports the wrong
   group.
+- **The swap (0.7.0) and the capture copy (0.7.2) are this library's first
+  copies of containers**, and a `Vec` header copied is a second handle on its
+  block — a `SparseSet` copied and freed reports a member ABSENT with no trap
+  (`../../../tests/unit/sparseset_alias_read_after_free.npk`, RX-160). By the
+  author's decision on the board's question 9, `Vec` is MOVE-ONLY BY
+  CONSTRUCTION from 0.0.4d, before cycle 0.0 closes: the swap moves, and a
+  thread's capture slots are copied ELEMENT BY ELEMENT into its own `Vec`,
+  never by copying the header. Re-read 0.0.4d's record before planning either.
 - **The step counter's cost is measured at 0.13** (O-P1), not guessed at now.
   Build it in behind the switch and leave the decision.

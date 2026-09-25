@@ -428,6 +428,17 @@ than a style note:**
   second handle on the block (after `vec_free`, the copy reads the free poison,
   exit 170). Both residues are the board's question 9 and are recorded in
   `../roadmap/0.0/0.0.4c.md`.)*
+  *(Dated 2026-09-25, the fourth cycle 0.0 audit's BL-8 — RX-160. The copy's
+  reach is wider than one binding: a whole-`SparseSet` copy freed twice exits 95,
+  and read after the free it reports a member ABSENT while its count says one —
+  a silent wrong answer, no trap; a by-value `Vec` parameter is a second handle
+  its callee can free through; and any struct holding a `Vec` — `COMPILE.md`
+  C-1's `Program`, the parser's state — copies it silently. Seven units pin
+  each (`../../tests/unit/vec_alias_*`, `sparseset_alias_*`). **The copy half is
+  DEFERRED TO 0.0.4d, before cycle 0.0 closes, by the author's decision on
+  question 9: `Vec` becomes move-only by construction**, as `Bytes` already is
+  (`../../tests/rejection/bytes_copy.npk`). The pointer half — a write through
+  `b.buf.ptr` — is question 9's other item and is not changed here.)*
 - **A VIOLATION TRAPS `OutOfBounds` (RX-130, and the trap itself was broken —
   RX-143).** `vec_get`, `vec_set`, `bytes_get` and `bytes_set` do not return a
   `Result` on an out-of-range index: S-4 says matching cannot fail and
@@ -498,6 +509,12 @@ than a style note:**
   a whole-`Vec` copy, a second `vec_free` or `vec_free_owning` exits 95 and a read
   after the free returns the poison, 170. That is N-15, open against the board's
   question 9.)*
+  *(Dated 2026-09-25 — RX-160. N-15 was deferred on a premise that was false —
+  that nothing copies a `Vec` before cycle 0.8 — and its reach was a `SparseSet`
+  copy's silent wrong answer and a by-value parameter wider. It is DEFERRED TO
+  0.0.4d, BEFORE CYCLE 0.0 CLOSES, by the author's decision on the board's
+  question 9: `Vec` becomes move-only by construction, and the guard's reach
+  stops mattering because the second handle stops compiling.)*
 - **An unchecked index is a WRONG ANSWER, not a crash.** That inverts the
   failure mode §1 advertises. A wrong program counter in an engine reads an
   unrelated heap word as an instruction; a wrong sparse-set probe adds a thread
@@ -515,6 +532,15 @@ than a style note:**
 **Rule S-23a (RX-155) — `Vec<T>` is for a `T` that owns nothing: one that
 drops nothing and holds no block of its own. Nothing in the language says so;
 this rule does, and `check_vec_elements_own_nothing` enforces it over `src/`.**
+*(Amended 2026-09-25 by RX-158, the fourth cycle 0.0 audit's N-18: the check is
+DEFAULT-DENY. It clears an element only when every name in it is one of the
+language's non-owning scalars or a struct or enum declared under `src/` that
+clears the same way, and fails everything else — a pointer, a slice, `wild`
+storage, a prelude type, a bare type parameter, a name it cannot resolve. It
+was a denylist of nine words, and the audit walked twelve shapes past it, six
+of them showing `vec_get`'s move-out. What it still cannot follow is an
+instantiation, so a generic over `Vec<T>` outside `vec.npk` fails rather than
+passes.)*
 
 The language accepts `Vec<string>`. `TYPE-046` asks for `move` when an owning
 place is copied, `pass` moves implicitly, and D-264 checks each generic body in
@@ -531,8 +557,12 @@ audit (BL-5, at `3d15ac9`) and again at `c3bdae2`, one unit per verb:
 | `vec_truncate`, `vec_clear`, `vec_free` | orphan what they discard | `vec_owning_truncate_orphans`, `vec_owning_clear_orphans`, `vec_owning_leak` |
 
 An orphan is invisible to `exit 0` (S-22), so each orphaning unit is required to
-meet `HeapOom` under the managed-half cap, where `vec_owning_freed` — the same
-rounds without the verb — exits 0. At a `T` that owns nothing every verb is
+meet `HeapOom` under the managed-half cap, where the same rounds without the
+verb exit 0 — `vec_owning_freed` for `vec_set`, `vec_truncate` and `vec_clear`
+(500 rounds of 1 000), and `vec_owning_freed_small_rounds` for `vec_remove` and
+`vec_swap_remove` (40 000 of 16). *(This named `vec_owning_freed` for all five
+until the fourth cycle 0.0 audit (N-23), which built the second control by hand
+and found it uncommitted.)* At a `T` that owns nothing every verb is
 correct and a move is a copy, and **every `Vec` this specification declares
 either already holds one or holds a type it has not yet shaped**: `Inst`,
 `ByteSet` and `uint8` (C-1), `HirNode` (H-2), `ClassRange` (`UNICODE.md`) and

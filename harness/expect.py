@@ -67,7 +67,9 @@ re-pin -- which is how a defect gets forgotten between the day it is understood
 and the day it could be caught.
 
 **A PENDING UNIT IS BUILT AND RUN LIKE ANY OTHER AND ITS ACTUAL EXIT IS
-PRINTED.** It is counted as neither a pass nor a failure, exactly as
+PRINTED** -- on EVERY leg, at -O0 and through `opt -O2`, `stress` times each,
+since RX-159 (the fourth cycle-0.0 audit's N-19: it had been observed once, at
+-O0 only). It is counted as neither a pass nor a failure, exactly as
 `selfcheck.py`'s pending cases are (P-18): *a pending case is not a passing
 case*, and a denominator that quietly absorbs one is a denominator that lies.
 
@@ -76,8 +78,16 @@ B-5b). It names the exit it is pending on, and a pending unit that gives any
 other exit is a FAILURE -- rule B-7's reasoning applied to this marker: a unit
 held only to "it failed" passes for the wrong reason. It goes RED, too, the day
 it MEETS its expectation, and says to delete the marker. **And it takes a
-reviewed line in `harness/baseline/PENDING.txt`**, checked both ways, so one
-comment line cannot move a red out of a green run's denominator.
+reviewed line in `harness/baseline/PENDING.txt`**, checked both ways, so the
+marker's one comment line cannot, alone, move a red out of a green run's
+denominator. *(A `use` in a SIBLING's comment could, through the program
+suites' skip, until RX-157 -- the fourth cycle-0.0 audit's BL-7.)*
+
+**WHAT IS STILL KEYED ON THE EXIT ALONE (RX-159), stated so nobody assumes
+more:** a code is an identity, not a cause. A unit pending on 92 is excused for
+ANY `HeapOom` under its cap, and one pending on a trap's code for any trap of
+that identity. Where the defect allows, a pending unit exits with a code of its
+own -- one only its own assertion can produce -- rather than a shared trap code.
 
 **THE COMMIT IS A LABEL, AND NOTHING HERE READS IT.** It is checked for the
 shape of a commit -- 7 to 40 lowercase hex digits -- and never resolved: this

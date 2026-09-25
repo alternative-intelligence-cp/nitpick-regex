@@ -203,7 +203,7 @@ framing that let both be wrong. The framing is the column.
 | `check_constants_named` | **yes** | no bound outside `src/core/limits.npk` |
 | `check_no_division` | **yes** | no `/` or `%` under `src/` — `SAFETY.md` S-25 (RX-132), because a division arms two `failsafe` arms in every importer |
 | `check_accessor_confinement` | **yes** | no `.items[` outside `src/core/vec.npk`, no `.ptr[` outside `src/core/bytes.npk`, **within `src/`** — `SAFETY.md` S-23, **the only bounds check this library has** (RX-136). *Since cycle 0.0.4c `Vec`'s half is the compiler's too — `items` is `hidden`, so `.items` outside `vec.npk` is `NITPICK-TYPE-080` in every module; `Bytes`' half is not, because a sealed `buf` admits a write THROUGH `.ptr` (RX-153). The check stays for both, and for the owning files' own use of their accessors* |
-| `check_vec_elements_own_nothing` | **yes** | every `Vec<…>` under `src/` names an element that owns nothing — no `string`, `buffer`, `Bytes`, `dyn`, `OwnedFd`, `Vec`, `SparseSet`, `List` or `wild`, directly or through a struct or enum declared under `src/` — `SAFETY.md` S-23a (RX-155). The language accepts an owning element and `vec_get` then MOVES it out; this is what makes the restriction a rule. `vec.npk`, the generic definition, is excluded by name, and `tests/` is out of scope because the owning units measure the verbs there |
+| `check_vec_elements_own_nothing` | **yes** | every `Vec` element named under `src/` — in a `Vec<…>`, with or without a space, and in a `vec_…::<…>` turbofish — is CLEARED as owning nothing, **default-deny** (RX-158): each name in it is one of the language's non-owning scalars or a struct or enum declared under `src/` whose fields and payloads clear the same way, every declaration of that name judged; a pointer, a slice, `wild` storage, a prelude type, a bare type parameter or an unresolved name fails — `SAFETY.md` S-23a (RX-155). The language accepts an owning element and `vec_get` then MOVES it out; this is what makes the restriction a rule. Only `vec.npk`'s own `Vec<T>` over its type parameter is exempt, and `tests/` is out of scope because the owning units measure the verbs there. *It was a denylist of nine words until the fourth cycle 0.0 audit walked twelve shapes past it (N-18)* |
 | `check_dated_measurements` | **yes** | any live document dating a measurement to "the pin" rather than to a commit — RX-142, built by the cycle 0.0 audit triage after a phrase-level sweep left a class thirteen times its size. **It declared `.yml` and could not reach the one `.yml` in the tree**, because it pruned directories by leading dot and the workflow lives in `.github/`: it now prunes by NAME and reports its denominator PER EXTENSION, so a declared class the walk never opens shows a zero instead of vanishing into a healthy total — RX-145. **And it never walks into another repository**: a directory holding a `.git` entry, or named `.nitpick` (where CI checks the compiler out, inside the workspace), is pruned and named in the check's first note, because CI was red from `ab93eae` on the compiler's own roadmap — RX-147 |
 | `check_specs_current` | **yes**, reports rather than fails | spec citations that no longer resolve |
 | `check_no_syscalls` | **yes**, as a BUILD STEP and not a tree check | the object's undefined symbols, **and the IR's floor call edges**, against the committed baseline — RX-116 and RX-120, §2 |
@@ -275,7 +275,15 @@ requires it to report every one as a failure. The list is `harness/selfcheck.py`
 13. a pending marker that has outlived its reason — the unit now passes
     (RX-146, RX-154);
 14. an engine and the naive oracle disagreeing on a generated case —
-    *pending until 0.5*.
+    *pending until 0.5*;
+15. a red unit named only by a `use` inside a SIBLING's `/* */` block — the
+    run must judge it and go red (RX-157, `BUILD.md` B-4d);
+16. a `PENDING.txt` line that no pending unit matches (RX-159);
+17. a `RESIDUE.txt` entry, in a list the fixture owns, that no scanned program
+    references (RX-159);
+18. the harness's one reading of source, `harness/lexical.py`, fed every
+    lexical form the compiler has — it must read exactly the imports and the
+    code the compiler does (RX-157). Tested on the instrument, as case 10 is.
 
 *(Reconciled 2026-09-25 by the third cycle 0.0 audit's triage, RX-154. This list
 had eight bullets and `CASES` eleven entries, and they disagreed in BOTH
@@ -284,6 +292,15 @@ the runner carried four live cases — 4, 8, 9, 10 — the list never named. And
 `pending-until:` marker, the runner's only route for a red to leave a green run,
 had shipped with no case at all; 11–13 are its three reds. Case 14 is the
 oracle case, added as pending so the list and the runner say the same thing.)*
+
+*(Extended 2026-09-25 by the fourth cycle 0.0 audit's triage, RX-157 and
+RX-159: 15–18. The fourth audit found three routes and one instrument that
+nothing reddened — a comment in another file moving a red out of the count
+(BL-7), and the two lists' second directions (N-20) — and each case was seen to
+fail against a harness with its own check removed. Case 11 also requires its
+pending unit to be observed through `opt -O2` since RX-159 (N-19). **19 cases,
+15 live, 4 pending** on the day they were written; the runner prints the counts
+from `selfcheck.CASES`, and that line is the authority.)*
 
 **Rule V-21 — the self-check runs first in every full invocation.** A harness
 that has not proven it can fail has not proven anything.

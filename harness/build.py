@@ -39,6 +39,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import elf                                                    # noqa: E402
 import irscan                                                 # noqa: E402
+import lexical                                                # noqa: E402
 
 NPKC_OK, NPKC_REFUSED, NPKC_BROKEN, NPKC_TRAPPED = 0, 1, 2, 3
 
@@ -372,7 +373,13 @@ def reaches_src(root, path):
 
     So the scans run on programs whose module graph reaches `src/`, and the
     runner SAYS PER UNIT when they did not run, because a check that silently
-    did not apply is indistinguishable from one that passed."""
+    did not apply is indistinguishable from one that passed.
+
+    THE GRAPH IS READ THE WAY THE COMPILER READS IT -- `lexical.imports`, since
+    RX-157. This walk used to take any line that STARTED `use "`: it followed a
+    `use` inside a `/* */` block the compiler never imports, and missed a
+    `pub use` the compiler does. The fourth cycle-0.0 audit (BL-7) found three
+    import readers in this harness disagreeing with each other; there is one."""
     src = os.path.normpath(os.path.join(root, "src")) + os.sep
     # Absolute, always: a relative path can never start with the absolute `src`
     # prefix, so a relative argument would answer "no" for every program.
@@ -388,14 +395,8 @@ def reaches_src(root, path):
             text = open(p, encoding="utf-8", errors="replace").read()
         except OSError:
             continue
-        for line in text.split("\n"):
-            s = line.strip()
-            if not s.startswith('use "'):
-                continue
-            end = s.find('"', 5)
-            if end < 0:
-                continue
-            stack.append(os.path.abspath(os.path.join(os.path.dirname(p), s[5:end])))
+        for _, target, _ in lexical.imports(text):
+            stack.append(os.path.abspath(os.path.join(os.path.dirname(p), target)))
     return False
 
 

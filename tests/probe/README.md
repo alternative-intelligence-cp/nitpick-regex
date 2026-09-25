@@ -25,12 +25,21 @@ Cycle 0.0.2 picks them up as the harness's first `program`-stage entries.
 | Directory | Files | Declared as | Judged by |
 |---|---|---|---|
 | `tests/probe/` | **22**, each `// expect-exit: N` | `probe`, stage `program` | it compiles, links, runs, and exits with that code — at −O0 and again under `opt -O2` |
-| `tests/probe/refused/` | **5**, each `// expect-error: CODE` | `probe-refused`, stage `compile`, kind `negative` | `npkc` exits **1** and reports **exactly** that code set (B-7, D-237) |
+| `tests/probe/refused/` | **6**, each `// expect-error: CODE` | `probe-refused`, stage `compile`, kind `negative` | `npkc` exits **1** and reports **exactly** that code set (B-7, D-237) |
 
-> **The split is 22 / 5, and 27 is the count of probes in this repository.** It
-> was 16 / 7, then 17 / 6, then 19 / 6, and every move was a probe changing
-> directory or name because the compiler changed its answer — not a probe being
-> deleted, which P-5 forbids.
+> **The split is 22 / 6, and 28 is the count of probes in this repository.** It
+> was 16 / 7, then 17 / 6, then 19 / 6, then 22 / 5, and every move was a probe
+> changing directory or name because the compiler changed its answer — not a probe
+> being deleted, which P-5 forbids — until the last, which is a probe ADDED.
+>
+> **2026-09-25, the cycle 0.0 close's fourth audit triage (RX-157).**
+> `refused/probe15_block_string_close.npk` is new: the compiler's lexer at
+> `c3bdae2` closes a block string at the first `""` rather than at `"""` as
+> `LEXICAL_REFERENCE.md` §6.3's grammar says, so `"""a""b"""` is refused
+> `NITPICK-LEX-005` with the parser's cascade. Found while writing
+> `harness/lexical.py`, which mirrors the lexer and not the grammar; the day this
+> probe stops being refused, both the probe and that module change. It blocks
+> nothing here — no `.npk` in this repository holds a block string.
 >
 > **2026-09-25, at the re-pin to `c3bdae2` (cycle 0.0.4b, RX-152).** `prove`,
 > `requires` and `ensures` are all live, so the three files that recorded their

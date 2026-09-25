@@ -21,6 +21,7 @@ reporting it.
 | `run.py` | the driver: build steps, then the suites in manifest order, then the summary |
 | `manifest.py` | `nitpick.toml`, in the compiler's own subset, with the compiler's schema |
 | `toolchain.py` | `llc`, `opt`, `ld.lld` asked their versions and held to the pinned LLVM 20.1.2 |
+| `lexical.py` | **the harness's one reading of `.npk` source** (RX-157): comments, strings, character literals and template text blanked, imports read the way the compiler's parser reads them. The program suites' skip, B-2's reach and every tree check stand on it; self-check case 18 tests it |
 | `expect.py` | the `// expect-…` grammar, marker for marker with `npkg/expect.npk`, **plus two markers of this runner's own** — `mem-cap-mib:` and `pending-until: <commit> exit <N>` (`BUILD.md` B-5b, RX-146 as amended by RX-154), each declared there so the parity stage has a row rather than a surprise |
 | `elf.py` | an ELF64 symbol table, read with `struct` — no fourth tool |
 | `irscan.py` | the emitted IR's call edges to the floor |
@@ -34,8 +35,12 @@ reporting it.
 
 ## What a green run asserts
 
-- every declared suite's every file built by the **pinned** `npkc`, assembled by
-  `llc`, scanned, linked closed-world against `npkrt.o`, and **run**;
+- every **program** — each `program`-stage and `compile`/`positive` file — built
+  by the **pinned** `npkc`, assembled by `llc`, scanned, linked closed-world
+  against `npkrt.o`, and **run**; every other file — the `parse` sweep, the
+  refusals, the rejection fixtures — compiled by the same `npkc` and judged by
+  its exit and codes, **neither linked nor run** *(this bullet said "every
+  declared suite's every file … run" until the fourth cycle 0.0 audit, N-23)*;
 - every `program`-stage file gave the **same exit code** at −O0 and again
   through `opt -O2` + `llc -O2` (B-3);
 - every rejection fixture was refused with **exactly** the codes it names
@@ -48,9 +53,13 @@ reporting it.
   is what re-checks the six `src/` files `src/lib.npk` does not reach;
 - the live **tree checks** (`treecheck.ALL`; the runner prints each one and what it examined) agreed with the specifications they diff against;
 - every unit a `pending-until:` marker took out of the denominator is a line in
-  `baseline/PENDING.txt`, gave exactly the exit its marker names, and did not
-  meet its expectation (RX-154) — so one comment line cannot move a red out of a
-  green run;
+  `baseline/PENDING.txt`, gave exactly the exit its marker names on every leg
+  and every run, and did not meet its expectation (RX-154, RX-159); and every
+  file of a program suite that declares `main` was judged, whatever a sibling's
+  text seems to import (RX-157) — so neither a marker line nor a comment in
+  another file can move a red out of a green run *(the bullet stopped at the
+  marker until the fourth audit's BL-7 moved a red out through a sibling's
+  `/* */`)*;
 - and — the one that makes the rest mean anything — **the runner was shown able
   to fail before any of it ran** (V-21).
 
@@ -59,10 +68,11 @@ reporting it.
 `selfcheck.py` builds a throwaway tree per case, runs the **real** runner over
 it with the **real** pinned `npkc`, and requires a **failure**. Some cases are
 **PENDING** on stages that do not exist yet and print as pending rather than as
-passing, because `11 live, 4 pending` and `15 passing` are different claims and
+passing, because `15 live, 4 pending` and `19 passing` are different claims and
 only one is true — and the counts here are the day they were written
-(2026-09-25): the runner prints them from `selfcheck.CASES` on every run, and
-that line is the authority.
+(2026-09-25, the fourth cycle 0.0 audit's triage, which added cases 15–18): the
+runner prints them from `selfcheck.CASES` on every run, and that line is the
+authority.
 
 A case requires more than a non-zero exit: it requires the runner to **say the
 thing**, naming the case's own file. A non-zero exit alone would also be

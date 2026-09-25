@@ -189,12 +189,19 @@ prints the number it actually ran on, per run, precisely so this sentence never
 has to be the source of truth — read that instead.)* **The harness says, per run, how many units the scans
 ran on and how many they did not**, because a check that quietly did not apply
 reads exactly like one that passed.
+*(Amended 2026-09-25 by RX-157: the module graph is read the way the compiler
+reads it — `harness/lexical.py`, the harness's one reading of source. The walk
+took any line beginning `use "` for an import, so it followed a `use` inside a
+`/* */` block and missed a `pub use`.)*
 
 **Rule B-3.** The optimised leg runs on every program, every time: the same
 program re-emitted through `opt -O2` + `llc -O2` must produce the **same exit
 code**, and the zero-dependency scan is repeated on the optimised object
 because `opt` may mint libcalls. This is the compiler's 1.3.8 instrument, and
 its first run there found a real defect that had passed for six cycles.
+*(A pending unit included, since RX-159: until the fourth cycle 0.0 audit (N-19)
+one returned before its optimised leg was built, and "every program" here was
+true of every program but those. B-5b says what it is held to.)*
 
 **Rule B-4 — reproducibility.** Two builds of the same tree from different
 working directories produce byte-identical IR. `nregex` inherits this from the
@@ -279,6 +286,26 @@ whole point: `npkc` exit 0 does not mean a program is well-formed (registry
 O-N11), and B-0 is a fresh instance of exactly that — eight files that compile
 at exit 0 and are refused by the next tool in the chain.
 
+**Rule B-4d (RX-157) — a program suite judges every program, and the harness
+reads source the way the compiler does.** `npkg`'s rule stands: a file another
+file in the SAME suite imports is a helper, judged through its importer rather
+than on its own. Two things make it safe here:
+
+- **the import is the compiler's.** Every reading of `.npk` text in the harness
+  — this skip, B-2b's reach, and every tree check — goes through
+  `harness/lexical.py`, which mirrors the compiler's lexer at `c3bdae2`:
+  comments (`/* */` does not nest), plain, raw and block strings, character
+  literals and template text are not code, a template's `&{…}` is, and a `use`
+  is the keyword followed by a plain string literal, `pub` or not;
+- **a file that declares `main` is never skipped.** It is a program, and D-248
+  already refuses a real import of one (`NITPICK-RESOLVE-013`), so the exception
+  costs nothing legitimate and holds whatever the reader gets wrong next.
+
+The fourth cycle 0.0 audit (BL-7) measured the gap this closes: a `use` inside a
+sibling's `/* */` took a red unit out of a GREEN run, `173/173`, exit 0 — while
+the compiler read the same line as a comment. Self-check case 15 is that shape,
+and case 18 feeds the reader every lexical form (`TESTING.md` V-20).
+
 **Rule B-5 — expectations live in the test file**, in the compiler's marker
 grammar, marker for marker:
 
@@ -332,11 +359,27 @@ O-G3) has a row for it rather than a surprise.**
   since a unit held only to "it failed" passes for the wrong reason. A marker
   pending on the exit the file expects is unreadable: it would excuse the pass.
 
+  **On every leg and every run (RX-159).** A pending unit is built, scanned and
+  linked at −O0 and through `opt -O2` like any other (B-3), and run `stress`
+  times on each leg. It is PENDING only when every run on every leg gives the
+  named exit, stale only when every one meets the expectation, and a failure
+  otherwise — one leg disagreeing with the other, or one run with the next.
+  **What is still keyed on the exit alone:** a code is an identity, not a cause.
+  A unit pending on 92 is excused for ANY `HeapOom` under its cap, and one
+  pending on a trap's code for any trap of that identity — so where the defect
+  allows, a pending unit exits with a code of its own, which only its own
+  assertion can produce, rather than a shared trap code. *(Until the fourth
+  cycle 0.0 audit (N-19) a pending unit was observed once, at −O0 only: no
+  optimised build, no optimised B-2 scan, no `stress`.)*
+
   **Every pending unit is a line in `harness/baseline/PENDING.txt`** —
   `path<TAB>commit<TAB>exit<TAB>reason` — **checked both ways**: a marker the
   list does not name is a failure, and on a full run a line no pending unit
   matches is a failure. A pending unit is outside the denominator, so taking
   one out is two edits in two files, one of them a reviewed line with a reason.
+  *(The marker is not the only route out of the count, which RX-154 said the
+  language had closed: B-4d is the other, and RX-157 closes it twice. Both
+  directions of this list have a self-check case since RX-159 — 11 and 16.)*
 
   **The marker retires itself, and that is the point of it.** If a pending unit
   starts **meeting** its expectation, the run goes **RED** and names the action —

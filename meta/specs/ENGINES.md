@@ -48,6 +48,12 @@ workloads and they are worth having *after* there is something to measure.
 **Rule R-5 — the Pike VM simulates the NFA by keeping a set of program counters
 and advancing all of them one haystack byte at a time.** Two `SparseSet`s (the
 current thread list and the next), swapped each byte.
+*(Dated 2026-09-25 — RX-160. A swap through a temporary is three whole-`SparseSet`
+copies, two `Vec` headers each, and is harmless only because the temporary's alias
+is never used or freed (`../../tests/unit/sparseset_alias_swap.npk`). Under the
+author's decision on question 9 — `Vec` move-only by construction at 0.0.4d, before
+cycle 0.0 closes — a swap MOVES rather than copies, and 0.0.4d's design must keep
+it writable; that unit is the control that shows it did.)*
 
 **Rule R-6 — the set is deduplicated by program counter, and that is what makes
 it linear.** A program counter already in the set is not added again. A
@@ -64,7 +70,10 @@ implemented anywhere else.
 
 **Rule R-8 — captures are per thread**, a `Vec<int64>` of slots copied when a
 thread splits. This copy is the Pike VM's real cost and is why the DFA exists
-for searches that do not need captures. A program with no `Save` instructions
+for searches that do not need captures. *(Dated 2026-09-25 — RX-160: "copied"
+is ELEMENT BY ELEMENT into the new thread's own slots, never a copy of the `Vec`
+header, which would alias one block between two threads. Subcycle 0.7.2 builds it,
+after 0.0.4d makes `Vec` move-only by the author's decision on question 9.)* A program with no `Save` instructions
 (`COMPILE.md` C-16) skips the machinery entirely.
 
 **Rule R-9 — zero-width instructions are followed transitively when a thread is

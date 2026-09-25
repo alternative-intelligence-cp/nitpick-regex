@@ -103,7 +103,12 @@ Most of the list, which is why the residue is small:
   leaves a vacant slot the container still counts — which is what `vec_get` does
   at an owning `T`, and why `SAFETY.md` S-23a keeps owners out of a `Vec`,
   RX-155. A discharge claimed for free and wider than the rule is RX-128's
-  shape, in the same list RX-128 corrected.)*
+  shape, in the same list RX-128 corrected.)* *(And the second handle is wider
+  than a `Vec` binding — RX-160, the fourth audit's BL-8: a `SparseSet` copy, a
+  by-value parameter and any struct holding a `Vec` are each one, measured. The
+  author decided the remedy on the board's question 9: `Vec` becomes move-only by
+  construction at 0.0.4d, before cycle 0.0 closes, which puts it inside this
+  bullet's rule rather than beside it.)*
 - **`Result<T>` everywhere** with no unchecked unwrap outside a `never fails`
   callee (D-163), so no error is dropped.
 
