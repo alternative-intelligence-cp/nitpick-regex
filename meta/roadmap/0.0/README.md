@@ -158,7 +158,7 @@ settled. **Nothing in this cycle is blocked on a question.**
 | [0.0.4](0.0.4.md) | **`src/core/`** — `Vec<T>`, `Bytes`, `ByteSet`, `SparseSet`, `limits.npk` | four primitives with their own suites and their obligations written |
 | [0.0.4b](0.0.4b.md) | **The adoption to compiler `c3bdae2`** — every loop's clause, the new arms, the floor re-recorded, the probes the pin changed, CI's nested-repository walk, CI moved to the pin | every file compiles, links, runs and meets its header at `c3bdae2`, and CI is green there |
 | [0.0.4c](0.0.4c.md) | **The access properties** — `Vec`, `Bytes` and `SparseSet` sealed, `items` hidden, `ListLen` on the counts | a consumer cannot write a count or read `items`, and a count driven negative traps where it goes wrong |
-| 0.0.4d | **`Vec` move-only by construction** — the author's decision on the board's question 9, 2026-09-25 (RX-160). **Not yet planned**: a planner writes `0.0.4d.md` after 0.0.5's fourth triage | every `tests/unit/*_alias_*` shape refused `NITPICK-TYPE-046` and turned into a rejection fixture, and `sparseset_alias_swap` still running |
+| [0.0.4d](0.0.4d.md) | **`Vec` move-only by construction** — the author's decision on the board's question 9, 2026-09-25 (RX-160) — with `Bytes.buf` hidden and A′ replacing P-1 (Q-6) | the five COPY shapes refused `NITPICK-TYPE-046` in `tests/rejection/`, `sparseset_alias_swap` running with `move(...)`, and the LOAN shapes pinned against a compiler defect — measured at planning: a by-value parameter is a loan, not a copy, and no type refuses it |
 | [0.0.5](0.0.5.md) | **Close** — the findings, the spec amendments the probes forced, the handoff to 0.1 | the audit triage discharged, `done/0.0/`, and 0.1 openable by a fresh session |
 
 ## Checklist
@@ -410,6 +410,16 @@ settled. **Nothing in this cycle is blocked on a question.**
       **DONE** — S-24's text unchanged; every step-6 search re-run with its denominator in `0.0.4c.md`'s record.
 - [x] `158/158`, GREEN at `c3bdae2`; CI green  
       **DONE** — local `158/158 unit(s) passed`, GREEN; CI run `36165858757` green on `971ac43`, read from its log.
+
+### 0.0.4d — `Vec` move-only by construction (inserted 2026-09-25)
+- [ ] the marker `hidden string[0]:move_only` in `Vec`, filled `[]` by both constructors; `#size_of<Vec<int64>>()` still 24; every module's bill unchanged (10/10/10/10/6/11/6/6/6)
+- [ ] the five copy units moved to `tests/rejection/`, each refused `NITPICK-TYPE-046` once at a measured position; `sparseset_alias_swap` spelled with `move(...)`, exit 0; `vec_moves` exit 0
+- [ ] both controls recorded: the six new fixtures compile cleanly against the tree before 0.0.4d, and the five copies compile cleanly again with an `int64[0]` marker
+- [ ] the loan pinned, not worked around: `vec_alias_param_free` unchanged in behaviour, `vec_alias_param_grow` 95, `sparseset_alias_param_free` 0, `bytes_alias_param_grow` 95, probe 17 exit 70; probe 16 exit 24, probe 16b `NITPICK-TYPE-046`; the defect raised by path
+- [ ] `Bytes.buf` hidden, `bytes_capacity`, the nine test lines, `bytes_buf_ptr_write` refused `NITPICK-TYPE-080`
+- [ ] A′ replaces P-1 by a numbered decision, rule P-1b; Q-6 struck with its number
+- [ ] PD-8 … PD-11 recorded in order; RX-160 and RX-153 marked `SUPERSEDED IN PART`
+- [ ] every sweep in step 7 re-run with its denominator; `210/210` GREEN at `c3bdae2`; `check_refs` clean before and after staging; CI green, read from its log
 
 ### 0.0.5 — close
 - [x] every probe verdict reconciled against the specifications
