@@ -3,21 +3,29 @@
 //
 // `check_no_syscalls` was specified as an absolute allowlist -- "the allocator,
 // memcpy/memset, the string primitives". A PROGRAM CONTAINING NO LIBRARY CODE
-// AT ALL FAILS THAT CHECK: this file's object has 29 undefined symbols,
-// including `npk_open`, `npk_read`, `npk_write` and `npk_sys6`. They are the
-// PRELUDE's, emitted into every translation unit, and `nregex` calls none of
-// them. So the check is a DIFFERENCE against this file rather than a list, and
-// anything a program object has that this one does not was written here.
+// AT ALL FAILS THAT CHECK: this file's object had 29 undefined symbols at
+// compiler `950bb1d`, including `npk_open`, `npk_read`, `npk_write` and
+// `npk_sys6`. They were the PRELUDE's, emitted into every translation unit, and
+// `nregex` calls none of them. So the check is a DIFFERENCE against this file
+// rather than a list, and anything a program object has that this one does not
+// was written here. (The count is a property of one compiler: 2 at `3d15ac9`,
+// after the prelude trim, and 5 at `c3bdae2` -- RX-131, RX-148, and
+// `README.md` beside this file.)
 //
 // It imports nothing on purpose: the moment it imports anything, it stops
 // being the floor and starts being a test.
 //
-// THE FOUR NAMED ARMS ARE NOT DECORATION. An empty `main` and a bare `(*)` is
-// refused four times over -- NITPICK-REACH-002 for `Unreachable`, `HeapOom`,
-// `HeapBadRequest` and `WildLeak`, each saying "`(*)` counts for nothing here".
-// Every Nitpick program owes those four before it has done anything at all,
-// which is the cheapest possible demonstration of what `SAFETY.md` §4 means by
-// an error budget. The consumer at `tests/conformance/import.npk` owes two more
+// THE SIX NAMED ARMS ARE NOT DECORATION. An empty `main` and a bare `(*)` is
+// refused six times over at compiler `c3bdae2` -- NITPICK-REACH-002 for
+// `Unreachable`, `HeapOom`, `HeapBadRequest`, `WildLeak`, `StackExhausted` and
+// `MachineFault`, each saying "`(*)` counts for nothing here". Every Nitpick
+// program owes those six before it has done anything at all, which is the
+// cheapest possible demonstration of what `SAFETY.md` §4 means by an error
+// budget. It was FOUR through `3d15ac9`; the last two arrived with the
+// compiler's 1.5 -- D-305 checks every function's stack against a limit and
+// traps `StackExhausted`, and D-307 routes SIGSEGV, SIGBUS, SIGILL and SIGFPE
+// to `failsafe` as `MachineFault`. Measured at both pins with one bare file
+// (cycle 0.0.4b, RX-148). The consumer at `tests/conformance/import.npk` owes two more
 // (`IntOverflow`, `OutOfBounds`) because it does arithmetic and indexing, plus
 // exactly one of this library's (`ERegexPattern`).
 //
@@ -40,6 +48,8 @@ func:failsafe = int32(Error:e) {
         (HeapOom)        { exit 92i32; },
         (Unreachable)    { exit 95i32; },
         (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault)   { exit 107i32; },
         (*)              { exit 99i32; }
     }
     exit 9i32;

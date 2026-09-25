@@ -2713,3 +2713,62 @@ text nobody committed). *Deferred, not declined:* a standing self-check case for
 the prune — `TESTING.md` V-20's case list is also the subject of the third
 audit's BL-6 (ii), and one change to that list, made once by the close, is
 better than two.
+
+### RX-148 — the floor at `c3bdae2` is five symbols, two residue entries are the floor's now, and the `950bb1d` control compiles the floor programs without the arms that compiler does not have
+
+**2026-09-25, cycle 0.0.4b (the plan's PD-2), re-recorded in a commit of its
+own as RX-131 requires.** At `c3bdae2` every `failsafe` must name
+`StackExhausted` and `MachineFault` — an empty `main` with a bare `(*)` is
+refused six times, not four (measured with one bare file at both pins: the
+compiler's D-305 checks every function's stack and traps `StackExhausted`;
+D-307 routes SIGSEGV, SIGBUS, SIGILL and SIGFPE to `failsafe` as
+`MachineFault`). The four floor-level programs — `baseline.npk`, the two
+self-check consumers, `tests/conformance/import.npk` — and `selfcheck.py`'s
+`FAILSAFE` template carry both arms, at 106 and 107.
+
+**The floor, re-recorded** by `harness/run.py --record-baseline`:
+
+| | `3d15ac9` | `c3bdae2` |
+|---|---|---|
+| `SYMBOLS.txt` | `npk_dalloc`, `npk_ofd_close` | **+ `__morestack`, `npk_chain_reset`, `npk_trap`** — 5 |
+| `EDGES.txt` | 2, both from the drop glue | **+ `npk_failsafe → npk_chain_reset`, `npk_failsafe → npk_trap`** — 4 |
+| a syscaller | 3 | 6 |
+| syscaller − floor | `{npk_sys6}` | **`{npk_sys6}`** — the claim that matters, unchanged |
+
+**`RESIDUE.txt` loses `npk_trap` and `npk_chain_reset`.** A residue entry is
+what this library needs *beyond* the floor, and both are the floor's now —
+`failsafe`'s own machinery reaches them — so RX-131's both-directions check
+would fail each as permitted and referenced by no program's difference. Their
+reasons are kept, dated, in `harness/baseline/README.md`, not deleted with the
+lines. RX-120's and RX-131's rules stand; their numbers are dated and stay true
+of `3d15ac9`.
+
+**Found in execution, and the plan had not seen it: `rx120.sh`'s `950bb1d` leg
+failed.** The historical control compiles the same two programs with the
+superseded compiler, and `950bb1d` refuses the two new names
+(`NITPICK-RESOLVE-002: cannot find StackExhausted`, and `MachineFault`), so the
+script exited 1 and the harness — which runs it as a build step — stopped. The
+planner's dry run did not meet it because it ran in a relocated copy of the
+tree where that compiler is not found at `../.internal/toolchain/950bb1d/`, so
+the leg printed SKIPPED there: **a leg that did not apply read exactly like one
+that passed**, which is this repository's most-repeated finding, met by its own
+rehearsal. **The decision: the leg compiles each program with exactly those arm
+lines removed**, in a mirror of the tree's layout under the script's scratch
+directory with `src/` copied beside it, so `syscall_consumer.npk`'s relative
+import still resolves. Minus the two lines, both programs are byte-for-byte
+what the leg compiled at `ab93eae` (checked with `diff`), so the control
+measures what it always measured: **29 / 29, the sets identical, `npk_sys6` in
+the floor.** The number of removed lines is asserted — two per file — so an arm
+renamed or added later fails by name: seen to fail with one of the two arms
+removed from a copy of the tree (`removed 1 arm line(s) … expected 2`), and the
+SKIPPED path still prints SKIPPED where the compiler is absent.
+
+*Alternatives:* keep the two entries and exempt them from the unused-entry
+check — declined: RX-131's both-directions rule is what stops the list rotting
+into permissions nobody needs. For the leg: let it SKIP when the programs
+cannot be compiled at `950bb1d` — declined: it would retire the only live
+demonstration of RX-120's original measurement while printing a word; keep
+separate `950bb1d`-era copies of the two programs as committed files — declined:
+the parse sweep judges every `.npk` in the tree as a root at the working pin,
+where those copies are refused for the very arms they lack; retire the leg —
+declined: removing a control is its own decision, and nothing here asks for it.

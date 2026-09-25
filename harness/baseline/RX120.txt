@@ -1,3 +1,29 @@
+NOTE ADDED 2026-09-25 BY CYCLE 0.0.4b, AT THE RE-PIN TO COMPILER `c3bdae2`.
+NOTHING BELOW THIS NOTE IS EDITED.
+
+At `c3bdae2` (the compiler's 1.5 close) the numbers moved again, and the claim
+that matters did not:
+
+    floor      harness/baseline/baseline.npk              5 undefined symbols
+               __morestack, npk_chain_reset, npk_dalloc, npk_ofd_close, npk_trap
+    syscaller  harness/selfcheck/syscall_consumer.npk     6
+    syscaller - floor                                     {npk_sys6}   HELD
+    floor - syscaller                                     {}           HELD
+    npk_sys6 in the floor                                 no           HELD
+
+The three new floor symbols are the compiler's D-305 (`__morestack`: every
+function's stack is checked against a limit) and `failsafe`'s own machinery
+(`npk_trap`, `npk_chain_reset`), and both programs now name `StackExhausted`
+and `MachineFault` (D-305, D-307). ASSERTED by `rx120.sh`, not transcribed
+here: `PIN=c3bdae2`, `expect_count floor 5`, `expect_count sys 6`, exit 0,
+"rx120: every asserted leg held." Its `950bb1d` leg still reproduces the
+original measurement below -- 29 / 29, the sets identical, `npk_sys6` IN the
+floor -- by compiling the two programs with those two arm lines removed,
+because `950bb1d` refuses both names `NITPICK-RESOLVE-002`. RX-148.
+
+The numbers below are `950bb1d`'s and `3d15ac9`'s and stay as recorded.
+=============================================================================
+
 THIS FILE IS THE NARRATIVE. THE ASSERTIONS ARE IN `harness/baseline/rx120.sh`.
 =============================================================================
 CORRECTED 2026-09-06 BY THE CYCLE 0.0 AUDIT TRIAGE. READ THIS BEFORE THE

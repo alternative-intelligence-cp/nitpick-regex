@@ -2,5 +2,8 @@
 # Recorded by `harness/run.py --record-baseline` against the pinned
 # npkc. A DIFFERENCE HERE IS A PRELUDE CHANGE, not a library change,
 # and re-recording it is a deliberate act reviewed on its own.
+__morestack
+npk_chain_reset
 npk_dalloc
 npk_ofd_close
+npk_trap

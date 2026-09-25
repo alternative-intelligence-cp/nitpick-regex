@@ -22,8 +22,9 @@
 # stands in for it.
 #
 # WHAT IT ASSERTS, at the working pin:
-#   floor      == 2 undefined symbols  (npk_dalloc, npk_ofd_close)
-#   syscaller  == 3
+#   floor      == 5 undefined symbols  (__morestack, npk_chain_reset, npk_dalloc,
+#                                       npk_ofd_close, npk_trap)
+#   syscaller  == 6
 #   difference == exactly {npk_sys6}
 # and at the superseded pin `950bb1d`, if that compiler is present:
 #   floor == syscaller == 29, difference EMPTY, and npk_sys6 IN THE FLOOR
@@ -48,7 +49,7 @@
 # which is where the workbench keeps them.
 set -u
 
-PIN=3d15ac9
+PIN=c3bdae2
 OLD_PIN=950bb1d
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/../.." && pwd)"
@@ -94,9 +95,11 @@ note "rx120: sha256(npkc) = $(sha256sum "$npkc" | cut -d' ' -f1)"
 # alternatives; RX120.txt's line 45 showed one and annotated the other, and this
 # is the one that is true.
 undef_of() {
-    # undef_of <src.npk> <name> <npkc>  ->  writes $work/<name>.undef, sorted
-    local src="$1" name="$2" cc="$3"
-    run "$cc" "$root/$src" -o "$work/$name.ll"       || return 1
+    # undef_of <src.npk> <name> <npkc> [base]  ->  writes $work/<name>.undef,
+    # sorted. `src` is relative to `base`, which is this tree's root unless the
+    # historical leg below passes its own (RX-148).
+    local src="$1" name="$2" cc="$3" base="${4:-$root}"
+    run "$cc" "$base/$src" -o "$work/$name.ll"       || return 1
     run llc -O0 -filetype=obj -relocation-model=static \
         "$work/$name.ll" -o "$work/$name.o"          || return 1
     llvm-nm --undefined-only "$work/$name.o" > "$work/$name.raw"
@@ -124,8 +127,8 @@ undef_of harness/baseline/baseline.npk         floor "$npkc"
 undef_of harness/selfcheck/syscall_consumer.npk sys  "$npkc"
 
 if [ -s "$work/floor.undef" ] && [ -s "$work/sys.undef" ]; then
-    expect_count floor 2
-    expect_count sys   3
+    expect_count floor 5
+    expect_count sys   6
 
     # ---- C: the difference IS the whole claim ------------------------------
     # The expected name is a VARIABLE used by both the test and the message, so
@@ -157,11 +160,40 @@ if [ -s "$work/floor.undef" ] && [ -s "$work/sys.undef" ]; then
 fi
 
 # ---- D: the historical control, at the superseded pin -----------------------
+#
+# THE TWO PROGRAMS NAME ARMS THE SUPERSEDED COMPILER DOES NOT HAVE, SO THIS LEG
+# COMPILES THEM WITH EXACTLY THOSE ARMS REMOVED -- RX-148. Since cycle 0.0.4b
+# (compiler `c3bdae2`) every `failsafe` must name `StackExhausted` and
+# `MachineFault` (the compiler's D-305 and D-307), and `950bb1d` refuses both
+# names `NITPICK-RESOLVE-002` -- so compiling the committed files here failed
+# this leg for a reason that is not a moved measurement. The copies below are
+# the committed files minus those arm lines, in a mirror of this tree's layout
+# (`src/` copied beside them) so `syscall_consumer.npk`'s relative import still
+# resolves; minus the two lines, both programs are byte-for-byte what this leg
+# compiled at `ab93eae`. The count of removed lines is ASSERTED, so an arm
+# renamed or added later fails here by name instead of being compiled wrongly.
+# If a later re-pin adds another floor arm, it joins `new_arms` with its pin.
+new_arms='StackExhausted|MachineFault'   # arms that exist from `c3bdae2`, not at `950bb1d`
+strip_new_arms() {
+    # strip_new_arms <src.npk>  ->  $work/old/<src.npk>, asserting two lines went
+    local src="$1" got
+    mkdir -p "$work/old/$(dirname "$src")" || return 1
+    grep -v -E "^[[:space:]]*\(($new_arms)\)[[:space:]]" "$root/$src" > "$work/old/$src"
+    got=$(( $(wc -l < "$root/$src") - $(wc -l < "$work/old/$src") ))
+    if [ "$got" -ne 2 ]; then
+        bad "$src: removed $got arm line(s) for the $OLD_PIN copy, expected 2 ($new_arms)"
+        return 1
+    fi
+    return 0
+}
 if [ -x "$npkc_old" ]; then
     note "rx120: control pin $OLD_PIN"
     note "rx120: sha256(npkc_$OLD_PIN) = $(sha256sum "$npkc_old" | cut -d' ' -f1)"
-    undef_of harness/baseline/baseline.npk          floor_old "$npkc_old"
-    undef_of harness/selfcheck/syscall_consumer.npk sys_old   "$npkc_old"
+    rm -rf "$work/old" && mkdir -p "$work/old" && cp -R "$root/src" "$work/old/src"
+    strip_new_arms harness/baseline/baseline.npk
+    strip_new_arms harness/selfcheck/syscall_consumer.npk
+    undef_of harness/baseline/baseline.npk          floor_old "$npkc_old" "$work/old"
+    undef_of harness/selfcheck/syscall_consumer.npk sys_old   "$npkc_old" "$work/old"
     if [ -s "$work/floor_old.undef" ] && [ -s "$work/sys_old.undef" ]; then
         expect_count floor_old 29
         expect_count sys_old   29

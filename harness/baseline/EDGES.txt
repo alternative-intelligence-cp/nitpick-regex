@@ -4,3 +4,5 @@
 # and re-recording it is a deliberate act reviewed on its own.
 npk.drop.N	npk_dalloc
 npk.drop.N	npk_ofd_close
+npk_failsafe	npk_chain_reset
+npk_failsafe	npk_trap
