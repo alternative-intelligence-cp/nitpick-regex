@@ -21,8 +21,13 @@ mod:vec_oob_pop_empty;
 use "../../src/core/vec.npk".*;
 
 func:main = int32(cstring[]:argv) {
-    // Derived from `argv` so nothing folds: `argv.len` is 1 with no arguments.
+    // Derived from `argv`, so `npkc` sees no constant: `argv.len` is 1 with no arguments.
     int64:past = argv.len;
+    // ASSERTED, NOT ASSUMED (the third cycle-0.0 audit's N-16): `argv.len` is
+    // 1 only while nothing passes an argument, and with one this file would
+    // test a different value and pass. 48 says so. The check also tells
+    // `opt -O2` the value -- harmless: B-3's second build must exit the same.
+    if (past != 1i64) { exit 48i32; }
 
     Vec<int64>:v = raw vec_init::<int64>(4i64);
     // count is 0. `vec_pop` would decrement to -1 and index there.

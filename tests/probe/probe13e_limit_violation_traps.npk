@@ -40,6 +40,11 @@ func:main = int32(cstring[]:argv) {
     // change what this file measures. `_~argv` would mark the parameter
     // DISCARDED and reading it would be NITPICK-TYPE-007.
     int32:zero = (argv.len =>! int32) - 1i32;
+    // ASSERTED, NOT ASSUMED (the third cycle-0.0 audit's N-16): `argv.len` is
+    // 1 only while nothing passes an argument, and with one this file would
+    // test a different value and pass. 48 says so. The check also tells
+    // `opt -O2` the value -- harmless: B-3's second build must exit the same.
+    if (zero != 0i32) { exit 48i32; }
 
     // `r_pos` is `$ > 0i32`, so `zero` violates it. The predicate runs at
     // THIS CALLEE's entry, before its body.

@@ -19,6 +19,11 @@ use "../../src/core/sparseset.npk".*;
 
 func:main = int32(cstring[]:argv) {
     int64:zero = argv.len - 1i64;
+    // ASSERTED, NOT ASSUMED (the third cycle-0.0 audit's N-16): `argv.len` is
+    // 1 only while nothing passes an argument, and with one this file would
+    // test a different value and pass. 48 says so. The check also tells
+    // `opt -O2` the value -- harmless: B-3's second build must exit the same.
+    if (zero != 0i64) { exit 48i32; }
 
     SparseSet:s = raw sset_init(16i64);
     drop sset_insert(@s, 3i64);

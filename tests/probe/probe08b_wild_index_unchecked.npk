@@ -55,11 +55,16 @@ func:main = int32(cstring[]:argv) {
     if (blk[0i64] != 100i64)                            { exit 10i32; }
     if (blk[3i64] != 103i64)                            { exit 11i32; }
 
-    // `argv.len` is 1, so these are computed at run time and nothing folds
-    // them away. `_~argv` would make `argv` unreadable (TYPE-007), so the
+    // `argv.len` is 1, so these are computed at run time and `npkc` sees no
+    // constant. `_~argv` would make `argv` unreadable (TYPE-007), so the
     // parameter is spelled out.
     int64:far = argv.len + 998i64;      // 999
     int64:neg = 0i64 - argv.len;        // -1
+    // ASSERTED, NOT ASSUMED (the third cycle-0.0 audit's N-16): `argv.len` is
+    // 1 only while nothing passes an argument, and with one this file would
+    // test a different value and pass. 48 says so. The check also tells
+    // `opt -O2` the value -- harmless: B-3's second build must exit the same.
+    if (far != 999i64 || neg != (0i64 - 1i64)) { exit 48i32; }
 
     // ---- (1) THROUGH THE WILD BLOCK: no check ----------------------------
 

@@ -48,6 +48,11 @@ func:checked = int32(int32:x) never fails {
 
 func:main = int32(cstring[]:argv) {
     int32:neg = 0i32 - 5i32 - (argv.len =>! int32);
+    // ASSERTED, NOT ASSUMED (the third cycle-0.0 audit's N-16): `argv.len` is
+    // 1 only while nothing passes an argument, and with one this file would
+    // test a different value and pass. 48 says so. The check also tells
+    // `opt -O2` the value -- harmless: B-3's second build must exit the same.
+    if (neg != (0i32 - 6i32)) { exit 48i32; }
     if (neg >= 0i32) { exit 11i32; }
     int32:v = raw checked(neg);
     if (v != neg) { exit 10i32; }

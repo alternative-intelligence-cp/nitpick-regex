@@ -23,6 +23,11 @@ use "../../src/core/vec.npk".*;
 
 func:main = int32(cstring[]:argv) {
     int64:val = argv.len;
+    // ASSERTED, NOT ASSUMED (the third cycle-0.0 audit's N-16): `argv.len` is
+    // 1 only while nothing passes an argument, and with one this file would
+    // test a different value and pass. 48 says so. The check also tells
+    // `opt -O2` the value -- harmless: B-3's second build must exit the same.
+    if (val != 1i64) { exit 48i32; }
 
     Vec<int64>:v = raw vec_init::<int64>(4i64);
     drop vec_push(@v, 11i64);

@@ -29,6 +29,11 @@ func:main = int32(cstring[]:argv) {
     // `argv` so that nothing here is a literal the frontend could fold — the
     // value under test must arrive the way a call site's index arrives.
     int64:k = argv.len - 1i64;
+    // ASSERTED, NOT ASSUMED (the third cycle-0.0 audit's N-16): `argv.len` is
+    // 1 only while nothing passes an argument, and with one this file would
+    // test a different value and pass. 48 says so. The check also tells
+    // `opt -O2` the value -- harmless: B-3's second build must exit the same.
+    if (k != 0i64) { exit 48i32; }
 
     drop vec_oob(k);
 

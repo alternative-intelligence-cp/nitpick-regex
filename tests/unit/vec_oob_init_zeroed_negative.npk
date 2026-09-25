@@ -30,10 +30,16 @@ mod:vec_oob_init_zeroed_negative;
 use "../../src/core/vec.npk".*;
 
 func:main = int32(cstring[]:argv) {
-    // -5 with no arguments, and derived so the optimiser cannot fold it: a
-    // constant would let `opt -O2` decide the whole program at compile time and
-    // this file has to run at both -O0 and -O2 (rule B-3).
+    // -5 with no arguments, derived at run time so `npkc` sees no constant.
+    // (Until the third audit's N-16 this said the OPTIMISER could not fold it
+    // either; the assertion below now tells `opt -O2` the value, and rule B-3's
+    // second build is what shows that changes nothing.)
     int64:neg = 0i64 - argv.len - 4i64;
+    // ASSERTED, NOT ASSUMED (the third cycle-0.0 audit's N-16): `argv.len` is
+    // 1 only while nothing passes an argument, and with one this file would
+    // test a different value and pass. 48 says so. The check also tells
+    // `opt -O2` the value -- harmless: B-3's second build must exit the same.
+    if (neg != (0i64 - 5i64)) { exit 48i32; }
 
     Vec<int64>:v = raw vec_init_zeroed::<int64>(neg);
 
