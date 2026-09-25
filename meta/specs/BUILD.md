@@ -319,22 +319,44 @@ O-G3) has a row for it rather than a surprise.**
   under the identical cap first. It exists because S-22 makes half this
   library's memory obligations invisible to `exit 0`; a marker is how a file
   asks for the instrument that can see them.
-- **`pending-until: <compiler-commit>`** marks a unit that is **correct and
+- **`pending-until: <commit> exit <N>`** marks a unit that is **correct and
   red**, because the defect it asserts against is in the pinned compiler and is
   already fixed in a commit this repository has not pinned yet. The file is
   built, linked and **run**; its actual exit is printed; and it is counted as
-  **neither a pass nor a failure**, which is the rule `selfcheck.py`'s three
-  pending cases already follow (P-18): *a pending case is not a passing case.*
+  **neither a pass nor a failure**, which is the rule `selfcheck.py`'s pending
+  cases already follow (P-18): *a pending case is not a passing case.*
+
+  **The marker excuses the failure it names and no other (RX-154).** It names
+  the exit the unit is pending on, and a pending unit that gives **any other**
+  exit, or hangs, is a **failure** — B-7's reasoning applied to this marker,
+  since a unit held only to "it failed" passes for the wrong reason. A marker
+  pending on the exit the file expects is unreadable: it would excuse the pass.
+
+  **Every pending unit is a line in `harness/baseline/PENDING.txt`** —
+  `path<TAB>commit<TAB>exit<TAB>reason` — **checked both ways**: a marker the
+  list does not name is a failure, and on a full run a line no pending unit
+  matches is a failure. A pending unit is outside the denominator, so taking
+  one out is two edits in two files, one of them a reviewed line with a reason.
 
   **The marker retires itself, and that is the point of it.** If a pending unit
   starts **meeting** its expectation, the run goes **RED** and names the action —
-  delete the marker. The three wrong answers it exists to refuse are weakening
-  the test, guarding around a compiler defect in library code (forbidden by
-  name), and not writing the test until the re-pin, which is how a defect gets
-  forgotten between the day it is understood and the day it could be caught. A
-  blank or multi-word value is **unreadable** rather than an accepted skip: the
-  marker excuses a red, so a value that silences a test while looking like
-  documentation is the failure this grammar exists to prevent.
+  delete the marker and its line. The three wrong answers it exists to refuse are
+  weakening the test, guarding around a compiler defect in library code
+  (forbidden by name), and not writing the test until the re-pin, which is how a
+  defect gets forgotten between the day it is understood and the day it could be
+  caught. **The commit is a label**: it must have a commit's shape — 7 to 40
+  lowercase hex digits — and it is **never resolved**. It tells whoever moves the
+  pin which fix the unit waits on; the unit's own exit is what retires it.
+
+  *(Amended 2026-09-25 by RX-154, the third cycle 0.0 audit's BL-6. This rule
+  read `pending-until: <compiler-commit>`, one token, and said nothing about
+  which exit was excused, and the harness's docstring said the run would redden
+  "the day the pin moves past the named commit". Measured by the audit, three
+  full runs each exit 0: a marker naming no commit was accepted and behaved
+  identically; a pending unit trapping 94 where its defect gives 92 stayed
+  pending; and one marker line on an ordinary unit with a wrong expectation
+  moved it out of the denominator — `140/140`, GREEN, which defeated the
+  self-check's own case 1.)*
 
 **Rule B-6 — assert on codes and exit codes, never on message text.**
 

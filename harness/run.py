@@ -37,16 +37,21 @@ stub this replaced could assert almost nothing:
     `check_no_division`, `check_accessor_confinement`,
     `check_dated_measurements`, and `check_specs_current` which reports rather
     than fails);
+  * every unit a `pending-until:` marker took out of the denominator is on the
+    reviewed list `harness/baseline/PENDING.txt`, gave exactly the exit its
+    marker names, and did not meet its expectation (RX-154) -- so one comment
+    line cannot move a red out of a green run;
   * AND THE RUNNER WAS SHOWN ABLE TO FAIL FIRST (V-21, cycle 0.0.3): the
-    self-check feeds it eight kinds of wrong expectation and requires a red for
-    each, before any suite runs.
+    self-check feeds it every live kind of wrong expectation `TESTING.md` V-20
+    names and requires a red for each, before any suite runs.
 
-WHAT IT STILL DOES NOT ASSERT: three of V-20's eleven self-check cases are
-PENDING on stages that do not exist -- the generated-table case (0.3), the
-corpus off-by-one (0.5) and the cross-engine disagreement (0.8, and the most
-important one in the list, because it is what proves RX-041 is being checked
-rather than assumed). They print as PENDING and never as passing, so the count
-in the summary is honest about what the green covers.
+WHAT IT STILL DOES NOT ASSERT: some of V-20's self-check cases are PENDING on
+stages that do not exist -- the generated table (0.3), the corpus and oracle
+cases (0.5), and the cross-engine disagreement (0.8, the most important in the
+list, because it is what proves RX-041 is being checked rather than assumed).
+They print as PENDING and never as passing, and the summary prints the counts
+from `selfcheck.CASES` itself -- until the third cycle-0.0 audit's triage it
+printed "EIGHT" and "eleven" as prose, true on the day each was written.
 
 USAGE
     NPKC=... NPKRT=... python3 harness/run.py [options]
@@ -151,9 +156,11 @@ def main(argv=None, say=print):
     #
     # `--record-baseline` is the one invocation that skips it, because it judges
     # nothing and writes a file.
+    sc_counts = None
     if not a.selfcheck_inner and not a.record_baseline:
         import selfcheck                                       # noqa: E402
         fl = selfcheck.run(say, keep=a.keep)
+        sc_counts = selfcheck.counts()
         if fl:
             say("")
             say("THE SELF-CHECK FAILED, so no suite ran (V-21). The harness could "
@@ -201,13 +208,14 @@ def main(argv=None, say=print):
                     rep.unit("tree-checks", r.name, [f])
 
         _suites(c, m, rep, a.only, say)
+        listed = _pending_list(c, rep, full=not a.only)
     finally:
         if a.keep:
             say(f"      scratch kept at {tmp}")
         else:
             shutil.rmtree(tmp, ignore_errors=True)
 
-    return _summary(c, rep, a, say, time.time() - t0)
+    return _summary(c, rep, a, say, time.time() - t0, sc_counts, listed)
 
 
 def _build_steps(c, rep, say, inner=False):
@@ -326,7 +334,53 @@ def _suites(c, m, rep, only, say):
                 say(f"  PEND  {p.line()}")
 
 
-def _summary(c, rep, a, say, secs):
+def _pending_list(c, rep, full):
+    """Every pending unit against `harness/baseline/PENDING.txt`, BOTH WAYS -- RX-154.
+
+    A MARKER THE LIST DOES NOT NAME IS A FAILURE. That is the whole of the
+    control the third cycle-0.0 audit found missing (BL-6, M3): one comment line
+    on a unit with a wrong expectation took it out of the denominator and the
+    run printed `140/140` and GREEN. Now the same line leaves the unit IN the
+    denominator, as a failure, until a reviewed line with a reason exists.
+
+    A LINE NO UNIT MATCHES IS A FAILURE TOO, on a full run -- RX-131's
+    both-directions rule for a named list, because a list whose entries outlive
+    their markers is a list nobody reads. A filtered run judges a subset, so
+    that half would fire on every `--only`; the caller passes `full`.
+
+    Returns the number of lines the list holds, which the summary prints."""
+    entries, fl = stages.read_pending_list(c.root)
+    for f in fl:
+        rep.rows.append(("pending-list", stages.PENDING_LIST, False, f))
+    seen = set()
+    for p in rep.pending:
+        key = (p.name, p.until, p.named)
+        if key in entries:
+            seen.add(key)
+            continue
+        rep.rows.append((
+            "pending-list", p.name, False,
+            f"`pending-until: {p.until} exit {p.named}` is NOT ON THE REVIEWED "
+            f"PENDING LIST ({stages.PENDING_LIST}). A pending marker takes a unit "
+            f"OUT OF THE DENOMINATOR, so it takes a reviewed line with a reason as "
+            f"well -- one comment line must never be able to move a red out of a "
+            f"green run (RX-154). This unit gives {p.got} and is counted as a "
+            f"FAILURE until that line exists."))
+    if full:
+        for key, n in sorted(entries.items(), key=lambda kv: kv[1]):
+            if key in seen:
+                continue
+            rep.rows.append((
+                "pending-list", stages.PENDING_LIST, False,
+                f"{stages.PENDING_LIST}:{n} names `{key[0]}` pending on `{key[1]}` "
+                f"exit {key[2]}, and no PENDING unit matches it -- the marker is "
+                f"gone, differs, went stale, or failed another way (its own line "
+                f"says which). Delete or correct the line: an entry that outlives "
+                f"its marker is RX-131's dead-entry shape (RX-154)."))
+    return len(entries)
+
+
+def _summary(c, rep, a, say, secs, sc_counts=None, listed=0):
     say("")
     total = len(rep.rows)
     bad = len(rep.failed)
@@ -343,7 +397,16 @@ def _summary(c, rep, a, say, secs):
         f"(RX-131): {', '.join(sorted(c.residue_seen)) or 'none'}.")
     # The unused half is only meaningful over the WHOLE tree: `--only` scans a
     # subset, so every filtered run would report the rest as dead entries.
-    if not a.only:
+    #
+    # AND ONLY OVER THIS TREE. The list is a statement about this library, and
+    # `PLAYBOOK.md` says such a list fires on every run against any other tree --
+    # which the self-check's fixture trees are. `_lib` copies `RESIDUE.txt` into
+    # each (the other direction needs it), no fixture references more than two of
+    # its entries, and so EVERY inner run was red here for a reason that was not
+    # its case's: the exit-code half of every case was vacuous and `must_say` was
+    # the only thing telling a detection from noise. Found at the third cycle-0.0
+    # audit's triage, when case 12 passed with its own check removed (RX-154).
+    if not a.only and not a.selfcheck_inner:
         for m in build.residue_unused(c):
             rep.rows.append(("baseline", "residue", False, m))
             rep.failed.append(("baseline", "residue", False, m))
@@ -356,11 +419,10 @@ def _summary(c, rep, a, say, secs):
         say(f"      {total} verdict line(s) written to {a.verdicts}")
     for p in rep.pending:
         say(f"PEND  {p.line()}")
-    if rep.pending:
-        say(f"      {len(rep.pending)} unit(s) PENDING on a compiler commit this "
-            f"tree is not pinned to. They are OUTSIDE the denominator below, and "
-            f"each goes RED the day it starts passing so the marker cannot outlive "
-            f"its reason (expect.py's fourth marker).")
+    say(f"      {len(rep.pending)} unit(s) PENDING and {listed} line(s) on the "
+        f"reviewed list {stages.PENDING_LIST}, checked both ways (RX-154). A "
+        f"pending unit is OUTSIDE the denominator below, and it goes RED the day it "
+        f"meets its expectation or gives any exit but the one its marker names.")
     say(f"{total - bad}/{total} unit(s) passed in {secs:.1f} s.")
     for suite, name, ok, msg in rep.failed:
         say(f"FAIL  {suite}/{name}: {msg}")
@@ -373,13 +435,14 @@ def _summary(c, rep, a, say, secs):
         "code; every program agreed with itself under opt -O2; every rejection "
         "reported exactly the codes it names; every .npk in the tree was swept as "
         "a root; and the tree checks agreed with the specifications.")
-    if not a.selfcheck_inner:
-        say("      AND THE RUNNER WAS SHOWN ABLE TO FAIL FIRST (V-21): the "
-            "self-check above fed it EIGHT kinds of wrong expectation and required "
-            "a red for each. Three of V-20's eleven cases are PENDING on stages "
-            "that do not exist yet (0.3, 0.5, 0.8) and printed as pending, not as "
-            "passing -- so this green covers eight of the eleven ways the harness "
-            "is meant to be able to fail, not eleven.")
+    if sc_counts is not None:
+        live, pend, total = sc_counts
+        say(f"      AND THE RUNNER WAS SHOWN ABLE TO FAIL FIRST (V-21): the "
+            f"self-check above fed it {live} kinds of wrong expectation and required "
+            f"a red for each. {pend} of V-20's {total} cases are PENDING on stages "
+            f"that do not exist yet and printed as pending, not as passing -- so "
+            f"this green covers {live} of the {total} ways the harness is meant to "
+            f"be able to fail, not {total}.")
     return 0
 
 

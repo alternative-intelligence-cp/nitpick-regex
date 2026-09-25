@@ -292,11 +292,15 @@ builds every declared suite with the pinned `npkc`, assembles, scans, links
 closed-world, runs, and judges by exit code — every `program`-stage file twice,
 at −O0 and through `opt -O2`. It reads `nitpick.toml` for every path and every
 flag and hardcodes none. **Since 0.0.3 it also sweeps every `.npk` in the tree with the `parse`
-stage, judges `tests/rejection/` at the `check` stage, runs seven tree checks, and
-— the one that matters — **runs the self-check FIRST** (`TESTING.md` V-21): eight
-live cases feed it wrong expectations and require a red for each, and three more
-print as PENDING on stages that do not exist until 0.3, 0.5 and 0.8.
-`harness/README.md` states the boundary. CI (`.github/workflows/ci.yml`) pins the
+stage, judges `tests/rejection/` at the `check` stage, runs the tree checks (the count is
+the one stated at the top of this file), and
+— the one that matters — **runs the self-check FIRST** (`TESTING.md` V-21): every live
+case feeds it a wrong expectation and requires a red, and the pending ones print as
+PENDING on stages that do not exist until 0.3, 0.5 and 0.8 — the runner prints how
+many of each, from `harness/selfcheck.py`'s own list. Three of its cases are the
+`pending-until:` marker's reds, because a marker takes a unit out of the denominator
+and must name the exit it excuses and a line in `harness/baseline/PENDING.txt`
+(RX-154). `harness/README.md` states the boundary. CI (`.github/workflows/ci.yml`) pins the
 compiler by full commit sha and LLVM by exact patch release, and **asserts**
 both rather than reporting them.
 

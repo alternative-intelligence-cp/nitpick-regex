@@ -56,7 +56,7 @@ does not either -- both flip at the same cap, between 2688 and 2816 KiB. A cap
 a trivial program also fails is not a statement about your program, so the
 control turns that warning into a mechanism.
 
-FOURTH, ALSO AN ADDITION: `pending-until: <compiler-commit>`. `npkg` has no
+FOURTH, ALSO AN ADDITION: `pending-until: <commit> exit <N>`. `npkg` has no
 such marker either. It exists for the case cycle 0.0.5 met head-on -- **a test
 that is CORRECT and RED, because the defect it asserts against lives in the
 pinned compiler and is already fixed in a commit this repository has not pinned
@@ -68,18 +68,26 @@ and the day it could be caught.
 
 **A PENDING UNIT IS BUILT AND RUN LIKE ANY OTHER AND ITS ACTUAL EXIT IS
 PRINTED.** It is counted as neither a pass nor a failure, exactly as
-`selfcheck.py`'s three pending cases are (P-18): *a pending case is not a
-passing case*, and a denominator that quietly absorbs one is a denominator that
-lies.
+`selfcheck.py`'s pending cases are (P-18): *a pending case is not a passing
+case*, and a denominator that quietly absorbs one is a denominator that lies.
 
-**AND IT RETIRES ITSELF, WHICH IS THE HALF THAT MATTERS.** If a pending unit
-starts MEETING its expectation, the run goes **RED** and says to delete the
-marker. That is deliberate and it is the opposite of what a "known failure" list
-usually does: this ecosystem's recurring defect is the rule that outlives its
-reason -- a dead skip entry, an allowlist nobody re-derives, a check whose scope
-drifted -- and a marker that survives the day it stops being true is one more.
-Here the day the pin moves past the named commit, the harness itself says so, in
-the run that moves it.
+**THE MARKER EXCUSES THE FAILURE IT NAMES AND NO OTHER** (RX-154, `BUILD.md`
+B-5b). It names the exit it is pending on, and a pending unit that gives any
+other exit is a FAILURE -- rule B-7's reasoning applied to this marker: a unit
+held only to "it failed" passes for the wrong reason. It goes RED, too, the day
+it MEETS its expectation, and says to delete the marker. **And it takes a
+reviewed line in `harness/baseline/PENDING.txt`**, checked both ways, so one
+comment line cannot move a red out of a green run's denominator.
+
+**THE COMMIT IS A LABEL, AND NOTHING HERE READS IT.** It is checked for the
+shape of a commit -- 7 to 40 lowercase hex digits -- and never resolved: this
+runner has no compiler checkout to resolve it against, and W-18 and RX-007 keep
+the compiler's tree out of it. It tells the human who moves the pin which fix
+the unit waits on. UNTIL THE THIRD CYCLE-0.0 AUDIT (BL-6) THIS PARAGRAPH SAID
+"the day the pin moves past the named commit, the harness itself says so, in
+the run that moves it". Measured false: a marker naming a commit that does not
+exist was accepted and behaved identically, because the retirement was keyed on
+the exit alone -- which is still true, and is now the whole of the claim.
 
 SECOND: `stress: 0`. Here the divergence is smaller and the reason is
 different, and it is worth stating exactly because the first draft of this
@@ -93,8 +101,12 @@ grammar exists to prevent. So it is refused by name here and it is not a defect
 there.
 """
 
+import re
+
 EXIT_MAX = 255
 SIGNAL_MIN = -64
+# A commit's SHAPE, never its existence (RX-154): see the fourth marker above.
+_COMMIT = re.compile(r"^[0-9a-f]{7,40}$")
 
 
 class Expect:
@@ -105,7 +117,9 @@ class Expect:
         self.stress = 1
         self.argv = []
         self.mem_cap_mib = 0    # 0 = uncapped. `mem-cap-mib: N` sets it.
-        self.pending_until = ""  # a compiler commit. `pending-until: X` sets it.
+        self.pending_until = ""   # a compiler commit, as a LABEL: never resolved (RX-154)
+        self.pending_exit = None  # the exit the unit is pending on; any other fails it
+        self.pending_line = 0
         self.no_parse_error = False
         self.ok = True
         self.bad_line = 0
@@ -220,13 +234,22 @@ def read(text):
             e.mem_cap_mib = v
             continue
         if body.startswith("pending-until:"):
-            v = _after_colon(body)
-            if not v or len(v.split()) != 1:
-                return _bad(e, n, "a `pending-until:` that does not name exactly one "
-                                  "compiler commit. The marker EXCUSES A RED, so a "
-                                  "blank or discursive value would silence a test "
-                                  "while looking like documentation")
-            e.pending_until = v
+            toks = _after_colon(body).split()
+            if (len(toks) != 3 or toks[1] != "exit"
+                    or not _COMMIT.match(toks[0]) or _int(toks[2]) is None):
+                return _bad(e, n, "a `pending-until:` that is not `pending-until: "
+                                  "<commit> exit <N>` -- 7 to 40 lowercase hex digits, "
+                                  "the word `exit`, and the exit the unit is pending "
+                                  "on. The marker EXCUSES A RED, so it must name WHICH "
+                                  "red: a marker excusing any exit is the one that "
+                                  "absorbed a failure it did not name (RX-154)")
+            v = _int(toks[2])
+            if v > EXIT_MAX or v < SIGNAL_MIN:
+                return _bad(e, n, f"`pending-until: ... exit {v}` -- no process can "
+                                  f"exit {v}, so the marker could never match")
+            e.pending_until = toks[0]
+            e.pending_exit = v
+            e.pending_line = n
             continue
 
         if body.startswith("argv:"):
@@ -235,6 +258,13 @@ def read(text):
         if body.startswith("expect-no-parse-error"):
             e.no_parse_error = True
             continue
+    # Checked after every line is read, because `expect-exit:` is LAST ONE WINS
+    # and may come after the marker.
+    if e.pending_until and e.pending_exit == e.exit_code:
+        return _bad(e, e.pending_line,
+                    f"a `pending-until:` pending on exit {e.pending_exit}, which is "
+                    f"the exit the file EXPECTS -- a marker that excuses the "
+                    f"passing answer excuses nothing and would hide the pass")
     return e
 
 

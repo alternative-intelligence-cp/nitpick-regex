@@ -21,14 +21,14 @@ reporting it.
 | `run.py` | the driver: build steps, then the suites in manifest order, then the summary |
 | `manifest.py` | `nitpick.toml`, in the compiler's own subset, with the compiler's schema |
 | `toolchain.py` | `llc`, `opt`, `ld.lld` asked their versions and held to the pinned LLVM 20.1.2 |
-| `expect.py` | the `// expect-…` grammar, marker for marker with `npkg/expect.npk`, **plus two markers of this runner's own** — `mem-cap-mib:` and `pending-until:` (`BUILD.md` B-5b, RX-146), each declared there so the parity stage has a row rather than a surprise |
+| `expect.py` | the `// expect-…` grammar, marker for marker with `npkg/expect.npk`, **plus two markers of this runner's own** — `mem-cap-mib:` and `pending-until: <commit> exit <N>` (`BUILD.md` B-5b, RX-146 as amended by RX-154), each declared there so the parity stage has a row rather than a surprise |
 | `elf.py` | an ELF64 symbol table, read with `struct` — no fourth tool |
 | `irscan.py` | the emitted IR's call edges to the floor |
 | `build.py` | the pipeline, and `npkc`'s exit alphabet |
 | `stages.py` | `program`, `compile`/`positive`, `compile`/`negative`, `parse`, `check` |
 | `treecheck.py` | the **seven** live tree checks — the library diffed against its own documents; six can fail the run and `check_specs_current` reports |
 | `selfcheck.py` | **the harness fed wrong expectations and required to fail**; runs FIRST |
-| `baseline/` | the empty program the two scans are differences against, and `rx120.sh` |
+| `baseline/` | the empty program the two scans are differences against, `rx120.sh`, and the two REVIEWED LISTS — `RESIDUE.txt` (what `nregex` needs from the runtime, RX-131) and `PENDING.txt` (every unit a `pending-until:` marker takes out of the denominator, RX-154), each checked both ways |
 | `baseline/rx120.sh` | **executable**: builds the floor and a syscaller at the pinned compiler and ASSERTS floor == 5, syscaller == 6, difference == `{npk_sys6}` (at `c3bdae2`; 2 and 3 at `3d15ac9`); with `950bb1d` present it also asserts 29/29/identical, compiling the two programs without the two arms that compiler does not have (RX-148). A harness **build step** and its own CI step. It replaced a hand-copied transcript that recorded a command which could not have produced the output beside it (RX-142's neighbourhood; cycle 0.0 audit, adjudication (a)) |
 | `selfcheck/` | fixtures that must **fail**; `selfcheck.py` drives them |
 
@@ -46,17 +46,23 @@ reporting it.
   byte-identical IR (B-4);
 - **every `.npk` in the tree was swept as a root** by the `parse` stage, which
   is what re-checks the six `src/` files `src/lib.npk` does not reach;
-- the four live **tree checks** agreed with the specifications they diff against;
+- the live **tree checks** (`treecheck.ALL`; the runner prints each one and what it examined) agreed with the specifications they diff against;
+- every unit a `pending-until:` marker took out of the denominator is a line in
+  `baseline/PENDING.txt`, gave exactly the exit its marker names, and did not
+  meet its expectation (RX-154) — so one comment line cannot move a red out of a
+  green run;
 - and — the one that makes the rest mean anything — **the runner was shown able
   to fail before any of it ran** (V-21).
 
 ## The self-check, which is the load-bearing half
 
 `selfcheck.py` builds a throwaway tree per case, runs the **real** runner over
-it with the **real** pinned `npkc`, and requires a **failure**. Eight cases are
-live; three are **PENDING** on stages that do not exist yet and print as pending
-rather than as passing, because `8 live, 3 pending` and `11 passing` are
-different claims and only one is true.
+it with the **real** pinned `npkc`, and requires a **failure**. Some cases are
+**PENDING** on stages that do not exist yet and print as pending rather than as
+passing, because `11 live, 4 pending` and `15 passing` are different claims and
+only one is true — and the counts here are the day they were written
+(2026-09-25): the runner prints them from `selfcheck.CASES` on every run, and
+that line is the authority.
 
 A case requires more than a non-zero exit: it requires the runner to **say the
 thing**, naming the case's own file. A non-zero exit alone would also be
@@ -71,11 +77,11 @@ value reddens case 1. `../meta/roadmap/0.0/0.0.3.md` §4 has the transcripts.
 
 ## What it does not assert yet
 
-The three pending self-check cases: a generated table off by one line (0.3), a
-corpus fixture off by one (0.5), and **a corpus fixture that passes under one
-engine and fails under another** (0.8) — the last is the most important case in
-`TESTING.md` V-20's list, because it is what proves RX-041 is being *checked*
-rather than assumed. `corpus` and `oracle` are not stages yet. `accept` is not
+The four pending self-check cases: a generated table off by one line (0.3), a
+corpus fixture off by one (0.5), an engine and the naive oracle disagreeing
+(0.5), and **a corpus fixture that passes under one engine and fails under
+another** (0.8) — the last is the most important case in `TESTING.md` V-20's
+list, because it is what proves RX-041 is being *checked* rather than assumed. `corpus` and `oracle` are not stages yet. `accept` is not
 pending but **struck** (B-4a), and declaring it is a manifest error.
 
 ## Three things that will trip a reader

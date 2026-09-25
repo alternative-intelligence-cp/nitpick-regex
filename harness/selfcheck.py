@@ -18,12 +18,23 @@ message to be present. Requiring the exit code alone would let a case pass
 because the runner crashed for an unrelated reason, which is a green check
 whose red is unreachable: the exact failure this file exists to prevent.
 
-A PENDING CASE PRINTS AS PENDING AND NEVER AS PASSING (P-18). Three of the
-eleven need a stage that does not exist yet -- the corpus at 0.5, the table
-generator at 0.3, cross-engine agreement at 0.8. They are written now so that
-the day the stage lands the case is already here; they are marked pending so
-that the count in the summary is honest. `7 live, 3 pending` and `10 passing`
-are different claims and only one of them is true.
+A PENDING CASE PRINTS AS PENDING AND NEVER AS PASSING (P-18). Four of the
+cases need a stage that does not exist yet -- the table generator at 0.3, the
+corpus and the oracle at 0.5, cross-engine agreement at 0.8. They are written
+now so that the day the stage lands the case is already here; they are marked
+pending so that the count in the summary is honest. `N live, 4 pending` and
+`N + 4 passing` are different claims and only one of them is true -- and the
+driver prints the counts from `CASES` rather than from prose (`counts()`),
+because its GREEN message said "EIGHT" for a subcycle after that was the only
+number it could be.
+
+THE PENDING MARKER IS A WAY TO FAIL AND IT HAS THREE CASES (11, 12, 13), since
+the third cycle-0.0 audit (BL-6). `pending-until:` is the runner's only route
+for a red to leave a green run's denominator, it shipped with no case at all,
+and one comment line was measured moving a wrong expectation out of the count
+-- which is case 1's own fault, defeated. Each of its three reds is a case:
+a marker the reviewed list does not name, a pending unit failing for another
+reason, and a marker that has outlived its reason (RX-154).
 
 WHY CASE 7 IS THE MOST IMPORTANT ONE IN THE LIST, though it cannot run for
 five more cycles: it is the case that proves RX-041 -- "every engine gives the
@@ -140,7 +151,7 @@ class Case:
         self.pending = pending
 
 
-# --- the eleven cases ------------------------------------------------------------------
+# --- the cases -------------------------------------------------------------------------
 
 def _case1(d):
     """A `program` case whose `expect-exit` is wrong BY ONE.
@@ -268,6 +279,65 @@ def _case9(d):
     return TOML % PROGRAM_ENTRY
 
 
+def _pending_program(mod, exit_code, expect_exit, marker_exit):
+    """A program carrying `pending-until:` -- the marker under test in 11-13.
+
+    The commit is `0123abc`, which is commit-shaped and names nothing: the
+    marker's commit is a LABEL the runner never resolves (RX-154), so a real
+    one would test nothing a fake one does not."""
+    return (f"// expect-exit: {expect_exit}\n"
+            f"// pending-until: 0123abc exit {marker_exit}\n"
+            f"mod:{mod};\n\n"
+            f"func:main = int32(cstring[]:_~argv) {{\n"
+            f"    exit {exit_code}i32;\n"
+            f"}};\n" + FAILSAFE)
+
+
+def _pending_list_line(rel, exit_code, why):
+    return f"{rel}\t0123abc\t{exit_code}\t{why}\n"
+
+
+def _case11(d):
+    """A RED HIDDEN BEHIND A PENDING MARKER THE REVIEWED LIST DOES NOT NAME.
+
+    The third cycle-0.0 audit's M3, exactly: a unit with a WRONG expectation --
+    case 1's own fault -- plus one comment line naming the exit it really gives.
+    Until RX-154 that line took the unit out of the denominator and the run
+    printed GREEN over it. The tree has no `PENDING.txt`, which the runner reads
+    as an empty list: the safe direction."""
+    _write(d, "tests/case/hidden_red.npk", _pending_program("hidden_red", 41, 42, 41))
+    return TOML % PROGRAM_ENTRY
+
+
+def _case12(d):
+    """A PENDING UNIT FAILING FOR A REASON OTHER THAN THE ONE ITS MARKER NAMES.
+
+    The audit's M2: the marker is on the reviewed list and names exit 92 -- a
+    leak's `HeapOom`, the shape the retired DEF-25 unit had -- and the file exits
+    41. Until RX-154 the marker excused ANY exit that was not the expected one,
+    so this printed "this tree gives 41" and nothing objected."""
+    _write(d, "tests/case/other_red.npk", _pending_program("other_red", 41, 42, 92))
+    _write(d, "harness/baseline/PENDING.txt",
+           _pending_list_line("tests/case/other_red.npk", 92,
+                              "the self-check's case 12: listed, and red for another reason"))
+    return TOML % PROGRAM_ENTRY
+
+
+def _case13(d):
+    """A PENDING MARKER THAT HAS OUTLIVED ITS REASON -- the file now PASSES.
+
+    RX-146's self-retirement, which the 0.0.4b verifier exercised by hand and no
+    case ran on every invocation. Listed, pending on 92, and exiting 0 as it
+    expects: the run must go red and say the marker is stale, because a marker
+    surviving the day it stops being true is this repository's recurring
+    defect."""
+    _write(d, "tests/case/stale_marker.npk", _pending_program("stale_marker", 0, 0, 92))
+    _write(d, "harness/baseline/PENDING.txt",
+           _pending_list_line("tests/case/stale_marker.npk", 92,
+                              "the self-check's case 13: listed, and now passing"))
+    return TOML % PROGRAM_ENTRY
+
+
 def _case10(d):
     """A NON-DETERMINISTIC EMISSION -- the `repro` check must report the offset.
 
@@ -298,6 +368,14 @@ def _case10(d):
 # happened to produce. The case would then be green because something else went
 # wrong, which is the shape of unfalsifiable check this whole file exists to
 # make impossible.
+#
+# AND EVERY PHRASE MUST BE ONE ONLY THE RED CAN PRINT. Case 12 was first written
+# requiring "the marker names exit 92 and this tree gives 41" -- which the PEND
+# line prints as well -- and, with the check it guards deleted, it PASSED: the
+# PEND line supplied the words and an unrelated red supplied the exit (the
+# residue list firing in the fixture tree, since scoped to the real one in
+# `run.py`). Mutation-tested at the third cycle-0.0 audit's triage; it now also
+# requires "PENDING ON A DIFFERENT FAILURE", which nothing else prints.
 CASES = [
     Case(1, "a `program` case whose `expect-exit` is wrong by one",
          "a runner comparing truthiness instead of the integer passes this",
@@ -333,7 +411,30 @@ CASES = [
     Case(10, "a non-deterministic emission",
          "B-4: the `repro` comparison must report the byte offset",
          _case10, ["first difference at byte 17"]),
+    Case(11, "a red hidden behind a pending marker the reviewed list does not name",
+         "RX-154: one comment line must not move a red out of a green run's "
+         "denominator -- the third audit's M3, which defeated case 1",
+         _case11, ["hidden_red.npk", "NOT ON THE REVIEWED PENDING LIST"]),
+    Case(12, "a pending unit failing for a reason other than the one its marker names",
+         "RX-154: the marker excuses the failure it names and no other -- the "
+         "third audit's M2, B-7's reasoning applied to the marker",
+         _case12, ["other_red.npk", "PENDING ON A DIFFERENT FAILURE",
+                   "the marker names exit 92 and this tree gives 41"]),
+    Case(13, "a pending marker that has outlived its reason",
+         "RX-146's self-retirement, run on every invocation instead of once by hand",
+         _case13, ["stale_marker.npk", "IS NOW STALE"]),
+    Case(14, "an engine and the naive oracle disagreeing on a generated case",
+         "the oracle stage -- V-20 has named it since 0.0.0 and this list did not "
+         "carry it until the third audit's triage",
+         None, (), "0.5 -- there is no oracle stage yet"),
 ]
+
+
+def counts():
+    """(live, pending, total) -- read from `CASES`, so the driver's summary can
+    never again print a count that the list has moved away from."""
+    pending = sum(1 for c in CASES if c.pending is not None)
+    return len(CASES) - pending, pending, len(CASES)
 
 
 # --- the tree the cases are built in ---------------------------------------------------

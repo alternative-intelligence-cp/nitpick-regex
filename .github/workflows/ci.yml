@@ -19,15 +19,18 @@
 # committed red under a `pending-until:` marker and counted as neither a pass
 # nor a failure. At `c3bdae2` it started passing, the harness reddened the run
 # with "IS NOW STALE", and the marker was deleted
-# (`meta/roadmap/0.0/0.0.4b.md` step 7). What the marker mechanism does and
-# does not guarantee in general is the cycle 0.0 third audit's BL-6.
+# (`meta/roadmap/0.0/0.0.4b.md` step 7). What the marker guarantees is RX-154's,
+# since the cycle 0.0 third audit's BL-6 measured that it guaranteed less than
+# it said: it names the exit it excuses, every pending unit is a line in
+# `harness/baseline/PENDING.txt` checked both ways, and its commit is a label
+# the harness never resolves.
 # SEVEN tree checks run on every invocation — six that can fail the run and
 # `check_specs_current`, which reports. AND SINCE 0.0.3 IT IS ALSO EVIDENCE
-# THAT THE RUNNER CAN FAIL: the self-check runs FIRST and feeds it eight kinds
-# of wrong expectation, requiring a red for each. Three more of V-20's eleven
-# cases print as PENDING on stages that do not exist until 0.3, 0.5 and 0.8, so
-# the green covers eight of the eleven ways the harness is meant to fail and
-# says so. It is still NOT evidence about this library's BEHAVIOUR: `src/core/`
+# THAT THE RUNNER CAN FAIL: the self-check runs FIRST and feeds it every live
+# kind of wrong expectation, requiring a red for each -- 11 live and 4 PENDING
+# on stages that do not exist until 0.3, 0.5 and 0.8, 15 cases in V-20's list at
+# the cycle 0.0 close's third triage, and the run prints the counts itself, so
+# the green says how much of the list it covers. It is still NOT evidence about this library's BEHAVIOUR: `src/core/`
 # is real and carries its own suites, but nothing matches yet.
 #
 # THESE COUNTS WENT STALE ONCE AND THE STALENESS WAS INVISIBLE (cycle 0.0.5).

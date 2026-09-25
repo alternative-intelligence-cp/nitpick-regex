@@ -137,27 +137,67 @@ def run_binary(exe, args, stress, want, name, tail, mem_cap_mib=0):
 
 # --- the stages ----------------------------------------------------------------------
 
+# THE REVIEWED LIST OF PENDING UNITS (RX-154). A `pending-until:` marker takes a
+# unit OUT OF THE DENOMINATOR, so it takes a line here too -- checked both ways
+# by the driver. One comment line must never be able to move a red out of a
+# green run, and the third cycle-0.0 audit's M3 did exactly that: a unit given a
+# wrong expectation plus a marker printed `140/140` and GREEN.
+PENDING_LIST = "harness/baseline/PENDING.txt"
+
+
 class Pending:
     """A unit that is CORRECT and RED because the pinned compiler is the defect.
 
     Carried out of the stage rather than reported as a finding, so the runner can
     count it as neither a pass nor a failure -- `expect.py`'s fourth marker says
-    why. It holds what the file asked for and what the tree actually did, because
-    "pending" without the observed exit is an assertion that nothing checks.
+    why. It holds what the file asked for, the exit its marker names, and what
+    the tree actually did, because "pending" without the observed exit is an
+    assertion that nothing checks.
     """
 
-    def __init__(self, name, until, want, got, capped):
+    def __init__(self, name, until, want, got, capped, named):
         self.name = name
         self.until = until
         self.want = want
         self.got = got
         self.capped = capped
+        self.named = named       # the exit the marker is pending on; `got` equals it
 
     def line(self):
         cap = f", under a {self.capped} MiB cap" if self.capped else ""
         return (f"{self.name}: PENDING until compiler `{self.until}` -- wants exit "
-                f"{self.want}{cap} and this tree gives {self.got}. NOT A PASS and not "
-                f"counted in the denominator.")
+                f"{self.want}{cap}; the marker names exit {self.named} and this tree "
+                f"gives {self.got}. NOT A PASS and not counted in the denominator.")
+
+
+def read_pending_list(root):
+    """`harness/baseline/PENDING.txt` -- RX-154. Returns ({key: line}, failures).
+
+    One line per pending unit, `path<TAB>commit<TAB>exit<TAB>reason`, the key
+    being the first three. Every line needs a REASON, for RESIDUE.txt's reason
+    (RX-131): a line nobody explained is a permission nobody reviewed.
+
+    AN ABSENT FILE IS AN EMPTY LIST, and that is the safe direction rather than a
+    convenience: with no list, every marker in the tree fails as unlisted. The
+    self-check's throwaway trees rely on it."""
+    path = os.path.join(root, PENDING_LIST)
+    entries, fl = {}, []
+    if not os.path.exists(path):
+        return entries, fl
+    for n, line in enumerate(open(path, encoding="utf-8").read().split("\n"), 1):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        parts = line.split("\t", 3)
+        if (len(parts) != 4 or not parts[3].strip()
+                or expect_mod._int(parts[2]) is None):
+            fl.append(f"{PENDING_LIST}:{n}: not `path<TAB>commit<TAB>exit<TAB>reason`. "
+                      f"A pending line takes a unit out of the denominator, so a line "
+                      f"that cannot be read, or that gives no reason, is a failure "
+                      f"rather than a skip")
+            continue
+        entries[(parts[0].strip(), parts[1].strip(),
+                 expect_mod._int(parts[2]))] = n
+    return entries, fl
 
 
 def _program_like(c, path, name, exp, with_opt_leg):
@@ -196,6 +236,14 @@ def _pending(c, base, name, exp):
     nothing. The `/bin/true` control still runs when a cap is in force -- the
     reason for the control is that a low cap measures the loader, and that is
     just as true of a measurement as of an assertion.
+
+    THREE OUTCOMES, AND ONLY ONE OF THEM IS PENDING (RX-154). The file meets its
+    expectation: the marker has outlived its reason, RED. The file gives the exit
+    its marker names: PENDING. The file gives ANY OTHER exit, or hangs: RED,
+    because the marker excuses the failure it names and no other. Until the third
+    cycle-0.0 audit (BL-6, M2) the third case was PENDING too -- a unit made to
+    trap 94 instead of its DEF-25 leak's 92 printed "this tree gives 94" and the
+    run stayed GREEN.
     """
     if exp.mem_cap_mib:
         ctl = build.Run([TRUE_CONTROL], timeout=build.RUN_TIMEOUT,
@@ -207,17 +255,28 @@ def _pending(c, base, name, exp):
     r = build.Run([base] + list(exp.argv), timeout=build.RUN_TIMEOUT,
                   mem_cap_mib=exp.mem_cap_mib)
     got = "timed out" if r.timed_out else r.code
+    marker = f"`pending-until: {exp.pending_until} exit {exp.pending_exit}`"
     if got == exp.exit_code:
         # THE MARKER HAS OUTLIVED ITS REASON, WHICH IS THIS ECOSYSTEM'S OWN
-        # RECURRING DEFECT. Red, deliberately: the run that moves the pin is the
-        # run that has to notice, and nobody re-reads a green line.
-        return [f"{name}: `pending-until: {exp.pending_until}` IS NOW STALE -- the "
-                f"file met its expectation (exit {exp.exit_code}) against the "
-                f"compiler this tree is pinned to. "
-                f"DELETE THE MARKER; the case is live and belongs in the "
-                f"denominator. A pending marker that survives the day it stops "
-                f"being true is the dormant rule this repository keeps finding."]
-    return [Pending(name, exp.pending_until, exp.exit_code, got, exp.mem_cap_mib)]
+        # RECURRING DEFECT. Red, deliberately: the run that first meets the
+        # expectation is the run that has to notice, and nobody re-reads a green
+        # line. NOTE WHAT THIS IS KEYED ON: the exit, not the commit, which is a
+        # label nothing here resolves (RX-154).
+        return [f"{name}: {marker} IS NOW STALE -- the file met its expectation "
+                f"(exit {exp.exit_code}) against the compiler this tree is pinned "
+                f"to. DELETE THE MARKER AND ITS LINE IN {PENDING_LIST}; the case is "
+                f"live and belongs in the denominator. A pending marker that survives "
+                f"the day it stops being true is the dormant rule this repository "
+                f"keeps finding."]
+    if got != exp.pending_exit:
+        return [f"{name}: PENDING ON A DIFFERENT FAILURE -- the marker names exit "
+                f"{exp.pending_exit} and this tree gives {got}. {marker} excuses the "
+                f"failure it names and no other (RX-154): rule B-7's reasoning applied "
+                f"to this marker, because a unit held only to 'it failed' passes for "
+                f"the wrong reason. The defect changed shape or something else broke; "
+                f"read the file before touching the marker."]
+    return [Pending(name, exp.pending_until, exp.exit_code, got, exp.mem_cap_mib,
+                    exp.pending_exit)]
 
 
 def parse_sweep(c, path, name, exp):

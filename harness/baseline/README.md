@@ -73,3 +73,15 @@ have removed (RX-148).
 **Re-recording is a deliberate act**, like re-recording a golden. A difference
 here is a **prelude change** in a moving compiler, not a library change, and it
 belongs in its own commit where a reviewer sees it as a one-line diff.
+
+## `PENDING.txt` — the other reviewed list
+
+Not about the floor; it lives here because this is where the harness keeps the
+lists a reviewer signs, and `RESIDUE.txt` set its shape. **One line per unit a
+`// pending-until: <commit> exit <N>` marker takes out of the run's denominator**
+— `path<TAB>commit<TAB>exit<TAB>reason` — checked both ways by `run.py`: a
+marker the list does not name is a failure, and on a full run a line no pending
+unit matches is a failure. Without it one comment line could move a red out of
+a green run, which the third cycle 0.0 audit measured (BL-6, M3; RX-154).
+**Empty since cycle 0.0.4b**, when the one unit it would have listed started
+passing at `c3bdae2`.

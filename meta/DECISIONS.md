@@ -2581,6 +2581,10 @@ the declared extensions (the workflow is exactly where a pin-dated claim is most
 load-bearing, since it is the file that names the pin).
 
 ### RX-146 — `bytes_copy_string` LEAKS on an empty `Bytes`; the compiler is the defect, the comment claiming otherwise was wrong three times, and the gate is a memory cap that is PENDING rather than a guard
+> **SUPERSEDED IN PART by RX-154 (2026-09-25)** — B-5b's one-token marker, and
+> the claim that the run notices "the day the pin moves past the named commit":
+> the commit was never read. The decision — a correct-and-red unit, run and
+> printed, outside the denominator, red the day it passes — stands.
 
 **2026-09-06, from the second cycle 0.0 audit (BL-4 and N-12).** RX-138 replaced
 a borrowed view with `string_concat("", string_from_bytes(b.buf.ptr, b.len))`.
@@ -3032,3 +3036,111 @@ for good (item 13 decided sealed, the residue is stated in S-23 rather than
 closed, and question 9 recommends it with an accessor in a subcycle of its
 own); no limit at all, S-24 kept as it was (it leaves unchecked a count this
 repository has already shipped negative).
+
+---
+
+## The cycle 0.0 close, re-attempted — the third audit's triage (cycle 0.0.5)
+
+*Appended 2026-09-25 by stream 1, working `meta/roadmap/0.0/0.0.5.md` against
+[`audits/nitpick-regex-0.0-2026-09-06-third.md`](audits/nitpick-regex-0.0-2026-09-06-third.md),
+at pinned toolchain `c3bdae2` under LLVM 20.1.2. The audit measured at `3d15ac9`;
+every number below was re-taken at `c3bdae2` unless it says otherwise.*
+
+### RX-154 — the `pending-until:` marker names the exit it excuses, a reviewed list names every pending unit, and the commit is a label nothing reads
+
+**2026-09-25, the third audit's BL-6.** It supersedes RX-146 in part — B-5b's
+one-token grammar, and the claim that the harness notices "the day the pin moves
+past the named commit". RX-146's decision stands: a unit that is correct and red
+because the pinned compiler is the defect is committed with a marker, run,
+printed, counted as neither a pass nor a failure, and reddens the day it meets
+its expectation.
+
+**What the audit found, three full runs each exit 0.** M1: a marker naming a
+string that is no commit was accepted and changed nothing — the commit was never
+read, so the sentence in `expect.py` claiming the run notices the re-pin was
+false. M2: a pending unit made to fail for a DIFFERENT reason (94, where its
+leak gives 92) stayed pending; the marker excused any exit but the expected one.
+M3: an ordinary unit given a wrong expectation plus one marker line left the
+denominator — `140/140`, GREEN — which defeats the self-check's own case 1. No
+self-check case covered the mechanism at all.
+
+**Reproduced at `c3bdae2` before anything was changed**, each a full run over a
+clone of this subcycle's first commit with the one-token marker planted:
+M3 on `tests/unit/bytes_oob_get_empty.npk` (`expect-exit` 94 → 77) — **157/157,
+GREEN, exit 0**; M2 on `tests/unit/bytes_copy_string_empty.npk` (a trapping
+`bytes_get` added at the top of `main`) — **157/157, GREEN, exit 0**, its
+PEND line reading *"this tree gives 94"*.
+
+**The decision, one part per remedy the audit named.**
+
+1. **The marker names the exit it is pending on**: `// pending-until: <commit>
+   exit <N>`. A pending unit that gives any other exit, or hangs, is a failure —
+   *"PENDING ON A DIFFERENT FAILURE"* — which is rule B-7's reasoning applied to
+   this marker: a unit held only to "it failed" passes for the wrong reason. A
+   marker pending on the exit the file expects is unreadable, because it would
+   excuse the pass.
+2. **Every pending unit is a line in `harness/baseline/PENDING.txt`**,
+   `path<TAB>commit<TAB>exit<TAB>reason`, **checked both ways**: a marker the list
+   does not name leaves its unit IN the denominator as a failure, and on a full
+   run a line no pending unit matches is a failure. Taking a unit out of the count
+   is then two edits in two files, one of them a reviewed line with a reason —
+   `RESIDUE.txt`'s shape (RX-131). The list is empty today.
+3. **The commit is a label.** It must have a commit's shape, 7 to 40 lowercase
+   hex digits, and it is never resolved: this runner has no compiler checkout to
+   resolve it against — W-18 and RX-007 keep the compiler's tree out of it — and
+   resolving it would buy an answer the unit's exit already gives. The two
+   sentences that said otherwise, `expect.py`'s docstring and B-5b, are
+   corrected; `ci.yml`'s was rewritten at cycle 0.0.4b.
+4. **Three self-check cases, one per red the mechanism owes** — 11, a marker
+   the list does not name (M3); 12, a listed unit failing another way (M2); 13, a
+   marker that has outlived its reason — so `TESTING.md` V-20's list grows with
+   the mechanism, and each was seen to fail against a harness with its own check
+   removed.
+
+**Re-measured after, same plants in the new grammar**: M3 — **157/158, exit 1**,
+*"is NOT ON THE REVIEWED PENDING LIST"*; M2, its line in the list — **157/159,
+exit 1**, *"PENDING ON A DIFFERENT FAILURE -- the marker names exit 92 and this
+tree gives 94"*, and the list line reported as matching no pending unit.
+
+**Why the denominator is not asserted as a number**, which was the audit's
+fourth remedy as it wrote it. A committed total changes with every test added,
+so it would be edited on every commit and read by nobody; the list changes only
+when a unit leaves the count, which is the event the audit is about. The one
+other route by which a `program`-stage unit could leave the count — a sibling
+importing it, which the `npkg`-compatible runner then does not run standalone —
+**is closed by the language**: measured at `c3bdae2`, a file with `main` and
+`failsafe` imported by another is refused `NITPICK-RESOLVE-013` (D-248), so the
+importer goes red.
+
+**And `V-20`'s list, which this grows, was out of step with `selfcheck.py` in
+both directions**: it named an oracle case the runner never carried and omitted
+four live ones (4, 8, 9, 10). Reconciled case for case — fifteen, eleven live and
+four pending, the oracle case added as pending until 0.5 — and the run's GREEN
+message now prints the counts from `CASES`: it said *"EIGHT"* and *"eleven"* as
+prose, which is the stale-message shape `PLAYBOOK.md` §9 names. (`TESTING.md` §10's
+performance rule, which shared the number V-22 with §8's since RX-145, is V-23:
+nothing cited it, and two records cite the other.)
+
+**Mutation-testing the three new cases found a hole in the self-check itself,
+and it is the larger finding.** With case 12's own check deleted, case 12
+PASSED: its required phrase was also printed by the PEND line, and its required
+non-zero exit came from somewhere else — `RESIDUE.txt`'s unused-entry direction,
+which `_lib` copies into every fixture tree and which no fixture can satisfy, so
+**every inner run of every case was red for a reason that was not its case's**.
+The exit-code half of the self-check had been vacuous since RX-131; `must_say`
+alone was telling detection from noise, which 0.0.5's §C had seen for case 9 and
+read as the mechanism working. Two changes: the unused-entry direction is scoped
+to the real tree (skipped under `--selfcheck-inner`, the flag that already scopes
+the tree checks and `rx120.sh` for the same reason, `PLAYBOOK.md`'s *"a
+named-exemption list is a statement about one tree"*), and case 12 requires
+*"PENDING ON A DIFFERENT FAILURE"*, which only its red prints.
+
+*Alternatives declined:* retiring the mechanism because it has no user today — it
+would be rebuilt under a deadline the next time a compiler defect needs a
+correct-and-red unit, which is how BL-6's machinery was built — and DEF-25, the
+defect it was built for, was found by this repository's own audit while the
+compiler was mid-cycle, as it still is; resolving the
+commit against the compiler's history — a dependency on another repository's
+checkout for a label a human reads; a committed total of judged units (above);
+the pending exit written in the list only — the marker is what a reader of the
+unit sees, so it must say which failure it excuses.

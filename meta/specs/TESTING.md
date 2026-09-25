@@ -246,19 +246,42 @@ second**, and V-19 becomes a present-tense rule on the day the second lands.
 ## 9. The harness is tested
 
 **Rule V-20 — the self-check** feeds the harness wrong expectations and
-requires it to report every one as a failure:
+requires it to report every one as a failure. The list is `harness/selfcheck.py`'s
+`CASES`, case for case, and a case that needs a stage which does not exist yet is
+**pending** and prints as pending, never as passing (P-18):
 
-- a `program` case with the wrong `expect-exit`;
-- a `check` case expecting a code the compiler does not report;
-- a `check` case reporting a code no expectation names (the D-237 rule);
-- a `check` case whose **fixture path is mistyped** — it exits 1 with
-  `NITPICK-RESOLVE-005`, which is a refusal, and only the D-237 rule tells it
-  from the refusal the test is about (`BUILD.md` B-7);
-- a corpus fixture whose expected offsets are off by one;
-- a corpus fixture that passes under one engine and fails under another —
-  **the case that proves V-11 is doing work**;
-- a generated table differing from the generator's output by one line;
-- an oracle disagreement.
+1. a `program` case with the wrong `expect-exit`, wrong **by one**;
+2. a `check` case expecting a code the compiler does not report;
+3. a `check` case reporting a code no expectation names (the D-237 rule);
+3a. a `check` case whose **fixture path is mistyped** — it exits 1 with
+   `NITPICK-RESOLVE-005`, which is a refusal, and only the D-237 rule tells it
+   from the refusal the test is about (`BUILD.md` B-7);
+4. a `parse` case that does not parse;
+5. a generated table differing from the generator's output by one line —
+   *pending until 0.3*;
+6. a corpus fixture whose expected offsets are off by one — *pending until 0.5*;
+7. a corpus fixture that passes under one engine and fails under another —
+   **the case that proves V-11 is doing work** — *pending until 0.8*;
+8. a program that makes a syscall — B-2a must name the calling function;
+9. a program needing a floor symbol neither the baseline nor the residue list
+   has — B-2 (RX-116, RX-131);
+10. a non-deterministic emission — B-4's comparison must report the offset;
+11. a red hidden behind a `pending-until:` marker the reviewed list does not
+    name (RX-154);
+12. a pending unit failing for a reason other than the one its marker names
+    (RX-154);
+13. a pending marker that has outlived its reason — the unit now passes
+    (RX-146, RX-154);
+14. an engine and the naive oracle disagreeing on a generated case —
+    *pending until 0.5*.
+
+*(Reconciled 2026-09-25 by the third cycle 0.0 audit's triage, RX-154. This list
+had eight bullets and `CASES` eleven entries, and they disagreed in BOTH
+directions: the list named an oracle disagreement the runner never carried, and
+the runner carried four live cases — 4, 8, 9, 10 — the list never named. And the
+`pending-until:` marker, the runner's only route for a red to leave a green run,
+had shipped with no case at all; 11–13 are its three reds. Case 14 is the
+oracle case, added as pending so the list and the runner say the same thing.)*
 
 **Rule V-21 — the self-check runs first in every full invocation.** A harness
 that has not proven it can fail has not proven anything.
@@ -267,7 +290,10 @@ that has not proven it can fail has not proven anything.
 
 ## 10. Performance regression
 
-**Rule V-22.** `harness/bench.py` writes a line per benchmark into
+**Rule V-23.** `harness/bench.py` writes a line per benchmark into
 `meta/bench/<date>.txt` and the harness fails on a regression worse than 20%
 against the committed baseline on the same machine. `PERFORMANCE.md` has the
 benchmark set. A baseline is re-recorded by a deliberate act, like a golden.
+*(Numbered V-22 until 2026-09-25: RX-145 gave §8's rule the same number at the
+second cycle 0.0 audit triage, and two records cite that one. Nothing cited this
+one, so this is the one renumbered.)*

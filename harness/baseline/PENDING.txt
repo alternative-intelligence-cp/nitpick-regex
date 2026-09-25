@@ -1,0 +1,29 @@
+# THE REVIEWED LIST OF PENDING UNITS -- RX-154, `BUILD.md` B-5b.
+#
+# One line per unit that is CORRECT AND RED because the defect it asserts
+# against is in the pinned compiler:
+#
+#     path<TAB>commit<TAB>exit<TAB>reason
+#
+# `path` is the unit's path from the tree's root; `commit` and `exit` are its
+# `// pending-until: <commit> exit <N>` marker, exactly; `reason` says what the
+# unit waits on. Blank lines and `#` comments are ignored.
+#
+# WHY A MARKER NEEDS A LINE HERE AS WELL. A pending unit is OUTSIDE the run's
+# denominator, so the marker is a way for a red to leave a green run -- and the
+# third cycle-0.0 audit (BL-6, M3) measured one comment line doing exactly that
+# to an ordinary unit with a wrong expectation: `140/140`, GREEN. So the runner
+# checks this list BOTH WAYS: a marker it does not name is a FAILURE, and on a
+# full run a line no pending unit matches is a failure too. Taking a unit out of
+# the denominator is then two edits in two files, one of them a reviewed line
+# with a reason -- which is what `RESIDUE.txt` asks of a runtime symbol (RX-131).
+#
+# THE COMMIT IS A LABEL. The runner checks its shape and never resolves it; it
+# tells whoever moves the pin which fix the unit waits on. What retires a marker
+# is the unit's own exit: it goes RED the day it meets its expectation, and RED
+# if it gives any exit but the one its marker names.
+#
+# EMPTY SINCE CYCLE 0.0.4b. The one unit this mechanism was built for,
+# `tests/unit/bytes_copy_string_empty.npk` (DEF-25, fixed at `fe42dba`), started
+# passing at the re-pin to `c3bdae2` and its marker was deleted. This file was
+# added at the cycle 0.0 close's third triage, with nothing to list.
