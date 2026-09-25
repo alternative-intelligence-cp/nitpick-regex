@@ -1,4 +1,4 @@
-# Cycle 0.0 — Foundations — **NOT CLOSED. The close was refused TWICE on 2026-09-06.**
+# Cycle 0.0 — Foundations — **NOT CLOSED. The close was refused THREE times, all on 2026-09-06; the fourth attempt, 2026-09-25, awaits a fourth audit.**
 
 > ## Resumed 2026-09-25 at compiler `c3bdae2` — and the adoption comes first
 >
@@ -14,6 +14,17 @@
 > `0.0.4b.md` §9 reads the third audit against the new pin, finding by finding,
 > so the close's triage starts from the adopted tree. Nothing in the two notes
 > below is changed by this one.
+>
+> **The re-attempt is [`0.0.5.md`](0.0.5.md) §10 — seven findings, seven lines:
+> six fixed, one open (N-15, against the board's question 9).** `vec_get` at an
+> owning element moved it out of its slot while four sites said the copy was
+> refused; the answer is a rule rather than a comment — a `Vec` holds a `T` that
+> owns nothing (`SAFETY.md` S-23a, RX-155), stated per verb, measured per verb,
+> and enforced over `src/`. The pending marker names the exit it excuses and a
+> reviewed list checked both ways (RX-154) — and mutation-testing its three new
+> self-check cases found that every inner run of the self-check had been red for
+> an unrelated reason, which is fixed with it. **It reports `READY-TO-CLOSE`,
+> not closed**: the gate below needs an audit that has seen this tree.
 
 > ## The SECOND refusal, and it found a defect in the fix for the first
 >
@@ -427,6 +438,13 @@ settled. **Nothing in this cycle is blocked on a question.**
       **The largest was `BL-3`: the library's only out-of-range stop returned for `i == 0`**, so
       nine `pub` entry points performed the access they had just refused whenever their container
       was empty. RX-143 … RX-146
+- [x] **added by the THIRD audit triage, at compiler `c3bdae2`:** every one of the third audit's
+      findings carries a line — **7 items, 7 lines: six FIXED, one OPEN** (N-15, tracked to the
+      board's question 9 and RX-153, as the dispatch ordered) — `0.0.5.md` §10. BL-5 answered by
+      RESTRICTION (RX-155, S-23a, eight owning units, `check_vec_elements_own_nothing`), BL-6 by
+      RX-154 (the marker names its exit; `harness/baseline/PENDING.txt` checked both ways; three
+      self-check cases), N-14 as a stated trade (RX-156), N-16 at thirty files rather than nine,
+      N-17 by `0.0.4b.md`'s commit 0. **174/174**, GREEN; CI run `36173453512` green on `62a3404`
 
 ## Gate
 

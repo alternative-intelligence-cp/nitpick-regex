@@ -93,7 +93,10 @@ cycle 0.0.
 > the libraries' pause for the compiler's cycle 1.5.** The tree does not compile
 > at that pin, so the adoption comes first — [`0.0/0.0.4b.md`](0.0/0.0.4b.md) and
 > [`0.0/0.0.4c.md`](0.0/0.0.4c.md) — and the close is re-attempted after them,
-> against the third audit.
+> against the third audit. **The re-attempt is [`0.0/0.0.5.md`](0.0/0.0.5.md)
+> §10**: seven findings, seven lines, six fixed and one open against the board's
+> question 9. It reports `READY-TO-CLOSE`, not closed: the tree it leaves has not
+> been seen by an audit, which the cycle's gate requires.
 
 **What it has produced so far**, against what this section planned: **25** probes
 rather than fourteen (five questions split into a positive and a negative half
@@ -110,6 +113,10 @@ an executable RX-120 assertion. Take them from a green run's summary.
 rejection fixtures, its positive twin `sealed_reads`, and the parse sweep's six
 more files — `src/core/` with **36** unit programs, and decisions through
 RX-153.)*
+*(After the close's third audit triage, the same compiler: **174** units — eight
+owning-element units, one per `Vec` verb, and the parse sweep's eight more files
+— `src/core/` with **44** unit programs, **eight** tree checks, a self-check of
+**15** cases, 11 live, and decisions through RX-156.)*
 
 **Two probes refuted their own hypothesis**, which is the cycle's best return:
 `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler
