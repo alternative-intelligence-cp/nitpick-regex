@@ -365,12 +365,20 @@ settled. **Nothing in this cycle is blocked on a question.**
       **DONE** — local `146/146 unit(s) passed`, GREEN; CI run `36160171529` green on `f19598c`, its log reading `146/146`, `GREEN`, `1 nested repository pruned: .nitpick` and `rx120: every asserted leg held.`
 
 ### 0.0.4c — the access properties (inserted 2026-09-25)
-- [ ] `Vec`'s `items` hidden; the counts, `buf`, `dense` and `sparse` sealed; the four counts `limit<ListLen>`
-- [ ] `LimitViolated` named by exactly the 34 roots REACH asks; `probe13f` still refused for it alone
-- [ ] five consumer refusals and `sealed_reads`, with their control against the unsealed tree
-- [ ] BL-3 re-planted: 60 unsealed, 109 sealed
-- [ ] S-24a added; S-23's and `0.1.0.md`'s notes; RX-127 marked
-- [ ] `158/158`, GREEN at `c3bdae2`; CI green
+- [x] **added by the dispatch:** the six two-parameter `main`s moved to D-089's one parameter, in a commit of their own, ahead of DEF-96  
+      **DONE** — `7fd1267`; the full harness log identical before and after (146/146), `rx120.sh`'s output and all four symbol sets byte-identical, the two rejection fixtures' positions unmoved; CI run `36162545461` green.
+- [x] `Vec`'s `items` hidden; the counts, `buf`, `dense` and `sparse` sealed; the four counts `limit<ListLen>`  
+      **DONE** — `971ac43`, RX-153; the order `sealed limit<R> T:f` measured (the other is `PARSE-001`).
+- [x] `LimitViolated` named by exactly the 34 roots REACH asks; `probe13f` still refused for it alone  
+      **DONE** — 34 edited, four LEFT ALONE, each refusal's one `REACH-002` line its subject.
+- [x] five consumer refusals and `sealed_reads`, with their control against the unsealed tree  
+      **DONE** — one code each at a measured position; against the unsealed tree the five compile cleanly and the twin runs. `sealed_reads` inserts twice, so its `sparse` read cannot pass on `calloc`'s zero.
+- [x] BL-3 re-planted: 60 unsealed, 109 sealed  
+      **DONE** — at −O0 and through `opt -O2`; `Bytes.len` and `SparseSet.count` driven negative trap 109 too.
+- [x] S-24a added; S-23's and `0.1.0.md`'s notes; RX-127 marked  
+      **DONE** — S-24's text unchanged; every step-6 search re-run with its denominator in `0.0.4c.md`'s record.
+- [x] `158/158`, GREEN at `c3bdae2`; CI green  
+      **DONE** — local `158/158 unit(s) passed`, GREEN; CI run `36165858757` green on `971ac43`, read from its log.
 
 ### 0.0.5 — close
 - [x] every probe verdict reconciled against the specifications
