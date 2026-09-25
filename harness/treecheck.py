@@ -638,6 +638,20 @@ _UNDATED_SKIP_NAMES = ("TRANSCRIPT.txt", "RX120.txt", "DECISIONS.md")
 # tracked text file, so naming them here costs nothing and states the intent.
 _UNDATED_PRUNE_DIRS = (".git", ".internal", "__pycache__", "build")
 
+# A NESTED REPOSITORY IS NOT THIS TREE -- RX-147. CI checks the
+# pinned compiler out at `.nitpick/`, INSIDE the workspace, and since RX-145
+# this walk prunes by NAME -- so it walked the whole compiler: run 34047719942
+# on `ab93eae` opened 1016 files and failed on the compiler's own roadmap.
+# Invisible on a developer machine, where the compiler is a sibling and not a
+# child. By SHAPE -- a directory holding a `.git` entry is another repository --
+# and by NAME for `.nitpick`, so an export with no `.git` is caught too
+# (`nitpick-time`'s TM-146, carried here by the board's shared finding 5).
+_NESTED_NAMES = (".nitpick",)
+
+
+def _nested_repo(parent, name):
+    return name in _NESTED_NAMES or os.path.exists(os.path.join(parent, name, ".git"))
+
 # One line may opt out by carrying this marker, which is greppable and has to be
 # written on purpose. The only intended user is a line that QUOTES the forbidden
 # phrase in order to forbid it.
@@ -675,9 +689,15 @@ def check_dated_measurements(root):
     fl, notes = [], []
     seen = 0
     by_ext = {}
+    pruned = []
     for dirpath, dirnames, names in os.walk(root):
-        # BY NAME, NEVER BY LEADING DOT -- see `_UNDATED_PRUNE_DIRS` (RX-145).
-        dirnames[:] = [d for d in dirnames if d not in _UNDATED_PRUNE_DIRS]
+        # BY NAME, NEVER BY LEADING DOT (RX-145) -- AND NEVER INTO ANOTHER
+        # REPOSITORY (RX-147), which is said out loud below.
+        pruned += sorted(os.path.relpath(os.path.join(dirpath, d), root).replace(os.sep, "/")
+                         for d in dirnames
+                         if d not in _UNDATED_PRUNE_DIRS and _nested_repo(dirpath, d))
+        dirnames[:] = [d for d in dirnames
+                       if d not in _UNDATED_PRUNE_DIRS and not _nested_repo(dirpath, d)]
         for n in sorted(names):
             if not n.endswith(_UNDATED_EXTS):
                 continue
@@ -719,6 +739,9 @@ def check_dated_measurements(root):
     notes.append(f"opened by declared extension -- {covered}. A ZERO HERE IS A "
                  f"FINDING, not a clean bill: it means the class is declared and "
                  f"the walk reaches none of it (RX-145).")
+    notes.insert(0, f"{len(pruned)} nested repositor{'y' if len(pruned) == 1 else 'ies'} "
+                    f"pruned: {', '.join(pruned) or 'none'} -- another repository is not "
+                    f"this tree (RX-147).")
     return Result("check_dated_measurements", "RX-142, RX-145",
                   f"{seen} text file(s) outside the records", fl, notes)
 

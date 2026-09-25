@@ -2648,3 +2648,68 @@ could be caught, and the pending file is the artefact that prevents it);
 `string_slice` instead of `string_concat` (its `Result` is real, but swapping
 primitives to route around a defect the compiler has already fixed would be the
 workaround with extra steps).
+
+---
+
+## The adoption to compiler c3bdae2 — cycles 0.0.4b and 0.0.4c
+
+*Appended 2026-09-25 by stream 1, working `meta/roadmap/0.0/0.0.4b.md`, against
+pinned toolchain `c3bdae2` (the compiler's 1.5 close) under LLVM 20.1.2, with
+`3d15ac9` kept for the old-pin baselines. The third re-pin this repository has
+absorbed, and the first after the libraries' pause. The drafts are the plan's
+§8, PD-1 … PD-6, numbered here in commit order.*
+
+### RX-147 — the whole-tree walk prunes a nested repository, by shape and by name, and says what it pruned
+
+**2026-09-25, cycle 0.0.4b (the plan's PD-1).** CI has been **red since
+`ab93eae`** and the reason is not the pin. Read from the failing job's own log
+(run `34047719942`, job `101525667445`, fetched through the API rather than the
+summary): `check_dated_measurements` examined **1016 text files** and failed on
+`.nitpick/meta/roadmap/1.5/1.5.2d.md:395:40` — the **compiler's** roadmap — and
+the run ended `141/142 unit(s) passed`.
+
+**The mechanism.** CI checks the pinned compiler out at `.nitpick/`, inside the
+workspace, because `actions/checkout` cannot place a `path:` outside it. Since
+RX-145 this check prunes by NAME (`.git`, `.internal`, `__pycache__`,
+`build`), which reaches `.github/` as RX-145 intended — and reaches `.nitpick/`
+as nobody did, so the one walk from the tree's root walked a second repository.
+**Invisible on a developer machine**, where the compiler is a sibling directory
+and not a child: every local run was green over it, and so was the third audit.
+
+**The decision.** A directory holding a `.git` entry — file or directory, so a
+worktree or submodule counts — is another repository and is not walked; so is a
+directory named `.nitpick`, so an export of the compiler with no `.git` is caught
+too. **The pruned list is the check's FIRST note**, `N nested repositor(y|ies)
+pruned: …`, so *"133 files, 1 nested repository pruned"* and *"133 files"* are
+different statements and only the first can be checked. Extends RX-145, whose
+rule — by name, never by leading dot — stands: an ordinary dotted directory is
+still walked. It is `nitpick-time`'s TM-146 lesson, carried here by the board's
+SHARED FINDINGS row 5.
+
+**Reproduced before it was fixed, and controlled both ways**, in a scratch clone
+with a `.nitpick/` holding a `.git` and a planted `measured at the pin` —
+`0.0.4b.md` step 1's `walk`:
+
+| state | failures | first note |
+|---|---|---|
+| before the fix | **1**, `.nitpick/meta/n.md` — CI's red, on this machine | — |
+| after the fix | 0 | `1 nested repository pruned: .nitpick` |
+| plus the same plant in an ordinary `.plain/` | **1**, `.plain/meta/n.md` — still walked | `1 nested …: .nitpick` |
+| plus a nested repository by shape only, `tools/other/.git` | 1, `.plain/…` | `2 nested repositories pruned: .nitpick, tools/other` |
+| `.nitpick/` with its `.git` removed (an export) | 0 | `1 nested …: .nitpick` — by name |
+
+**Why only this check.** It is the one walk from the tree's root. `npk_files`
+walks named subtrees and already skips dotted directories; `stages.files_of`
+walks the manifest's declared paths (`src`, `tests`, `harness`), none of which
+holds a checkout; `check_specs_current` walks `meta/`. CI's log agrees: the only
+failure in run `34047719942` was this check.
+
+*Alternatives declined:* checking the compiler out outside the workspace
+(`actions/checkout` refuses a `path:` outside it, and a hand-rolled clone would
+move the pin assertion off the action that guarantees it); adding `.nitpick` to
+the prune names alone (the next tool checked out beside it will not be called
+`.nitpick` — TM-146's reason); walking `git ls-files` (the check exists to see
+text nobody committed). *Deferred, not declined:* a standing self-check case for
+the prune — `TESTING.md` V-20's case list is also the subject of the third
+audit's BL-6 (ii), and one change to that list, made once by the close, is
+better than two.
