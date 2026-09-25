@@ -89,6 +89,12 @@ cycle 0.0.
 > could not have done if the blocking fixes had been made to files sitting
 > inside `done/`.
 
+> **Resumed 2026-09-25 at compiler `c3bdae2`, after a third refused close and
+> the libraries' pause for the compiler's cycle 1.5.** The tree does not compile
+> at that pin, so the adoption comes first — [`0.0/0.0.4b.md`](0.0/0.0.4b.md) and
+> [`0.0/0.0.4c.md`](0.0/0.0.4c.md) — and the close is re-attempted after them,
+> against the third audit.
+
 **What it has produced so far**, against what this section planned: **25** probes
 rather than fourteen (five questions split into a positive and a negative half
 that neither file could carry alone), all with recorded verdicts; a harness of

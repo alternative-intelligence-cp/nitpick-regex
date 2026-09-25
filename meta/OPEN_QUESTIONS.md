@@ -35,6 +35,64 @@ consequence: POSIX basic REs have back-references, this library does not, and
 1.1 for the API; the compiled program format reserves a pattern id from 1.0, so
 the deferral costs nothing. Defer the API, not the representation.
 
+### Q-6 — what replaces `VERIFICATION.md` P-1, now that every construct it names is live? — **the board's question for all six work repositories, cited here under its number there**
+
+**Raised 2026-09-25, at the re-pin to compiler `c3bdae2`**, by `nitpick-time`'s
+planner, and queued on the workbench board for the author as **Q-6**. The number
+is the board's and `nitpick-time`'s, and it is used here unchanged so that one
+question has one id in every repository that owes the same answer — the `O-N`
+convention above, applied to a question. Numbers Q-4 and Q-5 are therefore not
+used in this file.
+
+P-1 writes an obligation as a comment *"in the exact syntax it will take"*, and
+rested its safety on the rung refusing each construct by name; P-1a (RX-127)
+narrowed that to `prove`, `requires` and `ensures` at `3d15ac9`. **At `c3bdae2`
+none of them refuses.** Measured here by the `probe13` family, as cycle 0.0.4b
+re-points it ([`roadmap/0.0/0.0.4b.md`](roadmap/0.0/0.0.4b.md) §5 step 6):
+
+| Construct, live | In a plain build | What a consumer owes |
+|---|---|---|
+| `prove` | lowers to nothing: a FALSE `prove` over a run-time value runs to exit 0 (`probe13a`) | nothing |
+| `requires` | checked at the callee's entry, traps `RequiresViolated`, and `?\|` cannot catch it (`probe13g`) | one arm (`probe13c`) |
+| `ensures` | checked at every return, traps `EnsuresViolated` (`probe13h`) | one arm (`probe13d`) |
+| `limit<R>` | checked after every write, traps `LimitViolated` (`probe13e`) | one arm (`probe13f`) |
+
+**And one cost that is this repository's alone, measured at planning:** a live
+`requires` on an accessor pre-empts RX-130's stop. With `vec_get`'s comment-form
+clause made live, the read of an empty `Vec` traps **`RequiresViolated`, not
+`OutOfBounds`** — so every out-of-range unit's expected exit would move with it,
+and RX-130's decision (*the trap is the language's own `OutOfBounds`*) would need
+a successor.
+
+**The options:**
+
+- **A′ — comments by default, and a live clause is a budget decision
+  (RECOMMENDED).** `decreases`/`unbounded` are the language's and always live;
+  `assert_static` wherever it helps, at no cost. `requires`, `ensures`,
+  `invariant` and `limit` are written live **only where a numbered decision says
+  the check earns the arm it adds to every consumer**, recorded in `SAFETY.md`
+  §4.2 — and never a `requires` on an accessor whose body already stops
+  (RX-130). `prove` stays a comment until the harness runs the verified build
+  (cycle 0.8), because a plain build lowers it to nothing. **A comment-form
+  obligation is documentation, and is never cited as a check.**
+- **A — live now.** Every consumer of `core` owes `RequiresViolated` and
+  `EnsuresViolated`; the accessor pairs' traps change identity (above), and
+  RX-130 needs a successor. Gains: every contract checked on every call of every
+  test.
+- **B — every obligation a comment until cycle 0.8**, `assert_static` included.
+  The simplest, and the weakest: nothing checks a comment's syntax or its truth.
+- **C — everything live now, `prove` included.** A live `prove` in a plain build
+  is exactly the silent no-op P-1 was written against.
+
+**Recommendation: A′.** It keeps P-1's mechanism — property tests stand in, and
+the switch is a decision rather than a sweep — and gives the true reason for it:
+the arm and the run-time cost, not a refusal that no longer happens. For this
+repository it is also the only option that leaves S-8's one-arm promise and
+RX-130's trap identity standing without a new decision. **Nothing waits on the
+answer:** cycle 0.0.4b is identical under all four, and 0.0.4c's field limits
+are the board's decided design (item 13), not a P-1 choice; `0.0.4b.md` §10
+spells out what A would add, as its own subcycle after the close.
+
 ---
 
 ## The `O-N` collision, and how it was resolved — RX-114

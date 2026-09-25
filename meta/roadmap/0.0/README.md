@@ -1,5 +1,20 @@
 # Cycle 0.0 — Foundations — **NOT CLOSED. The close was refused TWICE on 2026-09-06.**
 
+> ## Resumed 2026-09-25 at compiler `c3bdae2` — and the adoption comes first
+>
+> **A third audit refused the close as well** (workbench `f1071fb`; filed here as
+> [`../../audits/nitpick-regex-0.0-2026-09-06-third.md`](../../audits/nitpick-regex-0.0-2026-09-06-third.md)),
+> and the libraries then paused for the compiler's cycle 1.5. They resume at its
+> close, `c3bdae2`, **where this tree does not compile**: every `failsafe` lacks
+> `StackExhausted` and `MachineFault`, and every `while` must state `decreases`
+> or `unbounded`. **So two subcycles are inserted before the close, and the close
+> is re-attempted after them:** [`0.0.4b.md`](0.0.4b.md), the adoption — which
+> also makes CI green again, red since `ab93eae` for a reason that is not the
+> pin — and [`0.0.4c.md`](0.0.4c.md), the access properties the board decided.
+> `0.0.4b.md` §9 reads the third audit against the new pin, finding by finding,
+> so the close's triage starts from the adopted tree. Nothing in the two notes
+> below is changed by this one.
+
 > ## The SECOND refusal, and it found a defect in the fix for the first
 >
 > **[`../../audits/nitpick-regex-0.0-2026-09-06-second.md`](../../audits/nitpick-regex-0.0-2026-09-06-second.md)**
@@ -111,6 +126,8 @@ settled. **Nothing in this cycle is blocked on a question.**
 | [0.0.2](0.0.2.md) | **The harness, part 1** — build, the `program` stage, the toolchain pin, the no-syscall scan | one test program builds, links, runs, and its exit code is judged |
 | [0.0.3](0.0.3.md) | **The harness, part 2** — `parse`, ~~`accept`~~, `check`; the self-check; the tree checks | the self-check proves the harness can fail, **eight** of eleven ways; the other three need stages that do not exist until 0.3, 0.5 and 0.8 |
 | [0.0.4](0.0.4.md) | **`src/core/`** — `Vec<T>`, `Bytes`, `ByteSet`, `SparseSet`, `limits.npk` | four primitives with their own suites and their obligations written |
+| [0.0.4b](0.0.4b.md) | **The adoption to compiler `c3bdae2`** — every loop's clause, the new arms, the floor re-recorded, the probes the pin changed, CI's nested-repository walk, CI moved to the pin | every file compiles, links, runs and meets its header at `c3bdae2`, and CI is green there |
+| [0.0.4c](0.0.4c.md) | **The access properties** — `Vec`, `Bytes` and `SparseSet` sealed, `items` hidden, `ListLen` on the counts | a consumer cannot write a count or read `items`, and a count driven negative traps where it goes wrong |
 | [0.0.5](0.0.5.md) | **Close** — the findings, the spec amendments the probes forced, the handoff to 0.1 | the audit triage discharged, `done/0.0/`, and 0.1 openable by a fresh session |
 
 ## Checklist
@@ -318,6 +335,29 @@ settled. **Nothing in this cycle is blocked on a question.**
       same cap, because a low cap measures the dynamic loader rather than the
       program. `mem-cap-mib:` is the new expectation header that carries it, and
       the harness runs that control on every capped file.
+
+### 0.0.4b — the adoption to compiler `c3bdae2` (inserted 2026-09-25)
+- [ ] RX-130's supersede marker, so `check_refs` is clean and a commit can happen (the third audit's N-17)
+- [ ] the whole-tree walk prunes a nested repository by shape and by name and says so; CI green again at `3d15ac9`, read from its log
+- [ ] CI pinned to `c3bdae2` in a commit of its own, never pushed alone
+- [ ] the floor re-recorded in a commit of its own: 5 symbols, 4 edges, `rx120.sh` at 5 / 6 / `{npk_sys6}`
+- [ ] every `while` states `decreases` — 61 loops, 37 by the tool and 24 read, none `unbounded`; `decreases_read.txt` committed
+- [ ] every `src/` loop entered by at least one unit (the planted-measure table)
+- [ ] every `failsafe` names what `REACH-002` asks; each deliberate refusal refused by exactly its subject
+- [ ] the `probe13` family re-pointed: 13a runs, 13c/13d `REACH-002`, 13g/13h trap 116/117, 13b/13e on 109
+- [ ] the pending unit's marker deleted at the pin that contains `fe42dba`; the mechanism untouched (BL-6 is the close's)
+- [ ] RX-115's mechanism corrected everywhere it is stated, the harness's printed text included; O-N14 struck
+- [ ] `VERIFICATION.md`'s dated notes (P-1, P-1a, P-8, P-10, §2); every prose search's denominator recorded
+- [ ] the consumer bills recorded before and after
+- [ ] `146/146`, GREEN at `c3bdae2`; CI green on the pushed head, read from its log
+
+### 0.0.4c — the access properties (inserted 2026-09-25)
+- [ ] `Vec`'s `items` hidden; the counts, `buf`, `dense` and `sparse` sealed; the four counts `limit<ListLen>`
+- [ ] `LimitViolated` named by exactly the 34 roots REACH asks; `probe13f` still refused for it alone
+- [ ] five consumer refusals and `sealed_reads`, with their control against the unsealed tree
+- [ ] BL-3 re-planted: 60 unsealed, 109 sealed
+- [ ] S-24a added; S-23's and `0.1.0.md`'s notes; RX-127 marked
+- [ ] `158/158`, GREEN at `c3bdae2`; CI green
 
 ### 0.0.5 — close
 - [x] every probe verdict reconciled against the specifications
