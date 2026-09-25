@@ -34,12 +34,13 @@ use "../../src/lib.npk".*;
 // Nothing is called. The library has no callable surface yet, and inventing
 // one here to have something to call would test this file rather than the
 // import.
-func:main = int32(int32:argc, cstring[]:argv) {
-    // `_~argv` would mark the parameter DISCARDED and reading it would be
-    // `NITPICK-TYPE-007`; `discard(x)` marks it USED. The parentheses are
-    // mandatory.
-    discard(argc);
-    discard(argv);
+func:main = int32(cstring[]:_~argv) {
+    // ONE PARAMETER, and `_~` marks it DISCARDED -- reading it would be
+    // `NITPICK-TYPE-007`. The compiler's D-089 §4 fixes `main` at exactly
+    // `int32(cstring[]:argv)` or `int32(cstring[]:_~argv)`. Until cycle 0.0.4c
+    // this file declared `int32(int32:argc, cstring[]:argv)` and `discard`ed
+    // both: `npkc` accepted it without a word through `c3bdae2`, and the
+    // compiler's 1.6.0 step 3c refuses it `NITPICK-TYPE-083` (its DEF-96).
     exit 0i32;
 };
 

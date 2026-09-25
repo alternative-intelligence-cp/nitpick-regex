@@ -64,3 +64,9 @@ every run and requires the harness to catch it.
   driver could not proceed and judged nothing, silently, with an empty stderr.
   The harness says so by name; a test that treated `!= 0` as a refusal would
   pass on a broken command line.
+- **`main` takes ONE parameter: `func:main = int32(cstring[]:_~argv)`.** The
+  compiler's D-089 §4 fixes it, and from its 1.6.0 step 3c any other `main` is
+  refused `NITPICK-TYPE-083` (its DEF-96) — a code beside the one the fixture
+  names, which B-7's equality fails. Both fixtures here declared
+  `int32(int32:argc, cstring[]:argv)` until cycle 0.0.4c; `npkc` accepted it
+  without a word through `c3bdae2`.

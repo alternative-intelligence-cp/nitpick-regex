@@ -20,9 +20,9 @@ mod:syscall_consumer;
 
 use "../../src/lib.npk".*;
 
-func:main = int32(int32:argc, cstring[]:argv) {
-    discard(argc);
-    discard(argv);
+func:main = int32(cstring[]:_~argv) {
+    // ONE parameter, discarded (D-089 §4; the two-parameter form this file had
+    // until cycle 0.0.4c is NITPICK-TYPE-083 from the compiler's 1.6.0, DEF-96).
     // getpid(2): no argument, no side effect, and unambiguously a SYSCALL.
     Result<int64>:r = sys(39i64);
     if (r.is_error) { exit 70i32; }

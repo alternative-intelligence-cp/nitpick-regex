@@ -169,9 +169,14 @@ fi
 # this leg for a reason that is not a moved measurement. The copies below are
 # the committed files minus those arm lines, in a mirror of this tree's layout
 # (`src/` copied beside them) so `syscall_consumer.npk`'s relative import still
-# resolves; minus the two lines, both programs are byte-for-byte what this leg
-# compiled at `ab93eae`. The count of removed lines is ASSERTED, so an arm
-# renamed or added later fails here by name instead of being compiled wrongly.
+# resolves; minus the two lines, both programs were byte-for-byte what this leg
+# compiled at `ab93eae` -- until cycle 0.0.4c moved each `main` to the one
+# parameter the compiler's D-089 §4 fixes (`int32(cstring[]:_~argv)`, ahead of
+# its DEF-96). `950bb1d` accepts that form, and every assertion below and all
+# four `.undef` sets were byte-identical before and after the move (measured,
+# `meta/roadmap/0.0/0.0.4c.md`'s record). The count of removed lines is
+# ASSERTED, so an arm renamed or added later fails here by name instead of
+# being compiled wrongly.
 # If a later re-pin adds another floor arm, it joins `new_arms` with its pin.
 new_arms='StackExhausted|MachineFault'   # arms that exist from `c3bdae2`, not at `950bb1d`
 strip_new_arms() {

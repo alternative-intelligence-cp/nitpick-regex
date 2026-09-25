@@ -17,9 +17,9 @@ mod:failsafe_not_exhaustive;
 
 use "../../src/lib.npk".*;
 
-func:main = int32(int32:argc, cstring[]:argv) {
-    discard(argc);
-    discard(argv);
+func:main = int32(cstring[]:_~argv) {
+    // ONE parameter (D-089 §4): a second is NITPICK-TYPE-083 from the compiler's
+    // 1.6.0 (DEF-96), a code beside this file's, which B-7 fails. Cycle 0.0.4c.
     exit 0i32;
 };
 
