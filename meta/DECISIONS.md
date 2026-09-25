@@ -3161,6 +3161,13 @@ the pending exit written in the list only — the marker is what a reader of the
 unit sees, so it must say which failure it excuses.
 
 ### RX-155 — `Vec<T>` is for a `T` that owns nothing, because nothing in the language keeps an owner out; the restriction is stated per verb, measured per verb, and enforced over `src/`
+> *(A precision added the same day, by the subcycle that wrote it, before any
+> verifier saw it: "Every `Vec` the specification declares already holds one"
+> is true of `Inst`, `ByteSet`, `uint8`, `HirNode`, `ClassRange` and the
+> engines' integers, and not established of `Literal` and `GroupInfo`, which
+> `HIR.md` §2 names without fields — nor of the parser's `Frame`. S-23a now
+> requires their cycles to shape them as H-2 shapes group names, as offsets into
+> a `Bytes`; `SAFETY.md` S-23a says so. The decision is unchanged.)*
 
 **2026-09-25, the third audit's BL-5.** It supersedes in part RX-031, RX-110,
 RX-123 and RX-125 — each one's clause crediting `TYPE-046` with refusing,

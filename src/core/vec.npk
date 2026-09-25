@@ -193,10 +193,10 @@
 //
 // So `Vec<T>` is for a `T` that DROPS NOTHING AND HOLDS NO BLOCK OF ITS OWN, and
 // at such a `T` every verb is correct and a move is a copy. Every `Vec` the
-// specification declares already is one -- `Inst`, `ByteSet`, `uint8`, `HirNode`,
-// `ClassRange`, `Literal`, `GroupInfo` (group names are offsets into a `Bytes`,
-// H-2), and the engines' `int32` and `int64` -- so the rule costs the design
-// nothing. **`check_vec_elements_own_nothing` enforces it over `src/`**, which is
+// specification declares holds one -- `Inst`, `ByteSet`, `uint8`, `HirNode`,
+// `ClassRange`, and the engines' `int32` and `int64` -- or a type it has not yet
+// shaped, `Literal`, `GroupInfo` and the parser's `Frame`, which S-23a requires
+// to be shaped the way H-2 shapes group names: offsets into a `Bytes`. **`check_vec_elements_own_nothing` enforces it over `src/`**, which is
 // the code that ships; `tests/` instantiates `Vec<string>` on purpose, to
 // measure the table above. A cycle that needs an owning element lifts S-23a by a
 // decision, and the compiler's own `List<T>` is the shape it would take:

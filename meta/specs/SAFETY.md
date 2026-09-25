@@ -534,8 +534,13 @@ An orphan is invisible to `exit 0` (S-22), so each orphaning unit is required to
 meet `HeapOom` under the managed-half cap, where `vec_owning_freed` — the same
 rounds without the verb — exits 0. At a `T` that owns nothing every verb is
 correct and a move is a copy, and **every `Vec` this specification declares
-already holds one** (C-1, H-2 — group names are offsets into a `Bytes` — and the
-engines' integers), so the rule costs the design nothing. It is enforced because
+either already holds one or holds a type it has not yet shaped**: `Inst`,
+`ByteSet` and `uint8` (C-1), `HirNode` (H-2), `ClassRange` (`UNICODE.md`) and
+the engines' integers own nothing as specified; `Literal` and `GroupInfo`
+(`HIR.md` §2) and the parser's `Frame` (`SYNTAX.md` §3) are named and not yet
+shaped, and S-23a requires their cycles to shape them as H-2 shapes group
+names — offsets into a `Bytes`. So the rule costs the design nothing it had
+decided, and constrains three types it had not. It is enforced because
 it is the only thing standing between a later cycle's `Vec<string>` and a
 `vec_get` that silently empties its container.
 
