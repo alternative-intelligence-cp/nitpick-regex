@@ -28,9 +28,10 @@ stub this replaced could assert almost nothing:
     is `npkc` and not `tools/parse_check` (B-4b, RX-124), and which is what
     re-checks the six `src/` files `src/lib.npk` does not reach;
   * RX-120's numbers still hold at the pinned compiler -- `harness/baseline/rx120.sh`
-    ASSERTS floor == 2, syscaller == 3 and difference == {npk_sys6}, as a build
-    step, so a re-pin that moves the prelude reddens a run instead of silently
-    invalidating a committed sentence (RX-142's neighbourhood);
+    ASSERTS floor == 5, syscaller == 6 and difference == {npk_sys6} (at
+    `c3bdae2`; 2 and 3 at `3d15ac9` -- RX-148), as a build step, so a re-pin
+    that moves the prelude reddens a run instead of silently invalidating a
+    committed sentence (RX-142's neighbourhood);
   * the SEVEN live TREE CHECKS agreed with the specifications they diff against
     (`check_layering`, `check_error_budget`, `check_constants_named`,
     `check_no_division`, `check_accessor_confinement`,
@@ -223,8 +224,9 @@ def _build_steps(c, rep, say, inner=False):
         return
 
     # RX-120's EXPIRY, ASSERTED. `harness/baseline/rx120.sh` builds the floor
-    # and a syscaller at the pinned compiler and REQUIRES floor == 2,
-    # syscaller == 3 and the difference == {npk_sys6}; with the superseded
+    # and a syscaller at the pinned compiler and REQUIRES floor == 5,
+    # syscaller == 6 and the difference == {npk_sys6} (at `c3bdae2`; 2 and 3 at
+    # `3d15ac9` -- RX-148); with the superseded
     # `950bb1d` present it also requires 29/29/identical, which is RX-120 as
     # originally measured. It is a build step and not a test for the reason
     # SYMBOLS.txt's diff is one: a number moving there is a PRELUDE change, and
@@ -266,12 +268,20 @@ def _build_steps(c, rep, say, inner=False):
         rep.step("libcheck", [build.npkc_failure(entry, "emit", r)])
         return
     say(f"ok    libcheck: npkc accepted {entry} (exit 0)")
-    say("      AND THAT IS NOT EVIDENCE THAT THE LIBRARY BUILDS. There is no library")
-    say("      object at 3d15ac9: every file in src/ compiles at exit 0 and every")
-    say("      one is refused by llc, because a library file cannot define")
-    say("      @npk_failsafe and npkc never declares it (B-0, RX-115; O-N14). The")
-    say("      library reaches the compiler only through a program root, and the")
-    say("      conformance suite below is the smallest one.")
+    # WHAT THE GREEN LINE ABOVE DOES NOT MEAN -- RX-115, AS CORRECTED BY RX-151.
+    # This message said for three re-pins that every src/ file "is refused by
+    # llc", which was `950bb1d`'s mechanism and has been false since `94874ce`,
+    # where npkc began declaring @npk_failsafe (measured at six pins at cycle
+    # 0.0.4b). The conclusion stands for a different reason, measured at
+    # `c3bdae2`: a module's object links neither alone nor beside a program.
+    say("      AND THAT IS NOT EVIDENCE THAT THE LIBRARY BUILDS. Every file in src/")
+    say("      compiles at npkc exit 0 and assembles at llc exit 0 (since 94874ce;")
+    say("      RX-115's llc refusal was 950bb1d's), but the object is not a library:")
+    say("      it links neither alone (no npk_failsafe, no main) nor beside a")
+    say("      program, which already carries everything it reaches (ld.lld:")
+    say("      duplicate symbol). B-0; RX-115 as corrected by RX-151.")
+    say("      The library reaches the compiler only through a program root, and")
+    say("      the conformance suite below is the smallest one.")
 
     conformance = None
     for t in c.m.tests:

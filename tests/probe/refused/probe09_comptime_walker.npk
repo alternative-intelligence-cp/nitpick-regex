@@ -69,7 +69,7 @@ mod:probe09_comptime_walker;
 comptime func:first_paren = int64(string:s) {
     uint8[]:b = string_bytes(s);
     int64:i = 0i64;
-    while (i < b.len) {
+    while (i < b.len) decreases b.len - i {
         if (b[i] == 40u8) { pass i; }        // '('
         i = i + 1i64;
     }

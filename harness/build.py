@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
 """The build pipeline, and `npkc`'s exit alphabet -- `BUILD.md` §2, rules B-0..B-3.
 
-THE UNIT IS A PROGRAM ROOT AND THERE IS NO LIBRARY OBJECT (B-0, RX-115). Every
-file in `src/` compiles at `npkc` exit 0 and every one is refused by `llc` with
-`use of undefined value '@npk_failsafe'`, because `npkc` emits calls to that
-symbol into every translation unit and never a `declare` for it; only a
-program's own `failsafe` produces the `define`. So there is no
-`build/nregex.o`, nothing to link against, and cycle 0.0.2's planning decision
-P-14 -- "one build of the library per run, reused by every program" -- is not
-achievable at `3d15ac9`. Each program root compiles the whole graph it reaches.
-Provisional workbench O-N14 would make P-14's shape possible again; it is
-accepted into the compiler's 1.5.1b step 3c, and this file is what changes.
+THE UNIT IS A PROGRAM ROOT AND THERE IS NO LIBRARY OBJECT (B-0, RX-115 as
+corrected by RX-151). At `950bb1d` every file in `src/` compiled at `npkc` exit
+0 and every one was refused by `llc` with `use of undefined value
+'@npk_failsafe'`, because `npkc` emitted calls to that symbol into every
+translation unit and never a `declare` for it. THAT MECHANISM EXPIRED AT
+`94874ce`, where `npkc` began declaring it -- O-N14's recommendation, made
+upstream -- and at `c3bdae2` all thirteen `src/` files compile and assemble.
+THE CONCLUSION DID NOT EXPIRE WITH IT. A module's object links neither alone
+(`npk_failsafe` undefined, no `main`) nor beside a program, because the
+program's object already carries every function it reaches, as a global, and
+the module's duplicates it -- `ld.lld: duplicate symbol`, measured at `c3bdae2`
+for `bytes`, `vec` and `sparseset` beside their unit programs. So there is
+still no `build/nregex.o` to link against, and cycle 0.0.2's planning decision
+P-14 -- "one build of the library per run, reused by every program" -- is still
+not achievable. Each program root compiles the whole graph it reaches.
 
 `npkc`'s EXIT CODES ARE AN ALPHABET AND EVERY STAGE ASSERTS THE SPECIFIC
 INTEGER (`tests/conformance/TRANSCRIPT.txt` §F, measured in §G):
@@ -293,7 +298,8 @@ def zero_dep(c, obj, name, both_ways=True):
     RX-120 measured a `sys(39i64)` program having the SAME 29 undefined symbols
     as the floor, because `npk_sys6` was already the prelude's. Re-measured at
     `3d15ac9`: the floor has 2 symbols and no `npk_sys6`, the syscaller has 3,
-    and the difference is exactly `{npk_sys6}`. RX-120's second layer is NOT
+    and the difference is exactly `{npk_sys6}`. (At `c3bdae2`: 5 and 6, the
+    difference still exactly `{npk_sys6}` -- RX-148.) RX-120's second layer is NOT
     retired by that -- it is strictly stronger, it names the calling function,
     and it survives a prelude that starts emitting `npk_sys6` again.
 

@@ -187,7 +187,7 @@ control differing only in the clause:
 |---|---|---|
 | a `pub` limited callee in an imported module | the same callee without `limit` | consumer refused **`NITPICK-REACH-002`**, "`failsafe` does not name `LimitViolated`"; control **exit 0** |
 | a **module-private** limited callee reached only through a `pub` wrapper | the same, unlimited | consumer refused the same way; control **exit 0** |
-| a violation met with an explicit `?\| 55i32` fallback | — | **exit 97**, this library's `LimitViolated` arm. The fallback never fires |
+| a violation met with an explicit `?\| 55i32` fallback | — | **exit 97**, this library's `LimitViolated` arm. The fallback never fires *(109 since cycle 0.0.4b, when the arm moved off 97, which means `DivByZero` elsewhere — RX-149)* |
 
 So visibility does not contain it — reachability follows the call graph — and
 the arm it charges is not one a caller can decline, because the violation takes
@@ -204,11 +204,42 @@ question about unlanded work; the day the compiler's 1.5.3 lands them, the
 measurement above is run again before a single clause is uncommented. That is
 `VERIFICATION.md` P-1a.
 
+*Run again 2026-09-25 at `c3bdae2`, cycle 0.0.4b (RX-152): 1.5.3 has landed and
+both are live. **One arm per contract kind** — a program whose reachable code
+holds a `requires` owes `RequiresViolated`, one holding an `ensures` owes
+`EnsuresViolated` (`probe13c_requires_arm_missing`,
+`probe13d_ensures_arm_missing`), and each violation traps past a `?|` fallback
+(`probe13g`, `probe13h`, exits 116 and 117). No clause in `src/` was
+uncommented: that is `../OPEN_QUESTIONS.md` Q-6's to decide, and until it is
+the obligations stay comments.*
+
 **The general form, which is why this is a rule and not a note:** the error
 budget is charged by *anything that can reach `failsafe`*, and this repository
 has now met three kinds — a declared `error:` (S-8), arithmetic (`%` and `/`
 each add `DivByZero` and `DivOverflow`), and a **contract clause**. A budget
 audit that counts only `error:` declarations is counting one of three.
+
+*Dated 2026-09-25, cycle 0.0.4b, compiler `c3bdae2` — and the count is now
+FIVE.* **Every** `failsafe` owes six identities before the program does anything
+— `StackExhausted` (the compiler's D-305) and `MachineFault` (D-307) join the
+four. **Every `while` states `decreases` or `unbounded`** (D-304), and a
+measured loop reachable from a consumer charges it **`DecreasesViolated`** —
+the fourth kind of charge; and **a computed shift charges `ShiftRange`** — the
+fifth. Measured with O-B3's instrument (`NITPICK-REACH-003` on a program that
+imports one module and has no `failsafe`), per public module, `3d15ac9` at
+`ab93eae` → `c3bdae2` adopted:
+
+| module | before | after | what joined |
+|---|---|---|---|
+| `src/core/vec.npk`, `bytes.npk`, `sparseset.npk` | 6 | 9 | `StackExhausted`, `MachineFault`, `DecreasesViolated` |
+| `src/core/byteset.npk`, `core.npk` | 6 | 10 | the same, and `ShiftRange` |
+| `src/core/limits.npk`, `src/lib.npk`, `src/api/api.npk`, `src/syntax/syntax.npk` | 4 | 6 | `StackExhausted`, `MachineFault` — the language's floor |
+
+**S-8's promise is untouched TODAY**, because `lib.npk` reaches only `api` and
+costs a consumer the language's floor and nothing of this library's. The day a
+cycle makes `api` reach `core`, that consumer owes `core`'s bill — ten
+identities here — and `../OPEN_QUESTIONS.md` O-B3's check is what turns that
+into a rule.
 
 **Rule S-25 (RX-132) — `src/` contains no `/` and no `%`, and a tree check
 enforces it.** The row above says arithmetic charges the budget; this is what
@@ -361,6 +392,13 @@ than a style note:**
   language's own `OutOfBounds` rather than a code this library invented, and it
   is what a `requires` clause will do by itself when the compiler's 1.5.3 lands
   it (D-241's trap route, measured for `limit` in RX-127).
+  *(Dated 2026-09-25, cycle 0.0.4b: 1.5.3 has landed at `c3bdae2`, and "what a
+  `requires` clause will do by itself" is a trap — but a DIFFERENT one. Measured
+  with `vec_get`'s obligation made live in a scratch copy: the empty-`Vec` read
+  traps `RequiresViolated` (116), not `OutOfBounds` (94), and a consumer that
+  does not name the new arm is refused `NITPICK-REACH-002`. So a live clause
+  here would pre-empt this bullet's stop and change its identity; the clauses
+  stay comments by `../OPEN_QUESTIONS.md` Q-6, which records the cost — RX-152.)*
 
   **THIS BULLET WAS UNQUALIFIED AND IT WAS FALSE, FOR ONE VALUE, FOR THE WHOLE
   OF CYCLE 0.0.** The stop's index into that one-element array was the caller's
@@ -595,6 +633,13 @@ Three things worth keeping from it:
   nor a failure, and **it reddens the run the day it starts passing** so the
   marker cannot outlive its reason. A test that is correct and red is worth more
   than no test, and worth far more than a weakened one.
+  *(Dated 2026-09-25, cycle 0.0.4b: that was the state at `3d15ac9`. At
+  `c3bdae2`, the first pin this repository has taken that contains `fe42dba`,
+  the empty half exits 0 under its cap, the run reddened with "IS NOW STALE" as
+  RX-146 designed, and the marker was deleted — the unit is an ordinary member
+  of the denominator, and no file carries `pending-until` any more. That is a
+  fact about this one unit and not about the mechanism, which is the third
+  cycle 0.0 audit's BL-6.)*
 
 **The general form: a citation of `exit 0` in a comment about a managed body is
 a defect in the comment, and it will be written again — it has now been written

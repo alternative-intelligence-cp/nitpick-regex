@@ -37,6 +37,12 @@ how much effort goes here:
 | 1.5.3 | contracts live | §3 and §4's clauses land |
 | 1.5.4 | `prove` / `assert_static` | §6's inline proofs land |
 
+*Dated 2026-09-25, cycle 0.0.4b, compiler `c3bdae2`: 1.5.3 and 1.5.4 are live —
+`requires`, `ensures` and `prove` are all accepted — and the clauses §3, §4 and
+§6 name stay comments, per `../OPEN_QUESTIONS.md` Q-6 (its recommendation A′)
+until the author answers it. And 1.5.8c's `decreases` is taken, on every loop
+(P-8's note below).*
+
 **Rule P-1.** Until a construct is live, its obligation is stated **as a
 comment beside the code in the exact syntax it will take**, and is enforced by
 a property test. Measured at the compiler's 1.5.0: `prove`, `assert_static`,
@@ -44,6 +50,16 @@ a property test. Measured at the compiler's 1.5.0: `prove`, `assert_static`,
 `NITPICK-RUNG-001` naming "1.5" (`src/backend/ir/ir_stmt.npk`), so a premature
 clause is a build failure and not a silent no-op. The switch is deleting a
 comment marker rather than inventing the clause.
+
+*Status at compiler `c3bdae2` (cycle 0.0.4b): P-1's premise is false and its
+replacement is `../OPEN_QUESTIONS.md` Q-6. Every construct this rule names is
+live and none refuses. Measured here: a live `requires` or `ensures` adds one
+identity to every consuming program's `failsafe` and traps at run time
+(`probe13c`/`probe13g`, `probe13d`/`probe13h`); `limit<R>` the same
+(`probe13f`/`probe13e`); `prove` adds none, and a plain build lowers it to
+nothing (`probe13a_prove_unchecked`). Until Q-6 is answered, no comment-form
+obligation in `src/` becomes a live clause, and **no comment-form obligation is
+evidence of anything** — it is checked by nothing, at any pin.*
 
 **Rule P-1a (RX-127) — the rung is no longer uniform, so "refused by name" must
 be re-measured per construct and not inherited.** At pin `3d15ac9`, `prove`,
@@ -54,6 +70,11 @@ is a build failure therefore still holds for the three this library writes, and
 has stopped holding for the one it does not. **A comment-form obligation is
 only inert while its construct is refused**, so any cycle that writes a new
 clause re-runs the probe for that clause rather than citing this paragraph.
+
+*At `c3bdae2` the three refusals this rule cites are gone, and the question it
+left open is answered: one arm per contract kind (cycle 0.0.4b, RX-152). The
+probes are renamed — `probe13a_prove_unchecked`,
+`probe13c_requires_arm_missing`, `probe13d_ensures_arm_missing`.*
 
 ---
 
@@ -205,6 +226,13 @@ stated:**
 | the DFA scan | haystack bytes remaining |
 | a prefilter scan | haystack bytes remaining |
 
+*At `c3bdae2` this is the language's rule (the compiler's D-304; cycle
+0.0.4b): every `while` in the tree states `decreases` — 61 loops, 37 in the
+sweep tool's shape and 24 read (`../roadmap/0.0/decreases_read.txt`), none
+`unbounded` — and the check runs in every build, trapping `DecreasesViolated`
+(108). Each row of the table above is a clause the cycle that writes the loop
+states, not only a line here.*
+
 **Rule P-9 — the zero-width closure's variant is the subtle one** and is worth
 naming. It walks `Split` and `Jump` chains, which a pattern can make cyclic
 (`(a*)*`). It terminates because a program counter already in the thread set is
@@ -230,7 +258,9 @@ maintains, not a debug switch, for the obligation to be about the shipped code.
 `O-P1` records it, with the recommendation that the counter ships, because a
 guarantee nothing measures is a claim.
 
-Until 1.5.3, the property test (V-14) is the standing evidence.
+Until 1.5.3, the property test (V-14) is the standing evidence. *1.5.3 landed
+(`c3bdae2`, cycle 0.0.4b); under Q-6's A′ the property test remains the
+standing evidence until the verified build.*
 
 ---
 

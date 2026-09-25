@@ -2,7 +2,7 @@
 // expect-error-at: 44:5
 //
 // THE FIRST REJECTION FIXTURE, and it is the consumer rather than a language
-// probe on purpose. `tests/probe/refused/` holds seven refusals about the
+// probe on purpose. `tests/probe/refused/` holds the refusals about the
 // LANGUAGE; this directory holds refusals about USING THIS LIBRARY, which is
 // the thing a consumer can break.
 //
@@ -48,6 +48,8 @@ func:failsafe = int32(Error:e) {
         (OutOfBounds)    { exit 94i32; },
         (Unreachable)    { exit 95i32; },
         (ERegexPattern)  { exit 60i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault) { exit 107i32; },
         (*)              { exit 99i32; }
     }
     exit 9i32;

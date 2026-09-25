@@ -330,7 +330,15 @@ flags` before `pass prior` — which is the whole fix and preserves the "not a
 conflict" intent. Failing that, a warning when a `pub use` is declined because
 the name was already bound non-publicly; **silence is the expensive part.**
 
-### O-N14 — **PROVISIONAL, awaiting the author's number**: no library module can be assembled, because `npkc` never emits a `declare` for `@npk_failsafe`
+### ~~O-N14 — **PROVISIONAL, awaiting the author's number**: no library module can be assembled, because `npkc` never emits a `declare` for `@npk_failsafe`~~ — **DISCHARGED since `94874ce`, RX-151**
+*Struck 2026-09-25 at cycle 0.0.4b, at compiler `c3bdae2`. The recommendation
+below was implemented upstream: since `94874ce` `npkc` declares `@npk_failsafe`
+in every module that calls it, and every `src/` file now assembles (`llc` exit
+0; `950bb1d` the only kept pin that refuses). Its expectation that "the original
+pipeline works unchanged" did not follow: a module's object links neither alone
+nor beside a program (`ld.lld: duplicate symbol`), so `BUILD.md` B-0 stands, for
+that reason instead. The text below is kept as raised.*
+
 **Raised by cycle 0.0.1, 2026-09-03, against pinned toolchain `950bb1d`.
 The number is a proposal**, following O-N13. **Close kin to the registry's
 `O-N11` (the compiler's DEF-5) and probably the same fix.**
@@ -824,3 +832,12 @@ movemask intrinsic, which is a better request than a speculative one.
   It is filed rather than done here because this subcycle builds `core` and
   `api` does not reach it yet: the diagnostic would report today's bill, which is
   one, and prove nothing about the one that is coming.
+
+  *Dated 2026-09-25, cycle 0.0.4b: the instrument was run per public module at
+  both pins and the bills are in `roadmap/0.0/0.0.4b.md` step 11 and
+  `specs/SAFETY.md` §4.2 — `3d15ac9` → `c3bdae2`: `vec`, `bytes`, `sparseset`
+  6 → 9; `byteset` and `core` 6 → 10; `limits`, `lib`, `api`, `syntax` 4 → 6,
+  the language's floor. Two more kinds of charge met here (`DecreasesViolated`
+  from a measured loop, `ShiftRange` from a computed shift) make five, and the
+  question stands as written: `api` still does not reach `core`, so a consumer
+  of `lib.npk` owes the floor and nothing of this library's.*

@@ -1,0 +1,71 @@
+// expect-error: NITPICK-REACH-002
+//
+// PROBE 13c — a LIVE `requires` CHARGES ITS CONSUMER ONE `failsafe` ARM.
+//
+// ASKS: is `requires b != 0i32` on a function refused, lowered to nothing, or
+// checked -- and what does checking it cost the program that carries it?
+//
+// THIS FILE WAS `refused/probe13c_requires_refused.npk` AND ITS ANSWER CHANGED.
+//
+// WAS -- at pins `950bb1d` and `3d15ac9` the clause refused `NITPICK-RUNG-001`
+// naming "1.5". The old header's argument, kept: "`VERIFICATION.md` P-5 leans
+// on `requires` for exactly the divisor and index preconditions `SAFETY.md` §1
+// says must be proven on their path. The compiler's own note records the
+// observed defect this rung exists to prevent: a `requires` the backend never
+// read compiled to a function claiming a contract nothing enforced, emitting a
+// bare `sdiv`."
+//
+// NOW -- at `c3bdae2` the contract is LIVE: it is checked at the callee's
+// entry, and a violation traps `RequiresViolated` by the trap route, so no
+// `?|`, `?!` or `is_err` at the call site can observe it (`probe13g` is the
+// file that shows the check firing). And a program whose reachable code holds
+// a `requires` owes `(RequiresViolated)` in its `failsafe`: this file omits
+// exactly that arm and names every other one REACH asks for, so its ONLY
+// refusal is the contract's. The diagnostic, verbatim from `npkc` at
+// `c3bdae2`, with its span:
+//
+//   NITPICK-REACH-002 tests/probe/refused/probe13c_requires_arm_missing.npk:54:5:
+//   `failsafe` does not name `RequiresViolated`, which can reach it (D-179):
+//   add the arm — `(*)` counts for nothing here, so a new failure mode is
+//   always acknowledged before the program compiles again
+//
+// MATTERS BECAUSE IT IS THE FACT `meta/OPEN_QUESTIONS.md` Q-6 IS DECIDED ON,
+// and the question RX-127 left open and dated -- whether a live contract
+// charges a consumer an arm -- measured: ONE ARM PER CONTRACT KIND. Rule B-7
+// checks a refusal's codes and cannot see which identity a `REACH-002` line
+// names, so `probe13g`, the positive twin, is what shows this refusal is about
+// the contract and not about some other missing arm. Redirect table:
+// `meta/roadmap/0.0/0.0.4b.md` §5 step 6 (RX-152).
+mod:probe13c_requires_arm_missing;
+
+error:E9;
+
+func:divide = int32(int32:a, int32:b) requires b != 0i32 {
+    pass (a / b);
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:v = divide(6i32, 2i32) ?! E9;
+    if (v != 3i32) { exit 10i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (E9)             { exit 80i32; },
+        // `/` raises BOTH of these, and REACH-002 makes each a mandatory arm.
+        // Discovered by probe 01, where a single `%` cost two arms.
+        (DivByZero)      { exit 89i32; },
+        (DivOverflow)    { exit 90i32; },
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault) { exit 107i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

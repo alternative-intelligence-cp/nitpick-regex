@@ -1,4 +1,4 @@
-// expect-exit: 97
+// expect-exit: 109
 //
 // PROBE 13e — A `limit<Rules>` VIOLATION TRAPS, AND NO FALLBACK CATCHES IT.
 //
@@ -12,13 +12,16 @@
 // is why this is a second file rather than a fourth case in `probe13b` — the
 // same split `probe08b` and `probe08c` take for the bounds check.
 //
-// `expect-exit: 97` is this file's `LimitViolated` arm, so reaching `failsafe`
+// `expect-exit: 109` is this file's `LimitViolated` arm, so reaching `failsafe`
 // through that arm IS the assertion. Every other path out of `main` exits with
-// a code that names the line it came from, so a wrong answer is never 97.
+// a code that names the line it came from, so a wrong answer is never 109.
+// (The arm was 97 until cycle 0.0.4b. It moved to 109, the ecosystem's
+// cross-stream code for `LimitViolated`, because 97 means `DivByZero` in five
+// other arms in this ecosystem -- RX-149.)
 //
 // THE `?|` IS THE POINT, NOT AN IDIOM. `?| 55i32` asks for a default on error.
 // If a limit violation were an ordinary `Result` error, `v` would be 55 and
-// this program would exit 55. It exits 97: the violation takes the TRAP route
+// this program would exit 55. It exits 109: the violation takes the TRAP route
 // (the compiler's D-241, and its D-220/D-221 before it) and NOTHING at the call
 // site can observe or recover it. So the `Result` a caller must spell for a
 // limited callee is, for the limit itself, a channel that can never carry it —
@@ -43,7 +46,7 @@ func:main = int32(cstring[]:argv) {
     int32:v = bounded(zero) ?| 55i32;
 
     // Unreachable. Both codes are named so that if the trap ever stops firing,
-    // the failure says which way it stopped rather than merely not being 97.
+    // the failure says which way it stopped rather than merely not being 109.
     if (v == 55i32) { exit 55i32; }     // the fallback fired: recoverable
     if (v == 0i32)  { exit 60i32; }     // the limit lowered to nothing
     exit 61i32;                         // neither, and that is a third finding
@@ -57,7 +60,9 @@ func:failsafe = int32(Error:e) {
         (OutOfBounds)    { exit 94i32; },
         (Unreachable)    { exit 95i32; },
         (WildLeak)       { exit 96i32; },
-        (LimitViolated)  { exit 97i32; },
+        (LimitViolated)  { exit 109i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault) { exit 107i32; },
         (*)              { exit 99i32; }
     }
     exit 9i32;

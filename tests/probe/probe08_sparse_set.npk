@@ -157,7 +157,7 @@ func:main = int32(cstring[]:_~argv) {
     // rather than into a trap. This is the loop that would crash without §B.
     int64:i = 0i64;
     int64:spurious = 0i64;
-    while (i < bound) {
+    while (i < bound) decreases bound - i {
         if (raw sset_has(s, i =>! int32)) { spurious = spurious + 1i64; }
         i = i + 1i64;
     }
@@ -178,7 +178,7 @@ func:main = int32(cstring[]:_~argv) {
 
     // `dense[sparse[k]] == k` for every member, asserted rather than trusted.
     int64:j = 0i64;
-    while (j < s.n) {
+    while (j < s.n) decreases s.n - j {
         int32:k = s.dense.items[j];
         if (s.sparse.items[k => int64] != (j =>! int32)) { exit 25i32; }
         if (s.dense.items[s.sparse.items[k => int64] => int64] != k) { exit 26i32; }
@@ -210,7 +210,7 @@ func:main = int32(cstring[]:_~argv) {
 
     drop sset_clear(@s);
     i = 0i64;
-    while (i < bound) {
+    while (i < bound) decreases bound - i {
         drop sset_add(@s, i =>! int32);
         i = i + 1i64;
     }
@@ -218,7 +218,7 @@ func:main = int32(cstring[]:_~argv) {
 
     // Every key is a member, and the invariant holds across the whole range.
     i = 0i64;
-    while (i < bound) {
+    while (i < bound) decreases bound - i {
         if (!(raw sset_has(s, i =>! int32)))            { exit 41i32; }
         i = i + 1i64;
     }
@@ -245,6 +245,9 @@ func:failsafe = int32(Error:e) {
         (OutOfBounds)    { exit 94i32; },
         (Unreachable)    { exit 95i32; },
         (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault) { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
         (*)              { exit 99i32; }
     }
     exit 9i32;

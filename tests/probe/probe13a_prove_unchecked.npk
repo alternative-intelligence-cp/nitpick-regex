@@ -1,0 +1,71 @@
+// expect-exit: 0
+//
+// PROBE 13a — `prove` IS ACCEPTED, AND A PLAIN BUILD CHECKS NOTHING.
+//
+// ASKS: is `prove(x > 0i32);` refused loudly, lowered to nothing, or checked?
+//
+// THIS FILE WAS `refused/probe13a_prove_refused.npk` AND ITS ANSWER CHANGED.
+//
+// WAS -- at pins `950bb1d` and `3d15ac9` the statement refused
+// `NITPICK-RUNG-001` naming "1.5", and that refusal is what made
+// `VERIFICATION.md` P-1's comment-form obligations safe. The old header's
+// argument, quoted because it is still the reason this file exists: "That is
+// only safe if the real syntax is known to be **inert** — refused by name
+// rather than accepted and ignored. A construct that compiled to nothing would
+// tell a caller its argument was checked when nothing checked it, which is the
+// exact defect the compiler's LIVE-1 lock was created for."
+//
+// NOW -- at `c3bdae2` it is ACCEPTED, and a plain build LOWERS IT TO NOTHING.
+// Measured at cycle 0.0.4b: the IR of `checked` below is a store, a load and a
+// return, with no trace of the comparison. Only the compiler's VERIFIED build
+// judges a `prove`, and it refuses an undischarged one `NITPICK-VERIFY-001`
+// (the compiler's D-219, as amended at its 1.5.4). So this file now asserts
+// the thing a reader must not assume: the proposition below is FALSE for the
+// argument `main` passes, and the program runs to exit 0 anyway. A `prove` in
+// this library proves nothing until the harness runs the verified build (cycle
+// 0.8), so every `prove` here stays a comment (`meta/OPEN_QUESTIONS.md` Q-6,
+// its recommendation A′).
+//
+// THE ARGUMENT IS DERIVED FROM `argv`, NOT WRITTEN AS A LITERAL. `argv.len` is
+// 1 when the harness runs this file, so `neg` is -6, computed at run time: no
+// folding can turn the false proposition into a compile-time question and
+// quietly change what this file measures. `exit 11` asserts the value really
+// is negative, so an exit 0 cannot come from a true proposition.
+//
+// IF A LATER PIN STARTS CHECKING `prove` IN A PLAIN BUILD, THIS FILE GOES RED
+// -- a trap exit, or a refusal for a new `failsafe` arm -- and that is the
+// notification. Do not "fix" the probe: read this header, then
+// `VERIFICATION.md` P-1 and Q-6. The redirect table for the move is
+// `meta/roadmap/0.0/0.0.4b.md` §5 step 6 (RX-152).
+mod:probe13a_prove_unchecked;
+
+error:E9;
+
+func:checked = int32(int32:x) never fails {
+    prove(x > 0i32);
+    pass x;
+};
+
+func:main = int32(cstring[]:argv) {
+    int32:neg = 0i32 - 5i32 - (argv.len =>! int32);
+    if (neg >= 0i32) { exit 11i32; }
+    int32:v = raw checked(neg);
+    if (v != neg) { exit 10i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (E9)             { exit 80i32; },
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault)   { exit 107i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

@@ -257,16 +257,18 @@ def parse_sweep(c, path, name, exp):
 
     WHAT A GREEN SWEEP DOES NOT MEAN, AND THIS IS THE IMPORTANT SENTENCE.
     `npkc` exit 0 IS NOT WELL-FORMEDNESS (registry O-N11, the compiler's DEF-5),
-    and THIS LIBRARY IS THE STANDING EXAMPLE: all eight files in `src/` compile
-    at exit 0 and all eight are refused by `llc`, because a library file cannot
-    define `@npk_failsafe` and `npkc` never emits a `declare` for it (B-0,
-    RX-115). So this stage reports that the FRONTEND accepts each file. It does
-    NOT report that any of them assembles, links or runs, and for the six `src/`
-    files no suite in this manifest reports that, because there is no library
-    object to make one from -- `src/` reaches the compiler only through a
-    program root. The sweep closes the gap that those six were checked by
-    NOTHING; it does not close the gap that they are checked only as far as the
-    frontend. O-N14 is what would change that."""
+    and THIS LIBRARY WAS THE STANDING EXAMPLE: at `950bb1d` all eight files in
+    `src/` compiled at exit 0 and all eight were refused by `llc`, because
+    `npkc` never emitted a `declare` for `@npk_failsafe` (B-0, RX-115). That
+    mechanism expired at `94874ce`; at `c3bdae2` all thirteen compile and
+    assemble, and a module's object still links neither alone nor beside a
+    program (`ld.lld: duplicate symbol`) -- RX-151. So this stage reports that
+    `npkc` accepts each file. It does NOT report that any of them assembles,
+    links or runs, and for the `src/` files `src/lib.npk` does not reach no
+    suite in this manifest reports that, because there is no library object to
+    make one from -- `src/` reaches the compiler only through a program root.
+    The sweep closes the gap that those files were checked by NOTHING; it does
+    not close the gap that they are checked only as far as `npkc`."""
     if not exp.ok:
         return [expect_mod.unreadable_message(name, exp)]
     if exp.errors:

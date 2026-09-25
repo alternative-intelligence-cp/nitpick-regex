@@ -58,6 +58,13 @@
 // language is going anyway: when the compiler's 1.5.3 lands `requires`, a
 // contract violation takes the TRAP route (its D-241), so writing the trap now
 // means the behaviour does not change on the day the clause is uncommented.
+// *(Dated 2026-09-25, cycle 0.0.4b, compiler `c3bdae2`: 1.5.3 has landed and the
+// trap route is right -- `probe13g` measures it -- but the last clause is not.
+// With `vec_get`'s obligation made live, the read of an empty `Vec` traps
+// `RequiresViolated` (116), NOT `OutOfBounds` (94), and every consumer owes the
+// new arm: uncommenting the clause WOULD change the behaviour, by changing the
+// trap's identity. So the obligations below stay comments, by
+// `meta/OPEN_QUESTIONS.md` Q-6, which carries this cost -- RX-152.)*
 //
 // The trap is spelled by indexing a one-element fixed array out of range —
 // `int64[1]`, which DOES carry a length — so it is the language's own
@@ -200,7 +207,8 @@ pub struct:Vec<T> = {
 // one definition meant one line to fix, and nine broken call sites needed no
 // edit at all.**
 //
-// obligation, in the syntax it will take at the compiler's 1.5.3:
+// obligation, in the syntax it takes since the compiler's 1.5.3 (a comment by
+// `meta/OPEN_QUESTIONS.md` Q-6 until it is answered):
 //     never fails ensures false
 // — it is `never fails` and it carries a contract, which is legal since the
 // compiler's D-241 retired D-163 rule 2's row (RX-127). This library's own
@@ -208,7 +216,8 @@ pub struct:Vec<T> = {
 // that was true at pin `950bb1d` and is false now. **`ensures false` was the
 // stated obligation while the body returned for `i == 0`, so the contract was
 // false at the one value that mattered and no instrument in this repository
-// could see it — the clause is a comment until 1.5.3.**
+// could see it — the clause was a comment the compiler would have refused,
+// and at `c3bdae2`, where it would be live, it is a comment by Q-6.**
 //
 // GUARDED BY `vec_oob_selfcheck.npk`, which asserts the stop for
 // k ∈ {−1, 0, 1} and is the one unit that would have caught this. Twelve
@@ -272,7 +281,7 @@ pub func:vec_reserve<T> = NIL(Vec<T>->:v, int64:need) never fails {
     int64:want = v.count + need;              // traps on overflow (D-210)
     if (want <= v.cap) { pass NIL; }
     int64:nc = v.cap;
-    while (nc < want) { nc = nc * 2i64; }     // traps on overflow (D-210)
+    while (nc < want) decreases want - nc { nc = nc * 2i64; }     // traps on overflow (D-210)
     wild int8->:bigger = ralloc(v.items =>! wild int8->, nc * #size_of<T>());
     v.items = bigger =>! wild T->;
     v.cap = nc;
@@ -350,7 +359,7 @@ pub func:vec_insert<T> = NIL(Vec<T>->:v, int64:i, move T:x) never fails {
         v.cap = nc;
     }
     int64:j = v.count;
-    while (j > i) {
+    while (j > i) decreases j - i {
         v.items[j] = move(v.items[j - 1i64]);
         j = j - 1i64;
     }
@@ -370,7 +379,8 @@ pub func:vec_remove<T> = NIL(Vec<T>->:v, int64:i) never fails {
     if (i < 0i64)        { drop vec_oob(i); }
     if (i >= v.count)    { drop vec_oob(i); }
     int64:j = i;
-    while (j < v.count - 1i64) {
+    int64:last = v.count - 1i64;
+    while (j < last) decreases last - j {
         v.items[j] = move(v.items[j + 1i64]);
         j = j + 1i64;
     }
@@ -479,7 +489,8 @@ pub func:vec_free_owning<T> = NIL(Vec<T>->:v) never fails {
     // reclaimed memory before `dalloc` ever notices.
     if (v.cap <= 0i64) { drop vec_oob(v.cap - 1i64); }
     int64:j = 0i64;
-    while (j < v.count) {
+    int64:live = v.count;
+    while (j < live) decreases live - j {
         // Bound, then dropped at the end of this iteration's scope. Binding is
         // the point: an owning value that is never bound is never dropped,
         // which is the compiler's own D-183 debt.

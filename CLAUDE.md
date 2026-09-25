@@ -7,22 +7,23 @@ Guidance for Claude Code sessions working in this repository.
 `nregex` — a regular-expression library for **Nitpick**, the safety-critical
 systems language at `../../nitpick`. **Status: cycle 0.0, foundations.** The
 specifications, the decisions and the roadmap are complete; `tests/probe/` holds
-**25** language probes with recorded verdicts, split **19 / 6** by kind (16 / 7,
+**27** language probes with recorded verdicts, split **22 / 5** by kind (16 / 7,
 then 17 / 6 when the `94874ce` re-pin discharged O-N10 and `probe02b` stopped
 being refused — RX-125; then 19 / 6 when the `3d15ac9` re-pin made
-`limit<Rules>` live and `probe13b` stopped being refused — RX-127);
+`limit<Rules>` live and `probe13b` stopped being refused — RX-127; then 22 / 5
+when the `c3bdae2` re-pin made `prove`, `requires` and `ensures` live — RX-152);
 `tests/rejection/` holds two consumer-facing refusals; `harness/` builds, sweeps,
 diffs and judges them, **and proves first that it can fail**; and since 0.0.4
 `src/core/` is real — `Vec<T>`, `Bytes`, `ByteSet`, `SparseSet` and `limits.npk`,
-with 18 unit programs of their own. **No matching happens yet**: `src/syntax/`,
+with 35 unit programs of their own. **No matching happens yet**: `src/syntax/`,
 `src/hir/`, `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are
-still one placeholder module each. A full green run is **141 units and one
-PENDING**, plus seven tree checks; take those numbers from the runner's summary
-rather than from here. **The pending one is not a failure and is not a pass**:
-`tests/unit/bytes_copy_string_empty.npk` is correct and red because the leak it
-asserts against is a compiler defect (DEF-25) fixed at a commit this tree is not
-pinned to, so it carries `pending-until: fe42dba`, sits outside the denominator,
-and reddens the run the day it starts passing.
+still one placeholder module each. A full green run at compiler `c3bdae2` is
+**146 units**, plus seven tree checks; take those numbers from the runner's
+summary rather than from here. **Nothing is PENDING any more**:
+`tests/unit/bytes_copy_string_empty.npk` was committed red under
+`pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
+`c3bdae2` it started passing, the harness reddened the run, and the marker was
+deleted (cycle 0.0.4b).
 **This file said 98 and six in one paragraph and *four* tree checks 220 lines
 lower**, and the cycle 0.0 audit found it (N-2) in the document every session is
 told to read first. Two sections of one file disagreeing is the shape this
@@ -151,13 +152,17 @@ evidence.
   `== NIL`, read with `??`. This is caller-visible on every entry point in
   `API.md` §2, because `regex_find` returns `Match?`.
 - **`npkc` exit 0 does not mean a program is well-formed** (registry O-N11), and
-  this library is a standing example: **every file in `src/` compiles at
-  exit 0 and every one is refused by `llc`** (RX-115) — eight files when this was
-  measured, 13 today — because a library file
-  cannot define `@npk_failsafe` and `npkc` never declares it. **There is no
-  library object.** `src/` reaches the compiler only through a program root, and
-  `tests/conformance/import.npk` is the smallest one. Run all four steps —
-  `npkc`, `llc`, `ld.lld`, the binary — on anything you claim compiles.
+  this library was a standing example: at `950bb1d` **every file in `src/`
+  compiled at exit 0 and every one was refused by `llc`** (RX-115), because
+  `npkc` never declared `@npk_failsafe`. **That mechanism expired at
+  `94874ce`** — `npkc` declares it now, and at `c3bdae2` all 13 `src/` files
+  compile and assemble — **and the conclusion did not** (RX-151): a module's
+  object links neither alone (no `npk_failsafe`, no `main`) nor beside a
+  program, which already carries everything it reaches (`ld.lld: duplicate
+  symbol`). **There is no library object.** `src/` reaches the compiler only
+  through a program root, and `tests/conformance/import.npk` is the smallest
+  one. Run all four steps — `npkc`, `llc`, `ld.lld`, the binary — on anything
+  you claim compiles.
 - **`src/lib.npk` re-exports with `pub use`, one name per line, and must never
   plain-`use` a path it also `pub use`s** (RX-113). A plain `use` re-exports
   nothing; a plain `use` above a `pub use` of the same path silently cancels the
@@ -178,10 +183,14 @@ evidence.
   `failsafe` arm** — measured with controls at both `pub` and module-private
   visibility, because reachability follows the call graph and not visibility.
   That is a second arm on top of `SAFETY.md` S-8's one, so **`src/` declares no
-  `limit` at all** (S-24). `requires` and `ensures` still refuse
-  `NITPICK-RUNG-001`, so the comment-form obligations remain inert — but that is
-  now a per-construct fact to re-measure rather than a property of the rung
-  (`VERIFICATION.md` P-1a).
+  `limit` at all** (S-24). `requires` and `ensures` refused `NITPICK-RUNG-001`
+  through `3d15ac9`; **at `c3bdae2` both are live**, each checked at run time and
+  each charging every consumer one more arm — `RequiresViolated`,
+  `EnsuresViolated` (`probe13c`/`probe13g`, `probe13d`/`probe13h`) — and `prove`
+  is accepted and **checks nothing** in a plain build (`probe13a_prove_unchecked`).
+  So the comment-form obligations in `src/` are comments because
+  `meta/OPEN_QUESTIONS.md` Q-6 is unanswered, not because anything refuses them,
+  and a comment is evidence of nothing (`VERIFICATION.md` P-1, P-1a; RX-152).
 - **`never fails` may carry `limit`, `requires` and `ensures`** — the compiler's
   **D-241**, 2026-09-03. This repository shipped the opposite claim, that they
   are *mutually exclusive* by a *permanent* `NITPICK-TYPE-037`, and wrote it
@@ -226,12 +235,28 @@ evidence.
   `sys(…)` had the *same* 29 symbols as one without, because `npk_sys6` was
   already the prelude's. At **`3d15ac9` it can** — D-262 emits a prelude item
   only when referenced, so the floor is **2** symbols, a syscaller **3**, and
-  the difference is exactly `npk_sys6`. Both pins are run back to back in
+  the difference is exactly `npk_sys6` (at **`c3bdae2`** the floor is **5** and a
+  syscaller **6** — `__morestack` and `failsafe`'s own `npk_trap` and
+  `npk_chain_reset` joined the floor — and the difference is still exactly
+  `npk_sys6`; RX-148). Both pins are run back to back in
   `harness/baseline/RX120.txt`. **The second layer is not retired**: a symbol
   set reports *that* a kernel symbol is needed and never *where* it is called
   from, and a prelude that emits `npk_sys6` again blinds the first layer once
   more. **The moral is the durable part — that measurement was recorded as a
   permanent property and was a property of one compiler commit.**
+- **At compiler `c3bdae2` (cycle 0.0.4b) a program owes more before it has done
+  anything, and every loop states why it ends.** Every `failsafe` owes **six**
+  identities — `StackExhausted` (D-305: every function's stack is checked) and
+  `MachineFault` (D-307: the four fault signals reach `failsafe`) join the four.
+  **Every `while` states `decreases E` or `unbounded`** (D-304) — 61 loops
+  here, none `unbounded`, the reading in `meta/roadmap/0.0/decreases_read.txt`
+  (RX-150) — and a measured loop reachable from a consumer charges it
+  `DecreasesViolated`: the **fourth** kind of charge `SAFETY.md` §4.2 counts.
+  **A computed shift charges
+  `ShiftRange`**, the fifth (`byteset.npk`). Arms are 106, 107, 108 and 115 here,
+  the ecosystem's cross-stream codes; `LimitViolated` is 109 and the contracts
+  116 and 117 (RX-149). A `core` consumer's bill went 6 → 9 or 10, measured the
+  way `meta/OPEN_QUESTIONS.md` O-B3 says to.
 - **An exit status is one byte.** `exit 321` reports 65, silently. Compose
   weights that cannot sum past 255, or print the value and assert on stdout.
 

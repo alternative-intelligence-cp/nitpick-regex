@@ -50,6 +50,8 @@ func:failsafe = int32(Error:e) {
         (WildLeak)       { exit 96i32; },
         // `(LimitViolated)` IS DELIBERATELY ABSENT. That absence is the whole
         // test; adding it here would make this file compile and assert nothing.
+        (StackExhausted) { exit 106i32; },
+        (MachineFault) { exit 107i32; },
         (*)              { exit 99i32; }
     }
     exit 9i32;

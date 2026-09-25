@@ -1,0 +1,61 @@
+// expect-error: NITPICK-REACH-002
+//
+// PROBE 13d — a LIVE `ensures` CHARGES ITS CONSUMER ONE `failsafe` ARM.
+//
+// ASKS: is `ensures result > 0i32` refused, lowered to nothing, or checked --
+// and what does checking it cost the program that carries it?
+//
+// THIS FILE WAS `refused/probe13d_ensures_refused.npk` AND ITS ANSWER CHANGED.
+//
+// WAS -- at pins `950bb1d` and `3d15ac9` the clause refused `NITPICK-RUNG-001`
+// naming "1.5". The old header's argument, kept: "`ensures` may name `result`
+// — the grammar binds it and the verifier gives it meaning at 1.5. Until then
+// the whole contract must refuse rather than disappear, or `VERIFICATION.md`'s
+// postconditions would be decoration."
+//
+// NOW -- at `c3bdae2` the contract is LIVE: it is checked at every return, and
+// a violation traps `EnsuresViolated` by the trap route (`probe13h` is the file
+// that shows the check firing). A program whose reachable code holds an
+// `ensures` owes `(EnsuresViolated)` in its `failsafe`: this file omits exactly
+// that arm and names every other one REACH asks for, so its ONLY refusal is the
+// contract's. The diagnostic, verbatim from `npkc` at `c3bdae2`, with its span:
+//
+//   NITPICK-REACH-002 tests/probe/refused/probe13d_ensures_arm_missing.npk:48:5:
+//   `failsafe` does not name `EnsuresViolated`, which can reach it (D-179):
+//   add the arm — `(*)` counts for nothing here, so a new failure mode is
+//   always acknowledged before the program compiles again
+//
+// MATTERS BECAUSE the postconditions `VERIFICATION.md` writes are no longer
+// decoration-or-refusal: written live, each is a run-time check AND an arm in
+// every consuming program, which is `meta/OPEN_QUESTIONS.md` Q-6's whole cost.
+// One arm per contract kind, measured here and in `probe13c`. Redirect table:
+// `meta/roadmap/0.0/0.0.4b.md` §5 step 6 (RX-152).
+mod:probe13d_ensures_arm_missing;
+
+error:E9;
+
+func:successor = int32(int32:a) ensures result > 0i32 {
+    pass (a + 1i32);
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:v = successor(1i32) ?! E9;
+    if (v != 2i32) { exit 10i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (E9)             { exit 80i32; },
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault) { exit 107i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

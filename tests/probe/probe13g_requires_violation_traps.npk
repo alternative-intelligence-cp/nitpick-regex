@@ -1,0 +1,62 @@
+// expect-exit: 116
+//
+// PROBE 13g — A `requires` VIOLATION TRAPS, AND NO FALLBACK CATCHES IT.
+//
+// ASKS: when a live precondition is violated at run time, what happens -- and
+// can the caller recover?
+//
+// MATTERS BECAUSE `refused/probe13c_requires_arm_missing.npk` can only show
+// that a `requires` charges its consumer an arm, and rule B-7 checks a
+// refusal's CODES, not which identity a `REACH-002` line names. This file is
+// the positive twin: the same kind of contract, checked, trapping. Together
+// they are the measurement `meta/OPEN_QUESTIONS.md` Q-6 is decided on, and
+// neither half is one on its own. A trapping call cannot be followed by an
+// assertion in the same program, which is why this is a separate file -- the
+// split `probe13e` takes from `probe13b`.
+//
+// `expect-exit: 116` is this file's `RequiresViolated` arm, so reaching
+// `failsafe` through that arm IS the assertion. Every other path out of `main`
+// exits with a code that names the line it came from, so a wrong answer is
+// never 116. With the clause deleted the same file exits 60 -- measured at
+// cycle 0.0.4b at `c3bdae2`, at -O0 and through `opt -O2` -- so this file
+// tells "checked" from "not checked" by itself.
+//
+// THE `?|` IS THE POINT, NOT AN IDIOM. `?| 55i32` asks for a default on error.
+// If a contract violation were an ordinary `Result` error, `v` would be 55 and
+// this program would exit 55. It exits 116: the violation takes the TRAP route
+// (the compiler's D-241), and NOTHING at the call site can observe or recover
+// it -- the same answer `probe13e` measured for `limit<Rules>`.
+//
+// THE ARGUMENT IS DERIVED FROM `argv`, NOT WRITTEN AS A LITERAL. `argv.len` is
+// 1 for a program run with no arguments, so `zero` is 0, computed at run time:
+// no folding can turn the violation into a compile-time question and quietly
+// change what this file measures.
+mod:probe13g_requires_violation_traps;
+
+func:positive = int32(int32:x) requires x > 0i32 {
+    pass x;
+};
+
+func:main = int32(cstring[]:argv) {
+    int32:zero = (argv.len =>! int32) - 1i32;
+    int32:v = positive(zero) ?| 55i32;
+    if (v == 55i32) { exit 55i32; }     // the fallback fired: recoverable
+    if (v == 0i32)  { exit 60i32; }     // the contract was not checked
+    exit 61i32;                         // neither, and that is a third finding
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)   { exit 91i32; },
+        (HeapOom)          { exit 92i32; },
+        (IntOverflow)      { exit 93i32; },
+        (OutOfBounds)      { exit 94i32; },
+        (Unreachable)      { exit 95i32; },
+        (WildLeak)         { exit 96i32; },
+        (StackExhausted)   { exit 106i32; },
+        (MachineFault)     { exit 107i32; },
+        (RequiresViolated) { exit 116i32; },
+        (*)                { exit 99i32; }
+    }
+    exit 9i32;
+};

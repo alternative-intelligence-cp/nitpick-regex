@@ -1,16 +1,30 @@
 // expect-exit: 0
 // mem-cap-mib: 64
-// pending-until: fe42dba
 //
-// `bytes_copy_string` — THE MANAGED HALF, EMPTY. **CORRECT, RED, AND PENDING.**
+// `bytes_copy_string` — THE MANAGED HALF, EMPTY.
 //
-// **THIS FILE IS RIGHT AND THIS TREE IS WRONG, AND THAT IS WHY IT IS COMMITTED
-// RED.** `bytes_copy_string` on an EMPTY `Bytes` leaks 32.2 bytes per call at
-// this tree's pinned compiler, so under the 64 MiB cap it exits **92,
-// `HeapOom`**, where its non-empty sibling exits 0. The leak is a **compiler
+// WAS -- COMMITTED RED AND PENDING, from the second cycle 0.0 audit triage to
+// cycle 0.0.4b. At compiler `3d15ac9`, `bytes_copy_string` on an EMPTY `Bytes`
+// leaked 32.2 bytes per call, so under the 64 MiB cap this file exited **92,
+// `HeapOom`**, where its non-empty sibling exits 0. The leak was a **compiler
 // defect — DEF-25**, raised under W-11 rather than worked around, confirmed by
-// the compiler side and fixed at `fe42dba`, which this tree is not pinned to.
-// Their words: *nothing in library code needs a guard.*
+// the compiler side and fixed at `fe42dba`, which that pin did not contain.
+// Their words: *nothing in library code needs a guard.* So the file carried
+// `pending-until: fe42dba`: it was built, linked, RUN, its actual exit printed,
+// and counted as neither a pass nor a failure (RX-146).
+//
+// NOW -- PASSING, AND AN ORDINARY MEMBER OF THE RUN'S DENOMINATOR. `c3bdae2` is
+// the first pin this repository has taken that contains `fe42dba` (`git
+// merge-base --is-ancestor fe42dba c3bdae2` exits 0; against `3d15ac9` it exits
+// 1). At that re-pin this file exited 0 under its cap, the harness reddened the
+// run with "IS NOW STALE", and the marker was deleted (cycle 0.0.4b). THAT IS
+// ALL THAT HAPPENED: the file started passing, the harness said so, the marker
+// went. It is not evidence about the marker mechanism in general -- whether it
+// reads its named commit, what else it can absorb -- which is the third cycle
+// 0.0 audit's BL-6, and the cycle close's to answer.
+//
+// What this header said while the file was red, kept because it is why the fix
+// was the compiler's and not a guard here:
 //
 // **DO NOT MAKE THIS PASS.** The three ways to do so are all wrong and all
 // available: lower the count, raise the cap, or put
@@ -19,13 +33,6 @@
 // buried in library code outlives the bug, and this one would sit in the
 // hottest accessor of the byte sink every replacement in this library is
 // composed into, long after the compiler stopped needing it.
-//
-// `pending-until: fe42dba` is what the harness does instead: the file is built,
-// linked, RUN, and its actual exit printed, counted as neither a pass nor a
-// failure — and **the run goes RED the day it starts passing**, which is the day
-// the pin moves past that commit and the marker should be deleted. See
-// `expect.py`'s fourth marker for why it retires itself rather than being
-// trusted to. RX-146.
 //
 // WHY THE EMPTY PATH IS THE ORDINARY CASE AND NOT AN EDGE. Cycle 0.1's parser
 // and 0.6's replacement are this function's first users, and "the result is
@@ -43,7 +50,7 @@ func:main = int32(cstring[]:_~argv) {
     Bytes:b = raw bytes_init(16i64);
 
     int64:k = 0i64;
-    while (k < 8000000i64) {
+    while (k < 8000000i64) decreases 8000000i64 - k {
         string:s = raw bytes_copy_string(@b);
         discard(s);
         k = k + 1i64;
@@ -60,6 +67,9 @@ func:failsafe = int32(Error:e) {
         (OutOfBounds)    { exit 94i32; },
         (Unreachable)    { exit 95i32; },
         (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault) { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
         (*)              { exit 99i32; }
     }
     exit 9i32;

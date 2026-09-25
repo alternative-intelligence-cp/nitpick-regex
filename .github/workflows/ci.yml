@@ -7,20 +7,20 @@
 # that are not its own. Bumping either pin is a deliberate commit, and the
 # commit that bumps it is the one that runs the full suite.
 #
-# WHAT THIS PROVES, UPDATED 2026-09-06 BY CYCLE 0.0.5. A green run is evidence
+# WHAT THIS PROVES, UPDATED 2026-09-25 BY CYCLE 0.0.4b. A green run is evidence
 # that the pinned compiler builds from a clean checkout, that LLVM is exactly
-# 20.1.2, and that all 141 judged units build, link, run and are judged by
-# their exit codes — 19 probes twice each at -O0 and through `opt -O2`, 6
-# refusal probes held to their exact code sets, 35 `src/core/` unit programs of
-# which 34 are judged and 1 is PENDING on a compiler commit this workflow does
-# not pin, 1 conformance program, 2 rejection fixtures, and a 79-file sweep of
-# every `.npk` in the tree as a root.
-# THE PENDING ONE IS DELIBERATE AND IT IS NOT A SKIP: it is correct and red
-# because the leak it asserts against is a compiler defect (DEF-25) fixed at
-# `fe42dba`, which `NITPICK_COMMIT` below is not. It builds, links and runs
-# here like any other unit; it is counted as neither a pass nor a failure, and
-# the run goes RED the day it starts passing, so bumping `NITPICK_COMMIT` past
-# that commit cannot leave a stale marker behind.
+# 20.1.2, and that all 146 units build, link, run and are judged by their exit
+# codes — 22 probes twice each at -O0 and through `opt -O2`, 5 refusal probes
+# held to their exact code sets, 35 `src/core/` unit programs, 1 conformance
+# program, 2 rejection fixtures, and an 81-file sweep of every `.npk` in the
+# tree as a root. None is PENDING.
+# THE ONE THAT WAS PENDING, AND ALL THAT HAPPENED TO IT. Through cycle 0.0.5 a
+# unit asserting against a compiler defect (DEF-25, fixed at `fe42dba`) was
+# committed red under a `pending-until:` marker and counted as neither a pass
+# nor a failure. At `c3bdae2` it started passing, the harness reddened the run
+# with "IS NOW STALE", and the marker was deleted
+# (`meta/roadmap/0.0/0.0.4b.md` step 7). What the marker mechanism does and
+# does not guarantee in general is the cycle 0.0 third audit's BL-6.
 # SEVEN tree checks run on every invocation — six that can fail the run and
 # `check_specs_current`, which reports. AND SINCE 0.0.3 IT IS ALSO EVIDENCE
 # THAT THE RUNNER CAN FAIL: the self-check runs FIRST and feeds it eight kinds
@@ -42,9 +42,10 @@
 # summary rather than by adding to them.
 #
 # THE COMPILER CI BUILDS IS NOT BYTE-IDENTICAL TO THE ONE THIS WORKBENCH PINS,
-# AND THAT IS NOT A DEFECT. The pinned commit's own subject records it: at
-# `3d15ac9` the compiler side measured that `build/npkc` differs between a
-# developer machine and GitHub's runner while `npkrt.o` is identical, because
+# AND THAT IS NOT A DEFECT. The commit this workflow pinned until cycle 0.0.4b
+# records it in its own subject: at `3d15ac9` the compiler side measured that
+# `build/npkc` differs between a developer machine and GitHub's runner while
+# `npkrt.o` is identical, because
 # D-204's pin is a VERSION and a version is not a binary. The property that
 # holds across machines is the EMISSION — `build/npkc.ll` — and a difference
 # THERE would be a compiler defect. So a local `npkc` sha that disagrees with

@@ -66,6 +66,19 @@ builds**, and `npkc` exiting 0 has never meant a program is well-formed
 and annotated: it is the key `npkg` will read the day O-G3 closes, not a
 description of anything that exists. Provisional workbench **O-N14**.
 
+**B-0's mechanism expired at `94874ce`, and the rule did not — RX-151 (cycle
+0.0.4b, 2026-09-25).** Since `94874ce` `npkc` declares `@npk_failsafe` in every
+module that calls it (O-N14's recommendation, made upstream; measured at six
+pins, `llc` refusing only at `950bb1d`), and at `c3bdae2` every one of the
+thirteen files in `src/` compiles **and assembles**. The object is still not a
+library: it links neither alone (`ld.lld: undefined symbol: npk_failsafe`, and
+`main`) nor beside a program, because a program's object already carries every
+function it reaches, as a global, and the module's object duplicates it —
+`ld.lld: duplicate symbol` (`npk.bytes.bytes_init`, `npk.vec.vec_oob`,
+`npk.sparseset.sset_init`, each module beside its own unit program). So the
+unit is still a program root and the library is still consumed as source; the
+reason is the link, not the assembler.
+
 **Rule B-1.** Every tool invocation is built from `nitpick.toml`'s
 `[toolchain]` lists. No tool ever runs at its own defaults — `llc` defaults to
 `-O2` and would optimise a build the manifest declined, which cost the compiler
@@ -96,7 +109,12 @@ nothing when the prelude was trimmed, so the difference is now a REVIEWED
 RESIDUE LIST.** The compiler's D-262 (its 1.5.2d) emits a prelude item only if
 it is REFERENCED. Re-measured at `3d15ac9`: the floor is **2** undefined symbols
 (`npk_dalloc`, `npk_ofd_close`) and **2** call edges, both from the drop glue,
-against 29 and 237 before. An object's undefined set is therefore exactly what
+against 29 and 237 before. *(At `c3bdae2` — cycle 0.0.4b, RX-148 — the floor is
+**5** symbols and **4** edges: `__morestack` (the compiler's D-305) and
+`failsafe`'s own `npk_trap` and `npk_chain_reset`, with the edges
+`npk_failsafe → npk_chain_reset` and `npk_failsafe → npk_trap`; the two left
+`RESIDUE.txt`, because a residue entry is what this library needs beyond the
+floor.)* An object's undefined set is therefore exactly what
 the program uses, and a four-line program making one `wild` block already
 differs from the floor by three symbols — so the equality would fail on every
 correct program in this library.
@@ -141,7 +159,7 @@ could not have been met by the instrument that was specified for it.
 
 Three things the first run over the real suite forced, each of them a false
 positive on all sixteen probes *(the suite held sixteen `program`-stage probes
-when this was measured at 0.0.2; it holds **19** today, 25 counting
+when this was measured at 0.0.2; it holds **22** today, at `c3bdae2`, 27 counting
 `refused/` — the number is left as the historical one because it describes that
 run, and flagged because the next sentence's is not)*:
 

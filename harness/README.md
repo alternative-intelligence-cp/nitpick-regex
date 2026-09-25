@@ -29,7 +29,7 @@ reporting it.
 | `treecheck.py` | the **seven** live tree checks — the library diffed against its own documents; six can fail the run and `check_specs_current` reports |
 | `selfcheck.py` | **the harness fed wrong expectations and required to fail**; runs FIRST |
 | `baseline/` | the empty program the two scans are differences against, and `rx120.sh` |
-| `baseline/rx120.sh` | **executable**: builds the floor and a syscaller at the pinned compiler and ASSERTS floor == 2, syscaller == 3, difference == `{npk_sys6}`; with `950bb1d` present it also asserts 29/29/identical. A harness **build step** and its own CI step. It replaced a hand-copied transcript that recorded a command which could not have produced the output beside it (RX-142's neighbourhood; cycle 0.0 audit, adjudication (a)) |
+| `baseline/rx120.sh` | **executable**: builds the floor and a syscaller at the pinned compiler and ASSERTS floor == 5, syscaller == 6, difference == `{npk_sys6}` (at `c3bdae2`; 2 and 3 at `3d15ac9`); with `950bb1d` present it also asserts 29/29/identical, compiling the two programs without the two arms that compiler does not have (RX-148). A harness **build step** and its own CI step. It replaced a hand-copied transcript that recorded a command which could not have produced the output beside it (RX-142's neighbourhood; cycle 0.0 audit, adjudication (a)) |
 | `selfcheck/` | fixtures that must **fail**; `selfcheck.py` drives them |
 
 ## What a green run asserts
@@ -84,8 +84,13 @@ pending but **struck** (B-4a), and declaring it is a manifest error.
   driver could not proceed and judged **nothing**, `3` a trap. Every stage
   asserts the specific integer. A `2` means the run is broken, and it arrives
   with an **empty stderr** — see `../tests/conformance/TRANSCRIPT.txt` §F, §G.
-- **There is no library object** (B-0, RX-115). `npkc src/lib.npk` exiting 0 is
-  a parse-and-resolve check and nothing more; the library reaches the compiler
-  only through a program root. The runner prints that on every run rather than
-  letting a green `libcheck` line imply otherwise.
+- **There is no library object** (B-0, RX-115 as corrected by RX-151).
+  `npkc src/lib.npk` exiting 0 is a parse-and-resolve check and nothing more;
+  the library reaches the compiler only through a program root. *The reason
+  changed and the rule did not:* at `950bb1d` every `src/` file was refused by
+  `llc`; since `94874ce` every one assembles, and at `c3bdae2` a module's object
+  still links neither alone (no `npk_failsafe`, no `main`) nor beside a program,
+  which already carries everything it reaches (`ld.lld: duplicate symbol`). The
+  runner prints that on every run rather than letting a green `libcheck` line
+  imply otherwise.
 - **`--only` iterates; it never concludes.** The runner says so twice.

@@ -81,7 +81,7 @@ func:main = int32(cstring[]:_~argv) {
     int64:inserts = 0i64;
     int64:clears = 0i64;
 
-    while (ops < 10000i64) {
+    while (ops < 10000i64) decreases 10000i64 - ops {
         rng = raw xs_next(rng);
         // Two low bits choose the operation; the next bits choose the key.
         int64:choice = (rng & 15u64) =>! int64;
@@ -93,7 +93,7 @@ func:main = int32(cstring[]:_~argv) {
             // the case the O(1) clear exists for and the one it can get wrong.
             drop sset_clear(@s);
             int64:j = 0i64;
-            while (j < cap) {
+            while (j < cap) decreases cap - j {
                 drop vec_set(@ref, j, 0i32);
                 j = j + 1i64;
             }
@@ -113,7 +113,7 @@ func:main = int32(cstring[]:_~argv) {
         // up as a false positive at a key nobody has mentioned for a thousand
         // operations, which is precisely what a spot check misses.
         int64:c = 0i64;
-        while (c < cap) {
+        while (c < cap) decreases cap - c {
             bool:want = (raw vec_get(ref, c)) == 1i32;
             if ((raw sset_contains(@s, c)) != want)     { exit 30i32; }
             c = c + 1i64;
@@ -126,7 +126,8 @@ func:main = int32(cstring[]:_~argv) {
         // from membership -- membership could be right while the mapping was
         // corrupt, and the next insert would then overwrite a live slot.
         int64:i = 0i64;
-        while (i < (raw sset_len(@s))) {
+        int64:members = raw sset_len(@s);
+        while (i < members) decreases members - i {
             int32:key = raw sset_at(@s, i);
             if ((raw vec_get(s.sparse, key =>! int64)) != (i =>! int32)) {
                 exit 32i32;
@@ -169,6 +170,9 @@ func:failsafe = int32(Error:e) {
         (OutOfBounds)    { exit 94i32; },
         (Unreachable)    { exit 95i32; },
         (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault) { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
         (*)              { exit 99i32; }
     }
     exit 9i32;

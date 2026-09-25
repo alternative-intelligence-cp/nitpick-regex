@@ -157,7 +157,7 @@ func:main = int32(cstring[]:_~argv) {
     // token loop. Starting from capacity 1 forces every doubling.
     Vec<int32>:g = raw vec_init::<int32>(1i64);
     int32:i = 0i32;
-    while (i < 100000i32) {
+    while (i < 100000i32) decreases 100000i32 - i {
         drop vec_push(@g, i);
         i = i + 1i32;
     }
@@ -211,6 +211,9 @@ func:failsafe = int32(Error:e) {
         (OutOfBounds)    { exit 94i32; },
         (Unreachable)    { exit 95i32; },
         (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault) { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
         (*)              { exit 99i32; }
     }
     exit 9i32;

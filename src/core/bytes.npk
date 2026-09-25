@@ -120,7 +120,7 @@ pub func:bytes_reserve = NIL(Bytes->:b, int64:need) never fails {
     if (want <= b.buf.len) { pass NIL; }
     int64:nc = b.buf.len;
     if (nc < 1i64) { nc = 1i64; }
-    while (nc < want) { nc = nc * 2i64; }      // traps on overflow (D-210)
+    while (nc < want) decreases want - nc { nc = nc * 2i64; }      // traps on overflow (D-210)
     buffer:bigger = buffer_new(nc);
     if (b.len > 0i64) {
         discard(mcpy(bigger.ptr, b.buf.ptr, b.len));
@@ -238,7 +238,7 @@ pub func:bytes_put_uint = NIL(Bytes->:b, uint64:v) never fails {
     // `p10.len` and not the literal 20: a FIXED ARRAY carries its length in its
     // type, which is the same property that makes indexing it trap (D-070), and
     // reading the bound off the declaration means the two cannot disagree.
-    while (j < p10.len) {
+    while (j < p10.len) decreases p10.len - j {
         p10[j] = p10[j - 1i64] * 10u64;
         j = j + 1i64;
     }
@@ -247,13 +247,13 @@ pub func:bytes_put_uint = NIL(Bytes->:b, uint64:v) never fails {
     // `i == 0`, so it emits the single digit "0" and needs no special case --
     // the boundary every hand-written itoa gets wrong once.
     int64:i = p10.len - 1i64;
-    while (i > 0i64) {
+    while (i > 0i64) decreases i {
         if (p10[i] <= x) { break; }
         i = i - 1i64;
     }
-    while (i >= 0i64) {
+    while (i >= 0i64) decreases i {
         uint8:d = 0u8;
-        while (x >= p10[i]) {
+        while (x >= p10[i]) decreases x {
             x = x - p10[i];
             d = d + 1u8;
         }
@@ -336,9 +336,14 @@ pub func:bytes_put_uint = NIL(Bytes->:b, uint64:v) never fails {
 // capacity beyond it. The length passed below is `b.len`, the LIVE prefix, and
 // never `b.buf.len`, which is the capacity and would hand out the zeroed tail.
 //
-// **AN EMPTY `Bytes` IS A SPECIAL CASE, IT LEAKS, AND THE COMPILER IS THE
-// DEFECT — DEF-25, fixed at `fe42dba` and NOT PRESENT AT THIS TREE'S PIN.**
-// RX-146.
+// **AN EMPTY `Bytes` WAS A SPECIAL CASE, IT LEAKED, AND THE COMPILER WAS THE
+// DEFECT — DEF-25, fixed at `fe42dba`.** RX-146. *(Dated 2026-09-25, cycle
+// 0.0.4b: this heading said the fix was "NOT PRESENT AT THIS TREE'S PIN", which
+// was true at `3d15ac9`. This tree is pinned to `c3bdae2` now, the first pin it
+// has taken that contains `fe42dba`, and the empty path no longer leaks:
+// `tests/unit/bytes_copy_string_empty.npk` exits 0 under its 64 MiB cap and its
+// `pending-until` marker is deleted. The account below is what was found at
+// `3d15ac9`, and it stays.)*
 //
 // The paragraph that stood here said three things and every one was wrong, in a
 // comment written to justify not writing a test:
@@ -369,9 +374,10 @@ pub func:bytes_put_uint = NIL(Bytes->:b, uint64:v) never fails {
 // `CLAUDE.md`'s last non-negotiable rule, and W-11. It was raised instead, the
 // compiler side confirmed it as **DEF-25** and landed the fix at `fe42dba`
 // with the words *"nothing in library code needs a guard"*. So the empty half
-// of the pair carries `pending-until: fe42dba`: it is built, run, and printed
-// as PENDING rather than as a pass, and it goes RED the day the pin moves past
-// that commit, which is the day the marker should be deleted.
+// of the pair carried `pending-until: fe42dba`: it was built, run, and printed
+// as PENDING rather than as a pass, until the re-pin to `c3bdae2`, where it
+// started passing, the harness reddened the run, and the marker was deleted
+// (cycle 0.0.4b).
 //
 // The asymmetry is documented in the compiler's own source, which is what made
 // this a defect rather than a design: `@npk_string_slice` (`npkrt.ll:6530`) has

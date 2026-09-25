@@ -85,7 +85,11 @@ func:failsafe = int32(Error:e) {
         // NOT DECORATION AND NOT OPTIONAL: carrying a limited binding anywhere
         // in the program's call graph makes this arm mandatory, `(*)` does not
         // discharge it, and `probe13f` is the file that records the refusal.
-        (LimitViolated)  { exit 97i32; },
+        // 109, not the 97 this arm carried until cycle 0.0.4b: 97 is
+        // `DivByZero` elsewhere in this ecosystem (RX-149).
+        (LimitViolated)  { exit 109i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault) { exit 107i32; },
         (*)              { exit 99i32; }
     }
     exit 9i32;

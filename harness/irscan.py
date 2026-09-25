@@ -25,7 +25,9 @@ instrument that was specified for it. RX-120.
 AT `3d15ac9` THAT HALF HAS EXPIRED AND THIS MODULE IS STILL THE ANSWER. D-262
 emits a prelude item only when it is referenced, so the floor is 2 symbols with
 no `npk_sys6`, the syscaller is 3, and the difference IS that symbol -- both
-pins run back to back in `harness/baseline/RX120.txt`. What does not expire is
+pins run back to back in `harness/baseline/RX120.txt`. (At `c3bdae2` the floor
+is 5 and the syscaller 6, and the difference is still exactly that symbol --
+RX-148.) What does not expire is
 the reason this scan exists in the form it has: the symbol layer reports THAT a
 kernel symbol is needed and can never report WHERE it is called from, and a
 prelude that starts emitting `npk_sys6` again would blind it a second time.

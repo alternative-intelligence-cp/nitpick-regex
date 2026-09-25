@@ -73,7 +73,7 @@ error:E9;
 func:count_byte = int64(uint8[]:src, uint8:want) never fails {
     int64:i = 0i64;
     int64:n = 0i64;
-    while (i < src.len) {
+    while (i < src.len) decreases src.len - i {
         if (src[i] == want) { n = n + 1i64; }
         i = i + 1i64;
     }
@@ -216,6 +216,9 @@ func:failsafe = int32(Error:e) {
         (OutOfBounds)      { exit 94i32; },
         (Unreachable)      { exit 95i32; },
         (WildLeak)         { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault) { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
         (*)                { exit 99i32; }
     }
     exit 9i32;

@@ -137,7 +137,7 @@ pub func:byteset_difference = ByteSet(ByteSet:a, ByteSet:b) never fails {
 pub func:byteset_next = int64(ByteSet->:s, int64:from) never fails {
     int64:b = from;
     if (b < 0i64) { b = 0i64; }
-    while (b < 256i64) {
+    while (b < 256i64) decreases 256i64 - b {
         // The cast is safe by the loop bound: `b` is 0..255 here.
         if (raw byteset_contains(s, b =>! uint8)) { pass b; }
         b = b + 1i64;
@@ -149,7 +149,7 @@ pub func:byteset_next = int64(ByteSet->:s, int64:from) never fails {
 pub func:byteset_count = int64(ByteSet->:s) never fails {
     int64:n = 0i64;
     int64:b = 0i64;
-    while (b < 256i64) {
+    while (b < 256i64) decreases 256i64 - b {
         if (raw byteset_contains(s, b =>! uint8)) { n = n + 1i64; }
         b = b + 1i64;
     }

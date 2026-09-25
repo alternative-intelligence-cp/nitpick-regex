@@ -1,0 +1,29 @@
+# nitpick-regex's reading for the D-304 sweep -- cycle 0.0.4b, meta/roadmap/0.0/0.0.4b.md step 4.
+# Keyed to the tree at 0.0.4b's commit 3 (no file holding a loop has moved since ab93eae).
+# Applied by the compiler's decreases_sweep.py at c3bdae2 (sha256 f55f609c...),
+# run from .internal/sweep/1.5/tools/ with a copy of this file beside it.
+# 61 loops: 37 in the tool's own shape (no line needed), 24 read below, 0 unbounded.
+hoist     src/core/vec.npk:373 last
+hoist     src/core/vec.npk:482 live
+measure   src/core/vec.npk:275 want - nc
+measure   src/core/bytes.npk:123 want - nc
+measure   src/core/bytes.npk:241 p10.len - j
+measure   src/core/bytes.npk:256 x
+measure   tests/probe/probe01_pod_inst_array.npk:46 want - nc
+measure   tests/probe/probe02_payload_enum.npk:61 want - nc
+measure   tests/probe/probe03_generic_move.npk:58 want - nc
+measure   tests/probe/probe05_explicit_stack.npk:86 want - nc
+measure   tests/probe/probe14_size_bound.npk:41 want - nc
+measure   tests/probe/probe01_pod_inst_array.npk:139 p.count - i
+measure   tests/probe/probe14_size_bound.npk:104 p.count - i
+measure   tests/probe/probe02_payload_enum.npk:235 nodes.count - i
+measure   tests/probe/probe03_generic_move.npk:110 v.count - i
+measure   tests/probe/probe05_explicit_stack.npk:144 src.len - i
+measure   tests/probe/probe06a_offsets_returned.npk:77 src.len - j
+measure   tests/probe/probe08_sparse_set.npk:181 s.n - j
+measure   tests/probe/probe12_iterator_borrowing.npk:82 self.hay.len - i
+measure   tests/probe/probe12_iterator_borrowing.npk:116 it.hay.len - it.at
+measure   tests/probe/probe12_iterator_borrowing.npk:156 it3.hay.len - it3.at
+measure   tests/probe/refused/probe12b_for_over_borrow_refused.npk:38 self.hay.len - i
+measure   tests/unit/byteset_unit.npk:136 256i64 - cur
+hoist     tests/unit/sparseset_unit.npk:129 members

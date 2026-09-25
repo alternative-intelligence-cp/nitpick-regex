@@ -236,7 +236,8 @@ def _case8(d):
     FALSE AT `3d15ac9`. D-262 stopped emitting an unreferenced prelude item, so
     the floor is 2 symbols with no `npk_sys6`, the syscaller is 3, and the
     difference is exactly that symbol -- both pins run back to back in
-    `harness/baseline/RX120.txt`.
+    `harness/baseline/RX120.txt`. (At `c3bdae2`: 5 and 6, the difference still
+    exactly that symbol -- RX-148.)
 
     THE CASE IS UNCHANGED AND SO IS ITS VALUE, for a reason that does not
     depend on the prelude: the symbol layer can say THAT a syscall exists and

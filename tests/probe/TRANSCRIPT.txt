@@ -1,3 +1,39 @@
+NOTE ADDED 2026-09-25 BY CYCLE 0.0.4b -- NOTHING BELOW IS EDITED, A FOURTH TIME.
+Three further verdicts recorded below are NO LONGER THE COMPILER'S ANSWER. They
+were correct against pin 950bb1d, which is what this transcript is a record of,
+and they stayed correct through 3d15ac9; the repository is now pinned to c3bdae2,
+where `prove`, `requires` and `ensures` are all LIVE (RX-152, measured here
+2026-09-25).
+
+    probe13a_prove_refused      -> tests/probe/probe13a_prove_unchecked.npk
+        recorded below: npkc exit 1, NITPICK-RUNG-001 at :22:5, "`prove` is not
+                        supported at this backend rung; enabled by cycle 1.5"
+        at c3bdae2:     npkc exit 0 -- ACCEPTED, and a plain build lowers it to
+                        NOTHING: `checked`'s IR has no trace of the comparison,
+                        and a FALSE `prove` runs to exit 0 at -O0 and -O2.
+                        Only the verified build judges a `prove`.
+
+    probe13c_requires_refused   -> tests/probe/refused/probe13c_requires_arm_missing.npk
+        recorded below: npkc exit 1, NITPICK-RUNG-001 at :17:39
+        at c3bdae2:     the contract is LIVE, checked at the callee's entry,
+                        trapping `RequiresViolated`; the file is refused
+                        NITPICK-REACH-002 for exactly that arm, which it omits.
+
+    probe13d_ensures_refused    -> tests/probe/refused/probe13d_ensures_arm_missing.npk
+        recorded below: npkc exit 1, NITPICK-RUNG-001 at :15:33
+        at c3bdae2:     the contract is LIVE, checked at every return,
+                        trapping `EnsuresViolated`; refused NITPICK-REACH-002
+                        for exactly that arm, which it omits.
+
+Two files were added beside them -- probe13g_requires_violation_traps.npk (exit
+116) and probe13h_ensures_violation_traps.npk (exit 117), the positive twins --
+and neither appears below, because neither existed on the day this transcript
+was taken. The full redirect table is meta/roadmap/0.0/0.0.4b.md section 5,
+step 6.
+
+Nothing below is altered, for the reason the 2026-09-04 note gives: a transcript
+records what a named compiler did on a named day, and the change is the finding.
+
 NOTE ADDED 2026-09-06 BY CYCLE 0.0.4 -- NOTHING BELOW IS EDITED, A THIRD TIME.
 One further verdict recorded below is NO LONGER THE COMPILER'S ANSWER. It was
 correct against pin 950bb1d, which is what this transcript is a record of; the

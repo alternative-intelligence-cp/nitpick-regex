@@ -191,7 +191,7 @@ func:main = int32(cstring[]:_~argv) {
     int64:grows = 0i64;
     int64:seen_cap = g.buf.len;
     int64:k = 0i64;
-    while (k < 1000000i64) {
+    while (k < 1000000i64) decreases 1000000i64 - k {
         drop bytes_push(@g, (k & 255i64) =>! uint8);
         if (g.buf.len != seen_cap) {
             grows = grows + 1i64;
@@ -247,6 +247,9 @@ func:failsafe = int32(Error:e) {
         (OutOfBounds)    { exit 94i32; },
         (Unreachable)    { exit 95i32; },
         (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault) { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
         (*)              { exit 99i32; }
     }
     exit 9i32;

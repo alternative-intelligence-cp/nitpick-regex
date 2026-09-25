@@ -24,13 +24,36 @@ Cycle 0.0.2 picks them up as the harness's first `program`-stage entries.
 
 | Directory | Files | Declared as | Judged by |
 |---|---|---|---|
-| `tests/probe/` | **19**, each `// expect-exit: N` | `probe`, stage `program` | it compiles, links, runs, and exits with that code — at −O0 and again under `opt -O2` |
-| `tests/probe/refused/` | **6**, each `// expect-error: CODE` | `probe-refused`, stage `compile`, kind `negative` | `npkc` exits **1** and reports **exactly** that code set (B-7, D-237) |
+| `tests/probe/` | **22**, each `// expect-exit: N` | `probe`, stage `program` | it compiles, links, runs, and exits with that code — at −O0 and again under `opt -O2` |
+| `tests/probe/refused/` | **5**, each `// expect-error: CODE` | `probe-refused`, stage `compile`, kind `negative` | `npkc` exits **1** and reports **exactly** that code set (B-7, D-237) |
 
-> **The split is 19 / 6, and 25 is the count of probes in this repository.** It
-> was 16 / 7, then 17 / 6, and both moves were a probe changing directory
-> because the compiler changed its answer — not a probe being deleted, which
-> P-5 forbids.
+> **The split is 22 / 5, and 27 is the count of probes in this repository.** It
+> was 16 / 7, then 17 / 6, then 19 / 6, and every move was a probe changing
+> directory or name because the compiler changed its answer — not a probe being
+> deleted, which P-5 forbids.
+>
+> **2026-09-25, at the re-pin to `c3bdae2` (cycle 0.0.4b, RX-152).** `prove`,
+> `requires` and `ensures` are all live, so the three files that recorded their
+> refusal changed. `probe13a` moved **out** of `refused/` as
+> `probe13a_prove_unchecked.npk`: a plain build accepts `prove` and lowers it
+> to nothing, so a FALSE `prove` runs to exit 0, and the file now asserts that.
+> `probe13c` and `probe13d` stayed in `refused/` and were renamed
+> `probe13c_requires_arm_missing.npk` and `probe13d_ensures_arm_missing.npk`:
+> each is refused `NITPICK-REACH-002` for exactly its contract's arm
+> (`RequiresViolated`, `EnsuresViolated`), naming every other arm REACH asks.
+> Two files joined them — `probe13g_requires_violation_traps.npk` (exit 116)
+> and `probe13h_ensures_violation_traps.npk` (exit 117), the positive twins
+> that show each contract is really checked and that `?|` cannot catch it,
+> because rule B-7 cannot see which identity a `REACH-002` line names. And
+> `probe13b`/`probe13e`'s `LimitViolated` arm moved from 97 to 109. **This
+> time the harness could not report it**: at `c3bdae2` its self-check failed
+> before any suite ran, and every one of these files was refused earlier, for
+> the two new `failsafe` arms every program owes — so `probe13a` was refused
+> for the wrong reason (`REACH-002`, not `RUNG-001`) until those arms were
+> added. The orchestrator's commissioning of the pin found it, not a run. The
+> redirect table is
+> [`../../meta/roadmap/0.0/0.0.4b.md`](../../meta/roadmap/0.0/0.0.4b.md) §5
+> step 6.
 >
 > **2026-09-06, at the re-pin to `3d15ac9` (RX-127).** `probe13b` moved **out**
 > of `refused/` and was renamed `probe13b_limit_enforced.npk`: `limit<Rules>`

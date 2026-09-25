@@ -48,7 +48,7 @@ struct:Match = {
 // The shape of every search entry point: a view DOWN, offsets UP.
 func:find_byte = Match?(uint8[]:src, uint8:want, int64:from) never fails {
     int64:i = from;
-    while (i < src.len) {
+    while (i < src.len) decreases src.len - i {
         if (src[i] == want) {
             // Built by struct literal at the point of return. Nothing here
             // refers to `src`; the caller re-derives the bytes from its own
@@ -70,11 +70,11 @@ func:find_byte = Match?(uint8[]:src, uint8:want, int64:from) never fails {
 // its cursor as its own flag.
 func:find_run = Match?(uint8[]:src, uint8:want, int64:from) never fails {
     int64:i = from;
-    while (i < src.len) {
+    while (i < src.len) decreases src.len - i {
         if (src[i] == want) {
             int64:j = i;
             bool:go = true;
-            while (go) {
+            while (go) decreases src.len - j {
                 if (j >= src.len)       { go = false; }
                 else {
                     if (src[j] != want) { go = false; }
@@ -171,6 +171,9 @@ func:failsafe = int32(Error:e) {
         (OutOfBounds)    { exit 94i32; },
         (Unreachable)    { exit 95i32; },
         (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault) { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
         (*)              { exit 99i32; }
     }
     exit 9i32;

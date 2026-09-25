@@ -41,10 +41,10 @@ func:main = int32(cstring[]:_~argv) {
     string:filler = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
 
     int64:round = 0i64;
-    while (round < 500i64) {
+    while (round < 500i64) decreases 500i64 - round {
         Vec<string>:v = raw vec_init::<string>(16i64);
         int64:k = 0i64;
-        while (k < 1000i64) {
+        while (k < 1000i64) decreases 1000i64 - k {
             // BOUND, NEVER NESTED. `vec_push(@v, string_concat(filler, t))`
             // would pass an owning TEMPORARY that is never bound and therefore
             // never dropped — the compiler's D-183 debt, and the difference
@@ -69,6 +69,9 @@ func:failsafe = int32(Error:e) {
         (OutOfBounds)    { exit 94i32; },
         (Unreachable)    { exit 95i32; },
         (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault) { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
         (*)              { exit 99i32; }
     }
     exit 9i32;

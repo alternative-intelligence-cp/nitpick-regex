@@ -26,7 +26,7 @@ func:main = int32(cstring[]:_~argv) {
     ByteSet:f = raw byteset_full();
     int64:visited = 0i64;
     int64:b = 0i64;
-    while (b < 256i64) {
+    while (b < 256i64) decreases 256i64 - b {
         if (raw byteset_contains(@e, b =>! uint8))      { exit 10i32; }
         if (!(raw byteset_contains(@f, b =>! uint8)))   { exit 11i32; }
         visited = visited + 1i64;
@@ -47,11 +47,11 @@ func:main = int32(cstring[]:_~argv) {
     int64:added = 0i64;
     int64:pairs = 0i64;
     b = 0i64;
-    while (b < 256i64) {
+    while (b < 256i64) decreases 256i64 - b {
         ByteSet:s = raw byteset_empty();
         drop byteset_add(@s, b =>! uint8);
         int64:c = 0i64;
-        while (c < 256i64) {
+        while (c < 256i64) decreases 256i64 - c {
             bool:want = c == b;
             if ((raw byteset_contains(@s, c =>! uint8)) != want) { exit 20i32; }
             pairs = pairs + 1i64;
@@ -82,7 +82,7 @@ func:main = int32(cstring[]:_~argv) {
     ByteSet:evens = raw byteset_empty();
     ByteSet:lows  = raw byteset_empty();
     b = 0i64;
-    while (b < 256i64) {
+    while (b < 256i64) decreases 256i64 - b {
         if ((b & 1i64) == 0i64)  { drop byteset_add(@evens, b =>! uint8); }
         if (b < 128i64)          { drop byteset_add(@lows, b =>! uint8); }
         b = b + 1i64;
@@ -97,7 +97,7 @@ func:main = int32(cstring[]:_~argv) {
 
     int64:checked = 0i64;
     b = 0i64;
-    while (b < 256i64) {
+    while (b < 256i64) decreases 256i64 - b {
         uint8:by = b =>! uint8;
         bool:in_e = (b & 1i64) == 0i64;
         bool:in_l = b < 128i64;
@@ -120,7 +120,7 @@ func:main = int32(cstring[]:_~argv) {
     // Complementing twice is the identity, over the whole domain.
     ByteSet:cc = raw byteset_complement(cp);
     b = 0i64;
-    while (b < 256i64) {
+    while (b < 256i64) decreases 256i64 - b {
         uint8:by = b =>! uint8;
         if ((raw byteset_contains(@cc, by)) != (raw byteset_contains(@evens, by))) {
             exit 49i32;
@@ -133,7 +133,7 @@ func:main = int32(cstring[]:_~argv) {
     int64:seen = 0i64;
     int64:prev = 0i64 - 1i64;
     int64:cur = raw byteset_next(@evens, 0i64);
-    while (cur < 256i64) {
+    while (cur < 256i64) decreases 256i64 - cur {
         if (cur <= prev)                                { exit 50i32; }   // strictly ascending
         if (!(raw byteset_contains(@evens, cur =>! uint8))) { exit 51i32; }
         seen = seen + 1i64;
@@ -162,6 +162,10 @@ func:failsafe = int32(Error:e) {
         (OutOfBounds)    { exit 94i32; },
         (Unreachable)    { exit 95i32; },
         (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault) { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (ShiftRange) { exit 115i32; },
         (*)              { exit 99i32; }
     }
     exit 9i32;

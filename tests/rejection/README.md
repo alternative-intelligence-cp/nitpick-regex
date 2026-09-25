@@ -11,7 +11,7 @@ the subject, not the mechanism:
 
 | | Subject | Example |
 |---|---|---|
-| `tests/probe/refused/` | **the language** — what Nitpick will not let anyone write | `prove` is `NITPICK-RUNG-001` |
+| `tests/probe/refused/` | **the language** — what Nitpick will not let anyone write | `for … in` over a struct holding a borrow is `NITPICK-BORROW-009` (`probe12b`) |
 | `tests/rejection/` | **this library's contract** — what a consumer can get wrong | a `failsafe` that does not name a system arm |
 
 A probe's refusal is a fact about the compiler. A rejection fixture's refusal is

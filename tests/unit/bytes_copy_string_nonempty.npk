@@ -35,7 +35,7 @@ func:main = int32(cstring[]:_~argv) {
     // 64 MiB, so the sibling cannot survive by luck. This half is flat, so the
     // same count costs it about a second.
     int64:k = 0i64;
-    while (k < 8000000i64) {
+    while (k < 8000000i64) decreases 8000000i64 - k {
         // BOUND, NEVER NESTED, and never handed to anything: binding is what
         // makes the drop happen at the end of the iteration's scope. An owning
         // temporary that is never bound is never dropped (D-183).
@@ -55,6 +55,9 @@ func:failsafe = int32(Error:e) {
         (OutOfBounds)    { exit 94i32; },
         (Unreachable)    { exit 95i32; },
         (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault) { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
         (*)              { exit 99i32; }
     }
     exit 9i32;

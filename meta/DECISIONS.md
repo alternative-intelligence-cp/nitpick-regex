@@ -819,6 +819,11 @@ leaving the collision with the warning block 0.0.0 added (it made citations
 resolve and did nothing about `O-N4` meaning two findings).
 
 ### RX-115 — no module of this library can be assembled on its own; the unit of emission is a program, and `BUILD.md` §2 is amended to say so
+> **SUPERSEDED IN PART by RX-151 (2026-09-25)** — its mechanism, *"every one is
+> refused by `llc`"*, which was `950bb1d`'s and has been false since `94874ce`.
+> The conclusion — there is no library object, and the unit is a program root —
+> stands, for a different reason: the link. *(Marker added at cycle 0.0.4b.)*
+
 **2026-09-03, from compiling all eight files in `src/` through `npkc` and then
 `llc`.** Transcript §A.
 
@@ -2772,3 +2777,171 @@ separate `950bb1d`-era copies of the two programs as committed files — decline
 the parse sweep judges every `.npk` in the tree as a root at the working pin,
 where those copies are refused for the very arms they lack; retire the leg —
 declined: removing a control is its own decision, and nothing here asks for it.
+
+### RX-149 — the arm codes, the collision rule, and a deliberate refusal's single line
+
+**2026-09-25, cycle 0.0.4b (the plan's PD-3).** At `c3bdae2` the compiler asks
+for identities this repository had never named, and every `failsafe` answers
+each with an exit code. **The codes are the ecosystem's, not this
+repository's**: `StackExhausted` **106**, `MachineFault` **107**,
+`DecreasesViolated` **108**, `LimitViolated` **109** by the orchestrator's
+cross-stream table (the board, "THE RE-PIN IS DONE" (3)); `ShiftRange` **115**,
+`RequiresViolated` **116**, `EnsuresViolated` **117** proposed by this
+repository's planning and confirmed by the orchestrator for every stream before
+this subcycle started. They extend the uniform 91–96 run rather than fork it.
+`probe13b`/`probe13e`'s `LimitViolated` arm moves off **97**, which means
+`DivByZero` in five other arms in this ecosystem. 110–114 and 120–122 are
+ordinary failure exits in `tests/unit/vec_unit.npk`, which is why 115 and not
+110 comes after 109.
+
+**The arms were driven by the compiler's own `REACH-002` lines, never by a
+list**: each root got exactly the identities its refusal named, above its
+`(*)`. Measured: 60 roots edited by the plan's script (`StackExhausted` 60,
+`MachineFault` 60, `DecreasesViolated` 48, `ShiftRange` 2 — `probe11` and
+`byteset_unit`, the two that reach `byteset.npk`'s computed shifts), one by
+hand (`failsafe_not_exhaustive.npk`, whose `(*)` is missing on purpose), and the
+four floor-level programs in RX-148's commit.
+
+**The collision rule: no test's expected exit equals an arm code unless the
+test asserts that trap.** Checked with `git grep -hE '^// expect-exit: [0-9]+'
+-- tests`, anchored at the line start: `0` ×26, `92` ×1, `94` ×28, `109` ×1,
+`116` ×1, `117` ×1 — every non-zero one its own file's trap — and no ordinary
+`exit` anywhere under `tests/` or `harness/` uses 106–109 or 115–117.
+
+**A deliberate `REACH-002` refusal names every arm REACH asks except its
+subject, so its ONE `REACH-002` line is its subject.** Rule B-7 checks a
+refusal's codes, and a code cannot say which identity it is about: a
+refusal that is also missing `StackExhausted` "passes" as a `REACH-002` for
+the wrong reason — the masking `probe13a` met at this pin, where it was refused
+for the two new arms before `prove` was ever judged. Checked per file after the
+sweep: `probe13c` → `RequiresViolated`, `probe13d` → `EnsuresViolated`,
+`probe13f` → `LimitViolated`, `failsafe_missing_system_arm` → `WildLeak`, one
+line each.
+
+*Alternatives:* 110 for the next code — declined: 110–114 are this repository's
+own failure exits (and `nitpick-time`'s `0.1.1.md` proposal of 110 for
+`EnsuresViolated` collides with this census, which is why 117 was proposed for
+both streams); leaving the refusals without the new floor arms — declined: each
+would pass B-7 for a second identity.
+
+### RX-150 — every loop states the measure a reader can defend, and the reading is a committed record
+
+**2026-09-25, cycle 0.0.4b (the plan's PD-4).** The compiler's D-304 makes every
+`while` and `when` state `decreases E` or `unbounded`, refused `NITPICK-TYPE-072`
+otherwise, and checks the measure in every build, trapping `DecreasesViolated`.
+This tree had **61** loops — 11 in `src/core/`, 50 under `tests/` — and none
+stated anything.
+
+**The sweep is the compiler's own tool and the decisions are a file.** The
+compiler's `decreases_sweep.py` writes only the shape it can prove monotone and
+lists every other loop for a reader; `meta/roadmap/0.0/decreases_read.txt` is
+that reading — one line per loop the tool listed, applied by the tool's
+`--write`, so the decision, its reason and the text it produced are one
+greppable record. Measured: **37** loops in the tool's shape, **24** read,
+**0** `unbounded`, 0 listed and undecided, 0 stale, 0 errors; the third run saw
+61 clausal and 3 stale directives, the three hoists having moved their loops
+down a line, as predicted.
+
+**In `src/`, a bound read through a pointer is hoisted into a local**
+(`vec_remove`'s `last`, `vec_free_owning`'s `live`) so its `terminate` rows can
+discharge — a measure over `v.count` through a pointer stays `open` under the
+compiler's frame problem whatever the proof effort — and neither body writes
+`v.count`, so the hoist changes nothing at run time. **The doublings are `want -
+nc` over a floor of one**, so a zero capacity traps `DecreasesViolated` instead
+of hanging — RX-139's hang turned into a trap by the measure itself.
+
+**Every `src/` loop runs under the tests** — the recipe's own rule, *"a wrong
+measure traps the first time the loop's head sees it"*, is only a proof for a
+loop that runs. Measured by planting a measure that traps on first entry
+(`decreases 0i64 - 1i64`) in each of the eleven in turn and building every unit
+program and the conformance consumer: all eleven were caught, each by at least
+one unit (`bytes_unit` for bytes.npk's five, `byteset_unit` for byteset.npk's
+two, `vec_unit` for vec.npk's four, `vec_owning_freed` for the drain as well).
+
+*Alternatives:* `decreases v.count - j` for the pointer bounds — declined: `open`
+for ever; a trip budget such as `NREGEX_PROGRAM_INSTRUCTIONS - k` — declined:
+D-304 refuses fuel as a measure, because it is not why the loop ends;
+`unbounded` for the iterator drivers in `probe12` — declined: they end, and
+`unbounded` would claim they may not.
+
+### RX-151 — RX-115's mechanism expired at `94874ce`; its conclusion stands, for a different reason
+
+**2026-09-25, cycle 0.0.4b (the plan's PD-5). Replaces RX-115 in part — its
+mechanism — and discharges O-N14.** Found at planning, not by the pin. RX-115
+recorded that every file in `src/` compiles at `npkc` exit 0 and every one is
+refused by `llc`, because `npkc` never declares `@npk_failsafe`. Measured on
+`src/api/api.npk` at every kept pin:
+
+| pin | `npkc` | `llc` | `declare … @npk_failsafe` |
+|---|---|---|---|
+| `950bb1d` | 0 | **1** | 0 |
+| `94874ce`, `0dfddac`, `aaffb87`, `3d15ac9`, `c3bdae2` | 0 | 0 | 1 |
+
+and at `c3bdae2` all thirteen `src/` files compile **and assemble**. **The
+conclusion — there is no library object; a library is consumed as source
+through a program root (B-0) — still holds, for a different reason**:
+
+```
+ld.lld -static bytes_unit.o bytes.o npkrt.o         -> duplicate symbol: npk.bytes.bytes_init
+ld.lld -static vec_unit.o vec.o npkrt.o             -> duplicate symbol: npk.vec.vec_oob
+ld.lld -static sparseset_unit.o sparseset.o npkrt.o -> duplicate symbol: npk.sparseset.sset_init
+ld.lld -static <module>.o npkrt.o                   -> undefined symbol: npk_failsafe, and main
+```
+
+— a program's object already carries every function it reaches, as a global, so
+the module's object duplicates it. The same shape as RX-120: the evidence
+changed and the conclusion did not. **The harness printed the false sentence on
+every run** (`run.py`'s `libcheck` message, naming `3d15ac9`), so it was not
+optional prose: the message, `build.py`'s and `stages.py`'s docstrings,
+`harness/README.md`, `BUILD.md` B-0, `CLAUDE.md` and `CONTRIBUTING.md` now say
+what was measured and at which pin. **O-N14** is struck with this number: its
+recommendation was implemented upstream, and its expectation that *"the original
+pipeline works unchanged"* did not follow.
+
+*Alternative:* leave the sentence and date it `950bb1d` — declined: the harness
+printed it on every run as a present-tense fact.
+
+### RX-152 — the `probe13` family follows the language: `prove` is unchecked in a plain build, a live contract charges its consumer one arm, and a live `requires` would change RX-130's trap
+
+**2026-09-25, cycle 0.0.4b (the plan's PD-6).** At `c3bdae2`, `prove`,
+`requires` and `ensures` are all live, so the three probes that recorded their
+refusal became false claims in their filenames.
+
+- **`probe13a` moves out of `refused/` as `probe13a_prove_unchecked.npk`**: a
+  plain build accepts `prove` and lowers it to nothing — `checked`'s IR carries
+  no trace of the comparison — so a FALSE `prove` over a run-time value runs to
+  exit 0 at −O0 and through `opt -O2`. Only the verified build judges a `prove`
+  (the compiler's D-219, refusing an undischarged one `NITPICK-VERIFY-001`).
+  The file now asserts the thing a reader must not assume, and it goes red the
+  day a plain build starts checking `prove`.
+- **`probe13c`/`probe13d` become `…_arm_missing.npk`**, refused
+  `NITPICK-REACH-002` for exactly their contract's arm — `RequiresViolated`,
+  `EnsuresViolated` — and nothing else (RX-149's rule).
+- **`probe13g`/`probe13h` are new**: the contract checked, trapping 116 and 117
+  at both optimisation levels, past a `?|` fallback — the violation takes the
+  trap route. The same files with the clause deleted exit 60, so each tells
+  "checked" from "not checked" by itself.
+
+**This answers the question RX-127 left open and dated** — whether a live
+`requires` or `ensures` charges a consumer an arm: **one arm per contract kind.**
+It is the fact `OPEN_QUESTIONS.md` Q-6 is decided on. The redirect table is
+`meta/roadmap/0.0/0.0.4b.md` §5 step 6 (RX-114's pattern, reused by RX-125 and
+RX-127).
+
+**And it retires one supporting reason of RX-130's**, measured here rather than
+inferred: RX-130 argued that writing the trap by hand meant *"behaviour does not
+change on the day the clause is uncommented"*. With `vec_get`'s comment-form
+`requires` made live in a scratch copy, the read of an empty `Vec` traps
+**`RequiresViolated` (116), not `OutOfBounds` (94)**, and a consumer that does
+not name the new arm is refused `REACH-002`. So uncommenting the clause WOULD
+change the behaviour — the trap's identity and every consumer's bill. RX-130's
+decision stands on its other reasons for as long as the clauses stay comments,
+which is Q-6's to decide; `SAFETY.md` S-23's bullet and `src/core/vec.npk`'s
+header carry the dated correction.
+
+*Alternatives:* re-point 13c/13d with no positive twin — declined: B-7 cannot see
+which identity a `REACH-002` names, so a refusal alone could pass for a second
+missing arm; turn 13c/13d into running programs — declined: the arm-missing
+refusal is itself the fact Q-6 is decided on, and P-5 keeps a probe's file;
+delete `probe13a` because P-1's question is moot — declined: P-5, and the file
+now guards the day a plain build starts checking `prove`.

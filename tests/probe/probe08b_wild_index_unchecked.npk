@@ -49,7 +49,7 @@ func:main = int32(cstring[]:argv) {
     wild int8->:mem = alloc(4i64 * 8i64);
     wild int64->:blk = mem =>! wild int64->;
     int64:i = 0i64;
-    while (i < 4i64) { blk[i] = 100i64 + i; i = i + 1i64; }
+    while (i < 4i64) decreases 4i64 - i { blk[i] = 100i64 + i; i = i + 1i64; }
 
     // In range, through the block: the ordinary case still works.
     if (blk[0i64] != 100i64)                            { exit 10i32; }
@@ -106,6 +106,9 @@ func:failsafe = int32(Error:e) {
         (OutOfBounds)    { exit 94i32; },
         (Unreachable)    { exit 95i32; },
         (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault) { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
         (*)              { exit 99i32; }
     }
     exit 9i32;

@@ -65,12 +65,14 @@ never for concluding; nothing is committed on the strength of a filtered run.
    `src/core/` file is a tree-check failure, not a style note.
 
 6. **There is no library object, and `npkc` exiting 0 proves nothing**
-   (RX-115). Every file in `src/` compiles at exit 0 and every one is refused by
-   `llc`, because a library file cannot define `@npk_failsafe` and `npkc` never
-   declares it. `src/` reaches the compiler only by being imported from a
-   program root. So **run all four steps** — `npkc`, `llc`, `ld.lld`, then the
-   binary — and judge the last one. A change that "compiles" has not been
-   tested.
+   (RX-115, as corrected by RX-151). Every file in `src/` compiles at exit 0
+   and, since `94874ce`, assembles at `llc` exit 0 too (at `950bb1d` `llc`
+   refused every one) — but a module's object links neither alone (no
+   `npk_failsafe`, no `main`) nor beside a program, which already carries
+   everything it reaches (`ld.lld: duplicate symbol`, measured at `c3bdae2`).
+   `src/` reaches the compiler only by being imported from a program root. So
+   **run all four steps** — `npkc`, `llc`, `ld.lld`, then the binary — and judge
+   the last one. A change that "compiles" has not been tested.
 
 7. **`src/lib.npk` is `pub use`, one name per line, and never plain-`use`s a
    path it re-exports** (RX-113). A plain `use` re-exports nothing, and a plain

@@ -90,13 +90,13 @@ path  = "tests/conformance"
 [[test]]
 name  = "probe"
 stage = "program"
-path  = "tests/probe"              # the 16 that compile, link and run
+path  = "tests/probe"              # the probes that compile, link and run
 
 [[test]]
 name  = "probe-refused"
 stage = "compile"
 kind  = "negative"
-path  = "tests/probe/refused"      # the 7 that are refused BY NAME (B-7, D-237)
+path  = "tests/probe/refused"      # the probes that are refused, each with its exact code set (B-7, D-237)
 
 # CYCLE 0.0.3's TWO ENTRIES.
 #
