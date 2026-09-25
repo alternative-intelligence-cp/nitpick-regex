@@ -74,7 +74,7 @@ permissions:
   contents: read
 
 env:
-  # ../BOARD.md's pinned toolchain, by FULL sha. `3d15ac9` is the short form
+  # ../BOARD.md's pinned toolchain, by FULL sha. `c3bdae2` is the short form
   # used in the roadmap and the transcripts.
   #
   # BUMPED 2026-09-06 FROM `950bb1d`, WHICH WAS 57 COMMITS AND TWO RE-PINS
@@ -86,7 +86,12 @@ env:
   # then 67/67 once the two commits before this one landed. A CI pin that lags
   # the pin the work is done against does not test the library; it tests the
   # gap.
-  NITPICK_COMMIT: 3d15ac92d51bfca9079d8a28808c2d9db0dab51e
+  #
+  # AND BUMPED 2026-09-25 FROM `3d15ac9` TO `c3bdae2`, the compiler's 1.5
+  # close. This commit is deliberately RED on its own: the tree it pins is not
+  # yet adopted. It is pushed only together with the adoption, so CI runs
+  # once, on the adopted tree (`meta/roadmap/0.0/0.0.4b.md` §3).
+  NITPICK_COMMIT: c3bdae270d63c93ab6e89825fddeec9425e2c6fd
   # nitpick.toml [toolchain] llvm. Exact patch release: a patch may change
   # instruction selection, which is why the manifest names three digits.
   LLVM_VERSION: 20.1.2
@@ -259,7 +264,7 @@ jobs:
       # compiler lives in the workbench's gitignored toolchain directory and is
       # not on a runner. The working-pin assertions are the ones that guard a
       # re-pin, and they all run.
-      - name: RX-120's floor, syscaller and difference, asserted at `3d15ac9`
+      - name: RX-120's floor, syscaller and difference, asserted at `c3bdae2`
         run: harness/baseline/rx120.sh
 
       - name: Run the harness
