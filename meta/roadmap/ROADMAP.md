@@ -106,6 +106,10 @@ refusing it: the audit triage added five unit programs, a seventh tree check and
 an executable RX-120 assertion. Take them from a green run's summary.
 *(At compiler `c3bdae2`, after cycle 0.0.4b: **27** probes, **146** units,
 `src/core/` with **35** unit programs, and decisions through RX-152.)*
+*(After cycle 0.0.4c, the same compiler: **158** units — the seal's five
+rejection fixtures, its positive twin `sealed_reads`, and the parse sweep's six
+more files — `src/core/` with **36** unit programs, and decisions through
+RX-153.)*
 
 **Two probes refuted their own hypothesis**, which is the cycle's best return:
 `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler

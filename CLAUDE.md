@@ -12,13 +12,14 @@ then 17 / 6 when the `94874ce` re-pin discharged O-N10 and `probe02b` stopped
 being refused — RX-125; then 19 / 6 when the `3d15ac9` re-pin made
 `limit<Rules>` live and `probe13b` stopped being refused — RX-127; then 22 / 5
 when the `c3bdae2` re-pin made `prove`, `requires` and `ensures` live — RX-152);
-`tests/rejection/` holds two consumer-facing refusals; `harness/` builds, sweeps,
+`tests/rejection/` holds seven consumer-facing refusals (five of them the
+containers' seal, since 0.0.4c); `harness/` builds, sweeps,
 diffs and judges them, **and proves first that it can fail**; and since 0.0.4
 `src/core/` is real — `Vec<T>`, `Bytes`, `ByteSet`, `SparseSet` and `limits.npk`,
-with 35 unit programs of their own. **No matching happens yet**: `src/syntax/`,
+with 36 unit programs of their own. **No matching happens yet**: `src/syntax/`,
 `src/hir/`, `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are
 still one placeholder module each. A full green run at compiler `c3bdae2` is
-**146 units**, plus seven tree checks; take those numbers from the runner's
+**158 units** (after cycle 0.0.4c), plus seven tree checks; take those numbers from the runner's
 summary rather than from here. **Nothing is PENDING any more**:
 `tests/unit/bytes_copy_string_empty.npk` was committed red under
 `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
@@ -182,8 +183,12 @@ evidence.
   a program's reachable call graph makes `(LimitViolated)` a mandatory
   `failsafe` arm** — measured with controls at both `pub` and module-private
   visibility, because reachability follows the call graph and not visibility.
-  That is a second arm on top of `SAFETY.md` S-8's one, so **`src/` declares no
-  `limit` at all** (S-24). `requires` and `ensures` refused `NITPICK-RUNG-001`
+  That is a second arm on top of `SAFETY.md` S-8's one, so `src/` declares no
+  `limit` of its own (S-24) — **and since cycle 0.0.4c the one limit `src/`
+  carries is the prelude's `ListLen`, on its containers' counts** (`Vec.count`,
+  `Vec.cap`, `Bytes.len`, `SparseSet.count`; S-24a, RX-153): every consumer of
+  `vec.npk`, `bytes.npk` or `sparseset.npk` owes `LimitViolated`, and a count
+  driven negative traps at the write. `requires` and `ensures` refused `NITPICK-RUNG-001`
   through `3d15ac9`; **at `c3bdae2` both are live**, each checked at run time and
   each charging every consumer one more arm — `RequiresViolated`,
   `EnsuresViolated` (`probe13c`/`probe13g`, `probe13d`/`probe13h`) — and `prove`
@@ -256,7 +261,19 @@ evidence.
   `ShiftRange`**, the fifth (`byteset.npk`). Arms are 106, 107, 108 and 115 here,
   the ecosystem's cross-stream codes; `LimitViolated` is 109 and the contracts
   116 and 117 (RX-149). A `core` consumer's bill went 6 → 9 or 10, measured the
-  way `meta/OPEN_QUESTIONS.md` O-B3 says to.
+  way `meta/OPEN_QUESTIONS.md` O-B3 says to — and 10 or 11 since cycle 0.0.4c,
+  whose `ListLen` on the containers' counts adds `LimitViolated` (S-24a).
+- **A sealed field is read anywhere and written only by its own module; a
+  hidden one is not even read outside it** (the compiler's D-313 and D-314,
+  measured here at `c3bdae2`, cycle 0.0.4c, RX-153). `Vec.items` is hidden and
+  every other field of `Vec`, `Bytes` and `SparseSet` sealed, so outside its
+  module a write is `NITPICK-TYPE-079`, a read of `items` `NITPICK-TYPE-080` —
+  **and `@s.dense` is a write too**, even for a callee that only reads, so read
+  `SparseSet`'s arrays by value (`vec_get(s.sparse, k)`). What neither closes:
+  a write THROUGH a sealed pointer (`b.buf.ptr[0i64] = x` compiles) and a
+  whole-`Vec` copy, which is a second handle on the block (a use-after-free
+  after `vec_free`, exit 170). A limited field is written
+  `sealed limit<ListLen> int64:f`; the other order is `NITPICK-PARSE-001`.
 - **An exit status is one byte.** `exit 321` reports 65, silently. Compose
   weights that cannot sum past 255, or print the value and assert on stdout.
 

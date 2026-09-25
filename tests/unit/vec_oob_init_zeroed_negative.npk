@@ -13,6 +13,11 @@
 // BEFORE the block — and the program exited 0. Silently, and at the one
 // constructor in this file that could produce an invalid `Vec` without a caller
 // building a struct literal by hand.
+// *(Dated 2026-09-25, cycle 0.0.4c: a caller can no longer build one by hand --
+// a consumer's `Vec{…}` is refused, RX-153 -- and the constructor's own literal
+// is now a `ListLen` write point: with the guard deleted in a scratch copy this
+// file exits 109, `LimitViolated`, at the literal. The guard stays, so the
+// answer is still 94 and names the index the caller passed.)*
 //
 // Every other entry point in `vec.npk` already trapped on a negative:
 // `vec_reserve` on `need`, `vec_truncate` on `n`, both accessors on `i`.
@@ -50,6 +55,7 @@ func:failsafe = int32(Error:e) {
         (StackExhausted) { exit 106i32; },
         (MachineFault) { exit 107i32; },
         (DecreasesViolated) { exit 108i32; },
+        (LimitViolated) { exit 109i32; },
         (*)              { exit 99i32; }
     }
     exit 9i32;

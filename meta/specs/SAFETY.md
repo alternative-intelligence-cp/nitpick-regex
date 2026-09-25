@@ -239,7 +239,30 @@ imports one module and has no `failsafe`), per public module, `3d15ac9` at
 costs a consumer the language's floor and nothing of this library's. The day a
 cycle makes `api` reach `core`, that consumer owes `core`'s bill — ten
 identities here — and `../OPEN_QUESTIONS.md` O-B3's check is what turns that
-into a rule.
+into a rule. *(Eleven since cycle 0.0.4c: S-24a below adds `LimitViolated`.)*
+
+**Rule S-24a (RX-153, cycle 0.0.4c) — the containers' counts carry the
+prelude's `ListLen`; S-24 stands for everything else.** `Vec<T>`'s `count` and
+`cap`, `Bytes`' `len` and `SparseSet`'s `count` are
+`sealed limit<ListLen> int64`: written only by their own module, and checked
+against `ListLen`'s `{ $ >= 0, $ <= 2^47 }` after every write, in every build,
+trapping `LimitViolated` (the compiler's D-308 and D-313). It costs every
+consumer of `vec.npk`, `bytes.npk` or `sparseset.npk` one arm (measured with
+O-B3's instrument: 9 → 10; `core.npk` 10 → 11), and it catches the defect
+class this cycle shipped — a count driven negative by a stop that did not stop
+(the second audit's BL-3, re-planted at `c3bdae2`: **109, `LimitViolated`, at
+the bad write**, where the unsealed tree ran on to a wrong exit, 60). **S-24 is
+unchanged for every other binding**: no `limit<Rules>` on a parameter, and no
+`Rules` of this library's own, because RX-127's reasons for those still hold.
+
+The difference from what RX-127 declined is the whole argument. RX-127 declined
+a limit on the ACCESSORS' PARAMETERS — a bound `vec_get` already checks by hand,
+charged to every consumer for nothing. This limits the COUNTS, which nothing
+checked: every write to them is inside this library, so no consumer can trip
+the check, and it fires only on this library's own defect. The same seal makes
+the counts read-only outside their module (`../../tests/rejection/`'s five
+refusals, and `../../tests/unit/sealed_reads.npk` for the reads that stay legal), and
+S-23 below says what hiding `items` changed about the accessor rule.
 
 **Rule S-25 (RX-132) — `src/` contains no `/` and no `%`, and a tree check
 enforces it.** The row above says arithmetic charges the budget; this is what
@@ -383,6 +406,20 @@ than a style note:**
   through its reason rather than its membership. Seen to fail in both, with
   `src/core/core.npk` — which names both patterns in comments — as the clean
   control. RX-136.
+  *(Dated 2026-09-25, cycle 0.0.4c, compiler `c3bdae2` — RX-153: **`Vec`'s half
+  of this rule is the compiler's now.** `items` is `hidden` (the compiler's
+  D-314), so `.items` outside `src/core/vec.npk` is `NITPICK-TYPE-080` in every
+  module — a consumer's as well as `src/`'s, which the tree check never covered
+  (`../../tests/rejection/vec_items_read.npk`). **`Bytes`' half stays this
+  library's**: `buf` is `sealed`, not `hidden`, and a sealed field admits a
+  write THROUGH its pointer — a consumer's `b.buf.ptr[0i64] = 65u8;` compiles
+  and runs, measured — so no-`.ptr[`-outside-`bytes.npk` is enforced over `src/`
+  by the tree check and over a consumer by nothing, as before. The check stays
+  for both halves, because it also watches the owning files themselves. Nor
+  does either qualifier stop a whole-`Vec` copy, which names no field and is a
+  second handle on the block (after `vec_free`, the copy reads the free poison,
+  exit 170). Both residues are the board's question 9 and are recorded in
+  `../roadmap/0.0/0.0.4c.md`.)*
 - **A VIOLATION TRAPS `OutOfBounds` (RX-130, and the trap itself was broken —
   RX-143).** `vec_get`, `vec_set`, `bytes_get` and `bytes_set` do not return a
   `Result` on an out-of-range index: S-4 says matching cannot fail and

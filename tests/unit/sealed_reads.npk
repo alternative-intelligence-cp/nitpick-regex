@@ -1,0 +1,68 @@
+// expect-exit: 0
+//
+// A SEALED FIELD IS READ ANYWHERE -- THE POSITIVE TWIN OF THE FIVE REFUSALS.
+// Cycle 0.0.4c, `SAFETY.md` S-24a and S-23.
+//
+// `tests/rejection/` holds five consumers the seal refuses: a write to
+// `Vec.count`, a read of `Vec.items`, a write to `Bytes.len`, a write to
+// `SparseSet.count`, and the address of `SparseSet.dense`. Each passes if the
+// compiler refuses it -- and so each would ALSO pass under a compiler that
+// refused every access to these fields, which is not the property. This file
+// is the other half: every read a consumer is entitled to make, from outside
+// all three declaring modules, compiled, run and checked against the value it
+// must have. `sealed` refuses a write and admits a read (the compiler's D-313);
+// only `items` is `hidden` (D-314), and it is not read here.
+//
+// `vec_get(s.sparse, k)` is the sanctioned shape for `SparseSet`'s arrays: a
+// read BY VALUE. Their address is a write form and is refused
+// (`tests/rejection/sparseset_dense_address.npk`).
+//
+// TWO inserts, where one would do for the reads alone: after a single insert
+// `sparse[3]` is 0, which is also what `vec_init_zeroed`'s `calloc` put there,
+// so the read could not tell a stored value from an untouched slot. After the
+// second it is 1.
+mod:sealed_reads;
+
+use "../../src/core/vec.npk".*;
+use "../../src/core/bytes.npk".*;
+use "../../src/core/sparseset.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Vec<int64>:v = raw vec_init::<int64>(4i64);
+    drop vec_push(@v, 7i64);
+    if (v.count != 1i64)                         { exit 11i32; }
+    if (v.cap != 4i64)                           { exit 12i32; }
+
+    Bytes:b = raw bytes_init(4i64);
+    drop bytes_push(@b, 65u8);
+    if (b.len != 1i64)                           { exit 13i32; }
+    if (b.buf.len != 4i64)                       { exit 14i32; }
+
+    SparseSet:s = raw sset_init(8i64);
+    drop sset_insert(@s, 5i64);
+    drop sset_insert(@s, 3i64);
+    if (s.count != 2i64)                         { exit 15i32; }
+    if (s.dense.count != 8i64)                   { exit 16i32; }
+    if ((raw vec_get(s.sparse, 3i64)) != 1i32)   { exit 17i32; }
+
+    drop sset_free(@s);
+    drop vec_free(@v);
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

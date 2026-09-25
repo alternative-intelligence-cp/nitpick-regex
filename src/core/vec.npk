@@ -40,6 +40,12 @@
 //      the library's entire bounds check.
 //   2. **NO `.items[` MAY APPEAR OUTSIDE THIS FILE.** A tree check enforces it.
 //      Inside this file it appears only below a check that has already run.
+//      *(Since cycle 0.0.4c THE COMPILER ENFORCES IT TOO, for every module but
+//      `vec`: `items` is `hidden`, so any `.items` outside this file is
+//      NITPICK-TYPE-080 -- RX-153. The tree check stays, because it also
+//      watches THIS file -- an owner that no longer uses its own accessor
+//      fails -- and it watches `.ptr[`, which sealing `Bytes.buf` does not
+//      hide.)*
 //   3. **SIGNEDNESS IS HALF THE CHECK.** An index derived from an `int32` field
 //      can be NEGATIVE, `i < count` accepts it, and a negative index reads
 //      backwards off the block without complaint. Every accessor checks
@@ -151,16 +157,34 @@ mod:vec;
 
 // ---- the type --------------------------------------------------------------
 
-// FIELDS ARE PUBLIC BECAUSE THE LANGUAGE HAS NO OTHER KIND. A `pub struct` has
-// no private fields and `opaque struct:Name = { … };` is the extern-driver
-// declaration (D-149), so a consumer's struct literal compiles, links and runs
-// whatever this file does. The honest sentence is therefore: *this library
-// never produces an invalid `Vec`, and a caller building one by hand has opted
-// out of every guarantee above.*
+// THE FIELDS SAY WHO MAY TOUCH THEM, SINCE CYCLE 0.0.4c (RX-153; the
+// compiler's D-313, D-314 and D-308). `items` is `hidden`: outside this module
+// it is neither read nor written, NITPICK-TYPE-080. `count` and `cap` are
+// `sealed`: read anywhere, written only here, NITPICK-TYPE-079 -- and a
+// consumer's struct literal names all three, so it is refused for each. Both
+// counts carry the prelude's `ListLen`, `{ $ >= 0, $ <= 2^47 }`: checked after
+// EVERY write in EVERY build, trapping `LimitViolated`, so a count driven
+// negative traps at the write that drove it (BL-3 re-planted at `c3bdae2`:
+// 109 there, where the unsealed tree ran on to exit 60). The verified build's
+// payoff -- the counts' arithmetic rows becoming dischargeable, because every
+// read of a limited field is a fact -- is the board's forecast, not something
+// a plain build does.
+//
+// UNTIL 0.0.4c THIS PARAGRAPH SAID THE FIELDS WERE PUBLIC "BECAUSE THE
+// LANGUAGE HAS NO OTHER KIND", which was true at every pin this repository took
+// before `c3bdae2`: a consumer's literal compiled, linked and ran. WHAT THE
+// QUALIFIERS DO NOT CLOSE, measured at `c3bdae2`: `wild` storage reinterpreted
+// by `=>!` -- a forged `Vec` reads `count == -1` -- which is the language's
+// opt-out for every checked property; and a WHOLE-`Vec` COPY, `Vec<int64>:w =
+// v;`, which names no field and is a second handle on the block: after
+// `vec_free(@v)`, `vec_get(w, 0)` reads the free poison (exit 170) and
+// `vec_free(@w)` is a double free (95, the third audit's N-15).
+// `meta/roadmap/0.0/0.0.4c.md` records both; the board's question 9 carries
+// them to the author.
 pub struct:Vec<T> = {
-    wild T->:items;      // WILD, DELIBERATELY. See the header.
-    int64:count;         // elements in use
-    int64:cap;           // elements the block can hold
+    hidden wild T->:items;                 // WILD, DELIBERATELY. See the header.
+    sealed limit<ListLen> int64:count;     // elements in use
+    sealed limit<ListLen> int64:cap;       // elements the block can hold
 };
 
 // ---- the trap --------------------------------------------------------------

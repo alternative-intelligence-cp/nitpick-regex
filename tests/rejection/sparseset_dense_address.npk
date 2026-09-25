@@ -1,0 +1,49 @@
+// expect-error: NITPICK-TYPE-079
+// expect-error-at: 27:19
+//
+// A CONSUMER CANNOT TAKE THE ADDRESS OF A `SparseSet`'S ARRAY. Cycle 0.0.4c.
+//
+// WHAT IT PINS. `dense` and `sparse` are `sealed` since 0.0.4c (the compiler's
+// D-313) -- sealed and not hidden, because `sset_*` and the tests READ them
+// from other modules. And under D-313 the ADDRESS of a sealed field is a
+// WRITE form: `@s.dense` outside `sparseset` is `NITPICK-TYPE-079` whatever
+// the callee does with the address, even a callee that only reads through it.
+// Here the callee is `vec_push`, and a push straight into `dense` is exactly the
+// edit that breaks `dense[sparse[k]] == k`, the invariant the whole structure
+// stands on. The refusal is the assertion.
+//
+// THE SHAPE A CONSUMER USES INSTEAD is a read BY VALUE, `vec_get(s.sparse, k)`
+// -- `tests/unit/sealed_reads.npk` does it and runs, as `sparseset_unit.npk`
+// already did. A TEST OF THE SEAL, NOT OF THIS FILE: against the tree before
+// 0.0.4c's declarations it compiles cleanly (`meta/roadmap/0.0/0.0.4c.md`
+// step 4).
+mod:sparseset_dense_address;
+
+use "../../src/core/vec.npk".*;
+use "../../src/core/sparseset.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    SparseSet:s = raw sset_init(8i64);
+    drop vec_push(@s.dense, 5i32);
+    drop sset_free(@s);
+    exit 0i32;
+};
+
+// A SUPERSET of what REACH asks, on purpose: a later change in the compiler's
+// phase order must not add a stray `REACH-002` beside this file's one code.
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

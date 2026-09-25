@@ -7,13 +7,13 @@
 # that are not its own. Bumping either pin is a deliberate commit, and the
 # commit that bumps it is the one that runs the full suite.
 #
-# WHAT THIS PROVES, UPDATED 2026-09-25 BY CYCLE 0.0.4b. A green run is evidence
+# WHAT THIS PROVES, UPDATED 2026-09-25 BY CYCLE 0.0.4c. A green run is evidence
 # that the pinned compiler builds from a clean checkout, that LLVM is exactly
-# 20.1.2, and that all 146 units build, link, run and are judged by their exit
+# 20.1.2, and that all 158 units build, link, run and are judged by their exit
 # codes — 22 probes twice each at -O0 and through `opt -O2`, 5 refusal probes
-# held to their exact code sets, 35 `src/core/` unit programs, 1 conformance
-# program, 2 rejection fixtures, and an 81-file sweep of every `.npk` in the
-# tree as a root. None is PENDING.
+# held to their exact code sets, 36 `src/core/` unit programs, 1 conformance
+# program, 7 rejection fixtures (5 of them the seal's, since 0.0.4c), and an
+# 87-file sweep of every `.npk` in the tree as a root. None is PENDING.
 # THE ONE THAT WAS PENDING, AND ALL THAT HAPPENED TO IT. Through cycle 0.0.5 a
 # unit asserting against a compiler defect (DEF-25, fixed at `fe42dba`) was
 # committed red under a `pending-until:` marker and counted as neither a pass

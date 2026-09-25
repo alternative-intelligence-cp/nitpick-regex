@@ -129,10 +129,12 @@ recursive = true
 # places for it to weaken.
 #
 # `tests/probe/refused/` holds refusals about the LANGUAGE; this holds refusals
-# about USING THIS LIBRARY. Both fixtures import `src/lib.npk` by a relative
-# path (B-15), which is what makes them the standing instance of the B-7
-# hazard: a typo'd path exits 1 with RESOLVE-005, which is a refusal, and only
-# code-set equality tells it from the refusal the test is about.
+# about USING THIS LIBRARY. Every fixture imports `src/` by a relative path
+# (B-15) -- the two `failsafe_*` ones `src/lib.npk`, and the seal's five (since
+# cycle 0.0.4c) the `src/core/` modules they seal -- which makes them the standing
+# instance of the B-7 hazard: a typo'd path exits 1 with RESOLVE-005, which is a
+# refusal, and only code-set equality tells it from the refusal the test is
+# about.
 [[test]]
 name  = "rejection"
 stage = "check"

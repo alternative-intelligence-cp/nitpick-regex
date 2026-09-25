@@ -13,6 +13,9 @@
 // `count = 0`, which makes the loop body execute zero times. The guard does not
 // rely on that: `count` is a field a caller can write, since a `pub struct` has
 // no private fields (D-149), and the poison that matters is `cap`.
+// *(Dated 2026-09-25, cycle 0.0.4c: a caller can no longer write it -- `count`
+// and `cap` are `sealed` since then, `NITPICK-TYPE-079` outside `vec` (RX-153).
+// The guard still keys on `cap`, the poison `vec_free` writes.)*
 mod:vec_oob_free_owning_after_free;
 
 use "../../src/core/vec.npk".*;
@@ -37,6 +40,7 @@ func:failsafe = int32(Error:e) {
         (StackExhausted) { exit 106i32; },
         (MachineFault) { exit 107i32; },
         (DecreasesViolated) { exit 108i32; },
+        (LimitViolated) { exit 109i32; },
         (*)              { exit 99i32; }
     }
     exit 9i32;

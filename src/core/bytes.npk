@@ -74,9 +74,24 @@ use "./vec.npk".*;
 
 // ---- the type --------------------------------------------------------------
 
+// BOTH FIELDS ARE `sealed` SINCE CYCLE 0.0.4c (RX-153; the compiler's D-313):
+// read anywhere, written only by this module, NITPICK-TYPE-079 -- a consumer's
+// `b.len = …`, `b.buf = …` and struct literal are all refused. `len` also
+// carries the prelude's `ListLen`, `{ $ >= 0, $ <= 2^47 }`, checked after
+// EVERY write in EVERY build and trapping `LimitViolated` (D-308), so a length
+// driven negative traps at the write. The verified build's payoff -- `len`'s
+// arithmetic rows becoming dischargeable -- is the board's forecast, not a
+// plain build's.
+//
+// **`sealed` IS NOT `hidden`, AND FOR `buf` THE DIFFERENCE IS THE POINTEE.** A
+// write THROUGH the sealed field -- `b.buf.ptr[0i64] = 65u8;` -- writes the
+// body, not the field, so it compiles and runs from a consumer (measured at
+// `c3bdae2`). That is why the no-`.ptr[`-outside-this-file rule above is
+// still this library's and the tree check's, and not the compiler's; `hidden
+// buf` would close it and is the board's question 9, not this subcycle's.
 pub struct:Bytes = {
-    buffer:buf;      // MANAGED, owning, dropped at scope exit. Capacity is `buf.len`.
-    int64:len;       // bytes in use. NEVER `buf.len`, which is the capacity.
+    sealed buffer:buf;                   // MANAGED, owning, dropped at scope exit. Capacity is `buf.len`.
+    sealed limit<ListLen> int64:len;     // bytes in use. NEVER `buf.len`, which is the capacity.
 };
 
 // ---- construction ----------------------------------------------------------

@@ -1,0 +1,49 @@
+// expect-error: NITPICK-TYPE-079
+// expect-error-at: 28:5
+//
+// A CONSUMER CANNOT WRITE A `Bytes`'S LENGTH. Cycle 0.0.4c, `SAFETY.md` S-24a.
+//
+// WHAT IT PINS. `bytes_get` and `bytes_set` check an index against `len` and
+// nothing else -- a `buffer` is reached through `.ptr`, which carries no bound
+// (S-23, RX-118). So a `len` written past what was pushed makes the checked
+// pair hand out bytes nobody wrote, and a `len` past the capacity makes it read
+// off the end of the body. Since 0.0.4c `len` is `sealed limit<ListLen> int64`
+// (the compiler's D-313 and D-308), and the write below is `NITPICK-TYPE-079`
+// at compile time. The refusal is the assertion.
+//
+// WHAT THE SEAL DOES NOT CLOSE, stated so nobody reads this file as more: a
+// write THROUGH the sealed `buf` -- `b.buf.ptr[0i64] = 65u8;` -- still compiles
+// and runs from a consumer, because it writes the pointee and not the field
+// (`SAFETY.md` S-23's dated note; the board's question 9). This file is about
+// `len`.
+//
+// A TEST OF THE SEAL, NOT OF THIS FILE: against the tree before 0.0.4c's
+// declarations it compiles cleanly (`meta/roadmap/0.0/0.0.4c.md` step 4).
+mod:bytes_len_write;
+
+use "../../src/core/bytes.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Bytes:b = raw bytes_init(4i64);
+    b.len = 2i64;
+    exit 0i32;
+};
+
+// A SUPERSET of what REACH asks, on purpose: a later change in the compiler's
+// phase order must not add a stray `REACH-002` beside this file's one code.
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

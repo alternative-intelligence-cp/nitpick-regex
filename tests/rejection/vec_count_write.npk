@@ -1,0 +1,47 @@
+// expect-error: NITPICK-TYPE-079
+// expect-error-at: 25:5
+//
+// A CONSUMER CANNOT WRITE A `Vec`'S COUNT. Cycle 0.0.4c, `SAFETY.md` S-24a.
+//
+// WHAT IT PINS. Since 0.0.4c `Vec<T>.count` is `sealed limit<ListLen> int64`:
+// read anywhere, written only by code inside `vec`, and checked against the
+// prelude's `ListLen` after every write `vec` makes (the compiler's D-313 and
+// D-308). A count set from outside is the defect class this cycle shipped --
+// the second audit's BL-3 left `count == -1` on a live `Vec`, and the next push
+// wrote before the block -- so the assertion IS the refusal: the write is
+// `NITPICK-TYPE-079` at compile time, before any value is ever stored.
+//
+// A TEST OF THE SEAL, NOT OF THIS FILE, and both halves are measured: the same
+// file against the tree before 0.0.4c's declarations compiles cleanly
+// (`meta/roadmap/0.0/0.0.4c.md` step 4, the control), and
+// `tests/unit/sealed_reads.npk` READS this field and runs. Without that twin
+// the refusal would also pass a compiler that refused every access to it.
+mod:vec_count_write;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Vec<int64>:v = raw vec_init::<int64>(4i64);
+    v.count = 3i64;
+    drop vec_free(@v);
+    exit 0i32;
+};
+
+// A SUPERSET of what REACH asks, on purpose: a later change in the compiler's
+// phase order must not add a stray `REACH-002` beside this file's one code.
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

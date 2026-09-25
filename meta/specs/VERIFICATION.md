@@ -157,6 +157,15 @@ inductive ones at each engine.
 > reconciliation found §2 of this same file already saying *"LANDED, and §5 does
 > NOT take it"* while §5 still read as a plan (RX-137).
 
+*Dated 2026-09-25, cycle 0.0.4c, compiler `c3bdae2` (`SAFETY.md` S-24a,
+RX-153): §5's parameter and binding rules below stay declined, for S-24's
+reasons. What `src/` now carries is narrower and is not this section's: the
+prelude's own `ListLen` on the containers' four counts (`Vec.count`, `Vec.cap`,
+`Bytes.len`, `SparseSet.count`), as FIELD limits — checked after every write
+in every build, a fact at every read. It costs every consumer of `vec.npk`,
+`bytes.npk` or `sparseset.npk` one arm, `LimitViolated` (measured 9 → 10), and
+no `Rules` of this library's own is declared.*
+
 **Rule P-4 — SUPERSEDED by `SAFETY.md` S-24.** Written as: *when 1.5.2 lands,
 these become `limit`ed and the checks inject at initialisation, at every
 assignment, and at parameter entry.* The ranges stand as ranges; the construct

@@ -806,6 +806,12 @@ movemask intrinsic, which is a better request than a speculative one.
   - a **`limit<Rules>`** anywhere in the reachable graph arms `LimitViolated`,
     at `pub` and at module-private visibility alike (RX-127). Closed by
     declining the construct — **S-24**.
+    *Dated 2026-09-25, cycle 0.0.4c: the construct is now declared ONCE, on
+    purpose, and the bill says what it costs — the prelude's `ListLen` on the
+    containers' four counts (`SAFETY.md` S-24a, RX-153), so `LimitViolated` is
+    owed by every consumer of `vec.npk`, `bytes.npk` or `sparseset.npk` (9 →
+    10) and of `core.npk` (10 → 11), measured with this entry's instrument.
+    S-24 stands for every other binding.*
   - a **`/` or `%`** anywhere in a module arms `DivByZero` and `DivOverflow` in
     every importer, whether or not it calls the function containing it
     (RX-132). Closed by removing both from `src/` — **S-25**, with a tree check.

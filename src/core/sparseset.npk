@@ -57,10 +57,22 @@ mod:sparseset;
 
 use "./vec.npk".*;
 
+// ALL THREE FIELDS ARE `sealed` SINCE CYCLE 0.0.4c (RX-153; the compiler's
+// D-313): read anywhere, written only by this module, NITPICK-TYPE-079.
+// SEALED AND NOT HIDDEN, because `dense` and `sparse` are READ from other
+// modules -- by value, as `vec_get(s.sparse, k)`. Their ADDRESS is a write form,
+// so a consumer's `vec_push(@s.dense, …)` is refused, and that is exactly the
+// edit that would break `dense[sparse[k]] == k`. `count` also carries the
+// prelude's `ListLen`, `{ $ >= 0, $ <= 2^47 }`, checked after EVERY write in
+// EVERY build and trapping `LimitViolated` (D-308); the verified build's payoff
+// is the board's forecast, not a plain build's. And the section title above is
+// now the compiler's to enforce as well: `Vec.items` is `hidden`, so this file
+// cannot index `.items` at all -- every access here goes through `vec_get` and
+// `vec_set` because nothing else compiles.
 pub struct:SparseSet = {
-    Vec<int32>:dense;    // the members, in insertion order; the first `count` are live
-    Vec<int32>:sparse;   // key -> its position in `dense`, meaningful only below `count`
-    int64:count;         // live members
+    sealed Vec<int32>:dense;               // the members, in insertion order; the first `count` are live
+    sealed Vec<int32>:sparse;              // key -> its position in `dense`, meaningful only below `count`
+    sealed limit<ListLen> int64:count;     // live members
 };
 
 // ---- construction ----------------------------------------------------------

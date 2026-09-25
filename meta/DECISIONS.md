@@ -1421,6 +1421,10 @@ repository has absorbed, and — like the first — most of what follows exists
 because the compiler moved under a measurement already recorded here.*
 
 ### RX-127 — `limit<Rules>` is live, enforced and import-scoped, so this library declines it: a limited binding charges every consumer a second `failsafe` arm
+> **SUPERSEDED IN PART by RX-153 (2026-09-25)** — its decision *"No
+> `limit<Rules>` appears anywhere in `src/`"*, for the containers' four counts
+> only, which carry the prelude's `ListLen` since cycle 0.0.4c. Its reasons, and
+> the rule for every other binding (`SAFETY.md` S-24), stand.
 
 **2026-09-06, at the re-pin from `94874ce` to `3d15ac9`.** `probe13b` came back
 red with *"expected `NITPICK-RUNG-001`, got `NITPICK-REACH-002`"*. It is not a
@@ -2945,3 +2949,86 @@ missing arm; turn 13c/13d into running programs — declined: the arm-missing
 refusal is itself the fact Q-6 is decided on, and P-5 keeps a probe's file;
 delete `probe13a` because P-1's question is moot — declined: P-5, and the file
 now guards the day a plain build starts checking `prove`.
+
+### RX-153 — `Vec`, `Bytes` and `SparseSet` carry the compiler's field qualifiers, and the containers' four counts are limited by the prelude's `ListLen`
+
+**2026-09-25, cycle 0.0.4c (the plan's PD-7).** `Vec.items` is `hidden`;
+`Vec.count`, `Vec.cap`, `Bytes.buf`, `Bytes.len`, `SparseSet.dense`,
+`SparseSet.sparse` and `SparseSet.count` are `sealed`; and the four counts are
+`sealed limit<ListLen> int64` — the compiler's D-313, D-314 and D-308. The
+qualifier goes first: `limit<ListLen> sealed int64:count` is
+`NITPICK-PARSE-001`, *"expected a type"*, at the column of `sealed` (measured;
+the compiler's own `TYPE_REFERENCE.md` §9.1.2 example has the other order, and
+its 1.6.0 docs correct it). This is the board's re-pin worklist item 13 — the
+container question, answered on safety by the compiler seat on 2026-09-19:
+*keep our `Vec` and give it the three properties* — extended by this cycle's
+planner to `SparseSet.count`, the same kind of field, which costs nothing more
+because every `SparseSet` consumer already owes the arm through `vec.npk`.
+`SAFETY.md` gains **S-24a**, and S-23's `Vec` half is the compiler's.
+
+**It supersedes RX-127 in part** — the decision that no `limit<Rules>` appears
+anywhere in `src/` — for the four counts and nothing else, and it answers
+RX-127's argument rather than overruling it. RX-127 declined a limit on the
+ACCESSORS' PARAMETERS: a bound `vec_get` already checks by hand, charged to
+every consumer for nothing. This limits the COUNTS, which nothing checked and
+which only this library writes, so no consumer can trip the check and it fires
+only on this library's own defect. **The evidence is this cycle's worst
+defect, re-planted**: the second audit's BL-3 (`vec_oob`'s old body,
+`discard(guard[i]);`) under `tests/unit/vec_oob_remove_empty.npk` exits **109,
+`LimitViolated`, at the bad write** in the sealed tree, where the unsealed tree
+runs on to exit 60 with `count == -1` on a live `Vec` — at −O0 and through
+`opt -O2` alike. The same holds for the other two counts, measured by driving
+each negative inside its own module: `Bytes.len` 109, `SparseSet.count` 109.
+`ListLen` admits the vacant value 0, so `vec_free`'s deliberate poison,
+`cap = 0`, is legal and RX-139's guard is unaffected.
+
+**What a consumer can and cannot do, measured at `c3bdae2`.** Five refusals in
+`tests/rejection/`, each exactly one code at a measured position:
+`NITPICK-TYPE-079` for a write to `Vec.count`, `Bytes.len` and
+`SparseSet.count` and for the address `@s.dense` (an address is a write form
+whatever the callee does with it — a read-only callee is refused too);
+`NITPICK-TYPE-080` for a read of `Vec.items`. Their positive twin,
+`tests/unit/sealed_reads.npk`, reads every field a consumer may — `v.count`,
+`v.cap`, `b.len`, `b.buf.len`, `s.count`, `s.dense.count`, and `sparse` by
+value through `vec_get` — and runs to exit 0 at both levels. **The control**:
+against the tree before the declarations all five compile cleanly and fail
+their headers, and the twin still runs — which is what makes each a test of the
+seal and not of its own file. A consumer's struct literal is refused for every
+field it names (`Vec{…}` TYPE-080 plus TYPE-079 twice; `Bytes{…}` TYPE-079
+twice).
+
+**The bill**, O-B3's instrument: `vec.npk`, `bytes.npk` and `sparseset.npk`
+9 → 10 and `core.npk` 10 → 11 — `LimitViolated`, and nothing else; `byteset.npk`
+10 and `limits.npk`, `lib.npk`, `api.npk`, `syntax.npk` 6, unchanged. The 34
+roots REACH named gained the arm from their own `REACH-002` lines (RX-149's
+rule), and `probe13f`, whose subject it is, stays refused for it alone. S-8 is
+untouched while `lib.npk` does not reach `core`.
+
+**What the qualifiers do not close — measured, stated, and not closed here**
+(both are the board's question 9, which is the author's):
+
+- **A write THROUGH a sealed pointer field.** A consumer's
+  `b.buf.ptr[0i64] = 65u8;` compiles and runs: it writes the pointee, not the
+  field. So S-23's `Bytes` half — no `.ptr[` outside `bytes.npk` — stays this
+  library's rule and the tree check's.
+- **A whole-struct copy.** `Vec<int64>:w = v;` names no field, so neither
+  qualifier sees it, and it is a second handle on the block: after
+  `vec_free(@v)`, `vec_get(w, 0i64)` reads the free poison (exit 170 at −O0 and
+  through `opt -O2`) and `vec_free(@w)` is a double free (95, the third
+  audit's N-15, which the cycle's close owns).
+
+And `wild` storage reinterpreted by `=>!` still forges any `Vec` it likes — one
+reads `count == -1` — which is the language's opt-out for every checked
+property rather than a gap in this one.
+
+*Alternatives declined:* a `VecLen` rule of this library's own (the prelude's
+`ListLen` is the bound the compiler's own length facts use, and a second copy
+is a second place to disagree); `$ > 0` (`NITPICK-TYPE-077`, measured: a field
+rule must hold of the vacant value, and `vec_free`'s poison is 0); `count` and
+`cap` hidden (they are read across modules and by tests); `items` merely sealed
+(a read of the bare pointer outside `vec` IS the unchecked index RX-111 found,
+and `hidden` makes it a compile error); `buf` hidden — declined for now, not
+for good (item 13 decided sealed, the residue is stated in S-23 rather than
+closed, and question 9 recommends it with an accessor in a subcycle of its
+own); no limit at all, S-24 kept as it was (it leaves unchecked a count this
+repository has already shipped negative).

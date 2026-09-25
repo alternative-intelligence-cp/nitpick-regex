@@ -1,0 +1,49 @@
+// expect-error: NITPICK-TYPE-080
+// expect-error-at: 26:16
+//
+// A CONSUMER CANNOT READ A `Vec`'S `items`. Cycle 0.0.4c, `SAFETY.md` S-23.
+//
+// WHAT IT PINS. `items` is the `wild T->` block, a bare pointer, and indexing
+// it is NOT bounds-checked (S-23, RX-111): `v.items[i]` from a consumer IS the
+// unchecked index RX-111 found, a heap word returned for an out-of-range `i`
+// where `vec_get` would have stopped. Until 0.0.4c the only thing standing
+// against that line was `check_accessor_confinement`, a tree check over `src/`
+// that never looks at a consumer. Since 0.0.4c the field is `hidden` (the
+// compiler's D-314), so outside `vec` even a READ of it is refused:
+// `NITPICK-TYPE-080`. The refusal is the assertion.
+//
+// A TEST OF THE HIDING, NOT OF THIS FILE: against the tree before 0.0.4c's
+// declarations it compiles cleanly (`meta/roadmap/0.0/0.0.4c.md` step 4).
+// The index here is in range on purpose -- the file is refused for touching the
+// field at all, not for what the index would have read.
+mod:vec_items_read;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Vec<int64>:v = raw vec_init::<int64>(4i64);
+    drop vec_push(@v, 7i64);
+    int64:x = v.items[0i64];
+    discard(x);
+    drop vec_free(@v);
+    exit 0i32;
+};
+
+// A SUPERSET of what REACH asks, on purpose: a later change in the compiler's
+// phase order must not add a stray `REACH-002` beside this file's one code.
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};
