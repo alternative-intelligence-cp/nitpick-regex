@@ -337,19 +337,32 @@ settled. **Nothing in this cycle is blocked on a question.**
       the harness runs that control on every capped file.
 
 ### 0.0.4b — the adoption to compiler `c3bdae2` (inserted 2026-09-25)
-- [ ] RX-130's supersede marker, so `check_refs` is clean and a commit can happen (the third audit's N-17)
-- [ ] the whole-tree walk prunes a nested repository by shape and by name and says so; CI green again at `3d15ac9`, read from its log
-- [ ] CI pinned to `c3bdae2` in a commit of its own, never pushed alone
-- [ ] the floor re-recorded in a commit of its own: 5 symbols, 4 edges, `rx120.sh` at 5 / 6 / `{npk_sys6}`
-- [ ] every `while` states `decreases` — 61 loops, 37 by the tool and 24 read, none `unbounded`; `decreases_read.txt` committed
-- [ ] every `src/` loop entered by at least one unit (the planted-measure table)
-- [ ] every `failsafe` names what `REACH-002` asks; each deliberate refusal refused by exactly its subject
-- [ ] the `probe13` family re-pointed: 13a runs, 13c/13d `REACH-002`, 13g/13h trap 116/117, 13b/13e on 109
-- [ ] the pending unit's marker deleted at the pin that contains `fe42dba`; the mechanism untouched (BL-6 is the close's)
-- [ ] RX-115's mechanism corrected everywhere it is stated, the harness's printed text included; O-N14 struck
-- [ ] `VERIFICATION.md`'s dated notes (P-1, P-1a, P-8, P-10, §2); every prose search's denominator recorded
-- [ ] the consumer bills recorded before and after
-- [ ] `146/146`, GREEN at `c3bdae2`; CI green on the pushed head, read from its log
+- [x] RX-130's supersede marker, so `check_refs` is clean and a commit can happen (the third audit's N-17)  
+      **DONE** — commit `20544a3`, `meta/DECISIONS.md` only.
+- [x] the whole-tree walk prunes a nested repository by shape and by name and says so; CI green again at `3d15ac9`, read from its log  
+      **DONE** — `442fc9b`, RX-147; CI run `36155604797` green, its log reading `1 nested repository pruned: .nitpick` over 133 files where the red run opened 1016.
+- [x] CI pinned to `c3bdae2` in a commit of its own, never pushed alone  
+      **DONE** — `520d923`, red locally on its own as planned, pushed with `944a5d2` and `f19598c`.
+- [x] the floor re-recorded in a commit of its own: 5 symbols, 4 edges, `rx120.sh` at 5 / 6 / `{npk_sys6}`  
+      **DONE** — `944a5d2`, RX-148 — **and the `950bb1d` leg of `rx120.sh` had to change**: the plan's rehearsal had skipped it, and in the real checkout it failed on the two new arm names. It now compiles the two programs without them and still reproduces 29 / 29.
+- [x] every `while` states `decreases` — 61 loops, 37 by the tool and 24 read, none `unbounded`; `decreases_read.txt` committed  
+      **DONE** — RX-150; the sweep's counts are §5 step 4's exactly.
+- [x] every `src/` loop entered by at least one unit (the planted-measure table)  
+      **DONE** — eleven of eleven caught, `0.0.4b.md` step 5b.
+- [x] every `failsafe` names what `REACH-002` asks; each deliberate refusal refused by exactly its subject  
+      **DONE** — RX-149; 60 roots by the script, one by hand, four in commit 3; four refusals, one line each.
+- [x] the `probe13` family re-pointed: 13a runs, 13c/13d `REACH-002`, 13g/13h trap 116/117, 13b/13e on 109  
+      **DONE** — RX-152; the no-clause controls exit 60. And a live `requires` on `vec_get` was measured to trap 116, not 94 — RX-130's "behaviour does not change" is false, and the clauses stay comments by Q-6.
+- [x] the pending unit's marker deleted at the pin that contains `fe42dba`; the mechanism untouched (BL-6 is the close's)  
+      **DONE** — `fe42dba` is an ancestor of `c3bdae2` and not of `3d15ac9`.
+- [x] RX-115's mechanism corrected everywhere it is stated, the harness's printed text included; O-N14 struck  
+      **DONE** — RX-151; seven sites and the struck O-N14.
+- [x] `VERIFICATION.md`'s dated notes (P-1, P-1a, P-8, P-10, §2); every prose search's denominator recorded  
+      **DONE** — `0.0.4b.md` steps 9 and 10, each search's candidate count and its disposition.
+- [x] the consumer bills recorded before and after  
+      **DONE** — step 11; identical to the plan's table.
+- [x] `146/146`, GREEN at `c3bdae2`; CI green on the pushed head, read from its log  
+      **DONE** — local `146/146 unit(s) passed`, GREEN; CI run `36160171529` green on `f19598c`, its log reading `146/146`, `GREEN`, `1 nested repository pruned: .nitpick` and `rx120: every asserted leg held.`
 
 ### 0.0.4c — the access properties (inserted 2026-09-25)
 - [ ] `Vec`'s `items` hidden; the counts, `buf`, `dense` and `sparse` sealed; the four counts `limit<ListLen>`
