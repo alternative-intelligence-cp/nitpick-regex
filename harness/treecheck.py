@@ -528,6 +528,134 @@ def check_accessor_confinement(root):
                   f"{len(files)} file(s) under src/, 2 confined accessors", fl, notes)
 
 
+# --- check_vec_elements_own_nothing --------------------------------------------------
+
+# WHAT "OWNS" MEANS HERE, and it is wider than what the language drops: a `T`
+# that DROPS something (a `string`, a `buffer`, a `Bytes`, a `dyn`, an
+# `OwnedFd`) or that HOLDS A BLOCK OF ITS OWN (a `Vec`, a `SparseSet`, a `List`,
+# any `wild` pointer). The first kind is what `vec_get` moves out of its slot and
+# six verbs orphan (RX-155); the second is what a copied header aliases (the
+# board's question 9, N-15). Matched as whole words in the element's type text,
+# and in the fields and payloads of any type declared under `src/` it names.
+_OWNS = ("string", "buffer", "Bytes", "dyn", "OwnedFd",
+         "Vec", "SparseSet", "List", "wild")
+_OWNS_RE = re.compile(r"\b(" + "|".join(_OWNS) + r")\b")
+_TYPE_DECL = re.compile(
+    r"\b(?:struct|enum):([A-Za-z_]\w*)\s*(?:<[^=]*>)?\s*=\s*\{(.*?)\};", re.S)
+_NAME = re.compile(r"\b([A-Z]\w*)\b")
+_VEC_OWNER = os.path.join("src", "core", "vec.npk")
+
+
+def _vec_args(code):
+    """(offset, element-type text) for every `Vec<...>` in blanked source.
+
+    `->` is a pointer arrow and not a closing bracket, so it is stepped over;
+    nesting is counted, so `Vec<Vec<int32>>` yields its outer element whole."""
+    out, i = [], 0
+    while True:
+        i = code.find("Vec<", i)
+        if i < 0:
+            return out
+        if i > 0 and (code[i - 1].isalnum() or code[i - 1] == "_"):
+            i += 4
+            continue
+        j, depth = i + 4, 1
+        while j < len(code) and depth:
+            ch = code[j]
+            if ch == "<":
+                depth += 1
+            elif ch == ">" and code[j - 1] != "-":
+                depth -= 1
+            j += 1
+        out.append((i, code[i + 4:j - 1].strip()))
+        i = j
+
+
+def _owning_reason(text, decls, seen):
+    """Why a type text owns, or None. Follows names declared under `src/`."""
+    m = _OWNS_RE.search(text)
+    if m:
+        return f"`{m.group(1)}`"
+    for name in _NAME.findall(text):
+        if name in seen or name not in decls:
+            continue
+        seen.add(name)
+        why = _owning_reason(decls[name][1], decls, seen)
+        if why:
+            return f"`{name}` ({decls[name][0]}) holds {why}"
+    return None
+
+
+def check_vec_elements_own_nothing(root):
+    """Every `Vec<X>` under `src/` names an element that owns nothing -- S-23a.
+
+    `Vec<T>` IS SPECIFIED FOR A NON-OWNING `T` (RX-155), AND NOTHING IN THE
+    LANGUAGE SAYS SO. Until the third cycle 0.0 audit (BL-5) this repository
+    believed `TYPE-046` refused an owning element -- four sites said a copy out
+    of a `Vec` was refused, and the specifications credited the language with
+    keeping every array element POD. It does not: `TYPE-046` asks for `move`,
+    `pass` moves implicitly, and D-264 checks a generic body once with `T`
+    treated as owning, so `vec_get` compiles at `Vec<string>` and MOVES the
+    element out of its slot -- a second read is empty and `count` still counts
+    it -- while `vec_set`, `vec_remove`, `vec_swap_remove`, `vec_truncate`,
+    `vec_clear` and `vec_free` orphan what they discard. Measured at
+    `c3bdae2`, and pinned per verb by the `vec_owning_*` units.
+
+    So the restriction is this library's, and this is what makes it a rule
+    rather than a request: `src/` is the code that ships, and a `Vec` of owners
+    written there fails the run. Every `Vec` the specification declares already
+    owns nothing (C-1, H-2, R-8), so today this examines `SparseSet`'s two
+    `Vec<int32>`s; cycle 0.1's parser is its first real subject.
+
+    WHAT IT CANNOT SEE, stated rather than implied: a generic's `Vec<T>` is
+    judged where it is instantiated, which a lexical check does not follow --
+    `vec.npk` itself is the one such file today and is excluded by name, being
+    the definition. And `tests/` is out of scope on purpose: the owning units
+    instantiate `Vec<string>` precisely to measure what the verbs do there.
+
+    Prose is blanked first, so a comment naming `Vec<string>` is not reported --
+    the clean control, measured with a planted comment when this was written,
+    beside four plants it did report (`Vec<string>`, a `Vec` of a struct holding
+    a `string`, `Vec<Vec<int32>>`, `Vec<SparseSet>`) and a POD struct it did
+    not."""
+    fl, notes = [], []
+    files = npk_files(root, "src")
+    codes, decls = {}, {}
+    for path in files:
+        try:
+            text = open(path, encoding="utf-8", errors="replace").read()
+        except OSError:
+            continue
+        code = _blank_prose(text)
+        rel = os.path.relpath(path, root).replace(os.sep, "/")
+        codes[rel] = code
+        for m in _TYPE_DECL.finditer(code):
+            decls.setdefault(m.group(1), (rel, m.group(2)))
+    examined = 0
+    for rel, code in sorted(codes.items()):
+        if rel == _VEC_OWNER.replace(os.sep, "/"):
+            continue
+        for off, elem in _vec_args(code):
+            examined += 1
+            why = _owning_reason(elem, decls, set())
+            if why:
+                ln = code.count("\n", 0, off) + 1
+                col = off - (code.rfind("\n", 0, off) + 1) + 1
+                fl.append(
+                    f"{rel}:{ln}:{col}: `Vec<{elem}>` -- the element owns: {why}. "
+                    f"`Vec<T>` is for a NON-OWNING `T` (SAFETY.md S-23a, RX-155): at "
+                    f"an owning `T`, `vec_get` MOVES the element out of its slot and "
+                    f"six verbs orphan what they discard, invisibly to `exit 0`. "
+                    f"Keep the element POD -- an offset into a `Bytes`, as HIR.md H-2 "
+                    f"does for group names -- or lift the restriction by a decision.")
+    notes.append(f"{len(decls)} struct/enum declaration(s) under src/ followed by "
+                 f"name; {_VEC_OWNER} excluded as the definition, whose `Vec<T>` is "
+                 f"judged where it is instantiated.")
+    return Result("check_vec_elements_own_nothing", "SAFETY.md S-23a (RX-155)",
+                  f"{examined} `Vec<...>` element type(s) in {len(files)} file(s) "
+                  f"under src/", fl, notes)
+
+
 # --- check_specs_current --------------------------------------------------------------
 
 _SPEC_LINK = re.compile(r'\[[^\]]*\]\(([^)]+\.md)(?:#[^)]*)?\)')
@@ -748,6 +876,7 @@ def check_dated_measurements(root):
 
 ALL = [check_layering, check_error_budget, check_constants_named,
        check_no_division, check_accessor_confinement,
+       check_vec_elements_own_nothing,
        check_dated_measurements, check_specs_current]
 REPORTING_ONLY = {"check_specs_current"}
 

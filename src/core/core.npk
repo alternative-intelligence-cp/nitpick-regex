@@ -3,8 +3,9 @@
 //
 // Rule B-11 (RX-006) declares these ours rather than imported, and B-12 says
 // there are no others: anything graph-shaped uses an INDEX INTO A `Vec`, never
-// a pointer — which is also what keeps every node POD (TYPE-046) and every
-// structure serialisable as a fixture.
+// a pointer — which is also what keeps every node POD and every structure
+// serialisable as a fixture. POD by DESIGN: the language would accept an owning
+// node, and `SAFETY.md` S-23a (RX-155) is what refuses one in a `Vec`.
 //
 // LAYERING (`BUILD.md` §6, B-16). `core` is the bottom of the diagram and the
 // only module in the library with no dependency at all, which is what lets

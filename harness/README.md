@@ -26,7 +26,7 @@ reporting it.
 | `irscan.py` | the emitted IR's call edges to the floor |
 | `build.py` | the pipeline, and `npkc`'s exit alphabet |
 | `stages.py` | `program`, `compile`/`positive`, `compile`/`negative`, `parse`, `check` |
-| `treecheck.py` | the **seven** live tree checks — the library diffed against its own documents; six can fail the run and `check_specs_current` reports |
+| `treecheck.py` | the live tree checks — the library diffed against its own documents; every one but `check_specs_current` can fail the run, and the runner prints each with what it examined |
 | `selfcheck.py` | **the harness fed wrong expectations and required to fail**; runs FIRST |
 | `baseline/` | the empty program the two scans are differences against, `rx120.sh`, and the two REVIEWED LISTS — `RESIDUE.txt` (what `nregex` needs from the runtime, RX-131) and `PENDING.txt` (every unit a `pending-until:` marker takes out of the denominator, RX-154), each checked both ways |
 | `baseline/rx120.sh` | **executable**: builds the floor and a syscaller at the pinned compiler and ASSERTS floor == 5, syscaller == 6, difference == `{npk_sys6}` (at `c3bdae2`; 2 and 3 at `3d15ac9`); with `950bb1d` present it also asserts 29/29/identical, compiling the two programs without the two arms that compiler does not have (RX-148). A harness **build step** and its own CI step. It replaced a hand-copied transcript that recorded a command which could not have produced the output beside it (RX-142's neighbourhood; cycle 0.0 audit, adjudication (a)) |

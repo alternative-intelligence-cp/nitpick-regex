@@ -1,0 +1,71 @@
+// expect-exit: 92
+// mem-cap-mib: 64
+//
+// `vec_swap_remove` AT AN OWNING `T` ORPHANS the element it removes -- RX-155.
+//
+// PINNED, NOT ENDORSED. `Vec<T>` is for a NON-OWNING `T` (`SAFETY.md` S-23a),
+// and this file measures what happens outside that, so the restriction rests
+// on a run rather than a sentence: a `wild T->` slot does not drop, and `vec_swap_remove`
+// discards an element without moving it out. Each round builds a `Vec<string>`
+// of 257-byte bodies, applies `vec_swap_remove`, and releases the rest with
+// `vec_free_owning`; the orphans accumulate across rounds and the program
+// meets `HeapOom` under the 64 MiB cap -- **92**. `vec_owning_freed.npk` is
+// the control: the same rounds without the verb, the same cap, exit 0 -- and
+// the harness runs `/bin/true` under the cap first, because a low cap measures
+// the loader.
+//
+// Measured at `c3bdae2` with the runtime's `NPK_HEAP_STATS` over 1 000 rounds
+// of two elements: `peak_live` grows linearly with the rounds for this verb
+// and stays flat for the control (the numbers are RX-155's table).
+//
+// EXIT 0 MEANS THE VERB STOPPED ORPHANING -- `vec.npk` now drops what it
+// discards, which is a change to RX-155's per-verb table, so re-read it: the
+// restriction may be liftable for this verb.
+mod:vec_owning_swap_remove_orphans;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    string:filler = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+
+    int64:round = 0i64;
+    while (round < 40000i64) decreases 40000i64 - round {
+        Vec<string>:v = raw vec_init::<string>(16i64);
+        int64:k = 0i64;
+        while (k < 16i64) decreases 16i64 - k {
+            // BOUND, NEVER NESTED -- an owning temporary passed straight into
+            // `vec_push` would be the compiler's D-183 leak, not this verb's.
+            string:e = string_concat(filler, "k");      // 257 bytes of heap body
+            drop vec_push(@v, move(e));
+            k = k + 1i64;
+        }
+        // THE VERB: swap-remove index 0 until empty -- the last element is
+        // moved over the removed one, which is orphaned.
+        int64:j = 0i64;
+        while (j < 16i64) decreases 16i64 - j {
+            drop vec_swap_remove(@v, 0i64);
+            j = j + 1i64;
+        }
+        drop vec_free_owning(@v);
+        round = round + 1i64;
+    }
+
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault) { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated) { exit 109i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

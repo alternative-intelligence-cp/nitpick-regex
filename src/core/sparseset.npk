@@ -95,9 +95,13 @@ pub func:sset_init = SparseSet(int64:cap) never fails {
 // obligation: never fails ensures both blocks are released
 //
 // `int32` is POD, so the blocks ARE the whole obligation and `exit 0` covers
-// this exactly (`SAFETY.md` §8b). That is not luck: TYPE-046 forbids an owning
-// field in a value stored in an array, which is what forces the POD shape here
-// and is the main practical reason it is worth its awkwardness.
+// this exactly (`SAFETY.md` §8b). That is not luck, and it is not the language
+// either: it is this library's design, and since the third cycle-0.0 audit's
+// triage a rule -- a `Vec` holds a `T` that owns nothing (`SAFETY.md` S-23a,
+// RX-155). *(This said "TYPE-046 forbids an owning field in a value stored in
+// an array, which is what forces the POD shape here". Nothing forbids it:
+// measured, an owning element compiles, links and runs in a `Vec` and in a fixed
+// array alike.)*
 pub func:sset_free = NIL(SparseSet->:s) never fails {
     drop vec_free(@s.dense);
     drop vec_free(@s.sparse);

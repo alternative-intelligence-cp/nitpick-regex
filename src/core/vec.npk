@@ -51,6 +51,9 @@
 //      backwards off the block without complaint. Every accessor checks
 //      `0 <= i` as well as `i < count`. This is the half a reader porting from
 //      C leaves out, because there the index is `unsigned`.
+//   4. **THE ELEMENT OWNS NOTHING** (`SAFETY.md` S-23a, RX-155). `Vec<T>` is for
+//      a non-owning `T`, and NOTHING IN THE LANGUAGE SAYS SO -- the section
+//      "WHAT A `Vec` MAY HOLD" below has the verbs, one by one.
 //
 // ============================================================================
 // WHAT A VIOLATION DOES, AND WHY IT IS A TRAP (RX-130)
@@ -135,6 +138,25 @@
 // inherits it by calling them; a double free is `OutOfBounds` at this library's
 // own check, not `Unreachable` from inside `dalloc`.
 //
+// *(Dated 2026-09-25, the third cycle-0.0 audit's N-14 and N-15 -- RX-156. TWO
+// THINGS IN THAT PARAGRAPH WERE WRONG. (1) "They report the wrong thing" is
+// true of `vec_push` and `vec_insert`, whose 91 said the allocator was misused,
+// and FALSE of the free paths: the runtime's trap table, read at `c3bdae2`,
+// files a double free under `-4102 HEAP_INTEGRITY`, and the prelude's
+// `Unreachable = 4102i32` is "`#unreachable()` reached, and the runtime's
+// integrity defects". So 95 was the language's own code for exactly this, from
+// the allocator's check. The guard's 94 is a TRADE, and it stays: the stop is
+// earlier, it is this library's, it names the value, and every use of a dead
+// `Vec` stops the same way -- at the price that a consumer's `failsafe` can no
+// longer tell a double free from an out-of-range index. (2) "A double free is
+// `OutOfBounds`" holds for the SAME binding only. The guard reads the `cap` of
+// the header it is handed, and a whole-`Vec` copy keeps the old one:
+// `Vec<int64>:w = v;` then `vec_free(@v)` and `vec_free(@w)` reaches `dalloc`
+// and exits 95, and `vec_free_owning` through such a copy walks the freed block
+// first and exits 95 too (both measured at `c3bdae2`, -O0 and `opt -O2`). That
+// is N-15, OPEN against the board's question 9 with the rest of what a header
+// copy reaches -- see the paragraph above `struct:Vec`.)*
+//
 // ============================================================================
 // LIFETIME, AND WHAT `exit 0` PROVES ABOUT IT (P-20, S-22)
 // ============================================================================
@@ -150,6 +172,35 @@
 // exactly this shape retaining 125 MiB over two million elements. Where the
 // obligation is managed the gate is a MEMORY CAP, never an exit code, and
 // `vec_free_owning` below is the function that discharges it.
+//
+// ============================================================================
+// WHAT A `Vec` MAY HOLD: A `T` THAT OWNS NOTHING (S-23a, RX-155)
+// ============================================================================
+//
+// **NOTHING IN THE LANGUAGE KEEPS AN OWNER OUT OF THIS TYPE, AND THIS FILE SAID
+// FOR A CYCLE THAT SOMETHING DID.** `TYPE-046` is the diagnostic that asks for
+// `move` when an owning PLACE is copied; `pass` moves implicitly, and D-264
+// checks every generic body here once with `T` treated as owning -- so what
+// compiles at any `T` compiles at every `T`, `Vec<string>` included. The third
+// cycle-0.0 audit (BL-5) measured what each verb then does, and it is re-measured
+// at `c3bdae2` by one unit per verb, so the table is a run and not a belief:
+//
+//   ownership-correct   `vec_push`, `vec_insert`, `vec_pop`, `vec_free_owning`
+//   MOVES THE ELEMENT   `vec_get` -- the slot is emptied and still counted
+//   ORPHANS             `vec_set` (what it overwrites), `vec_remove`,
+//                       `vec_swap_remove` (what they remove), `vec_truncate`,
+//                       `vec_clear` (what they discard), `vec_free` (all of it)
+//
+// So `Vec<T>` is for a `T` that DROPS NOTHING AND HOLDS NO BLOCK OF ITS OWN, and
+// at such a `T` every verb is correct and a move is a copy. Every `Vec` the
+// specification declares already is one -- `Inst`, `ByteSet`, `uint8`, `HirNode`,
+// `ClassRange`, `Literal`, `GroupInfo` (group names are offsets into a `Bytes`,
+// H-2), and the engines' `int32` and `int64` -- so the rule costs the design
+// nothing. **`check_vec_elements_own_nothing` enforces it over `src/`**, which is
+// the code that ships; `tests/` instantiates `Vec<string>` on purpose, to
+// measure the table above. A cycle that needs an owning element lifts S-23a by a
+// decision, and the compiler's own `List<T>` is the shape it would take:
+// removals that return the element, discards that drop it, and no by-value get.
 //
 // LAYERING (`BUILD.md` §6, B-16). `core` imports nothing outside `core`. This
 // file imports nothing at all.
@@ -178,7 +229,8 @@ mod:vec;
 // opt-out for every checked property; and a WHOLE-`Vec` COPY, `Vec<int64>:w =
 // v;`, which names no field and is a second handle on the block: after
 // `vec_free(@v)`, `vec_get(w, 0)` reads the free poison (exit 170) and
-// `vec_free(@w)` is a double free (95, the third audit's N-15).
+// `vec_free(@w)` is a double free (95, the third audit's N-15) -- as is
+// `vec_free_owning` through a copy, which first walks the freed block (95).
 // `meta/roadmap/0.0/0.0.4c.md` records both; the board's question 9 carries
 // them to the author.
 pub struct:Vec<T> = {
@@ -279,9 +331,13 @@ pub func:vec_init<T> = Vec<T>(int64:cap) never fails {
 //
 // FREES THE BLOCK AND NOTHING ELSE. For an owning `T` this is a leak that
 // `exit 0` cannot see — use `vec_free_owning`. The name does not say "owning"
-// because the overwhelmingly common `T` here is POD (TYPE-046 forces it for
-// anything stored in an array), and a name that warned on every call would stop
-// being read.
+// because the only `T` this library may hold is one that owns nothing
+// (`SAFETY.md` S-23a, RX-155), and a name that warned on every call would stop
+// being read. *(It said until the third cycle-0.0 audit's triage that "TYPE-046
+// forces it for anything stored in an array". Nothing forces it: an owning
+// element compiles, links and runs in a `Vec` and in a fixed array alike --
+// measured at `950bb1d`, `3d15ac9` and `c3bdae2`. The POD shape is this
+// library's design, and S-23a is what now makes it a rule.)*
 pub func:vec_free<T> = NIL(Vec<T>->:v) never fails {
     // DEAD `Vec` -- see the header. Without this, a double free reaches
     // `dalloc` with a pointer the allocator has already reclaimed and stops on
@@ -318,10 +374,19 @@ pub func:vec_reserve<T> = NIL(Vec<T>->:v, int64:need) never fails {
 
 // obligation: never fails requires i >= 0i64 && i < v.count
 //
-// RETURNS BY VALUE, so it is for a scalar `T` only: for an owning `T` a copy is
-// refused, TYPE-046, and the caller reads through the site that knows the
-// element's shape. The compiler's own `List<T>` has no generic `list_at` for
-// exactly this reason.
+// RETURNS BY VALUE, which at the non-owning `T` this type is for (S-23a) is a
+// plain read. **AT AN OWNING `T` IT IS A MOVE, AND NOTHING REFUSES IT.** `pass`
+// moves a place implicitly, and D-264 checks this body once with `T` treated as
+// owning, so `Vec<string>` compiles and the first `vec_get` TAKES the element:
+// the slot is zeroed and marked vacant, `count` still counts it, and a second
+// `vec_get` of the same index returns an empty string -- through a parameter
+// that is not even a pointer (`tests/unit/vec_owning_get_moves_out.npk`,
+// measured at `c3bdae2`). UNTIL THE THIRD CYCLE-0.0 AUDIT (BL-5) THIS COMMENT
+// SAID SUCH A COPY IS "refused, TYPE-046" -- false at every pin this repository
+// has taken, since TYPE-046 is the diagnostic that ASKS for `move` and `pass`
+// supplies one. The compiler's own `List<T>` has no by-value get at all -- `l[i]`
+// is a bounds-checked place -- and that is the shape a cycle lifting S-23a
+// would take (RX-155).
 pub func:vec_get<T> = T(Vec<T>:v, int64:i) never fails {
     if (i < 0i64)        { drop vec_oob(i); }
     if (i >= v.count)    { drop vec_oob(i); }
@@ -329,6 +394,11 @@ pub func:vec_get<T> = T(Vec<T>:v, int64:i) never fails {
 };
 
 // obligation: never fails requires i >= 0i64 && i < v.count
+//
+// AT AN OWNING `T` THE ELEMENT IT OVERWRITES IS ORPHANED: a `wild T->` slot does
+// not drop, and this writes over it (`tests/unit/vec_owning_set_orphans.npk`,
+// 92 under the managed-half cap). Outside S-23a; stated here, as it already was
+// at `vec_truncate`, because the third cycle-0.0 audit found it said nowhere.
 pub func:vec_set<T> = NIL(Vec<T>->:v, int64:i, move T:x) never fails {
     if (i < 0i64)        { drop vec_oob(i); }
     if (i >= v.count)    { drop vec_oob(i); }
@@ -355,10 +425,14 @@ pub func:vec_push<T> = NIL(Vec<T>->:v, move T:x) never fails {
 
 // obligation: never fails requires v.count > 0i64
 //
-// Returns the removed element BY VALUE, so scalar `T` only, for `vec_get`'s
-// reason. An empty pop is the caller's error and traps rather than returning a
-// value nobody chose (D-123: a default that carries meaning is a value nobody
-// chose).
+// Returns the removed element BY VALUE, and it is OWNERSHIP-CORRECT AT EVERY
+// `T`: `count` is lowered FIRST, so the element leaves the container with its
+// ownership and drops at the caller's binding
+// (`tests/unit/vec_owning_pop_moves_out.npk`). *(This said "scalar `T` only,
+// for `vec_get`'s reason" until the third cycle-0.0 audit's triage -- but
+// `vec_get` leaves its slot counted and `vec_pop` does not, RX-155.)* An empty
+// pop is the caller's error and traps rather than returning a value nobody
+// chose (D-123: a default that carries meaning is a value nobody chose).
 pub func:vec_pop<T> = T(Vec<T>->:v) never fails {
     if (v.count <= 0i64) { drop vec_oob(v.count - 1i64); }
     v.count = v.count - 1i64;
@@ -371,6 +445,11 @@ pub func:vec_pop<T> = T(Vec<T>->:v) never fails {
 // `i == v.count` IS LEGAL AND IS NOT A TYPO: inserting at the end is a push,
 // and the half-open bound is what makes `vec_insert` total over the positions
 // an element can occupy.
+//
+// OWNERSHIP-CORRECT AT EVERY `T`: the shift moves from the top, so every slot
+// it writes is past `count` or already moved from, and no live element is
+// overwritten (`tests/unit/vec_owning_insert_moves.npk`, which checks the order
+// as well, RX-155).
 pub func:vec_insert<T> = NIL(Vec<T>->:v, int64:i, move T:x) never fails {
     if (i < 0i64)        { drop vec_oob(i); }
     if (i > v.count)     { drop vec_oob(i); }
@@ -399,6 +478,10 @@ pub func:vec_insert<T> = NIL(Vec<T>->:v, int64:i, move T:x) never fails {
 // and the engines use that; this exists because the parser's group stack needs
 // order and a library that offers only the fast one invites a hand-written
 // shift at the call site, which is a `.items[` outside this file.
+//
+// AT AN OWNING `T` THE REMOVED ELEMENT IS ORPHANED -- the shift writes over it,
+// or, at the last index, `count` simply stops counting it
+// (`tests/unit/vec_owning_remove_orphans.npk`). Outside S-23a (RX-155).
 pub func:vec_remove<T> = NIL(Vec<T>->:v, int64:i) never fails {
     if (i < 0i64)        { drop vec_oob(i); }
     if (i >= v.count)    { drop vec_oob(i); }
@@ -418,6 +501,10 @@ pub func:vec_remove<T> = NIL(Vec<T>->:v, int64:i) never fails {
 // O(1), and it DOES NOT PRESERVE ORDER. That is stated here rather than left to
 // the name: a caller who wanted order and reached for the fast one gets a
 // silently reordered container, which no test of the container itself catches.
+//
+// AND AT AN OWNING `T` THE REMOVED ELEMENT IS ORPHANED, which is the larger
+// hazard and was the one this comment did not mention until the third cycle-0.0
+// audit (`tests/unit/vec_owning_swap_remove_orphans.npk`). Outside S-23a.
 pub func:vec_swap_remove<T> = NIL(Vec<T>->:v, int64:i) never fails {
     if (i < 0i64)        { drop vec_oob(i); }
     if (i >= v.count)    { drop vec_oob(i); }
@@ -431,8 +518,11 @@ pub func:vec_swap_remove<T> = NIL(Vec<T>->:v, int64:i) never fails {
 // obligation: never fails ensures v.count == min(n, old(v.count))
 //
 // FOR AN OWNING `T` THIS DISCARDS WITHOUT DROPPING and the discarded elements
-// leak, invisibly to `exit 0` (S-22). The obligation is the caller's and the
-// gate for it is a memory cap.
+// leak, invisibly to `exit 0` (S-22) -- measured under the memory cap by
+// `tests/unit/vec_owning_truncate_orphans.npk`, which is also the third
+// cycle-0.0 audit's N-13: this was the half of `0.0.4.md`'s managed-half item
+// that had no test. Outside S-23a; the caller of an owning `Vec` could not
+// discharge it without `vec_get`'s move, which is why S-23a exists (RX-155).
 pub func:vec_truncate<T> = NIL(Vec<T>->:v, int64:n) never fails {
     if (n < 0i64)        { drop vec_oob(n); }
     if (n < v.count) { v.count = n; }
@@ -441,7 +531,8 @@ pub func:vec_truncate<T> = NIL(Vec<T>->:v, int64:n) never fails {
 
 // obligation: never fails ensures v.count == 0i64
 //
-// The same managed-body caveat as `vec_truncate`. Capacity is retained, which
+// The same managed-body caveat as `vec_truncate`
+// (`tests/unit/vec_owning_clear_orphans.npk`, N-13). Capacity is retained, which
 // is the whole point: a `Cache` reused across searches clears rather than
 // reallocating, and `SAFETY.md` S-6 says a search allocates nothing.
 pub func:vec_clear<T> = NIL(Vec<T>->:v) never fails {
@@ -496,14 +587,21 @@ pub func:vec_init_zeroed<T> = Vec<T>(int64:n) never fails {
 
 // FREES THE BLOCK **AND DROPS EVERY ELEMENT**, for an owning `T`.
 //
-// This is the function `exit 0` cannot check and a memory cap can. It is
-// separate from `vec_free` rather than being it, because dropping requires
-// MOVING each element out — `move(v.items[j])` binds the element to a local
-// that drops at the end of its iteration — and a `move` out of an element is
-// refused for a `T` that does not own (there is nothing to move), so one
-// function cannot serve both. RX-126 records that this shape is outside the
-// compiler's DEF-8 entirely: `Vec<T>` does not drop, so there is no drop flag
-// to get wrong.
+// This is the function `exit 0` cannot check and a memory cap can. Dropping
+// requires MOVING each element out — `move(v.items[j])` binds the element to a
+// local that drops at the end of its iteration. It is separate from `vec_free`
+// for COST: `vec_free` is O(1) at every `T` and this is O(`count`), and at the
+// non-owning `T` `SAFETY.md` S-23a allows, both are correct -- so this exists
+// for the managed-half gate and the owning units, which measure what S-23a
+// excludes (RX-155). RX-126 records that this shape is outside the compiler's
+// DEF-8 entirely: `Vec<T>` does not drop, so there is no drop flag to get
+// wrong.
+//
+// *(Until the third cycle-0.0 audit's triage the reason given here was that "a
+// `move` out of an element is refused for a `T` that does not own (there is
+// nothing to move), so one function cannot serve both". False at `3d15ac9` and
+// at `c3bdae2`: `vec_free_owning::<int64>` compiles and runs, because a `move`
+// of a scalar is its copy (D-264).)*
 //
 // obligation: never fails ensures v.cap == 0i64
 pub func:vec_free_owning<T> = NIL(Vec<T>->:v) never fails {

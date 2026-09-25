@@ -95,7 +95,15 @@ Most of the list, which is why the residue is small:
   arithmetic cannot silently produce a wrong bound.
 - **Borrows cannot escape** (D-004), so a `Cache` cannot outlive its scope and
   a `Match` cannot alias a freed haystack.
-- **Owning values are move-only** (TYPE-046), so no program is aliased.
+- **Owning values are move-only** (TYPE-046), so no two NAMES own one heap body.
+  *(This read "so no program is aliased" until the third cycle 0.0 audit's
+  triage, and that is wider than the rule. It says nothing of a `wild` block,
+  which is not an owning type: a whole-`Vec` copy is a second handle on its
+  block — the board's question 9, N-15. And a move out of a container element
+  leaves a vacant slot the container still counts — which is what `vec_get` does
+  at an owning `T`, and why `SAFETY.md` S-23a keeps owners out of a `Vec`,
+  RX-155. A discharge claimed for free and wider than the rule is RX-128's
+  shape, in the same list RX-128 corrected.)*
 - **`Result<T>` everywhere** with no unchecked unwrap outside a `never fails`
   callee (D-163), so no error is dropped.
 

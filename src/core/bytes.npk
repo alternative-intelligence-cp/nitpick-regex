@@ -35,8 +35,12 @@
 //
 // A `buffer` is MANAGED and move-only: the scope-exit drop IS the reclaim
 // (D-183), and `buffer_free` is another of §23's deliberately-not-landed rows.
-// So a `Bytes` needs no explicit free, is move-only, and cannot be stored in an
-// array (TYPE-046) — all three fall out of the one field.
+// So a `Bytes` needs no explicit free and is move-only — both fall out of the
+// one field. *(This said a third thing until the third cycle-0.0 audit's
+// triage: that a `Bytes` "cannot be stored in an array (TYPE-046)". It can --
+// `Bytes[2]` compiles and runs at `c3bdae2` -- and what TYPE-046 asks is that a
+// read of one out of the array be a `move`. A `Vec` may not hold one, by
+// `SAFETY.md` S-23a, RX-155.)*
 //
 // **AND `exit 0` THEREFORE PROVES NOTHING ABOUT A `Bytes`** (`SAFETY.md` §8b,
 // S-22). D-151 counts `wild` blocks; a `buffer` body is managed. A `Bytes`

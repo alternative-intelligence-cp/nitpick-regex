@@ -157,8 +157,10 @@ func:main = int32(cstring[]:_~argv) {
     drop sset_free(@s);
 
     // `int32` is POD, so both `Vec` blocks ARE the whole obligation and `exit 0`
-    // covers this exactly (`SAFETY.md` §8b). That is TYPE-046 forcing the
-    // representation rather than luck.
+    // covers this exactly (`SAFETY.md` §8b). That is the design -- a `Vec` holds
+    // a `T` that owns nothing, `SAFETY.md` S-23a -- and not, as this said until
+    // the third cycle-0.0 audit's triage, "TYPE-046 forcing the representation":
+    // nothing in the language forces it (RX-155).
     exit 0i32;
 };
 

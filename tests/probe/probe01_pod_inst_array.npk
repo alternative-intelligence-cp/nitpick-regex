@@ -72,7 +72,10 @@ func:vec_free<T> = NIL(Vec<T>->:v) never fails {
 // ---------------------------------------------------------------------------
 
 // A plain enum -- no payloads. The operands are the struct's `a` and `b`
-// precisely so that `Inst` stays POD and storable in an array (TYPE-046).
+// precisely so that `Inst` stays POD -- copyable out of the array, which an
+// owning `Inst` would not be (TYPE-046 asks for `move`). *(This said "storable
+// in an array (TYPE-046)" until the third cycle-0.0 audit's triage; an owning
+// value is storable -- it cannot be COPIED out -- RX-155.)*
 enum:InstKind = {
     ByteRange;
     Split;

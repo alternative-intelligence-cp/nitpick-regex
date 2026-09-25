@@ -16,10 +16,11 @@ when the `c3bdae2` re-pin made `prove`, `requires` and `ensures` live — RX-152
 containers' seal, since 0.0.4c); `harness/` builds, sweeps,
 diffs and judges them, **and proves first that it can fail**; and since 0.0.4
 `src/core/` is real — `Vec<T>`, `Bytes`, `ByteSet`, `SparseSet` and `limits.npk`,
-with 36 unit programs of their own. **No matching happens yet**: `src/syntax/`,
+with 44 unit programs of their own — eight of them measuring what each `Vec` verb does at an
+owning element type, which `SAFETY.md` S-23a keeps out of `src/`. **No matching happens yet**: `src/syntax/`,
 `src/hir/`, `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are
 still one placeholder module each. A full green run at compiler `c3bdae2` is
-**158 units** (after cycle 0.0.4c), plus seven tree checks; take those numbers from the runner's
+**174 units** (after the cycle 0.0 close's third audit triage), plus eight tree checks; take those numbers from the runner's
 summary rather than from here. **Nothing is PENDING any more**:
 `tests/unit/bytes_copy_string_empty.npk` was committed red under
 `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
@@ -93,8 +94,14 @@ Full statement in `meta/specs/SAFETY.md` §1. The ones that bite hardest:
 
 - **Borrows never pass up the call stack** (D-004), so a `Match` is byte
   offsets and not a slice, and an iterator cannot be returned from a function.
-- **A value in an array declares no owning field** (TYPE-046), so instructions,
-  HIR nodes and thread entries are all POD.
+- **Owning values are move-only (TYPE-046) — and NOTHING keeps an owner out of an
+  array or a `Vec`.** TYPE-046 asks for `move` when an owning place is copied;
+  `pass` moves implicitly, so `vec_get` at `Vec<string>` compiles and MOVES the
+  element out, leaving an empty slot `count` still counts. So instructions, HIR
+  nodes and thread entries are POD **by design**, and `Vec<T>` is for a `T` that
+  owns nothing (`SAFETY.md` S-23a, RX-155), enforced over `src/` by
+  `check_vec_elements_own_nothing`. This bullet said until the third cycle 0.0
+  audit that the language forced it.
 - **There are no closures** (D-018), so replacement is a template and iteration
   is a struct with `next`.
 - **Integer overflow and division by zero trap. OUT-OF-RANGE INDEXING DOES NOT,
@@ -276,6 +283,11 @@ evidence.
   `sealed limit<ListLen> int64:f`; the other order is `NITPICK-PARSE-001`.
 - **An exit status is one byte.** `exit 321` reports 65, silently. Compose
   weights that cannot sum past 255, or print the value and assert on stdout.
+- **`&{…}` interpolates only inside a backtick template.** `"&{k}"` in double
+  quotes is the four characters `&{k}`, measured at `c3bdae2`; `` `&{k}` `` is the
+  number. `vec_owning_freed.npk` and `vec_owning_leak.npk` build their tags the
+  first way, which is harmless there — the pair measures bytes, not content — and
+  is why no program here has ever referenced `npk_int_to_string` (RX-131).
 
 ## Building and testing
 

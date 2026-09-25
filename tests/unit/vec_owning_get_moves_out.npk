@@ -1,0 +1,59 @@
+// expect-exit: 0
+//
+// `vec_get` AT AN OWNING `T` MOVES THE ELEMENT OUT OF ITS SLOT -- RX-155.
+//
+// This file pins what the language does, so the restriction it justifies rests
+// on a run rather than on a sentence. `vec_get` returns `T` by value from
+// `pass v.items[i]`, and `pass` MOVES a place implicitly; D-264 checks a generic
+// body once with `T` treated as owning, so nothing refuses the instantiation.
+// At `T = string` the first read therefore TAKES the element -- the emitted body
+// zeroes the slot and marks it vacant -- and a second read of the same index
+// returns the vacant value, an empty string, from a slot `count` still counts.
+// Measured at `c3bdae2`, -O0 and through `opt -O2` alike.
+//
+// Until the third cycle-0.0 audit (BL-5) four sites in this repository said the
+// opposite -- that a copy of an owning element out of a `Vec` is "refused,
+// TYPE-046" -- and `vec_unit.npk` cited that refusal as its reason not to read
+// an element back. TYPE-046 is the move-required diagnostic; it asks for
+// `move`, and `pass` supplies one. So `Vec<T>` is for a NON-OWNING `T`
+// (`SAFETY.md` S-23a), where a move is a copy and `vec_get` is a plain read.
+//
+// Exit 21: the first read did not return the element. 22: THE SECOND READ WAS
+// NOT EMPTY -- `vec_get` stopped moving at an owning `T`, so RX-155's reason for
+// the restriction has changed; re-read it before editing this file. 23: `count`
+// moved, which `vec_get` (by value) cannot do.
+mod:vec_owning_get_moves_out;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Vec<string>:v = raw vec_init::<string>(4i64);
+    string:e = string_concat("abcdefghij", "k");        // 11 bytes of heap body
+    drop vec_push(@v, move(e));
+
+    string:first = raw vec_get(v, 0i64);
+    if (string_byte_length(first) != 11i64)             { exit 21i32; }
+    string:second = raw vec_get(v, 0i64);
+    if (string_byte_length(second) != 0i64)             { exit 22i32; }
+    if (v.count != 1i64)                                { exit 23i32; }
+
+    drop vec_free_owning(@v);
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault) { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated) { exit 109i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

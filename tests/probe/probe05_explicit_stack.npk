@@ -112,7 +112,10 @@ func:vec_free<T> = NIL(Vec<T>->:v) never fails {
 // `src/core/limits.npk` and nowhere else (S-12).
 fixed int64:NREGEX_NEST_DEPTH = 250i64;
 
-// A frame is POD -- no owning field -- so it can live in an array (TYPE-046).
+// A frame is POD -- no owning field -- so it can be COPIED out of an array
+// (TYPE-046 asks an owner's copy to be a `move`) and a `Vec` may hold it
+// (`SAFETY.md` S-23a). *(This said "so it can live in an array" until the third
+// cycle-0.0 audit's triage; an owner can live in one too -- RX-155.)*
 // In the real parser it carries the alternation list head and the group number;
 // here the open offset is enough to prove the stack is doing work.
 struct:Frame = {

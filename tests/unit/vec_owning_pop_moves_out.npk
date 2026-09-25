@@ -1,0 +1,71 @@
+// expect-exit: 0
+// mem-cap-mib: 64
+//
+// `vec_pop` AT AN OWNING `T` IS OWNERSHIP-CORRECT -- RX-155.
+//
+// One of the four verbs that account for ownership at an owning `T` (with
+// `vec_push`, `vec_insert` and `vec_free_owning`): it lowers `count` FIRST and
+// then moves the element out to the caller, so the element leaves the container
+// with its ownership and drops at the caller's binding. `vec.npk` said until
+// the third cycle-0.0 audit that `vec_pop` was "scalar `T` only, for
+// `vec_get`'s reason" -- false: `vec_get` leaves its slot counted, and
+// `vec_pop` uncounts it before the move.
+//
+// Each round pushes 500 strings and pops all of them, each popped value bound
+// and dropped at the end of its iteration. If a pop orphaned anything, 400
+// rounds would carry about 300 MB of bodies past the 64 MiB cap and end
+// in `HeapOom`, 92, as `vec_owning_leak.npk` does at the same cap; correct, it
+// ends 0. THE ELEMENTS DIFFER IN LENGTH -- element `k` is 1 025 + `k` bytes, a
+// kilobyte of filler so that a pop orphaning even half its elements carries the
+// rounds past the cap -- and the first pop of the first round is checked to be
+// the last element pushed, 1 524 bytes: exit 31 if it is not.
+mod:vec_owning_pop_moves_out;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    string:filler = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+
+    int64:round = 0i64;
+    while (round < 400i64) decreases 400i64 - round {
+        Vec<string>:v = raw vec_init::<string>(16i64);
+        string:acc = "";
+        int64:k = 0i64;
+        while (k < 500i64) decreases 500i64 - k {
+            acc = string_concat(acc, "y");
+            string:e = string_concat(filler, acc);      // 1 025 + k bytes
+            drop vec_push(@v, move(e));
+            k = k + 1i64;
+        }
+        // UNTIL EMPTY, not 500 times: a pop that uncounted more than it returned
+        // would then stop early and leave its orphans for the cap to find,
+        // rather than trapping on an empty pop and hiding which half failed.
+        bool:first = true;
+        while (v.count > 0i64) decreases v.count {
+            string:p = raw vec_pop(@v);
+            if (first && round == 0i64 && string_byte_length(p) != 1524i64) { exit 31i32; }
+            first = false;
+        }
+        drop vec_free_owning(@v);
+        round = round + 1i64;
+    }
+
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault) { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated) { exit 109i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

@@ -32,11 +32,12 @@ stub this replaced could assert almost nothing:
     `c3bdae2`; 2 and 3 at `3d15ac9` -- RX-148), as a build step, so a re-pin
     that moves the prelude reddens a run instead of silently invalidating a
     committed sentence (RX-142's neighbourhood);
-  * the SEVEN live TREE CHECKS agreed with the specifications they diff against
+  * the live TREE CHECKS agreed with the specifications they diff against
     (`check_layering`, `check_error_budget`, `check_constants_named`,
     `check_no_division`, `check_accessor_confinement`,
-    `check_dated_measurements`, and `check_specs_current` which reports rather
-    than fails);
+    `check_vec_elements_own_nothing`, `check_dated_measurements`, and
+    `check_specs_current` which reports rather than fails -- `treecheck.ALL` is
+    the list, and the run prints each);
   * every unit a `pending-until:` marker took out of the denominator is on the
     reviewed list `harness/baseline/PENDING.txt`, gave exactly the exit its
     marker names, and did not meet its expectation (RX-154) -- so one comment

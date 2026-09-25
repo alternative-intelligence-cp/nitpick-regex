@@ -203,6 +203,7 @@ framing that let both be wrong. The framing is the column.
 | `check_constants_named` | **yes** | no bound outside `src/core/limits.npk` |
 | `check_no_division` | **yes** | no `/` or `%` under `src/` — `SAFETY.md` S-25 (RX-132), because a division arms two `failsafe` arms in every importer |
 | `check_accessor_confinement` | **yes** | no `.items[` outside `src/core/vec.npk`, no `.ptr[` outside `src/core/bytes.npk`, **within `src/`** — `SAFETY.md` S-23, **the only bounds check this library has** (RX-136). *Since cycle 0.0.4c `Vec`'s half is the compiler's too — `items` is `hidden`, so `.items` outside `vec.npk` is `NITPICK-TYPE-080` in every module; `Bytes`' half is not, because a sealed `buf` admits a write THROUGH `.ptr` (RX-153). The check stays for both, and for the owning files' own use of their accessors* |
+| `check_vec_elements_own_nothing` | **yes** | every `Vec<…>` under `src/` names an element that owns nothing — no `string`, `buffer`, `Bytes`, `dyn`, `OwnedFd`, `Vec`, `SparseSet`, `List` or `wild`, directly or through a struct or enum declared under `src/` — `SAFETY.md` S-23a (RX-155). The language accepts an owning element and `vec_get` then MOVES it out; this is what makes the restriction a rule. `vec.npk`, the generic definition, is excluded by name, and `tests/` is out of scope because the owning units measure the verbs there |
 | `check_dated_measurements` | **yes** | any live document dating a measurement to "the pin" rather than to a commit — RX-142, built by the cycle 0.0 audit triage after a phrase-level sweep left a class thirteen times its size. **It declared `.yml` and could not reach the one `.yml` in the tree**, because it pruned directories by leading dot and the workflow lives in `.github/`: it now prunes by NAME and reports its denominator PER EXTENSION, so a declared class the walk never opens shows a zero instead of vanishing into a healthy total — RX-145. **And it never walks into another repository**: a directory holding a `.git` entry, or named `.nitpick` (where CI checks the compiler out, inside the workspace), is pruned and named in the check's first note, because CI was red from `ab93eae` on the compiler's own roadmap — RX-147 |
 | `check_specs_current` | **yes**, reports rather than fails | spec citations that no longer resolve |
 | `check_no_syscalls` | **yes**, as a BUILD STEP and not a tree check | the object's undefined symbols, **and the IR's floor call edges**, against the committed baseline — RX-116 and RX-120, §2 |
@@ -213,8 +214,9 @@ framing that let both be wrong. The framing is the column.
 | `check_hir_kinds_total` | no — **cycle 0.2** | the same for `HirKind` |
 | `check_byte_class_partition` | no — **cycle 0.7** | `COMPILE.md` C-9's property, over every corpus program |
 
-**Seven run on every full invocation** — the seven registered in
-`harness/treecheck.py`'s `ALL`, six of which can fail the run.
+**Eight run on every full invocation** — the eight registered in
+`harness/treecheck.py`'s `ALL`, seven of which can fail the run (the eighth,
+`check_vec_elements_own_nothing`, since the third cycle 0.0 audit's triage).
 `check_no_syscalls` is the eighth built one and
 is a build step rather than a tree check, because a failure there invalidates
 what every suite below it means. Take the count from the runner's summary, never

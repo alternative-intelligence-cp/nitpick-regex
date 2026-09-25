@@ -15,7 +15,7 @@ costs a library that compiles and executes patterns.
 |---|---|---|
 | Borrows are second class — they never pass **up** the call stack | D-004, D-070 | **A `Match` cannot be a slice.** It carries byte offsets. §6, `API.md` §2 |
 | A struct holding a borrow cannot be returned | D-004 | sub-views are built by struct literal at the call site, never returned from a helper |
-| Owning values are move-only | TYPE-046 | **a value stored in an array declares no owning field** — instructions, HIR nodes, thread entries are all POD |
+| Owning values are move-only | TYPE-046, D-264 | a copy of an owning PLACE must be spelled `move(...)`, and **nothing keeps an owner out of an array or a `Vec`** — a by-value read of one MOVES it out. So the values this library stores are POD **by design** (C-1, H-2), and `Vec<T>` is for a non-owning `T` (S-23a, RX-155) |
 | Plain integer `+ - *` **traps** on overflow | D-210 | program-size and repetition arithmetic widens explicitly and narrows with `=>!` at a proven point |
 | Indexing **a type that carries a length** is bounds-checked and traps | D-070 | a slice `T[]` and a fixed array `T[N]` trap; **a `wild T->` block does not** — and `Vec<T>.items` is one, so every index in this library is unchecked unless the library checks it. §5.3, RX-111 |
 | `/` and `%` by zero trap | D-007 | no divisor is unproven on its path |
@@ -31,6 +31,14 @@ costs a library that compiles and executes patterns.
 **Read `../../nitpick/meta/specs/` rather than trusting this table.** It is a
 summary of documents that are themselves the summary, and the compiler is
 moving.
+
+*(The move-only row read "a value stored in an array declares no owning field"
+until 2026-09-25, as though the language enforced it, and three sections below
+leaned on that reading. Measured at `950bb1d`, `3d15ac9` and `c3bdae2`: a
+`string[2]` and a fixed array of a struct holding a `string` compile, link and
+run, and at `c3bdae2` so do `Vec<string>` and `Bytes[2]`. What TYPE-046 refuses
+is a COPY of an owning place; where an owner is stored it does not govern. The
+third cycle 0.0 audit's BL-5, RX-155.)*
 
 ---
 
@@ -479,6 +487,17 @@ than a style note:**
   claim about a set, and that set was never enumerated** — it was written while
   five entry points were being fixed and was false about the two nobody had
   looked at.
+  *(Dated 2026-09-25, the third cycle 0.0 audit's N-14 and N-15 — RX-156. The
+  95 this bullet calls a broken heap invariant was the LANGUAGE's code for a
+  double free: the runtime files one under `-4102 HEAP_INTEGRITY`, and the
+  prelude's `Unreachable` is *"the runtime's integrity defects"* (both read at
+  `c3bdae2`). So the guard's 94 is a trade, kept: earlier, this library's own,
+  one identity for every use of a dead `Vec` — and a consumer's `failsafe` can no
+  longer tell a double free from an out-of-range index. And the guard reads the
+  `cap` of the header it is handed, so it reaches the SAME binding only: through
+  a whole-`Vec` copy, a second `vec_free` or `vec_free_owning` exits 95 and a read
+  after the free returns the poison, 170. That is N-15, open against the board's
+  question 9.)*
 - **An unchecked index is a WRONG ANSWER, not a crash.** That inverts the
   failure mode §1 advertises. A wrong program counter in an engine reads an
   unrelated heap word as an instruction; a wrong sparse-set probe adds a thread
@@ -490,6 +509,42 @@ than a style note:**
   the block. Every accessor checks `0 <= i` as well as `i < count`.
 - **`TESTING.md`'s fuzzer invariants gain one**: no accessor is ever called
   with an out-of-range index, asserted in the debug build.
+
+### 5.3a What a `Vec` may hold
+
+**Rule S-23a (RX-155) — `Vec<T>` is for a `T` that owns nothing: one that
+drops nothing and holds no block of its own. Nothing in the language says so;
+this rule does, and `check_vec_elements_own_nothing` enforces it over `src/`.**
+
+The language accepts `Vec<string>`. `TYPE-046` asks for `move` when an owning
+place is copied, `pass` moves implicitly, and D-264 checks each generic body in
+`vec.npk` once with `T` treated as owning — so every verb compiles at every
+`T`. What they then do at an owning `T` was measured by the third cycle 0.0
+audit (BL-5, at `3d15ac9`) and again at `c3bdae2`, one unit per verb:
+
+| verb | at an owning `T` | unit |
+|---|---|---|
+| `vec_push`, `vec_insert`, `vec_pop`, `vec_free_owning` | ownership-correct | `vec_owning_freed`, `vec_owning_insert_moves`, `vec_owning_pop_moves_out` |
+| `vec_get` | **MOVES the element out**: the slot is emptied and still counted, so a second read is empty | `vec_owning_get_moves_out` |
+| `vec_set` | orphans what it overwrites | `vec_owning_set_orphans` |
+| `vec_remove`, `vec_swap_remove` | orphan what they remove | `vec_owning_remove_orphans`, `vec_owning_swap_remove_orphans` |
+| `vec_truncate`, `vec_clear`, `vec_free` | orphan what they discard | `vec_owning_truncate_orphans`, `vec_owning_clear_orphans`, `vec_owning_leak` |
+
+An orphan is invisible to `exit 0` (S-22), so each orphaning unit is required to
+meet `HeapOom` under the managed-half cap, where `vec_owning_freed` — the same
+rounds without the verb — exits 0. At a `T` that owns nothing every verb is
+correct and a move is a copy, and **every `Vec` this specification declares
+already holds one** (C-1, H-2 — group names are offsets into a `Bytes` — and the
+engines' integers), so the rule costs the design nothing. It is enforced because
+it is the only thing standing between a later cycle's `Vec<string>` and a
+`vec_get` that silently empties its container.
+
+*A cycle that needs an owning element lifts S-23a by a decision*, and the
+compiler's own `List<T>` at `c3bdae2` is the shape it would take: removals that
+return the element, discards that drop it, and no by-value get — `l[i]` is a
+bounds-checked place. A scratch `vec.npk` given those discards turns all five
+orphaning units to exit 0, measured; the verbs are not built because nothing
+here needs them.
 
 ---
 
@@ -628,12 +683,19 @@ exit does not notice: `nitpick-time` measured a `Vec<string>` retaining
 
 - **`Program`, `Hir` and every engine's thread list are POD** (C-1, H-2,
   `ENGINES.md` R-6), so for those the block *is* the whole obligation and
-  `exit 0` covers it exactly. This is not luck — it is TYPE-046 forcing the
-  representation, and it is the main practical reason the POD shape is worth
-  its awkwardness.
+  `exit 0` covers it exactly. This is not luck — it is the design, and since
+  2026-09-25 a rule, S-23a — and it is the main practical reason the POD shape is
+  worth its awkwardness. *(This said "it is TYPE-046 forcing the representation"
+  until the third cycle 0.0 audit's triage. Nothing forces it: the language
+  accepts an owning element in an array or a `Vec`, measured at three pins —
+  RX-155.)*
 - **The exceptions are the ones to watch**: `Hir.names`, `Vec<GroupInfo>` if a
   group name is ever an owning `string` rather than an offset into `Bytes`, and
   any future `Vec<string>`. Each must drop its elements before its block goes.
+  *(Since RX-155 none of these may exist in `src/` without a decision lifting
+  S-23a: `Hir.names` is a `Bytes` (H-2), `GroupInfo` holds offsets, and
+  `check_vec_elements_own_nothing` refuses a `Vec` of owners. The sentence
+  stands for the day a decision lifts it.)*
 - **Where the obligation is managed, the gate is a memory cap, not an exit
   code** (`TESTING.md` §7's invariant list is the place it belongs).
 - **A better instrument is coming.** The compiler's `NPK_HEAP_STATS` will make

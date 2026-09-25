@@ -1,0 +1,68 @@
+// expect-exit: 0
+// mem-cap-mib: 64
+//
+// `vec_insert` AT AN OWNING `T` IS OWNERSHIP-CORRECT -- RX-155.
+//
+// One of the four verbs that account for ownership at an owning `T`. Its shift
+// MOVES each element up one slot, from the top, so every slot it writes is
+// either past `count` or already moved from, and no live element is
+// overwritten -- the third cycle-0.0 audit checked that reading and it holds.
+// This file makes the reading a run: each round inserts 64 strings, every one
+// at index 0, so every insert shifts all of the others; `vec_free_owning` then
+// drops them. An orphan anywhere would carry the rounds' bodies past the 64 MiB
+// cap to `HeapOom`, 92; a duplicated owner would be a double free the
+// allocator stops, 95. Correct, it ends 0.
+//
+// And ORDER, because a shift can keep ownership straight and still put an
+// element in the wrong place. Element `k` is 1 025 + `k` bytes, and after 64
+// inserts at the front the last element is the first one inserted, so the
+// first two pops -- `vec_pop` is ownership-correct
+// (`vec_owning_pop_moves_out.npk`) -- must be 1 025 and 1 026 bytes: exit 41 or 42
+// if they are not.
+mod:vec_owning_insert_moves;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    string:filler = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+
+    int64:round = 0i64;
+    while (round < 2500i64) decreases 2500i64 - round {
+        Vec<string>:v = raw vec_init::<string>(4i64);
+        string:acc = "";
+        int64:k = 0i64;
+        while (k < 64i64) decreases 64i64 - k {
+            acc = string_concat(acc, "y");
+            string:e = string_concat(filler, acc);      // 1 025 + k bytes
+            drop vec_insert(@v, 0i64, move(e));
+            k = k + 1i64;
+        }
+        if (round == 0i64) {
+            string:p0 = raw vec_pop(@v);
+            if (string_byte_length(p0) != 1025i64) { exit 41i32; }
+            string:p1 = raw vec_pop(@v);
+            if (string_byte_length(p1) != 1026i64) { exit 42i32; }
+        }
+        drop vec_free_owning(@v);
+        round = round + 1i64;
+    }
+
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault) { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated) { exit 109i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

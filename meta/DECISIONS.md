@@ -246,6 +246,9 @@ the compiler and handled by every engine and by the oracle. An `InstKind` an
 engine does not handle is a wrong answer waiting for the pattern that emits it.
 
 ### RX-031 — the program is a flat POD array with no owning field
+> **SUPERSEDED IN PART by RX-155 (2026-09-25)** — its clause that a pointer
+> graph "is also refused by TYPE-046 the moment any node owns a string". Nothing
+> refuses an owning node; the POD program is this library's design, and stands.
 **2026-09-03.** A `Program` is therefore copyable, comparable and dumpable,
 which is what makes a compiled program a committed fixture and a compiler
 change a visible diff rather than behaviour nobody can inspect. The alternative
@@ -530,6 +533,9 @@ toolchain `950bb1d` under LLVM 20.1.2. Where a probe refuted the plan's
 hypothesis, the decision says so.*
 
 ### RX-110 — the leak gate says what it covers, everywhere it is stated
+> **SUPERSEDED IN PART by RX-155 (2026-09-25)** — its parenthesis "TYPE-046
+> forces it" of the POD structures. Nothing forces it; `SAFETY.md` S-23a now
+> requires it of anything a `Vec` holds. The decision stands.
 **2026-09-03, settling the workbench's tenth author question for this
 repository.** *(That question is `../BOARD.md`'s, not this repository's; the
 author ruled that the unfalsifiable leak gate is corrected in each repository
@@ -1202,6 +1208,8 @@ the re-pin from `950bb1d`, and three of the four decisions below exist because
 the compiler moved under measurements this repository had already recorded.*
 
 ### RX-123 — the leak gate's correction reached the prose and stopped at the checklists
+> **SUPERSEDED IN PART by RX-155 (2026-09-25)** — its citation of TYPE-046 as
+> why `Inst` is POD. `Inst` is POD because C-1 declares it so. The decision stands.
 
 **2026-09-04.** RX-110 corrected six sites that stated *"the suite's programs
 exit 0, so a missing `free` on any path is a trap rather than a pass"*, which is
@@ -1297,6 +1305,10 @@ to `npkg` is a change of runner and not of suite — the name stays and the
 divergence is written down here and in the runner).
 
 ### RX-125 — O-N10 is DISCHARGED on this repository's own measurement, and the probe that announced it was built to
+> **SUPERSEDED IN PART by RX-155 (2026-09-25)** — its statement that "TYPE-046
+> forbids an owning field in a value stored in an array", given as H-2's primary
+> reason. It forbids a COPY of an owner; H-2 stands on its own words — a POD
+> arena is copyable, comparable and a committable fixture. The decision stands.
 
 **2026-09-04, at the re-pin from `950bb1d` to `94874ce`.** Workbench registry
 **O-N10** had two halves and both are fixed:
@@ -2485,6 +2497,9 @@ RX-123 makes, and the single definition is what made this a one-line fix);
 that an error channel here lands on the search path).
 
 ### RX-144 — the FREE paths stopped on the allocator's check and reported `Unreachable`, so "`cap <= 0` traps `OutOfBounds` like every other misuse in this file" was not true of two of them
+> **SUPERSEDED IN PART by RX-156 (2026-09-25)** — its reading that 95 reported
+> the wrong thing: `Unreachable` is the language's code for a double free. The
+> guard and its 94 stand, as a trade RX-156 states.
 
 **2026-09-06, from the second cycle 0.0 audit (N-11).** RX-139 put a `cap <= 0`
 guard on the three GROWTH paths — `vec_reserve`, `vec_push`, `vec_insert` — and
@@ -3144,3 +3159,145 @@ commit against the compiler's history — a dependency on another repository's
 checkout for a label a human reads; a committed total of judged units (above);
 the pending exit written in the list only — the marker is what a reader of the
 unit sees, so it must say which failure it excuses.
+
+### RX-155 — `Vec<T>` is for a `T` that owns nothing, because nothing in the language keeps an owner out; the restriction is stated per verb, measured per verb, and enforced over `src/`
+
+**2026-09-25, the third audit's BL-5.** It supersedes in part RX-031, RX-110,
+RX-123 and RX-125 — each one's clause crediting `TYPE-046` with refusing,
+forcing or forbidding an owning element in an array — and none of their
+decisions, which stand on their other reasons.
+
+**The false belief, and what the compiler does instead.** Four sites said a copy
+of an owning element out of a `Vec` is "refused, TYPE-046" — `vec.npk`'s
+`vec_get` comment, `vec_pop`'s "for `vec_get`'s reason", `0.0.4.md`'s Rule, and
+`vec_unit.npk`, which cited the refusal as its reason not to read an element
+back. `TYPE-046` is D-183's move-required diagnostic: a copy of an owning PLACE
+must be spelled `move(...)`. `pass` moves implicitly, and D-264 checks a generic
+body once with `T` treated as owning, so a body that compiles at any `T`
+compiles at every `T` and nothing is refused. Re-measured at `c3bdae2`:
+`Vec<string>`, one push, `vec_get` twice — the second read is empty and `count`
+is still 1, **exit 70**; the same at `int64`, **81**; both at −O0 and through
+`opt -O2`.
+
+**Its extent is wider than the four sites**, because the belief underneath is
+that the LANGUAGE keeps a stored value POD. Measured: a `string[2]` and a fixed
+array of a struct holding a `string` compile, link and run at `950bb1d`,
+`3d15ac9` and `c3bdae2` (exits 42 and 43 at all three); at `c3bdae2` so do a
+`Vec` of that struct (41) and `Bytes[2]` (41). Swept with `git grep -n -i
+'TYPE-046'` and a second phrasing (`owning field|forces it|forcing the|cannot be
+stored|live in an array`): the live sites crediting the language are
+`SAFETY.md` §1's move-only row and S-22's *"it is TYPE-046 forcing the
+representation"*, `VERIFICATION.md` §3's *"so no program is aliased"*,
+`CLAUDE.md`'s compiler-constraints bullet, the comments in `vec.npk` (four),
+`sparseset.npk`, `bytes.npk`, `core.npk` and `hir.npk`, two units and two probe
+headers — each corrected with a dated note. The candidates that are TRUE were
+left: a binding-to-binding copy of an owner IS refused (`probe01`, `probe02`,
+`probe03`), and `vec_fill<T>`'s refusal is real. So is a second false reason in
+the same file: `vec_free_owning` was said to be separate from `vec_free` because
+*"a `move` out of an element is refused for a `T` that does not own"* — but
+`vec_free_owning::<int64>` compiles and runs at `3d15ac9` and `c3bdae2`, since a
+`move` of a scalar is its copy. The two stay apart for cost: O(1) against
+O(`count`).
+
+**What each verb does at an owning `T`**, measured at `c3bdae2` with the
+runtime's `NPK_HEAP_STATS` — 1 000 rounds, two 257-byte strings per round,
+`vec_free_owning` at the end of each — and identical at −O0 and `opt -O2`:
+
+| verb exercised mid-round | `peak_live` | |
+|---|---|---|
+| none — the control | 610 | flat |
+| `vec_pop`, bound and dropped | 610 | correct |
+| `vec_insert` of a third string | 867 | correct (three per round, all dropped) |
+| `vec_get`, bound and dropped | 610 | "correct" only because it MOVED the element out |
+| `vec_set` over a live element | 257 610 | the overwritten element orphaned, every round |
+| `vec_remove`, `vec_swap_remove` | 257 353 | the removed element orphaned |
+| `vec_truncate(0)`, `vec_clear` | 514 096 | both elements orphaned |
+
+**The decision — `SAFETY.md` S-23a.** `Vec<T>` is for a `T` that drops nothing
+and holds no block of its own. At such a `T` every verb is correct and a move is
+a copy, and every `Vec` the specification declares already holds one — `Inst`,
+`ByteSet`, `uint8` (C-1), `HirNode`, `ClassRange`, `Literal`, `GroupInfo` (H-2,
+whose group names are offsets into a `Bytes`), and the engines' integers — so
+the rule costs the design nothing. It is **stated at every verb** in `vec.npk`,
+with a per-verb table in its header; **measured by one unit per verb** at
+`Vec<string>`, each seen to fail against a planted `vec.npk` first —
+`vec_owning_get_moves_out` (the second read empty, exit 0; planted: 22), five
+orphaning units required to meet `HeapOom` under the managed-half cap (planted
+with the compiler's `List<T>` discards: all five exit 0), and
+`vec_owning_pop_moves_out` and `vec_owning_insert_moves`, ownership-correct at
+0 under the same cap and checking order as well (planted orphans: 92; planted
+misorders: 31, 41); and **enforced over `src/`** by
+`check_vec_elements_own_nothing`, which refuses a `Vec<…>` whose element names
+an owning type, directly or through a struct or enum declared under `src/`.
+`tests/` is out of its scope because the units above instantiate `Vec<string>`
+on purpose.
+
+**The removing verb the audit offered is declined, and its shape is recorded.**
+The audit's remedy (ii) was to rename `vec_get` to say it removes, or to restrict
+it and add the removing verb the API lacks. Restricted, the removing verb has
+nothing to remove. The day a cycle needs an owning element it lifts S-23a by a
+decision, and the compiler's own `List<T>` at `c3bdae2` is the shape:
+`list_remove` and `list_swap_remove` return the element, `list_truncate` and
+`list_clear` drop what they discard, and there is no by-value get — `l[i]` is a
+bounds-checked place. A scratch `vec.npk` given those discards was measured
+turning the five orphaning units from 92 to 0, so the shape is known to work
+here.
+
+*Alternatives declined:* **making every verb ownership-correct now** — `vec_get`
+still could not be (a by-value read of an owner is a move or a clone, and a
+`Clone` bound puts a `Result` on the read), so the restriction would still be
+needed for it, and `vec_truncate`/`vec_clear` would turn O(`count`) for every
+POD caller to serve an owning caller that does not exist; **a marker-trait bound**
+(`vec_get<T: Pod>`) — it would refuse `vec_get::<string>` at compile time, but
+every element type would need an impl whose claim nothing verifies, and it is a
+public API change for a rule a tree check enforces over the code that ships;
+**renaming `vec_get`** — it is a plain read at every `T` this library may use;
+**documentation alone** — the audit's (iii), done, and not enough: a rule a
+later cycle can break by writing one `Vec<string>` is a rule that asks for care.
+
+### RX-156 — a double free traps `OutOfBounds` at this library's guard, which is a TRADE against the language's own code; and the guard reaches one binding
+
+**2026-09-25, the third audit's N-14 and N-15.** It supersedes RX-144 in part —
+its reading that the free paths' 95 "reported a broken heap invariant where
+what happened is that a freed container was used", i.e. reported the wrong
+thing. The decision — the `cap <= 0` guard heads `vec_free` and
+`vec_free_owning`, and a dead `Vec` stops with `OutOfBounds` — stands.
+
+**Read at `c3bdae2` with `git show`, not from a document.** `runtime/npkrt.ll`'s
+trap table: `-4099 OUT_OF_BOUNDS` is *"a slice/array index past the end"*;
+`-4102 HEAP_INTEGRITY` is *"double-free, foreign/misaligned/null pointer to
+dalloc/ralloc, corrupted header or torn guard, or a UAF caught by a freed slot's
+magic"*. The prelude: `OutOfBounds = 4099i32`, and `Unreachable = 4102i32`,
+*"`#unreachable()` reached, and the runtime's integrity defects"*. So 95 was the
+language's own code for a double free, reported from the allocator's check:
+**right thing, wrong place** — where `vec_push`'s and `vec_insert`'s 91 was the
+wrong thing.
+
+**94 is kept, and the rationale now says what it trades.** Kept: the stop is
+earlier, it is this library's, it names the value, and every use of a dead
+`Vec` — growth paths since RX-139, free paths since RX-144 — stops with one
+identity; and the guard is what keeps `vec_free_owning` from running destructors
+over a freed block, which is RX-144's stronger reason and unaffected. Traded: a
+consumer's `failsafe` can no longer tell a double free from an out-of-range
+index in this library's containers. Stated in `vec.npk`'s header where RX-144's
+paragraph is.
+
+**N-15 — the guard reads the `cap` of the header it is handed, so it reaches the
+same binding only.** A whole-`Vec` copy keeps the old `cap`. Measured at
+`c3bdae2`, −O0 and `opt -O2`: `Vec<int64>:w = v;` then `vec_free(@v)` and
+`vec_free(@w)` — **95**; the same at `Vec<string>` through `vec_free_owning`,
+which walks the freed block first — **95**; and `vec_get(w, 0)` after
+`vec_free(@v)` reads the free poison — **170**. The unqualified sentence is
+qualified in place. **The finding is OPEN**, tracked to the board's question 9
+and RX-153: making `Vec` move-only by construction closes all three, and the
+alternative — accept and document it as the `wild` regime's behaviour — is the
+author's to choose. The one place this library's specification copies a `Vec` is
+`ENGINES.md` R-8's per-thread capture slots, cycle 0.8, and the spelling correct
+under either answer is an element-wise copy into a fresh `Vec`.
+
+*Alternatives declined:* **trapping `Unreachable` at the guard** (`#unreachable()`)
+so the identity matches the language's — it would split the dead-`Vec` stop into
+94 for growth and 95 for free, and change an identity every consumer's
+`failsafe` sees, for a distinction no consumer can act on; **removing the guard
+and letting `dalloc` answer** — it would reopen `vec_free_owning`'s walk over a
+freed block.

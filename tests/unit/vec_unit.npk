@@ -193,8 +193,11 @@ func:main = int32(cstring[]:_~argv) {
     drop vec_push(@s, "beta");
     drop vec_push(@s, "gamma");                          // forces the doubling
     if (s.count != 3i64)                                { exit 130i32; }
-    // `vec_get` is scalar-only by construction -- a copy of an owning element
-    // is TYPE-046 -- so the assertion here is on the container's own state.
+    // The assertion here is on the container's own state, and not on an
+    // element read back: `vec_get` at an owning `T` MOVES the element out, which
+    // `vec_owning_get_moves_out.npk` measures. This comment said until the third
+    // cycle-0.0 audit (BL-5) that such a copy "is TYPE-046" -- refused -- and
+    // declined to read for that reason; nothing refuses it (RX-155).
     if (s.cap < 3i64)                                   { exit 131i32; }
     // DROPS EVERY ELEMENT, then the block. `vec_free` would release the block
     // and orphan three string bodies, and this program would still exit 0.
