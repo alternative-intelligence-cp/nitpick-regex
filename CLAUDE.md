@@ -24,7 +24,7 @@ owning element type, which `SAFETY.md` S-23a keeps out of `src/`, and seven pinn
 copied `Vec` or `SparseSet` header aliases (N-15, deferred to 0.0.4d — RX-160). **No matching happens yet**: `src/syntax/`,
 `src/hir/`, `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are
 still one placeholder module each. A full green run at compiler `c3bdae2` is
-**174 units** (after the cycle 0.0 close's third audit triage), plus eight tree checks; take those numbers from the runner's
+**194 units** (after the cycle 0.0 close's fourth audit triage; 174 after the third), plus eight tree checks; take those numbers from the runner's
 summary rather than from here. **Nothing is PENDING any more**:
 `tests/unit/bytes_copy_string_empty.npk` was committed red under
 `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at

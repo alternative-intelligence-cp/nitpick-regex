@@ -52,7 +52,7 @@ cycle 0.0.
 
 | Cycle | Topic | Gated on |
 |---|---|---|
-| **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **NOT CLOSED. Its close was REFUSED by the [cycle 0.0 audit](0.0/0.0.5.md) on 2026-09-06 and the archive move was reversed** | — |
+| **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **NOT CLOSED. Its close was REFUSED by the [cycle 0.0 audit](0.0/0.0.5.md) on 2026-09-06 and the archive move was reversed; refused again three times since, the fourth on 2026-09-25. Next: 0.0.4d, `Vec` move-only by the author's decision, then a fifth audit** | — |
 | **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors | 0.0 |
 | **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction | 0.1 |
 | **0.3** | **Unicode** — generated tables, properties, scripts, simple case folding | 0.0 |
@@ -97,6 +97,12 @@ cycle 0.0.
 > §10**: seven findings, seven lines, six fixed and one open against the board's
 > question 9. It reports `READY-TO-CLOSE`, not closed: the tree it leaves has not
 > been seen by an audit, which the cycle's gate requires.
+>
+> **The fourth audit refused that tree too, the same day, and the author answered
+> question 9.** Its triage is [`0.0/0.0.5.md`](0.0/0.0.5.md) §11: 8 findings, 8
+> lines, RX-157 … RX-160. **`Vec` becomes move-only by construction as subcycle
+> 0.0.4d, BEFORE cycle 0.0 closes** — so the next act is 0.0.4d's plan, and the
+> fifth audit sees both.
 
 **What it has produced so far**, against what this section planned: **25** probes
 rather than fourteen (five questions split into a positive and a negative half
@@ -117,6 +123,11 @@ RX-153.)*
 owning-element units, one per `Vec` verb, and the parse sweep's eight more files
 — `src/core/` with **44** unit programs, **eight** tree checks, a self-check of
 **15** cases, 11 live, and decisions through RX-156.)*
+*(After the close's fourth audit triage, the same compiler: **194** units — seven
+alias units pinning N-15's reach, a same-shape control, a `Bytes` copy refused,
+probe 15, and the parse sweep's ten more files — **28** probes, `src/core/` with
+**52** unit programs, a self-check of **19** cases, 15 live, and decisions through
+RX-160.)*
 
 **Two probes refuted their own hypothesis**, which is the cycle's best return:
 `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler

@@ -1,4 +1,23 @@
-# Cycle 0.0 — Foundations — **NOT CLOSED. The close was refused THREE times, all on 2026-09-06; the fourth attempt, 2026-09-25, awaits a fourth audit.**
+# Cycle 0.0 — Foundations — **NOT CLOSED. The close was refused FOUR times — three on 2026-09-06, the fourth on 2026-09-25 — and it waits on 0.0.4d, the author's decision, and then a fifth audit.**
+
+> ## The FOURTH refusal, and the author's answer that came with it
+>
+> **[`../../audits/nitpick-regex-0.0-2026-09-25-fourth.md`](../../audits/nitpick-regex-0.0-2026-09-25-fourth.md)
+> returned DO NOT ACCEPT on two blocking findings, and both were about the last
+> triage rather than the code.** BL-7: the fix for BL-6 left a second way out
+> of the count — a `use` inside a SIBLING's `/* */` took a red unit out of a
+> GREEN run, `173/173`, exit 0 — which that triage had declared closed by the
+> language. BL-8: N-15 had been deferred on a premise that was false three ways
+> (a copyable `Program` at 0.6, the thread sets' swap at 0.7.0, the capture copy
+> at 0.7.2), and its reach was wider — a `SparseSet` copy reports a member absent
+> with no trap. **The triage is [`0.0.5.md`](0.0.5.md) §11 — 8 findings, 8 lines**:
+> one reading of source for the whole harness and no program ever skipped
+> (RX-157), a default-deny S-23a check (RX-158), a pending unit held on every leg
+> and both lists' second directions tested (RX-159), N-15's premise and reach
+> corrected and pinned by seven units (RX-160). **The author answered the
+> board's question 9 the same day: `Vec` becomes MOVE-ONLY BY CONSTRUCTION, as
+> subcycle 0.0.4d, BEFORE THIS CYCLE CLOSES.** So the close is not re-attempted
+> next: 0.0.4d is planned and worked first, and the audit that follows sees both.
 
 > ## Resumed 2026-09-25 at compiler `c3bdae2` — and the adoption comes first
 >
@@ -139,6 +158,7 @@ settled. **Nothing in this cycle is blocked on a question.**
 | [0.0.4](0.0.4.md) | **`src/core/`** — `Vec<T>`, `Bytes`, `ByteSet`, `SparseSet`, `limits.npk` | four primitives with their own suites and their obligations written |
 | [0.0.4b](0.0.4b.md) | **The adoption to compiler `c3bdae2`** — every loop's clause, the new arms, the floor re-recorded, the probes the pin changed, CI's nested-repository walk, CI moved to the pin | every file compiles, links, runs and meets its header at `c3bdae2`, and CI is green there |
 | [0.0.4c](0.0.4c.md) | **The access properties** — `Vec`, `Bytes` and `SparseSet` sealed, `items` hidden, `ListLen` on the counts | a consumer cannot write a count or read `items`, and a count driven negative traps where it goes wrong |
+| 0.0.4d | **`Vec` move-only by construction** — the author's decision on the board's question 9, 2026-09-25 (RX-160). **Not yet planned**: a planner writes `0.0.4d.md` after 0.0.5's fourth triage | every `tests/unit/*_alias_*` shape refused `NITPICK-TYPE-046` and turned into a rejection fixture, and `sparseset_alias_swap` still running |
 | [0.0.5](0.0.5.md) | **Close** — the findings, the spec amendments the probes forced, the handoff to 0.1 | the audit triage discharged, `done/0.0/`, and 0.1 openable by a fresh session |
 
 ## Checklist
@@ -445,6 +465,12 @@ settled. **Nothing in this cycle is blocked on a question.**
       RX-154 (the marker names its exit; `harness/baseline/PENDING.txt` checked both ways; three
       self-check cases), N-14 as a stated trade (RX-156), N-16 at thirty files rather than nine,
       N-17 by `0.0.4b.md`'s commit 0. **174/174**, GREEN; CI run `36173453512` green on `62a3404`
+- [x] **added by the FOURTH audit triage, at compiler `c3bdae2`:** every one of the fourth audit's
+      findings carries a line — **8 items, 8 lines**: BL-7, N-18, N-19, N-20, N-22 and N-23 FIXED;
+      BL-8 FIXED as a correction of the premise and the reach, with **N-15 DEFERRED TO 0.0.4d,
+      before the close, by the author's decision on question 9**; N-21 a compiler defect, not
+      worked around, carried into `0.1.0.md` — `0.0.5.md` §11. RX-157 … RX-160; self-check cases
+      15–18; seven alias units, one control, one rejection fixture, probe 15. **194/194**, GREEN
 
 ## Gate
 
@@ -460,6 +486,12 @@ a use-after-free in `src/core/`. **A gate written as a list of green things is a
 gate a green run satisfies**, which is no gate at all against a suite that
 declines to make the read that would go red. The audit is the clause that is not
 satisfiable by passing.
+
+**AND, SINCE 2026-09-25, 0.0.4d LANDED FIRST.** The author decided on the board's
+question 9 that `Vec` becomes move-only by construction before this cycle
+closes, so N-15 is not a deferral past the close: the audit that accepts the
+close must have seen 0.0.4d's tree, in which every `tests/unit/*_alias_*` shape
+is refused (RX-160).
 
 ## Watch for
 
