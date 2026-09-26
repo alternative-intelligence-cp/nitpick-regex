@@ -425,14 +425,22 @@ settled. **Nothing in this cycle is blocked on a question.**
       **DONE** — local `158/158 unit(s) passed`, GREEN; CI run `36165858757` green on `971ac43`, read from its log.
 
 ### 0.0.4d — `Vec` move-only by construction (inserted 2026-09-25)
-- [ ] the marker `hidden string[0]:move_only` in `Vec`, filled `[]` by both constructors; `#size_of<Vec<int64>>()` still 24; every module's bill unchanged (10/10/10/10/6/11/6/6/6)
-- [ ] the five copy units moved to `tests/rejection/`, each refused `NITPICK-TYPE-046` once at a measured position; `sparseset_alias_swap` spelled with `move(...)`, exit 0; `vec_moves` exit 0
-- [ ] both controls recorded: the six new fixtures compile cleanly against the tree before 0.0.4d, and the five copies compile cleanly again with an `int64[0]` marker
-- [ ] the loan pinned, not worked around: `vec_alias_param_free` unchanged in behaviour, `vec_alias_param_grow` 95, `sparseset_alias_param_free` 0, `bytes_alias_param_grow` 95, probe 17 exit 70; probe 16 exit 24, probe 16b `NITPICK-TYPE-046`; the defect raised as the workbench registry's O-N21 (numbered before execution; planned as "by path")
-- [ ] `Bytes.buf` hidden, `bytes_capacity`, the nine test lines, `bytes_buf_ptr_write` refused `NITPICK-TYPE-080`
-- [ ] A′ replaces P-1 by a numbered decision, rule P-1b; Q-6 struck with its number
-- [ ] PD-8 … PD-11 recorded in order; RX-160 and RX-153 marked `SUPERSEDED IN PART`
-- [ ] every sweep in step 7 re-run with its denominator; `210/210` GREEN at `c3bdae2`; `check_refs` clean before and after staging; CI green, read from its log
+- [x] the marker `hidden string[0]:move_only` in `Vec`, filled `[]` by both constructors; `#size_of<Vec<int64>>()` still 24; every module's bill unchanged (10/10/10/10/6/11/6/6/6)  
+      **DONE** — `8a1c4da`, RX-161; `sizes` 152 at step 0 and at step 6 (24 bytes a `Vec<int64>`, 56 a `SparseSet`); the nine bills byte-identical before and after (`diff`, exit 0).
+- [x] the five copy units moved to `tests/rejection/`, each refused `NITPICK-TYPE-046` once at a measured position; `sparseset_alias_swap` spelled with `move(...)`, exit 0; `vec_moves` exit 0  
+      **DONE** — `git mv` under their names; one `NITPICK-TYPE-046` each at 28:5, 25:5, 32:5, 27:5 and 30:5, pinned by measurement; the swap (three moves of locals, and a thousand flips of two fields through a pointer) and `vec_moves` run 0 at −O0 and through `opt -O2`.
+- [x] both controls recorded: the six new fixtures compile cleanly against the tree before 0.0.4d, and the five copies compile cleanly again with an `int64[0]` marker  
+      **DONE** — control A: six FAIL (*"compiled cleanly"*) and eight ok, its clone shown to carry neither change; control B: five FAIL and nine ok, its substitution counted (1 and 0); control C: `DIFF` twice.
+- [x] the loan pinned, not worked around: `vec_alias_param_free` unchanged in behaviour, `vec_alias_param_grow` 95, `sparseset_alias_param_free` 0, `bytes_alias_param_grow` 95, probe 17 exit 70; probe 16 exit 24, probe 16b `NITPICK-TYPE-046`; the defect raised as the workbench registry's O-N21 (numbered before execution; planned as "by path")  
+      **DONE** — the five exits as listed, at −O0 and through `opt -O2`, and the same five in control A; §6.1's legs re-run: 70, 95 returned normally, 95 through `@`, a whole lent `string` surviving. O-N21 is the compiler's DEF-102, refused `NITPICK-TYPE-085` from its 1.6.0 step 3g — UNLANDED at `c3bdae2` and at the compiler's `395308f` (the orchestrator's update, after the work commit; `git grep`, read-only).
+- [x] `Bytes.buf` hidden, `bytes_capacity`, the nine test lines, `bytes_buf_ptr_write` refused `NITPICK-TYPE-080`  
+      **DONE** — RX-163; `bytes_capacity` exported from `core.npk`; the nine code lines read it; `bytes_buf_ptr_write` one `NITPICK-TYPE-080` at 24:6, and clean against the tree before (control A).
+- [x] A′ replaces P-1 by a numbered decision, rule P-1b; Q-6 struck with its number  
+      **DONE** — RX-164, `VERIFICATION.md` rule P-1b, and P-1 marked as replaced; the question struck with RX-164 and kept below its heading; no clause in `src/` changed.
+- [x] PD-8 … PD-11 recorded in order; RX-160 and RX-153 marked `SUPERSEDED IN PART`  
+      **DONE** — RX-161 … RX-164, in order, each with its alternatives declined; the two markers sit on RX-153 and RX-160.
+- [x] every sweep in step 7 re-run with its denominator; `210/210` GREEN at `c3bdae2`; `check_refs` clean before and after staging; CI green, read from its log  
+      **DONE** — the seven sweeps' per-file movement matched the plan's table, 63 rows of 63; `210/210` GREEN at `c3bdae2` (85.3 s before, 87.1 s at the commit); `check_refs` clean before and after staging (211, then 219 files); CI run `36204367914` green on `8a1c4da`, read from its job's log.
 
 ### 0.0.5 — close
 - [x] every probe verdict reconciled against the specifications
