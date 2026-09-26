@@ -1,0 +1,37 @@
+// expect-error: NITPICK-TYPE-046
+// expect-error-at: 22:5
+//
+// PROBE 16b -- A COPY OF A STRUCT WHOSE ONLY OWNING FIELD IS A ZERO-LENGTH ARRAY
+// IS REFUSED, like the copy of any owner (TYPE-046, D-183). The refused twin of
+// `../probe16_zero_length_owner.npk`, measured at compiler `c3bdae2` by cycle
+// 0.0.4d's planning: `SAFETY.md` S-23b's marker rests on it (RX-161).
+//
+// It asserts the half probe 16 cannot: that the marker makes its struct OWNING
+// as the compiler's move rule sees it, not merely that it compiles. The day this
+// compiles cleanly, `Vec` is copyable again -- and `../../rejection/`'s five copy
+// fixtures redden with it.
+mod:probe16b_zero_length_owner_copy;
+
+struct:Marked = {
+    int64:a;
+    string[0]:move_only;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    Marked:m = Marked{ a: 4i64, move_only: [] };
+    Marked:n = m;
+    exit (n.a =>! int32);
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault)   { exit 107i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

@@ -1,0 +1,55 @@
+// expect-error: NITPICK-TYPE-046
+// expect-error-at: 32:5
+//
+// A STRUCT HOLDING A `Vec` IS MOVE-ONLY WITH IT, SO ITS COPY IS REFUSED -- since
+// cycle 0.0.4d (RX-161, `SAFETY.md` S-23b). N-15's reach, the fourth cycle-0.0
+// audit's BL-8, closed for a copy.
+//
+// WHAT IT PINS. `Prog` is `COMPILE.md` C-1's `Program` in miniature: a `Vec` and
+// a scalar. Until 0.0.4d `Prog:q = p;` compiled and copied the `Vec`'s header
+// with it, so after `p`'s block was freed, `q`'s read was the `0xAA` poison --
+// exit 0 at -O0 and through `opt -O2`, measured at `c3bdae2` (RX-160), when this
+// file was `tests/unit/vec_alias_struct_copy.npk`. A struct owns when a field
+// does, and `Vec` owns by construction now, so the copy is NITPICK-TYPE-046.
+// The parser's state and cycle 0.6's `Program` are this shape: they are MOVED,
+// and a copy of their contents is written element by element.
+//
+// A TEST OF THE MARKER, NOT OF THIS FILE: it compiles cleanly against the tree
+// before 0.0.4d and with a marker whose element owns nothing (`0.0.4d.md` step
+// 5). `../unit/vec_moves.npk` moves this struct and runs.
+mod:vec_alias_struct_copy;
+
+use "../../src/core/vec.npk".*;
+
+struct:Prog = {
+    Vec<int64>:insts;
+    int32:start;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    Prog:p = Prog{ insts: raw vec_init::<int64>(4i64), start: 0i32 };
+    drop vec_push(@p.insts, 7i64);
+    Prog:q = p;
+    drop vec_free(@p.insts);
+    int64:x = raw vec_get(q.insts, 0i64);
+    if (x == 7i64) { exit 21i32; }
+    if ((x & 255i64) != 170i64) { exit 22i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

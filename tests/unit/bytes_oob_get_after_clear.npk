@@ -37,7 +37,7 @@ func:main = int32(cstring[]:argv) {
     drop bytes_clear(@b);
     if ((raw bytes_len(@b)) != 0i64)         { exit 31i32; }
     // The capacity is retained, so the byte is physically still there.
-    if (b.buf.len < 4i64)                    { exit 32i32; }
+    if ((raw bytes_capacity(@b)) < 4i64)     { exit 32i32; }
 
     discard(raw bytes_get(@b, three));
 

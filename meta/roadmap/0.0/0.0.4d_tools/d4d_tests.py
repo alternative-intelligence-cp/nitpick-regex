@@ -170,7 +170,7 @@ PARAM_FREE_HEADER = """// expect-exit: 0
 // callee to it: `@v` is allowed and so is every write through it. For an owning
 // FIELD it drops the caller's value on the write
 // (`../probe/probe17_lent_field_drop.npk`, no library code). A compiler defect,
-// raised by path and not worked around. The day loans are held read-only this
+// raised as O-N21 and not worked around. The day loans are held read-only this
 // file stops compiling and moves to `../rejection/`, like its four siblings
 // there; the growth half is `vec_alias_param_grow.npk`.
 """
@@ -266,7 +266,7 @@ NEW["tests/unit/vec_alias_param_grow.npk"] = """// expect-exit: 95
 // 95 comes first.
 //
 // No type closes it, because a loan is not a copy. A compiler defect -- the
-// loan is not held read-only -- raised by path and not worked around. Any exit
+// loan is not held read-only -- raised as O-N21 and not worked around. Any exit
 // but 95 means the loan changed: read the compiler's ruling before editing this
 // file, which then moves to `../rejection/` if the change is a refusal.
 mod:vec_alias_param_grow;
@@ -308,7 +308,7 @@ NEW["tests/unit/sparseset_alias_param_free.npk"] = """// expect-exit: 0
 // -O0 and through `opt -O2`, measured at `c3bdae2` with the marker and without
 // it; 21 would be the member found, 22 a count other than one.
 //
-// No type closes it. A compiler defect, raised by path; the day loans are held
+// No type closes it. A compiler defect, raised as O-N21; the day loans are held
 // read-only this file stops compiling and moves to `../rejection/`.
 mod:sparseset_alias_param_free;
 
@@ -347,7 +347,7 @@ NEW["tests/unit/bytes_alias_param_grow.npk"] = """// expect-exit: 95
 // at -O0 and through `opt -O2`, measured at `c3bdae2`. The same mechanism with
 // no library code is `../probe/probe17_lent_field_drop.npk`.
 //
-// A compiler defect, raised by path and not worked around; every `Bytes`
+// A compiler defect, raised as O-N21 and not worked around; every `Bytes`
 // function takes `Bytes->`. Any exit but 95 means the loan changed (21: the
 // caller's byte survived): read the compiler's ruling before editing this file.
 mod:bytes_alias_param_grow;
@@ -564,7 +564,7 @@ NEW["tests/probe/probe17_lent_field_drop.npk"] = """// expect-exit: 70
 //
 // PROBE 17 -- OVERWRITING AN OWNING FIELD OF A LENT PARAMETER FREES THE
 // CALLER'S VALUE. A compiler defect, found at compiler `c3bdae2` by cycle
-// 0.0.4d's planning and raised by path (RX-162); no library code, no `wild`,
+// 0.0.4d's planning and raised as O-N21 (RX-162); no library code, no `wild`,
 // and no pointer cast anywhere in the program.
 //
 // WHAT THE LANGUAGE SAYS. An ordinary parameter is LENT: "passing transfers

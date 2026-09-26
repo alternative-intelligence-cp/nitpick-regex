@@ -1,0 +1,48 @@
+// expect-error: NITPICK-TYPE-046
+// expect-error-at: 25:5
+//
+// A READ THROUGH A `Vec` COPY CANNOT HAPPEN, BECAUSE THE COPY IS REFUSED --
+// `Vec` IS MOVE-ONLY BY CONSTRUCTION SINCE CYCLE 0.0.4d (RX-161, `SAFETY.md`
+// S-23b). N-15, the fourth cycle-0.0 audit's BL-8, closed for a copy.
+//
+// WHAT IT PINS. Until 0.0.4d `Vec<int64>:w = v;` compiled, and after
+// `vec_free(@v)` the copy still said `count == 1`, so `vec_get(w, 0)` passed
+// both of its checks and read the reclaimed block -- the `0xAA` free poison, no
+// trap, no diagnostic: exit 0 at -O0 and through `opt -O2`, measured at
+// `c3bdae2` (RX-160), when this file was `tests/unit/vec_alias_read_after_free.npk`.
+// Now the copy is NITPICK-TYPE-046 and the read below is never compiled.
+//
+// A TEST OF THE MARKER, NOT OF THIS FILE: it compiles cleanly against the tree
+// before 0.0.4d and with a marker whose element owns nothing (`0.0.4d.md` step
+// 5). The positive twin is `../unit/vec_moves.npk`.
+mod:vec_alias_read_after_free;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Vec<int64>:v = raw vec_init::<int64>(4i64);
+    drop vec_push(@v, 7i64);
+    Vec<int64>:w = v;
+    drop vec_free(@v);
+    int64:x = raw vec_get(w, 0i64);
+    if (x == 7i64) { exit 21i32; }
+    if ((x & 255i64) != 170i64) { exit 22i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

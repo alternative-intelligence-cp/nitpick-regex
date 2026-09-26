@@ -1,5 +1,18 @@
 # Cycle 0.0 — Foundations — **NOT CLOSED. The close was refused FOUR times — three on 2026-09-06, the fourth on 2026-09-25 — and it waits on 0.0.4d, the author's decision, and then a fifth audit.**
 
+> ## 0.0.4d landed — `Vec` is move-only, and a loan is not a copy
+>
+> **[`0.0.4d.md`](0.0.4d.md), 2026-09-25.** The author's answer to the board's
+> question 9 is in the tree: a hidden zero-length array of an owning type makes
+> every `Vec` — and so every `SparseSet`, and every struct holding one — an owner,
+> and the five COPY shapes the fourth audit measured are refused
+> `NITPICK-TYPE-046` in `tests/rejection/` (RX-161). `Bytes.buf` is `hidden`
+> (RX-163), and A′ replaces `VERIFICATION.md` P-1 (RX-164). **The sixth shape is
+> not a copy**: a by-value parameter is a LOAN, a callee can still free or grow
+> its caller's block through it, and for an owning field the compiler drops the
+> caller's value — a compiler defect, pinned by four units and probe 17 and raised
+> (RX-162). The gate below says what that leaves for the close.
+
 > ## The FOURTH refusal, and the author's answer that came with it
 >
 > **[`../../audits/nitpick-regex-0.0-2026-09-25-fourth.md`](../../audits/nitpick-regex-0.0-2026-09-25-fourth.md)
@@ -415,7 +428,7 @@ settled. **Nothing in this cycle is blocked on a question.**
 - [ ] the marker `hidden string[0]:move_only` in `Vec`, filled `[]` by both constructors; `#size_of<Vec<int64>>()` still 24; every module's bill unchanged (10/10/10/10/6/11/6/6/6)
 - [ ] the five copy units moved to `tests/rejection/`, each refused `NITPICK-TYPE-046` once at a measured position; `sparseset_alias_swap` spelled with `move(...)`, exit 0; `vec_moves` exit 0
 - [ ] both controls recorded: the six new fixtures compile cleanly against the tree before 0.0.4d, and the five copies compile cleanly again with an `int64[0]` marker
-- [ ] the loan pinned, not worked around: `vec_alias_param_free` unchanged in behaviour, `vec_alias_param_grow` 95, `sparseset_alias_param_free` 0, `bytes_alias_param_grow` 95, probe 17 exit 70; probe 16 exit 24, probe 16b `NITPICK-TYPE-046`; the defect raised by path
+- [ ] the loan pinned, not worked around: `vec_alias_param_free` unchanged in behaviour, `vec_alias_param_grow` 95, `sparseset_alias_param_free` 0, `bytes_alias_param_grow` 95, probe 17 exit 70; probe 16 exit 24, probe 16b `NITPICK-TYPE-046`; the defect raised as the workbench registry's O-N21 (numbered before execution; planned as "by path")
 - [ ] `Bytes.buf` hidden, `bytes_capacity`, the nine test lines, `bytes_buf_ptr_write` refused `NITPICK-TYPE-080`
 - [ ] A′ replaces P-1 by a numbered decision, rule P-1b; Q-6 struck with its number
 - [ ] PD-8 … PD-11 recorded in order; RX-160 and RX-153 marked `SUPERSEDED IN PART`
@@ -502,6 +515,16 @@ question 9 that `Vec` becomes move-only by construction before this cycle
 closes, so N-15 is not a deferral past the close: the audit that accepts the
 close must have seen 0.0.4d's tree, in which every `tests/unit/*_alias_*` shape
 is refused (RX-160).
+
+*(2026-09-25, cycle 0.0.4d — RX-161, RX-162. "Every `*_alias_*` shape is refused"
+was written before the shapes were measured against a move-only `Vec`, and it
+counted the swap, which must run. Measured at `c3bdae2`: the five COPY shapes are
+refused and live in `tests/rejection/`; the swap runs, spelled with `move(...)`;
+and the shape through a BY-VALUE parameter is a LOAN, which no type refuses — it,
+three more loan units and probe 17 pin a compiler defect that was raised. So the
+clause is met for copies. For loans it is the author's call whether the close
+waits for the compiler's fix and a re-pin, or proceeds with the loan open against
+the defect (W-27) — asked at 0.0.4d's planning.)*
 
 ## Watch for
 

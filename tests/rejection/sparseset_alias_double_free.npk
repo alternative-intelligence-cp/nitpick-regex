@@ -1,0 +1,48 @@
+// expect-error: NITPICK-TYPE-046
+// expect-error-at: 27:5
+//
+// A WHOLE-`SparseSet` COPY IS REFUSED: ITS TWO `Vec`s MAKE IT MOVE-ONLY SINCE
+// CYCLE 0.0.4d (RX-161, `SAFETY.md` S-23b). N-15's reach, the fourth cycle-0.0
+// audit's BL-8, closed for a copy.
+//
+// WHAT IT PINS. Until 0.0.4d `SparseSet:t = s;` compiled and copied `dense` and
+// `sparse` -- two `Vec` headers -- and `count`; `sset_free(@s)` freed both
+// blocks through `s`, `t`'s headers still said `cap == 8`, and `sset_free(@t)`
+// reached `dalloc` with reclaimed blocks: 95 at -O0 and through `opt -O2`,
+// measured at `c3bdae2` (RX-160), when this file was
+// `tests/unit/sparseset_alias_double_free.npk`. Now the copy is
+// NITPICK-TYPE-046. The Pike VM's per-byte swap MOVES instead
+// (`../unit/sparseset_alias_swap.npk`).
+//
+// A TEST OF THE MARKER, NOT OF THIS FILE: it compiles cleanly against the tree
+// before 0.0.4d and with a marker whose element owns nothing (`0.0.4d.md` step
+// 5).
+mod:sparseset_alias_double_free;
+
+use "../../src/core/sparseset.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    SparseSet:s = raw sset_init(8i64);
+    drop sset_insert(@s, 3i64);
+    SparseSet:t = s;
+    drop sset_free(@s);
+    drop sset_free(@t);
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

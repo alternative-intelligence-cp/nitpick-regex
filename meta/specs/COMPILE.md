@@ -46,6 +46,14 @@ CONSTRUCTION at 0.0.4d, before cycle 0.0 closes; a struct holding one is then
 move-only too, and a copy of a `Program` is written element by element into fresh
 `Vec`s. Cycle 0.6 builds `Program` against whatever 0.0.4d lands.)*
 
+*(Resolved 2026-09-25, cycle 0.0.4d — RX-161: `Vec` is move-only by construction,
+so a `Program` is too, by containment. It is MOVED (`Program:q = move(p);`), lent
+by value to a reader, and passed by pointer to anything that changes it; a binding
+copy is `NITPICK-TYPE-046` (`../../tests/rejection/vec_alias_struct_copy.npk`).
+"Copyable" keeps the meaning the flag above gives it — the CONTENT, copied element
+by element into fresh `Vec`s (`../../tests/unit/vec_moves.npk`), and compared and
+dumped the same way.)*
+
 ---
 
 ## 2. UTF-8 range compilation

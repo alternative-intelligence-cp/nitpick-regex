@@ -1,39 +1,70 @@
 // expect-exit: 0
 //
-// THE SWAP `ENGINES.md` R-5 NEEDS, THROUGH A TEMPORARY, EACH BLOCK FREED ONCE
-// -- HARMLESS TODAY, AND THE CONTROL FOR 0.0.4d.
+// THE SWAP `ENGINES.md` R-5 NEEDS, SPELLED WITH MOVES -- THE CONTROL THAT A
+// MOVE-ONLY `Vec` LEFT THE ENGINES WRITABLE (RX-161).
 //
-// Not a defect: the positive twin of the alias units beside it. The Pike VM
-// swaps its current and next thread sets every haystack byte (R-5, subcycle
-// 0.7.0). Through a temporary that is three whole-`SparseSet` copies, and the
-// temporary is left aliasing one block -- but it is never used or freed, so
-// each block is freed exactly once and the answer is right: **0** (21 or 22:
-// the swap did not swap).
+// The Pike VM swaps its current and next thread sets every haystack byte (R-5,
+// subcycle 0.7.0). Until cycle 0.0.4d this file spelled it through a temporary
+// as three whole-`SparseSet` copies -- harmless only because the temporary's
+// alias was never used or freed (0 at `c3bdae2`, RX-160). Since 0.0.4d a
+// `SparseSet` is move-only and that spelling is NITPICK-TYPE-046 three times,
+// so it is written as the language now requires, in the two shapes an engine
+// can use:
 //
-// WHY IT IS COMMITTED. Under the author's decision on question 9 (2026-09-25),
-// `Vec` becomes MOVE-ONLY at 0.0.4d, before cycle 0.0 closes, and this spelling
-// then stops compiling. 0.0.4d rewrites it with `move(...)`, and it must still
-// exit 0: a move-only `Vec` that made the engines' swap unwritable would be a
-// design the next cycles could not use. The alias units are what 0.0.4d must
-// REFUSE; this is what it must still ALLOW.
+//   1. three locals: `tmp = move(cur); cur = move(nxt); nxt = move(tmp);`
+//   2. two FIELDS of a struct reached through a pointer -- the `Cache` shape
+//      (`ENGINES.md` R-10) -- flipped a thousand times, with a clear and an
+//      insert before each flip.
 //
-// Measured at `c3bdae2`: 0 at -O0 and through `opt -O2` (RX-160).
+// Each block is freed exactly once, at the end, so `exit 0` also says no `wild`
+// block leaked. 21-23: shape 1 answered a membership wrongly; 24: shape 2 found
+// a member missing after a flip.
 mod:sparseset_alias_swap;
 
 use "../../src/core/sparseset.npk".*;
+
+struct:Cache = {
+    SparseSet:cur;
+    SparseSet:nxt;
+};
+
+func:flip = NIL(Cache->:c) never fails {
+    SparseSet:t = move(c.cur);
+    c.cur = move(c.nxt);
+    c.nxt = move(t);
+    pass NIL;
+};
+
+func:flips = int64(int64:n) never fails {
+    Cache:c = Cache{ cur: raw sset_init(16i64), nxt: raw sset_init(16i64) };
+    int64:i = 0i64;
+    int64:found = 0i64;
+    while (i < n) decreases n - i {
+        drop sset_clear(@c.nxt);
+        drop sset_insert(@c.nxt, i & 15i64);
+        drop flip(@c);
+        if (raw sset_contains(@c.cur, i & 15i64)) { found = found + 1i64; }
+        i = i + 1i64;
+    }
+    drop sset_free(@c.cur);
+    drop sset_free(@c.nxt);
+    pass found;
+};
 
 func:main = int32(cstring[]:_~argv) {
     SparseSet:cur = raw sset_init(8i64);
     SparseSet:nxt = raw sset_init(8i64);
     drop sset_insert(@cur, 1i64);
     drop sset_insert(@nxt, 5i64);
-    SparseSet:tmp = cur;
-    cur = nxt;
-    nxt = tmp;
+    SparseSet:tmp = move(cur);
+    cur = move(nxt);
+    nxt = move(tmp);
     if (!(raw sset_contains(@cur, 5i64))) { exit 21i32; }
     if (!(raw sset_contains(@nxt, 1i64))) { exit 22i32; }
+    if (raw sset_contains(@cur, 1i64)) { exit 23i32; }
     drop sset_free(@cur);
     drop sset_free(@nxt);
+    if ((raw flips(1000i64)) != 1000i64) { exit 24i32; }
     exit 0i32;
 };
 

@@ -54,6 +54,11 @@
 //   4. **THE ELEMENT OWNS NOTHING** (`SAFETY.md` S-23a, RX-155). `Vec<T>` is for
 //      a non-owning `T`, and NOTHING IN THE LANGUAGE SAYS SO -- the section
 //      "WHAT A `Vec` MAY HOLD" below has the verbs, one by one.
+//   5. **A `Vec` IS MOVE-ONLY, AND THE COMPILER SAYS SO** (`SAFETY.md` S-23b,
+//      RX-161, since cycle 0.0.4d). A copy of one -- or of any struct holding
+//      one -- is NITPICK-TYPE-046. A BY-VALUE PARAMETER IS NOT A COPY, IT IS A
+//      LOAN, and it still reaches the block: the section "MOVE-ONLY, AND WHAT A
+//      LOAN STILL REACHES" below says how far (RX-162).
 //
 // ============================================================================
 // WHAT A VIOLATION DOES, AND WHY IT IS A TRAP (RX-130)
@@ -74,6 +79,10 @@
 // new arm: uncommenting the clause WOULD change the behaviour, by changing the
 // trap's identity. So the obligations below stay comments, by
 // `meta/OPEN_QUESTIONS.md` Q-6, which carries this cost -- RX-152.)*
+// *(Dated 2026-09-25, cycle 0.0.4d: Q-6 is answered -- A′, RX-164,
+// `VERIFICATION.md` P-1b. An obligation stays a comment unless a numbered
+// decision accepts the arm its live clause adds to every consumer, and none is
+// taken here, so this stop keeps its identity, 94.)*
 //
 // The trap is spelled by indexing a one-element fixed array out of range —
 // `int64[1]`, which DOES carry a length — so it is the language's own
@@ -168,6 +177,44 @@
 // today's behaviour and are what 0.0.4d turns into rejection fixtures.)*
 //
 // ============================================================================
+// MOVE-ONLY, AND WHAT A LOAN STILL REACHES (S-23b; RX-161, RX-162)
+// ============================================================================
+//
+// **SINCE CYCLE 0.0.4d A `Vec` CANNOT BE COPIED.** The struct's last field is
+// `hidden string[0]:move_only` -- a fixed array of NO strings. It holds nothing
+// and occupies nothing (`#size_of<Vec<int64>>()` is 24, as it was), and because
+// its element type owns, the compiler's layout walk marks every `Vec<T>` as
+// owning (`type_drops`, D-183) -- and an owning type is move-only. So
+// `Vec<int64>:w = v;` is NITPICK-TYPE-046, and so is a copy of anything that
+// holds a `Vec`: `SparseSet:t = s;`, `COMPILE.md` C-1's `Program`, the parser's
+// state. A transfer is `move(v)`, which invalidates `v` (D-065). The three
+// shapes the fourth cycle-0.0 audit measured through a copy -- a double free
+// (95), a read of the free poison, a `SparseSet` member reading ABSENT -- no
+// longer compile (`tests/rejection/vec_alias_*.npk`, `sparseset_alias_*.npk`).
+// Measured at `c3bdae2`: the drop the compiler now generates for a `Vec` walks
+// the empty array and frees NOTHING -- the block stays `wild`, freed only by
+// `vec_free`, and a `Vec` never freed still traps `WildLeak` at `exit 0` -- and
+// no consumer's `failsafe` bill moves. A marker whose element owns nothing,
+// `int64[0]`, changes nothing at all: the element's ownership is the mechanism.
+//
+// **A BY-VALUE PARAMETER IS A LOAN, NOT A COPY, AND IT STILL REACHES THE
+// BLOCK.** An ordinary parameter is one the callee may read and may not keep
+// (the compiler's D-065 and D-183): a move-only `Vec` is passed to one WITHOUT
+// `move`, and `move(v)` inside the callee is NITPICK-TYPE-047. `vec_get` below
+// is such a reader and keeps its signature. But the callee may take its own
+// parameter's address, `@v`, and free or grow through it, and the caller's
+// header then names a block the callee released: a read of the free poison, a
+// double free (95), a `SparseSet` member ABSENT with no trap
+// (`tests/unit/vec_alias_param_*.npk`, `sparseset_alias_param_free.npk`). For
+// an owning FIELD the compiler goes further: overwriting one through a lent
+// parameter DROPS THE CALLER'S VALUE -- a double free with no `wild` block in
+// the program (`tests/probe/probe17_lent_field_drop.npk`), which is how a lent
+// `Bytes` grown by its callee dies (`bytes_alias_param_grow.npk`). No type here
+// can refuse a loan. That is a compiler defect, raised and not worked around
+// (RX-162); until it is fixed, a callee that must change a `Vec` takes
+// `Vec<T>->`, as every function below does.
+//
+// ============================================================================
 // LIFETIME, AND WHAT `exit 0` PROVES ABOUT IT (P-20, S-22)
 // ============================================================================
 //
@@ -250,10 +297,17 @@ mod:vec;
 // its `Vec` by value and is harmless only because it never frees -- so the
 // author's answer, MOVE-ONLY BY CONSTRUCTION at 0.0.4d before cycle 0.0
 // closes, changes its signature and every by-value read in `src/core/`.)*
+// *(Dated 2026-09-25, cycle 0.0.4d -- RX-161, RX-162. The copy is closed by the
+// last field below; the header's "MOVE-ONLY, AND WHAT A LOAN STILL REACHES"
+// says how. The last clause above is FALSE, measured at `c3bdae2`: a by-value
+// parameter is a LOAN, which compiles for an owning type without `move`, so
+// `vec_get` and every by-value read in `src/core/` are unchanged. What a loan
+// reaches is not closed by any type, and the header says whose it is.)*
 pub struct:Vec<T> = {
     hidden wild T->:items;                 // WILD, DELIBERATELY. See the header.
     sealed limit<ListLen> int64:count;     // elements in use
     sealed limit<ListLen> int64:cap;       // elements the block can hold
+    hidden string[0]:move_only;            // ZERO BYTES, HOLDS NOTHING -- AND MAKES `Vec` MOVE-ONLY (RX-161)
 };
 
 // ---- the trap --------------------------------------------------------------
@@ -300,8 +354,9 @@ pub struct:Vec<T> = {
 // one definition meant one line to fix, and nine broken call sites needed no
 // edit at all.**
 //
-// obligation, in the syntax it takes since the compiler's 1.5.3 (a comment by
-// `meta/OPEN_QUESTIONS.md` Q-6 until it is answered):
+// obligation, in the syntax it takes since the compiler's 1.5.3 (a comment,
+// by A′ -- `VERIFICATION.md` P-1b, RX-164, the answer to
+// `meta/OPEN_QUESTIONS.md` Q-6):
 //     never fails ensures false
 // — it is `never fails` and it carries a contract, which is legal since the
 // compiler's D-241 retired D-163 rule 2's row (RX-127). This library's own
@@ -310,7 +365,7 @@ pub struct:Vec<T> = {
 // stated obligation while the body returned for `i == 0`, so the contract was
 // false at the one value that mattered and no instrument in this repository
 // could see it — the clause was a comment the compiler would have refused,
-// and at `c3bdae2`, where it would be live, it is a comment by Q-6.**
+// and at `c3bdae2`, where it would be live, it is a comment by A′ (RX-164).**
 //
 // GUARDED BY `vec_oob_selfcheck.npk`, which asserts the stop for
 // k ∈ {−1, 0, 1} and is the one unit that would have caught this. Twelve
@@ -341,7 +396,7 @@ pub func:vec_init<T> = Vec<T>(int64:cap) never fails {
     // the right answer and no invented bound is needed. `alloc` itself traps on
     // OOM rather than returning null.
     wild int8->:mem = alloc(n * #size_of<T>());
-    pass Vec{ items: mem =>! wild T->, count: 0i64, cap: n };
+    pass Vec{ items: mem =>! wild T->, count: 0i64, cap: n, move_only: [] };
 };
 
 // obligation: never fails ensures v.cap == 0i64
@@ -404,6 +459,15 @@ pub func:vec_reserve<T> = NIL(Vec<T>->:v, int64:need) never fails {
 // supplies one. The compiler's own `List<T>` has no by-value get at all -- `l[i]`
 // is a bounds-checked place -- and that is the shape a cycle lifting S-23a
 // would take (RX-155).
+//
+// ITS `Vec` IS A LOAN, NOT A COPY (the compiler's D-065 and D-183: an ordinary
+// parameter is one the callee may read and may not keep). Since cycle 0.0.4d
+// `Vec` is move-only, and a loan still needs no `move` -- which is what lets a
+// consumer read a sealed field, `vec_get(s.sparse, k)`, without taking the
+// address D-313 counts as a write. The fourth cycle-0.0 audit expected
+// move-only to change this signature; measured at `c3bdae2`, it does not
+// (RX-162). Nothing here writes through `v`, which is the whole of what makes a
+// loan safe while the compiler does not hold a callee to it.
 pub func:vec_get<T> = T(Vec<T>:v, int64:i) never fails {
     if (i < 0i64)        { drop vec_oob(i); }
     if (i >= v.count)    { drop vec_oob(i); }
@@ -597,7 +661,7 @@ pub func:vec_init_zeroed<T> = Vec<T>(int64:n) never fails {
     int64:k = n;
     if (k < 1i64) { k = 1i64; }
     wild int8->:mem = calloc(k, #size_of<T>());
-    pass Vec{ items: mem =>! wild T->, count: n, cap: k };
+    pass Vec{ items: mem =>! wild T->, count: n, cap: k, move_only: [] };
 };
 
 // ---- the managed half ------------------------------------------------------

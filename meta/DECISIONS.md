@@ -2970,6 +2970,8 @@ delete `probe13a` because P-1's question is moot — declined: P-5, and the file
 now guards the day a plain build starts checking `prove`.
 
 ### RX-153 — `Vec`, `Bytes` and `SparseSet` carry the compiler's field qualifiers, and the containers' four counts are limited by the prelude's `ListLen`
+> **SUPERSEDED IN PART by RX-163 (2026-09-25)** — `Bytes.buf` among the `sealed` fields: it is `hidden`, and the
+> capacity is read through `bytes_capacity`. Every other qualifier, and `ListLen` on the counts, stands.
 
 **2026-09-25, cycle 0.0.4c (the plan's PD-7).** `Vec.items` is `hidden`;
 `Vec.count`, `Vec.cap`, `Bytes.buf`, `Bytes.len`, `SparseSet.dense`,
@@ -3516,6 +3518,11 @@ lists would redden the self-check at re-pins for reasons not their own;
 guard costs one case.
 
 ### RX-160 — N-15's premise was false and its reach was wider; the author has decided it: `Vec` becomes MOVE-ONLY BY CONSTRUCTION at 0.0.4d, before cycle 0.0 closes
+> **SUPERSEDED IN PART by RX-161 and RX-162 (2026-09-25)** — its hand-off's count, *"seven units that must STOP
+> COMPILING"* and the swap beside them (the tree held seven `*_alias_*` units in all: six defect shapes and the
+> swap), and its consequence that move-only *"changes `vec_get`'s signature and every by-value read in
+> `src/core/`"* — measured false. Five of the six stop compiling; the sixth is a loan. The corrections and the
+> reach stand.
 
 **2026-09-25, the fourth cycle 0.0 audit's BL-8, and the author's answer to the
 board's question 9, the same day.** It supersedes RX-156 in part — its statement
@@ -3575,3 +3582,170 @@ deliverable, which is why it lands before the close and not after.
 *Not decided here:* the shape of move-only — an owning field behind `items`, a
 marker the compiler treats as owning, or another — which is 0.0.4d's plan's to
 measure and choose.
+
+---
+
+## `Vec` move-only by construction — cycle 0.0.4d
+
+*Appended 2026-09-25 by stream 1, working `meta/roadmap/0.0/0.0.4d.md` at pinned
+toolchain `c3bdae2` under LLVM 20.1.2. Drafted at planning as PD-8 … PD-11; every
+number below was measured at `c3bdae2`, at −O0 and through `opt -O2`.*
+
+### RX-161 — `Vec` is MOVE-ONLY BY CONSTRUCTION: a hidden zero-length array of an owning type makes the compiler treat it as an owner, and the five COPY shapes stop compiling
+
+**2026-09-25, cycle 0.0.4d (the plan's PD-8) — the author's decision on the board's
+question 9 (2026-09-25 15:45), whose shape RX-160 left to this plan.** It supersedes
+RX-160 in part: its count — *"seven units that must STOP COMPILING"* and the
+swap beside them, eight, where the tree held seven `*_alias_*` units in all, six
+defect shapes and one control — and, with RX-162, its consequence for
+`vec_get`.
+
+**The shape.** `struct:Vec<T>` ends in `hidden string[0]:move_only`, filled with
+`[]` (the compiler's D-139, the zero array) by `vec_init` and `vec_init_zeroed`.
+`type_drops_recorded` answers an array by its element whatever the length, and
+layout marks a struct owning when any field is (D-183) — so `Vec<T>` owns at
+every `T`, and an owner is move-only (TYPE-046). `SparseSet`, and any struct
+holding a `Vec`, owns by containment. **It costs nothing measurable:**
+`#size_of<Vec<int64>>()` stays 24 and `SparseSet` 56; the generated drop walks no
+elements and frees nothing, so the block stays `wild`, `vec_free` is still its
+release, and a `Vec` never freed still traps `WildLeak` at `exit 0` (96); no
+module's `failsafe` bill moves (10, 10, 10, 10, 6, 11, 6, 6, 6).
+
+**Measured.** The five copy shapes — `vec_alias_double_free`,
+`vec_alias_read_after_free`, `vec_alias_struct_copy`,
+`sparseset_alias_double_free`, `sparseset_alias_read_after_free` — are each
+refused `NITPICK-TYPE-046`, exactly once, and move to `tests/rejection/`.
+`sparseset_alias_swap`, spelled with `move(...)` as three locals and as two
+fields of a struct through a pointer flipped a thousand times, runs 0.
+`vec_moves` — a whole-`Vec` move, a struct holding one moved, loans, and
+`ENGINES.md` R-8's element-by-element copy — runs 0. **Two controls, each a case
+the wrong implementation gets wrong:** against the tree before this decision the
+five fixtures compile cleanly; and with the marker's element made `int64`, which
+owns nothing, they compile cleanly again — the ELEMENT's ownership is the
+mechanism, not the zero-length array. `probe16` and `probe16b` record the
+language fact the marker rests on, so a compiler that changes it is named by a
+probe before five fixtures fail at once.
+
+*Alternatives declined, each measured at `c3bdae2`:* **a `string` marker**
+(`hidden string:move_only`, filled `""`, whose drop frees nothing) — identical
+verdicts on every file, and `Vec` 48 bytes, `SparseSet` 104; it is the fallback
+if a later compiler refuses a zero-length array or stops counting its element,
+which probe 16 would show first; **a `buffer` marker** (`buffer_new(0i64)`) —
+identical verdicts, 48 bytes, and a runtime call in every constructor:
+`npk_buffer_new` joins the undefined symbols of every `Vec` program; **a
+`string?` marker** (`NIL`) — identical, 56 bytes; **an `OwnedFd` marker** —
+4 bytes, and its drop is a `close`, a syscall path under every `Vec` in a library
+whose rule is no syscalls (RX-008); **the block itself in a managed `buffer`**,
+an owning field behind `items` — move-only too, but the drop would free the
+block, `vec_free` would be redundant, D-151's gate would stop covering `Vec`
+(S-22), every element access would be cast off a `uint8->` with `=>!`, and a loan
+would still reach it (RX-162): a redesign of this cycle's deliverable; **the
+prelude's `List<T>` as the backing store** — owning and move-only by D-247, and
+declined on 2026-09-19 when the container question was answered (keep our `Vec`,
+give it the properties) on the cost of rewriting every call site in two
+libraries; **a language marker for move-only** — there is none at `c3bdae2`
+(only a field's type makes a struct own); **a harness check refusing a `Vec`
+copy in `src/`** — a house rule where the compiler can refuse, blind to every
+consumer; **accept and document** — the author declined it on question 9.
+
+### RX-162 — a by-value parameter is a LOAN, not a copy: `vec_get` keeps its signature, and what a loan still reaches is a compiler defect, pinned and raised, not worked around
+
+**2026-09-25, cycle 0.0.4d (the plan's PD-9).** It supersedes
+RX-160 in part — its placing of `vec_alias_param_free` among the shapes that
+*"must STOP COMPILING"*, and its consequence that move-only changes `vec_get`'s
+signature and every by-value read in `src/core/`.
+
+**Measured.** An ordinary parameter is LENT — the compiler's D-065 and D-183,
+*"passing transfers nothing"* — and `move` of one is `NITPICK-TYPE-047`. So a
+move-only `Vec`, `SparseSet` or `Bytes` passes to a by-value parameter without
+`move`, and (1) `vec_get<T>(Vec<T>:v, i)` and every by-value read in
+`src/core/` compile unchanged: the fourth audit's expectation was false. (2) The
+loan is still a second handle, because the callee may take its own parameter's
+address and write through it: `vec_alias_param_free` still compiles and the
+caller reads the free poison (0); a callee's growth leaves the caller's own
+`vec_free` a double free the guard cannot see (`vec_alias_param_grow`, 95); a
+callee's `sset_free` makes the caller read a member ABSENT while `sset_len` says
+1 (`sparseset_alias_param_free`, 0) — each the same with the marker and without.
+(3) For an owning FIELD the compiler drops the caller's value on the write —
+`probe17_lent_field_drop`, no library code, reads the poison (70; returned
+normally instead, the caller's drop is a double free, 95) — which is how a
+`Bytes`, move-only all along, dies when lent to a callee that grows it
+(`bytes_alias_param_grow`, 95). The controls: the same write on a `move`
+parameter and on a local run clean. The mechanism, read at `c3bdae2`: D-186's
+unconditional field drop reasons that *"the struct's owner is exactly who is
+overwriting it"* (`src/backend/ir/ir_stmt.npk`), and a lent parameter's callee
+is not its owner.
+
+**The decision.** `vec_get` keeps `Vec<T>:v`: a loan is the language's read-only
+convention, it lets a consumer read a sealed field without taking the address
+D-313 counts as a write, and nothing in `vec_get` writes through `v`. The four
+loan units and probe 17 pin today's behaviour — PINNED, NOT ENDORSED — and each
+says what to do when it reddens. The defect is raised as the workbench registry's O-N21, and nothing in
+`src/` works around it: every function that changes a container already takes
+it by pointer. **The cycle 0.0 gate's "every alias shape refused" is met for the
+five COPY shapes and cannot be met at `c3bdae2` for a loan**; whether the close
+waits for the compiler's fix is the author's, asked at 0.0.4d's planning.
+
+*Alternatives declined:* **`vec_get` by pointer** (`Vec<T>->`) — a consumer's
+`vec_get(@s.sparse, k)` is then `NITPICK-TYPE-079`, since a sealed field's address
+is a write, so `SparseSet` would need new accessors, and it would close nothing:
+a consumer's own by-value parameter is still a loan; **consuming verbs** — a
+`vec_free(move Vec<T>:v)` and growth paths that take and return the `Vec`, which
+would make a callee's free and growth through a loan `TYPE-047` — reshaping the
+whole API around a compiler defect (W-11), at a copy in and out on every call in
+the Pike VM's inner loop, and not reaching (3), which needs no library verb;
+**documentation alone** — the loan units are the documentation that runs.
+
+### RX-163 — `Bytes.buf` is `hidden`, and the capacity is read through `bytes_capacity`
+
+**2026-09-25, cycle 0.0.4d (the plan's PD-10) — the author's answer to question 9
+let it ride with this subcycle where judged cheaper, and it is.** It supersedes
+RX-153 in part: `buf` among the `sealed` fields. RX-153's other qualifiers,
+and `ListLen` on the counts, stand.
+
+A sealed field admits a write THROUGH its pointer: a consumer's
+`b.buf.ptr[0i64] = 65u8;` compiled and ran at `c3bdae2`, and `bytes_get` then read
+65. `hidden` refuses the member access itself (D-314):
+`tests/rejection/bytes_buf_ptr_write.npk`, `NITPICK-TYPE-080`, which compiles
+cleanly against the tree before this decision. The capacity the tests read as
+`b.buf.len` — **nine** code lines in three files at `acaf99c` (cycle 0.0.4c
+counted eight, before its own `sealed_reads.npk` added the ninth; the author's
+answer carried the eight) — is `bytes_capacity(@b)`. Nothing in `src/` outside
+`bytes.npk` reads `buf`. S-23's `Bytes` half is the compiler's for a consumer, as
+`Vec`'s has been since 0.0.4c, and `check_accessor_confinement` stays for the
+owning files.
+
+*Alternatives declined:* **its own subcycle after the close** (the board's first
+recommendation) — nine test lines and one accessor, beside the prose sweep this
+subcycle runs anyway, and `nitpick-time` ports both at once; **`buf` sealed, as
+0.0.4c left it** — a consumer corrupts the body with no diagnostic, the argument
+that made `items` hidden.
+
+### RX-164 — A′ replaces `VERIFICATION.md` P-1: an obligation is a comment unless a numbered decision accepts the arm its live clause costs every consumer; `prove` stays a comment until the verified build
+
+**2026-09-25, cycle 0.0.4d (the plan's PD-11) — the author's answer to Q-6,
+2026-09-25 15:56: *"the recommendation on q-6 seems fine to me."*** It replaces
+`VERIFICATION.md` P-1 with rule P-1b, and Q-6 is struck with this number.
+
+P-1's argument — every construct it names refuses, so a premature clause is a
+build failure — is false at `c3bdae2` (RX-152): `requires`, `ensures`,
+`invariant` and `limit` are live and each adds one identity to every consumer's
+`failsafe` (`probe13c`, `probe13d`, `probe13f`), and `prove` is accepted and
+lowers to nothing in a plain build (`probe13a_prove_unchecked`). **The rule, P-1b:**
+a `requires`, `ensures`, `invariant` or `limit` is written live only where a
+numbered decision says the check earns the identity it adds to every consumer —
+the containers' `ListLen` (S-24a, RX-153) is the one today; every other
+obligation stays a comment in the syntax it would take, is evidence of nothing,
+and is stood in for by a property test; `prove` stays a comment until the
+harness runs the verified build (cycle 0.8), because a plain build drops it; and
+`decreases`/`unbounded` are the language's and always live (D-304). Nothing in
+`src/` changes: the obligation comments are what A′ keeps, and RX-130's trap
+identity stands — a live `requires` on `vec_get` would trap 116 where the stop
+traps 94 (`roadmap/0.0/0.0.4b.md` §10).
+
+*Alternatives declined (Q-6's own list):* **A, live now** — every `core` consumer
+owes `RequiresViolated` and `EnsuresViolated`, and the accessors' stop changes
+identity, so RX-130 would need a successor; **B, every obligation a comment until
+0.8, `assert_static` included** — nothing checks a comment; **C, everything live,
+`prove` included** — a plain build lowers `prove` to nothing, the silent no-op P-1
+was written against.

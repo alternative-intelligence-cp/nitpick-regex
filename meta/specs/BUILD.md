@@ -488,6 +488,11 @@ who may touch them: `Vec.items` is `hidden`, every other field is `sealed`, and
 the four counts carry the prelude's `ListLen` — `SAFETY.md` S-24a and S-23.
 `ByteSet` needs neither: it is a fixed array, so D-070's guard is emitted for it.*
 
+*Since cycle 0.0.4d (RX-161, RX-163) `Vec` carries a fourth field,
+`hidden string[0]:move_only` — zero bytes, and it makes `Vec`, and everything
+holding one, move-only (`SAFETY.md` S-23b) — and `Bytes.buf` is `hidden`, its
+capacity read through `bytes_capacity`.*
+
 **Rule B-11b (RX-138) — a primitive that HANDS BYTES OUT returns an owned copy,
 and the test is `BUILTIN_REFERENCE.md` §1's `Views` column rather than the return
 type.** `bytes_copy_string` allocates: it is `string_concat("", view)`, one

@@ -11,7 +11,8 @@
 // is the other half: every read a consumer is entitled to make, from outside
 // all three declaring modules, compiled, run and checked against the value it
 // must have. `sealed` refuses a write and admits a read (the compiler's D-313);
-// only `items` is `hidden` (D-314), and it is not read here.
+// `items` and, since cycle 0.0.4d, `buf` are `hidden` (D-314; RX-163) -- the
+// capacity is read through `bytes_capacity` -- and neither is read here.
 //
 // `vec_get(s.sparse, k)` is the sanctioned shape for `SparseSet`'s arrays: a
 // read BY VALUE. Their address is a write form and is refused
@@ -36,7 +37,7 @@ func:main = int32(cstring[]:_~argv) {
     Bytes:b = raw bytes_init(4i64);
     drop bytes_push(@b, 65u8);
     if (b.len != 1i64)                           { exit 13i32; }
-    if (b.buf.len != 4i64)                       { exit 14i32; }
+    if ((raw bytes_capacity(@b)) != 4i64)        { exit 14i32; }
 
     SparseSet:s = raw sset_init(8i64);
     drop sset_insert(@s, 5i64);

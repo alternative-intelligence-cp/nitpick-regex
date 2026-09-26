@@ -1,0 +1,81 @@
+// expect-exit: 24
+//
+// PROBE 16 -- A ZERO-LENGTH ARRAY OF AN OWNING TYPE IS A FIELD THAT HOLDS
+// NOTHING, OCCUPIES NOTHING, AND MAKES ITS STRUCT MOVE-ONLY. Measured at
+// compiler `c3bdae2` by cycle 0.0.4d's planning; `SAFETY.md` S-23b rests on it
+// (RX-161), and `src/core/vec.npk`'s `move_only` field is this shape.
+//
+// WHY THE LANGUAGE DOES IT. `type_drops_recorded` (`src/frontend/types.npk`,
+// read at `c3bdae2` with `git show`) answers an ARRAY by its element, whatever
+// the length, and layout marks a struct owning when any field is
+// (`type_layout.npk`, D-183) -- and an owning type is move-only (TYPE-046). The
+// array's size is its element's times zero. The empty literal `[]` is D-139's
+// zero array. The compiler's own checker says `int32[0]:a = [];` "is fine".
+//
+// WHAT THIS PROGRAM ASSERTS, each a different exit:
+//   * `Plain`, the same shape over `int64[0]` -- an element that owns nothing --
+//     IS copied, and both copies read right (21, 22): ownership comes from the
+//     ELEMENT, not from the array;
+//   * `Marked` is built, MOVED and dropped a thousand times with the right sum
+//     (23): the generated drop walks no elements and frees nothing;
+//   * and the exit code IS `#size_of<Marked>()`: 24, three `int64`s and nothing
+//     for the marker.
+// Its refused twin is `refused/probe16b_zero_length_owner_copy.npk`, a copy of
+// `Marked`, NITPICK-TYPE-046.
+//
+// WHEN THIS REDDENS -- a compiler that refuses `T[0]`, gives it a size, or stops
+// counting its element's ownership: `SAFETY.md` S-23b's marker changes with it,
+// and the fallback measured at planning is `hidden string:move_only` holding the
+// literal `""`, whose drop frees nothing (+24 bytes on every `Vec`).
+mod:probe16_zero_length_owner;
+
+struct:Marked = {
+    int64:a;
+    int64:b;
+    int64:c;
+    string[0]:move_only;
+};
+
+struct:Plain = {
+    int64:a;
+    int64:b;
+    int64:c;
+    int64[0]:nothing;
+};
+
+func:hold = int64(int64:k) never fails {
+    Marked:m = Marked{ a: k, b: k, c: k, move_only: [] };
+    Marked:n = move(m);
+    pass n.c;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    Plain:p = Plain{ a: 1i64, b: 2i64, c: 3i64, nothing: [] };
+    Plain:q = p;
+    if (q.c != 3i64) { exit 21i32; }
+    if (p.c != 3i64) { exit 22i32; }
+    int64:i = 0i64;
+    int64:sum = 0i64;
+    while (i < 1000i64) decreases 1000i64 - i {
+        sum = sum + (raw hold(i));
+        i = i + 1i64;
+    }
+    if (sum != 499500i64) { exit 23i32; }
+    int64:size = #size_of<Marked>();
+    exit (size =>! int32);
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

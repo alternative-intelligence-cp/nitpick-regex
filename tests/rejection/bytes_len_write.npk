@@ -11,11 +11,11 @@
 // (the compiler's D-313 and D-308), and the write below is `NITPICK-TYPE-079`
 // at compile time. The refusal is the assertion.
 //
-// WHAT THE SEAL DOES NOT CLOSE, stated so nobody reads this file as more: a
-// write THROUGH the sealed `buf` -- `b.buf.ptr[0i64] = 65u8;` -- still compiles
-// and runs from a consumer, because it writes the pointee and not the field
-// (`SAFETY.md` S-23's dated note; the board's question 9). This file is about
-// `len`.
+// WHAT THE SEAL DID NOT CLOSE: a write THROUGH the sealed `buf` --
+// `b.buf.ptr[0i64] = 65u8;` -- compiled and ran from a consumer until cycle
+// 0.0.4d made `buf` `hidden` (RX-163); it is NITPICK-TYPE-080 since, and
+// `bytes_buf_ptr_write.npk` is that refusal. This file is about `len`, and was
+// written when `buf` was sealed; the change moved nothing in it.
 //
 // A TEST OF THE SEAL, NOT OF THIS FILE: against the tree before 0.0.4c's
 // declarations it compiles cleanly (`meta/roadmap/0.0/0.0.4c.md` step 4).

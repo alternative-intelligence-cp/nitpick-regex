@@ -1,0 +1,56 @@
+// expect-exit: 95
+//
+// A CALLEE THAT GROWS A LENT `Vec` LEAVES ITS CALLER'S HEADER NAMING A FREED
+// BLOCK -- the loan's second face (RX-162), beside `vec_alias_param_free.npk`.
+//
+// PINNED, NOT ENDORSED. `grow` takes `Vec<int64>` by value -- a loan, which
+// compiles for a move-only `Vec` (RX-161) -- and pushes through its own
+// parameter's address until the block moves: `ralloc` releases the old block,
+// and it is the one the caller's header still names. The caller's own
+// `vec_free(@v)` is then a double free the `cap <= 0` guard cannot see (its
+// header still says `cap == 1`): 95, the allocator's `Unreachable`, at -O0 and
+// through `opt -O2`, measured at `c3bdae2` with the marker and without it. The
+// block `grow` moved to is held by nothing and would trap `WildLeak` at exit;
+// 95 comes first.
+//
+// No type closes it, because a loan is not a copy. A compiler defect -- the
+// loan is not held read-only -- raised as O-N21 and not worked around. Any exit
+// but 95 means the loan changed: read the compiler's ruling before editing this
+// file, which then moves to `../rejection/` if the change is a refusal.
+mod:vec_alias_param_grow;
+
+use "../../src/core/vec.npk".*;
+
+func:grow = NIL(Vec<int64>:v) never fails {
+    int64:k = 0i64;
+    while (k < 64i64) decreases 64i64 - k {
+        drop vec_push(@v, 9i64);
+        k = k + 1i64;
+    }
+    pass NIL;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    Vec<int64>:v = raw vec_init::<int64>(1i64);
+    drop vec_push(@v, 7i64);
+    drop grow(v);
+    drop vec_free(@v);
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

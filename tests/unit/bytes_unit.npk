@@ -22,7 +22,7 @@ func:main = int32(cstring[]:_~argv) {
     if ((raw bytes_len(@b)) != 0i64)                    { exit 10i32; }
     // A zero request still yields usable capacity, so the doubling has a base.
     Bytes:z = raw bytes_init(0i64);
-    if (z.buf.len < 1i64)                               { exit 11i32; }
+    if ((raw bytes_capacity(@z)) < 1i64)                { exit 11i32; }
 
     // ---- push, and the accessor pair at its boundaries ---------------------
 
@@ -41,10 +41,10 @@ func:main = int32(cstring[]:_~argv) {
 
     // ---- clear keeps capacity ---------------------------------------------
 
-    int64:cap_before = b.buf.len;
+    int64:cap_before = raw bytes_capacity(@b);
     drop bytes_clear(@b);
     if ((raw bytes_len(@b)) != 0i64)                    { exit 30i32; }
-    if (b.buf.len != cap_before)                        { exit 31i32; }
+    if ((raw bytes_capacity(@b)) != cap_before)         { exit 31i32; }
 
     // ---- extend from a string, and the take-out ---------------------------
 
@@ -189,13 +189,13 @@ func:main = int32(cstring[]:_~argv) {
     // express. Index 0 holds 0, index 999 999 holds 999999 % 256 == 63.
     Bytes:g = raw bytes_init(1i64);
     int64:grows = 0i64;
-    int64:seen_cap = g.buf.len;
+    int64:seen_cap = raw bytes_capacity(@g);
     int64:k = 0i64;
     while (k < 1000000i64) decreases 1000000i64 - k {
         drop bytes_push(@g, (k & 255i64) =>! uint8);
-        if (g.buf.len != seen_cap) {
+        if ((raw bytes_capacity(@g)) != seen_cap) {
             grows = grows + 1i64;
-            seen_cap = g.buf.len;
+            seen_cap = raw bytes_capacity(@g);
         }
         k = k + 1i64;
     }
@@ -206,7 +206,7 @@ func:main = int32(cstring[]:_~argv) {
     if (grows < 1i64)                                   { exit 72i32; }
     // The capacity is bounded too -- a growth factor that overshot wildly would
     // be amortised linear in TIME and wasteful in SPACE, and this catches it.
-    if (g.buf.len > 4000000i64)                         { exit 73i32; }
+    if ((raw bytes_capacity(@g)) > 4000000i64)          { exit 73i32; }
     // The contents survived every copy, at both ends AND in the middle, with a
     // DIFFERENT expected value at each -- which is what makes this a copy test
     // rather than a length test.

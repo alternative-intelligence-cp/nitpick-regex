@@ -1,25 +1,27 @@
 // expect-exit: 0
 //
-// A BY-VALUE PARAMETER IS A SECOND HANDLE: A CALLEE CAN FREE ITS CALLER'S
-// `Vec` -- N-15's reach, the fourth cycle-0.0 audit's BL-8.
+// A BY-VALUE PARAMETER IS A LOAN, NOT A COPY -- AND A CALLEE STILL FREES ITS
+// CALLER'S `Vec` THROUGH IT. N-15's reach (the fourth cycle-0.0 audit's BL-8),
+// NOT closed by cycle 0.0.4d.
 //
-// PINNED, NOT ENDORSED. No copy binding is written anywhere. `consume` takes
-// `Vec<int64>` by value, which copies the header into the parameter, and frees
-// through it; the caller's `v` still says `count == 1`, and its next
-// `vec_get` reads the reclaimed block -- the `0xAA` poison, **exit 0 here**
-// (21: the value survived; 22: something else came back). `vec_get` itself
-// takes its `Vec` by value and is harmless only because it never frees -- and
-// `sparseset.npk` reads `vec_get(s.sparse, k)` that way, as `CLAUDE.md`
-// prescribes. So move-only changes `vec_get`'s signature too, which is why it
-// is a subcycle of its own.
+// PINNED, NOT ENDORSED. `consume` takes `Vec<int64>` by value. Since 0.0.4d
+// `Vec` is move-only (RX-161) and this still compiles, because a by-value
+// parameter is a LOAN -- the compiler's D-065 and D-183: the callee may read it
+// and may not keep it, so `move(v)` in `consume` would be NITPICK-TYPE-047. But
+// `consume` takes its own parameter's ADDRESS and frees through it; the
+// caller's `v` still says `count == 1`, and its next `vec_get` reads the
+// reclaimed block -- the `0xAA` poison, exit 0 here (21: the value survived;
+// 22: something else came back). Measured at `c3bdae2`, -O0 and `opt -O2`, with
+// the move-only marker and without it.
 //
-// DEFERRED TO 0.0.4d, BEFORE CYCLE 0.0 CLOSES, by the author's decision on the
-// board's question 9 (2026-09-25): `Vec` becomes MOVE-ONLY BY CONSTRUCTION. On
-// that day this file stops compiling -- `NITPICK-TYPE-046`, as a `Bytes` copy
-// already does (`../rejection/bytes_copy.npk`) -- and 0.0.4d turns it into a
-// rejection fixture, so the shape it pins is proved REFUSED rather than argued.
-//
-// Measured at `c3bdae2`: 0 at -O0 and through `opt -O2` (RX-160).
+// WHY NO TYPE CLOSES IT, AND WHOSE IT IS (RX-162). A loan is the language's
+// read-only convention -- `vec_get` is one -- and the compiler does not hold a
+// callee to it: `@v` is allowed and so is every write through it. For an owning
+// FIELD it drops the caller's value on the write
+// (`../probe/probe17_lent_field_drop.npk`, no library code). A compiler defect,
+// raised as O-N21 and not worked around. The day loans are held read-only this
+// file stops compiling and moves to `../rejection/`, like its four siblings
+// there; the growth half is `vec_alias_param_grow.npk`.
 mod:vec_alias_param_free;
 
 use "../../src/core/vec.npk".*;

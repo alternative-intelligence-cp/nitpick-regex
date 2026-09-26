@@ -35,7 +35,11 @@ consequence: POSIX basic REs have back-references, this library does not, and
 1.1 for the API; the compiled program format reserves a pattern id from 1.0, so
 the deferral costs nothing. Defer the API, not the representation.
 
-### Q-6 — what replaces `VERIFICATION.md` P-1, now that every construct it names is live? — **the board's question for all six work repositories, cited here under its number there**
+### ~~Q-6 — what replaces `VERIFICATION.md` P-1, now that every construct it names is live?~~ — **SETTLED, RX-164** — the board's question for all six work repositories, cited here under its number there
+
+**Answered by the author on 2026-09-25 at 15:56 — *"the recommendation on q-6 seems
+fine to me"* — and recorded at cycle 0.0.4d: A′, as `VERIFICATION.md` rule P-1b.**
+The question as it stood is kept below, because it is how the answer was reached.
 
 **Raised 2026-09-25, at the re-pin to compiler `c3bdae2`**, by `nitpick-time`'s
 planner, and queued on the workbench board for the author as **Q-6**. The number
@@ -503,6 +507,38 @@ one idea — track the **provenance of the value** rather than the shape of the
 signature — and it closes an unsound hole and an over-strict refusal at once. If
 only one can be had, **O-N9 first**: a false accept is a use-after-free and a
 false reject is an inconvenience.
+
+### O-N21 — **the workbench registry's**: a callee writing through a LENT parameter frees or grows its caller's value
+
+**Filed in the workbench registry (`../meta/OPEN_QUESTIONS.md` §"For the
+compiler") on 2026-09-25 and sent to the compiler seat at 19:55; no DEF number
+has come back.** Found by this repository's planning of `Vec` move-only by
+construction, at compiler `c3bdae2`, and reproduced by the orchestrator before
+it was sent. The registry's entry is the authority; this one restates it so that
+a citation from this tree resolves without leaving it.
+
+An ordinary parameter is LENT — the compiler's D-183, restating D-065's rule:
+*"passing transfers nothing, so an ordinary parameter is a value the callee may
+read and may not keep"* — and `move` of one is `NITPICK-TYPE-047`. The compiler
+does not hold the callee to the loan. **Overwriting an owning FIELD of a lent
+parameter drops the CALLER's value** — D-186's unconditional field drop, whose
+comment in the assignment lowering reasons that *"the struct's owner is exactly
+who is overwriting it"* — and **`@` of a lent parameter lets the callee free or
+grow the caller's container**. The committed reproduction, with no library code
+and no `wild`, is
+[`probe17_lent_field_drop.npk`](../tests/probe/probe17_lent_field_drop.npk): the
+caller reads its own string's body as the `0xAA` free poison, exit 70, at −O0
+and through `opt -O2`.
+
+*What it means here:* `SAFETY.md` S-23b's last two rows, and RX-162. RX-161
+refuses a COPY of a `Vec`; a loan is not a copy, and no type in this library can
+refuse it. Four units pin what a loan still reaches — `vec_alias_param_free`,
+`vec_alias_param_grow`, `sparseset_alias_param_free` and `bytes_alias_param_grow`,
+each PINNED, NOT ENDORSED, each saying what its reddening means — and nothing is
+worked around. **What it blocks (W-27):** nothing in `src/`, where every function
+that changes a container takes it by pointer; any consumer that writes through a
+container it was lent, the parser at cycle 0.1 first; and whether cycle 0.0's
+close waits for the fix is the author's, the board's question 10.
 
 
 ## O-G — the compiler's, raised from here

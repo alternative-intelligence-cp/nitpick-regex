@@ -7,24 +7,29 @@ Guidance for Claude Code sessions working in this repository.
 `nregex` — a regular-expression library for **Nitpick**, the safety-critical
 systems language at `../../nitpick`. **Status: cycle 0.0, foundations.** The
 specifications, the decisions and the roadmap are complete; `tests/probe/` holds
-**28** language probes with recorded verdicts, split **22 / 6** by kind (16 / 7,
+**31** language probes with recorded verdicts, split **24 / 7** by kind (16 / 7,
 then 17 / 6 when the `94874ce` re-pin discharged O-N10 and `probe02b` stopped
 being refused — RX-125; then 19 / 6 when the `3d15ac9` re-pin made
 `limit<Rules>` live and `probe13b` stopped being refused — RX-127; then 22 / 5
 when the `c3bdae2` re-pin made `prove`, `requires` and `ensures` live — RX-152;
 then 22 / 6 when probe 15 recorded that the compiler's lexer closes a block string
-at the first `""` — found by the cycle 0.0 close's fourth triage, RX-157);
-`tests/rejection/` holds eight consumer-facing refusals (five of them the
-containers' seal, since 0.0.4c, and one a `Bytes` copy refused `TYPE-046`, since the
-fourth triage); `harness/` builds, sweeps,
+at the first `""` — found by the cycle 0.0 close's fourth triage, RX-157; then
+24 / 7 when cycle 0.0.4d added probe 16 and its refused twin, the language fact
+`Vec`'s move-only marker rests on, and probe 17, a compiler defect a lent
+parameter shows — RX-161, RX-162);
+`tests/rejection/` holds fourteen consumer-facing refusals (five of them the
+containers' seal, since 0.0.4c; one a `Bytes` copy refused `TYPE-046`, since the
+fourth triage; and since 0.0.4d five `Vec` and `SparseSet` copies refused
+`TYPE-046` and a write through `Bytes.buf` refused `TYPE-080`); `harness/` builds, sweeps,
 diffs and judges them, **and proves first that it can fail**; and since 0.0.4
 `src/core/` is real — `Vec<T>`, `Bytes`, `ByteSet`, `SparseSet` and `limits.npk`,
-with 52 unit programs of their own — eight of them measuring what each `Vec` verb does at an
-owning element type, which `SAFETY.md` S-23a keeps out of `src/`, and seven pinning what a
-copied `Vec` or `SparseSet` header aliases (N-15, deferred to 0.0.4d — RX-160). **No matching happens yet**: `src/syntax/`,
+with 51 unit programs of their own — eight of them measuring what each `Vec` verb does at an
+owning element type, which `SAFETY.md` S-23a keeps out of `src/`; four pinning what a LENT
+`Vec`, `SparseSet` or `Bytes` still reaches, a compiler defect (RX-162); and the swap and the
+moves a move-only `Vec` still allows (RX-161). **No matching happens yet**: `src/syntax/`,
 `src/hir/`, `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are
 still one placeholder module each. A full green run at compiler `c3bdae2` is
-**194 units** (after the cycle 0.0 close's fourth audit triage; 174 after the third), plus eight tree checks; take those numbers from the runner's
+**210 units** (after cycle 0.0.4d; 194 after the cycle 0.0 close's fourth audit triage, 174 after the third), plus eight tree checks; take those numbers from the runner's
 summary rather than from here. **Nothing is PENDING any more**:
 `tests/unit/bytes_copy_string_empty.npk` was committed red under
 `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
@@ -107,6 +112,11 @@ Full statement in `meta/specs/SAFETY.md` §1. The ones that bite hardest:
   `check_vec_elements_own_nothing`, which is default-deny (RX-158): it clears an
   element only when it can see that it owns nothing. This bullet said until the third cycle 0.0
   audit that the language forced it.
+  **And since cycle 0.0.4d a `Vec` IS itself an owner** — a hidden zero-length array of
+  `string` makes it one — so a `Vec`, a `SparseSet` and any struct holding one are
+  move-only: copy one and it is `TYPE-046`; transfer it with `move(...)`; lend it BY VALUE
+  only to a function that reads it; hand it by POINTER to anything that changes it
+  (`SAFETY.md` S-23b; RX-161, RX-162).
 - **There are no closures** (D-018), so replacement is a template and iteration
   is a struct with `next`.
 - **Integer overflow and division by zero trap. OUT-OF-RANGE INDEXING DOES NOT,
@@ -205,9 +215,10 @@ evidence.
   each charging every consumer one more arm — `RequiresViolated`,
   `EnsuresViolated` (`probe13c`/`probe13g`, `probe13d`/`probe13h`) — and `prove`
   is accepted and **checks nothing** in a plain build (`probe13a_prove_unchecked`).
-  So the comment-form obligations in `src/` are comments because
-  `meta/OPEN_QUESTIONS.md` Q-6 is unanswered, not because anything refuses them,
-  and a comment is evidence of nothing (`VERIFICATION.md` P-1, P-1a; RX-152).
+  So the comment-form obligations in `src/` are comments by A′ — the answer to
+  `meta/OPEN_QUESTIONS.md` Q-6, `VERIFICATION.md` P-1b (RX-164) — not because
+  anything refuses them: a live clause is a numbered decision that accepts the arm
+  it costs every consumer, and a comment is evidence of nothing (RX-152).
 - **`never fails` may carry `limit`, `requires` and `ensures`** — the compiler's
   **D-241**, 2026-09-03. This repository shipped the opposite claim, that they
   are *mutually exclusive* by a *permanent* `NITPICK-TYPE-037`, and wrote it
@@ -267,7 +278,7 @@ evidence.
   `MachineFault` (D-307: the four fault signals reach `failsafe`) join the four.
   **Every `while` states `decreases E` or `unbounded`** (D-304) — 61 loops
   at the adoption, the reading in `meta/roadmap/0.0/decreases_read.txt`
-  (RX-150), and 81 at the fourth triage, none `unbounded` (a count, dated: this
+  (RX-150), 81 at the fourth triage and 86 after cycle 0.0.4d, none `unbounded` (a count, dated: this
   said 61 until the fourth audit found 79, N-23; the compiler enforces the clause) — and a measured loop reachable from a consumer charges it
   `DecreasesViolated`: the **fourth** kind of charge `SAFETY.md` §4.2 counts.
   **A computed shift charges
@@ -291,6 +302,11 @@ evidence.
   decision on the board's question 9: `Vec` becomes move-only by construction**
   (RX-160; `tests/unit/*_alias_*.npk` pin today's behaviour). A limited field is written
   `sealed limit<ListLen> int64:f`; the other order is `NITPICK-PARSE-001`.
+  *(Since cycle 0.0.4d both are closed: `buf` is `hidden` too — read the capacity with
+  `bytes_capacity` (RX-163) — and a `Vec` copy is `TYPE-046` (RX-161). What stays open is
+  a LOAN: a by-value parameter is lent, not copied, and a callee that writes through its
+  address frees or grows its caller's block — a compiler defect, raised (RX-162;
+  `tests/unit/*_alias_param_*.npk`, `tests/probe/probe17_lent_field_drop.npk`).)*
 - **An exit status is one byte.** `exit 321` reports 65, silently. Compose
   weights that cannot sum past 255, or print the value and assert on stdout.
 - **`&{…}` interpolates only inside a backtick template.** `"&{k}"` in double

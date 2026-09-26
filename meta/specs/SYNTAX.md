@@ -99,6 +99,9 @@ did it match" and there is no good answer.
 (`SAFETY.md` S-18). The parser holds a `Vec<Frame>` bounded by
 `NREGEX_NEST_DEPTH`; a pattern that exceeds it is `NestTooDeep` with the offset
 of the parenthesis that did it.
+*(2026-09-25, cycle 0.0.4d — RX-161: the state that holds that `Vec<Frame>` is
+move-only by containment — moved, lent by value to a reader, and passed by
+pointer to anything that pushes or pops (`SAFETY.md` S-23b).)*
 
 **Rule Y-10 — every error carries a byte offset into the pattern**, and a
 length where the construct spans more than a point. A user gets "unclosed

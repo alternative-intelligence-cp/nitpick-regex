@@ -52,7 +52,7 @@ cycle 0.0.
 
 | Cycle | Topic | Gated on |
 |---|---|---|
-| **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **NOT CLOSED. Its close was REFUSED by the [cycle 0.0 audit](0.0/0.0.5.md) on 2026-09-06 and the archive move was reversed; refused again three times since, the fourth on 2026-09-25. Next: 0.0.4d, `Vec` move-only by the author's decision, then a fifth audit** | — |
+| **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **NOT CLOSED. Its close was REFUSED by the [cycle 0.0 audit](0.0/0.0.5.md) on 2026-09-06 and the archive move was reversed; refused again three times since, the fourth on 2026-09-25. 0.0.4d LANDED 2026-09-25: `Vec` move-only by the author's decision, a loan still a compiler defect. Next: a fifth audit** | — |
 | **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors | 0.0 |
 | **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction | 0.1 |
 | **0.3** | **Unicode** — generated tables, properties, scripts, simple case folding | 0.0 |
@@ -103,6 +103,11 @@ cycle 0.0.
 > lines, RX-157 … RX-160. **`Vec` becomes move-only by construction as subcycle
 > 0.0.4d, BEFORE cycle 0.0 closes** — so the next act is 0.0.4d's plan, and the
 > fifth audit sees both.
+>
+> **0.0.4d landed 2026-09-25** (`0.0/0.0.4d.md`), RX-161 … RX-164: the five copy
+> shapes are refused, `Bytes.buf` is hidden and A′ replaces P-1; the LOAN is
+> pinned against a compiler defect, and whether the close waits for its fix is the
+> author's.
 
 **What it has produced so far**, against what this section planned: **25** probes
 rather than fourteen (five questions split into a positive and a negative half
@@ -128,6 +133,11 @@ alias units pinning N-15's reach, a same-shape control, a `Bytes` copy refused,
 probe 15, and the parse sweep's ten more files — **28** probes, `src/core/` with
 **52** unit programs, a self-check of **19** cases, 15 live, and decisions through
 RX-160.)*
+*(After cycle 0.0.4d, the same compiler: **210** units — the five copy units moved
+to the rejection suite, `bytes_buf_ptr_write`, three loan units and the positive
+twin `vec_moves`, probes 16, 16b and 17, and the parse sweep's eight more files —
+**31** probes, `src/core/` with **51** unit programs, and decisions through
+RX-164.)*
 
 **Two probes refuted their own hypothesis**, which is the cycle's best return:
 `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler

@@ -137,7 +137,7 @@ is not its owner.
 convention, it lets a consumer read a sealed field without taking the address
 D-313 counts as a write, and nothing in `vec_get` writes through `v`. The four
 loan units and probe 17 pin today's behaviour — PINNED, NOT ENDORSED — and each
-says what to do when it reddens. The defect is raised by path, and nothing in
+says what to do when it reddens. The defect is raised as the workbench registry's O-N21, and nothing in
 `src/` works around it: every function that changes a container already takes
 it by pointer. **The cycle 0.0 gate's "every alias shape refused" is met for the
 five COPY shapes and cannot be met at `c3bdae2` for a loan**; whether the close

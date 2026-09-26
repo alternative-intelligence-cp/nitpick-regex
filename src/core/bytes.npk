@@ -41,6 +41,13 @@
 // `Bytes[2]` compiles and runs at `c3bdae2` -- and what TYPE-046 asks is that a
 // read of one out of the array be a `move`. A `Vec` may not hold one, by
 // `SAFETY.md` S-23a, RX-155.)*
+// *(Dated 2026-09-25, cycle 0.0.4d -- RX-162. Move-only does not make a BY-VALUE
+// `Bytes` safe: a by-value parameter is a LOAN, and a callee that grows it
+// through its own parameter's address, `bytes_push(@b, x)`, overwrites `buf`
+// -- and the compiler drops the CALLER's body there, so the caller's own drop
+// is a double free, 95 (`tests/unit/bytes_alias_param_grow.npk`; the form with
+// no library code is `tests/probe/probe17_lent_field_drop.npk`). A compiler
+// defect, raised and not worked around; every function here takes `Bytes->`.)*
 //
 // **AND `exit 0` THEREFORE PROVES NOTHING ABOUT A `Bytes`** (`SAFETY.md` §8b,
 // S-22). D-151 counts `wild` blocks; a `buffer` body is managed. A `Bytes`
@@ -93,8 +100,13 @@ use "./vec.npk".*;
 // `c3bdae2`). That is why the no-`.ptr[`-outside-this-file rule above is
 // still this library's and the tree check's, and not the compiler's; `hidden
 // buf` would close it and is the board's question 9, not this subcycle's.
+// *(Dated 2026-09-25, cycle 0.0.4d -- RX-163: `buf` IS `hidden` NOW. Outside this
+// module `b.buf` is NITPICK-TYPE-080, the write through `.ptr` included
+// (`tests/rejection/bytes_buf_ptr_write.npk`), and the capacity is read
+// through `bytes_capacity`. The rule above is the compiler's for a consumer;
+// the tree check stays for this file's own use, as it does for `vec.npk`.)*
 pub struct:Bytes = {
-    sealed buffer:buf;                   // MANAGED, owning, dropped at scope exit. Capacity is `buf.len`.
+    hidden buffer:buf;                   // MANAGED, owning, dropped at scope exit. Capacity: `bytes_capacity`.
     sealed limit<ListLen> int64:len;     // bytes in use. NEVER `buf.len`, which is the capacity.
 };
 
@@ -113,6 +125,15 @@ pub func:bytes_init = Bytes(int64:cap) never fails {
 // obligation: never fails ensures result == b.len
 pub func:bytes_len = int64(Bytes->:b) never fails {
     pass b.len;
+};
+
+// obligation: never fails ensures result == b.buf.len
+//
+// THE CAPACITY, and the only way a consumer reads it since cycle 0.0.4d, when
+// `buf` became `hidden` (RX-163). It is `buf.len`, the size of the managed body,
+// which is what `bytes_reserve` grows -- never `b.len`, the bytes in use.
+pub func:bytes_capacity = int64(Bytes->:b) never fails {
+    pass b.buf.len;
 };
 
 // obligation: never fails ensures b.len == 0i64

@@ -9,14 +9,14 @@
 // `NITPICK-TYPE-046`, "copying it here would leave two owners and one double
 // free". That is why `Bytes` is OUTSIDE N-15, and it is the shape the author
 // decided for `Vec` on the board's question 9 (2026-09-25): MOVE-ONLY BY
-// CONSTRUCTION, landing as 0.0.4d before cycle 0.0 closes. Today a `Vec` copy
-// compiles and aliases its block (`../unit/vec_alias_*.npk`); on that day it is
-// refused the way this one is, and those units become fixtures like this.
+// CONSTRUCTION, which landed as 0.0.4d (RX-161): a `Vec` copy is refused the
+// way this one is (`vec_alias_*.npk` and `sparseset_alias_*.npk` here). A loan
+// is not a copy, and a `Bytes` lent to a callee that grows it still dies
+// (`../unit/bytes_alias_param_grow.npk`, RX-162).
 //
-// A TEST OF THE LANGUAGE'S RULE AT THIS LIBRARY'S TYPE, NOT OF THIS FILE: the
-// same program copying a `Vec` compiles, links and runs
-// (`../unit/vec_alias_double_free.npk`), so the refusal here is `Bytes`' field
-// and not a refusal of every whole-struct copy. Measured at `c3bdae2` (RX-160).
+// A TEST OF THE LANGUAGE'S RULE AT THIS LIBRARY'S TYPE, NOT OF THIS FILE: until
+// 0.0.4d the same program copying a `Vec` compiled, linked and ran, so the
+// refusal here is `Bytes`' field. Measured at `c3bdae2` (RX-160).
 mod:bytes_copy;
 
 use "../../src/core/bytes.npk".*;

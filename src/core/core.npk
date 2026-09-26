@@ -78,6 +78,7 @@ pub use "./vec.npk".vec_clear;
 pub use "./bytes.npk".Bytes;
 pub use "./bytes.npk".bytes_init;
 pub use "./bytes.npk".bytes_len;
+pub use "./bytes.npk".bytes_capacity;
 pub use "./bytes.npk".bytes_clear;
 pub use "./bytes.npk".bytes_reserve;
 pub use "./bytes.npk".bytes_get;

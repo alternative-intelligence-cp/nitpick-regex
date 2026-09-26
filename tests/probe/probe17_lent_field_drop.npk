@@ -1,0 +1,62 @@
+// expect-exit: 70
+//
+// PROBE 17 -- OVERWRITING AN OWNING FIELD OF A LENT PARAMETER FREES THE
+// CALLER'S VALUE. A compiler defect, found at compiler `c3bdae2` by cycle
+// 0.0.4d's planning and raised as O-N21 (RX-162); no library code, no `wild`,
+// and no pointer cast anywhere in the program.
+//
+// WHAT THE LANGUAGE SAYS. An ordinary parameter is LENT: "passing transfers
+// nothing", the callee may read it and may not keep it (the compiler's D-065 and
+// D-183), and `move` of one is NITPICK-TYPE-047. WHAT THE COMPILER DOES: the
+// assignment `b.s = …` below drops the field's old value first -- D-186's
+// unconditional field drop, whose comment reasons that "the struct's owner is
+// exactly who is overwriting it" (`src/backend/ir/ir_stmt.npk`, read at
+// `c3bdae2`). For a lent parameter it is not: the old value is the CALLER's
+// string, and its body is freed under it. So `main` reads the free poison,
+// `0xAA` -- exit 70, at -O0 and through `opt -O2`. (Returned normally instead
+// of exiting, the caller's own drop frees it again: 95.) The controls, measured
+// the same day: the same write on a `move` parameter, and on a local, run
+// clean.
+//
+// WHAT IT REACHES HERE: a lent `Bytes` grown by its callee dies this way
+// (`../unit/bytes_alias_param_grow.npk`), and a lent `Vec` or `SparseSet` is
+// freed or grown through `@` with no field write at all
+// (`../unit/vec_alias_param_*.npk`, `sparseset_alias_param_free.npk`).
+//
+// WHEN THIS REDDENS: exit 21 is the caller's value surviving (the write no
+// longer drops it); a refusal is a fix that holds loans read-only. Either way
+// read the compiler's ruling, then move this probe -- to `refused/` for a
+// refusal -- and the four library units with it.
+mod:probe17_lent_field_drop;
+
+struct:Box = {
+    string:s;
+};
+
+func:overwrite = NIL(Box:b) never fails {
+    b.s = string_concat("xyzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz", "w");
+    pass NIL;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    Box:b = Box{ s: string_concat("abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "c") };
+    drop overwrite(b);
+    uint8[]:bs = string_bytes(b.s);
+    if (bs[0i64] == 97u8) { exit 21i32; }
+    if (bs[0i64] == 170u8) { exit 70i32; }
+    exit 71i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault)   { exit 107i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

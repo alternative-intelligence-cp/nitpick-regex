@@ -40,6 +40,10 @@ run, and at `c3bdae2` so do `Vec<string>` and `Bytes[2]`. What TYPE-046 refuses
 is a COPY of an owning place; where an owner is stored it does not govern. The
 third cycle 0.0 audit's BL-5, RX-155.)*
 
+*(Since cycle 0.0.4d a `Vec` is an owner itself — S-23b, RX-161 — so a copy of
+one, or of any struct holding one, is refused like any owner's. A by-value
+parameter is a loan, not a copy, and S-23b says what it still reaches.)*
+
 ---
 
 ## 2. The linear-time guarantee, and what it costs
@@ -220,6 +224,9 @@ holds a `requires` owes `RequiresViolated`, one holding an `ensures` owes
 (`probe13g`, `probe13h`, exits 116 and 117). No clause in `src/` was
 uncommented: that is `../OPEN_QUESTIONS.md` Q-6's to decide, and until it is
 the obligations stay comments.*
+*(Q-6 was answered on 2026-09-25: A′ — `VERIFICATION.md` P-1b, RX-164. The
+obligations stay comments; a live clause is a numbered decision that accepts its
+arm.)*
 
 **The general form, which is why this is a rule and not a note:** the error
 budget is charged by *anything that can reach `failsafe`*, and this repository
@@ -439,6 +446,13 @@ than a style note:**
   question 9: `Vec` becomes move-only by construction**, as `Bytes` already is
   (`../../tests/rejection/bytes_copy.npk`). The pointer half — a write through
   `b.buf.ptr` — is question 9's other item and is not changed here.)*
+  *(2026-09-25, cycle 0.0.4d — RX-161, RX-162, RX-163. Both of question 9's items
+  are closed for a consumer: a copy of a `Vec`, a `SparseSet` or a struct holding
+  one is `NITPICK-TYPE-046` (S-23b; the five copy fixtures in
+  `../../tests/rejection/`), and `Bytes.buf` is `hidden`, so a write through
+  `b.buf.ptr` is `NITPICK-TYPE-080` (`bytes_buf_ptr_write.npk`) — `Bytes`' half of
+  this rule is the compiler's too. What stays open is a LOAN, which is not a
+  copy: S-23b's last two rows.)*
 - **A VIOLATION TRAPS `OutOfBounds` (RX-130, and the trap itself was broken —
   RX-143).** `vec_get`, `vec_set`, `bytes_get` and `bytes_set` do not return a
   `Result` on an out-of-range index: S-4 says matching cannot fail and
@@ -455,6 +469,9 @@ than a style note:**
   does not name the new arm is refused `NITPICK-REACH-002`. So a live clause
   here would pre-empt this bullet's stop and change its identity; the clauses
   stay comments by `../OPEN_QUESTIONS.md` Q-6, which records the cost — RX-152.)*
+  *(Q-6 was answered on 2026-09-25 — A′, `VERIFICATION.md` P-1b, RX-164 — and
+  under it this bullet's stop keeps its identity: no live `requires` is written
+  where the body already stops.)*
 
   **THIS BULLET WAS UNQUALIFIED AND IT WAS FALSE, FOR ONE VALUE, FOR THE WHOLE
   OF CYCLE 0.0.** The stop's index into that one-element array was the caller's
@@ -515,6 +532,10 @@ than a style note:**
   0.0.4d, BEFORE CYCLE 0.0 CLOSES, by the author's decision on the board's
   question 9: `Vec` becomes move-only by construction, and the guard's reach
   stops mattering because the second handle stops compiling.)*
+  *(2026-09-25, cycle 0.0.4d — RX-162: for a COPY it does. A BY-VALUE parameter is
+  a loan, still compiles, and carries the old `cap` into its callee, so the guard
+  reaches one binding there as before — `vec_alias_param_grow.npk` is a double
+  free it cannot see, 95.)*
 - **An unchecked index is a WRONG ANSWER, not a crash.** That inverts the
   failure mode §1 advertises. A wrong program counter in an engine reads an
   unrelated heap word as an instruction; a wrong sparse-set probe adds a thread
@@ -580,6 +601,38 @@ return the element, discards that drop it, and no by-value get — `l[i]` is a
 bounds-checked place. A scratch `vec.npk` given those discards turns all five
 orphaning units to exit 0, measured; the verbs are not built because nothing
 here needs them.
+
+### 5.3b What a `Vec` copy is, and what a loan still reaches
+
+**Rule S-23b (RX-161, RX-162, cycle 0.0.4d) — `Vec` is move-only by
+construction; a by-value parameter is a loan, and no type refuses it.**
+`Vec<T>`'s last field is `hidden string[0]:move_only`: a fixed array of no
+strings, which occupies no bytes and holds nothing, and whose element type owns —
+so the compiler treats every `Vec<T>` as an owner (D-183's layout walk), and an
+owner is move-only (TYPE-046). A struct holding a `Vec` owns by containment:
+`SparseSet`, `COMPILE.md` C-1's `Program`, `SYNTAX.md` Y-9's parser state.
+
+| written | at `c3bdae2`, since 0.0.4d |
+|---|---|
+| `Vec<T>:w = v;`, `SparseSet:t = s;`, a struct holding a `Vec` copied | `NITPICK-TYPE-046` — the five copy fixtures in `../../tests/rejection/` |
+| `Vec<T>:w = move(v);`; a struct built by moving a `Vec` in, then moved | compiles and runs; `v` is invalid after (D-065) — `../../tests/unit/vec_moves.npk` |
+| two `SparseSet`s swapped: three `move`s, of locals or of fields through a pointer | compiles and runs — `../../tests/unit/sparseset_alias_swap.npk`; `ENGINES.md` R-5 |
+| a `Vec`'s content copied | element by element into a fresh `Vec`, which shares no block — `vec_moves.npk`; `ENGINES.md` R-8 |
+| `f(v)`, where `f` takes `Vec<T>` by value | compiles WITHOUT `move`: the parameter is a LOAN (D-065, D-183), and `move` of it is `NITPICK-TYPE-047`. `vec_get` is one, and its signature is unchanged |
+| a callee freeing or growing through its loan's address, `vec_free(@v)`, `vec_push(@v, x)` | **compiles, and the caller's header names a released block** — `vec_alias_param_free`, `vec_alias_param_grow`, `sparseset_alias_param_free` |
+| a callee overwriting an owning field of a loan | **compiles, and drops the caller's value** — a double free with no `wild` block: `../../tests/probe/probe17_lent_field_drop.npk`, `bytes_alias_param_grow` |
+
+The last two rows are a compiler defect — a loan is not held read-only — raised
+and not worked around (W-11). Until it is fixed, a function that changes a
+container takes it by pointer (`Vec<T>->`, `SparseSet->`, `Bytes->`), as every
+function in `src/core/` does, and a by-value container parameter is for reading.
+**The marker costs nothing measured:** `#size_of<Vec<int64>>()` is 24 as before;
+the generated drop frees nothing, so the block stays `wild`, freed by `vec_free`,
+and D-151 still traps one never freed (S-22 is unchanged); no consumer's bill
+moves. The language fact it rests on is probe 16 and its refused twin; if a
+later compiler refuses a zero-length array or stops counting its element's
+ownership, the fallback is a `string` field holding `""` — measured identical on
+every file, at 24 more bytes a `Vec`.
 
 ---
 

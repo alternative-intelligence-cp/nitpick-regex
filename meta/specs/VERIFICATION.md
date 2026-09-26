@@ -42,6 +42,12 @@ how much effort goes here:
 §6 name stay comments, per `../OPEN_QUESTIONS.md` Q-6 (its recommendation A′)
 until the author answers it. And 1.5.8c's `decreases` is taken, on every loop
 (P-8's note below).*
+*(Answered 2026-09-25 and recorded 2026-09-25, cycle 0.0.4d: A′ is rule P-1b below,
+RX-164. The clauses stay comments.)*
+
+> **SUPERSEDED by rule P-1b (RX-164, 2026-09-25)** — its safety argument, that every
+> construct it names refuses, is false at `c3bdae2`. Kept as written: how the
+> error survived is part of the record.
 
 **Rule P-1.** Until a construct is live, its obligation is stated **as a
 comment beside the code in the exact syntax it will take**, and is enforced by
@@ -60,6 +66,21 @@ identity to every consuming program's `failsafe` and traps at run time
 nothing (`probe13a_prove_unchecked`). Until Q-6 is answered, no comment-form
 obligation in `src/` becomes a live clause, and **no comment-form obligation is
 evidence of anything** — it is checked by nothing, at any pin.*
+
+**Rule P-1b (RX-164, cycle 0.0.4d) — A′: an obligation is a comment unless a
+numbered decision accepts the arm its live clause costs every consumer.** The
+author's answer to `../OPEN_QUESTIONS.md` Q-6, 2026-09-25. A `requires`,
+`ensures`, `invariant` or `limit` is written live only where a numbered decision
+says the check earns the one `failsafe` identity it adds to every consuming
+program — today that is the containers' `ListLen` alone (`SAFETY.md` S-24a,
+RX-153). Every other obligation stays a comment in the syntax it would take, is
+**evidence of nothing**, and is stood in for by a property test. `prove` stays a
+comment until the harness runs the verified build (cycle 0.8), because a plain
+build lowers it to nothing (`probe13a_prove_unchecked`). `decreases` and
+`unbounded` are the language's and always live (P-8's note). And a live
+`requires` is not written on an accessor whose body already stops: it would
+pre-empt the stop and change its identity (RX-130 — 116 where the stop is 94,
+measured at `c3bdae2`).
 
 **Rule P-1a (RX-127) — the rung is no longer uniform, so "refused by name" must
 be re-measured per construct and not inherited.** At pin `3d15ac9`, `prove`,
@@ -109,6 +130,11 @@ Most of the list, which is why the residue is small:
   author decided the remedy on the board's question 9: `Vec` becomes move-only by
   construction at 0.0.4d, before cycle 0.0 closes, which puts it inside this
   bullet's rule rather than beside it.)*
+  *(2026-09-25, cycle 0.0.4d — RX-161, RX-162. It is inside it now: a copy of a
+  `Vec`, a `SparseSet` or any struct holding one is refused. A BY-VALUE parameter
+  is not: it is a loan, this rule does not see it, and a callee writing through
+  its address still frees or grows the caller's block — a compiler defect,
+  `SAFETY.md` S-23b.)*
 - **`Result<T>` everywhere** with no unchecked unwrap outside a `never fails`
   callee (D-163), so no error is dropped.
 

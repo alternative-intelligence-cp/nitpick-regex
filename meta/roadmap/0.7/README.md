@@ -92,5 +92,12 @@ and never leaves it.
   CONSTRUCTION from 0.0.4d, before cycle 0.0 closes: the swap moves, and a
   thread's capture slots are copied ELEMENT BY ELEMENT into its own `Vec`,
   never by copying the header. Re-read 0.0.4d's record before planning either.
+  *(2026-09-25 — 0.0.4d landed (RX-161): the swap is three `move`s, measured as
+  locals and as the `Cache`'s two fields through a pointer, and the element copy
+  is measured too — `../../../tests/unit/sparseset_alias_swap.npk`,
+  `../../../tests/unit/vec_moves.npk`; the copied-and-freed `SparseSet` above is a
+  refusal now, `../../../tests/rejection/sparseset_alias_read_after_free.npk`. A
+  thread set or a capture `Vec` handed BY VALUE is a loan a callee can still free
+  through (RX-162): pass them by pointer.)*
 - **The step counter's cost is measured at 0.13** (O-P1), not guessed at now.
   Build it in behind the switch and leave the decision.

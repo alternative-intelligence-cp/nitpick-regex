@@ -1,0 +1,49 @@
+// expect-error: NITPICK-TYPE-046
+// expect-error-at: 28:5
+//
+// A WHOLE-`Vec` COPY IS REFUSED: `Vec` IS MOVE-ONLY BY CONSTRUCTION SINCE
+// CYCLE 0.0.4d (RX-161, `SAFETY.md` S-23b). N-15, the fourth cycle-0.0 audit's
+// BL-8, closed for a copy.
+//
+// WHAT IT PINS. `Vec<int64>:w = v;` would copy the header -- `items`, `count`,
+// `cap` -- and be a second handle on the block. Until 0.0.4d it compiled, and
+// freeing both copies was a double free the `cap <= 0` guard could not see: 95
+// at -O0 and through `opt -O2`, measured at `c3bdae2` (RX-160), when this file
+// was `tests/unit/vec_alias_double_free.npk` with `expect-exit: 95`. Now the
+// last field of `Vec`, a zero-length array of an owning type, makes it owning,
+// and the copy is NITPICK-TYPE-046 before anything after it is reached.
+//
+// A TEST OF THE MARKER, NOT OF THIS FILE. Against the tree before 0.0.4d this
+// file compiles cleanly, and so it does with the marker's element changed to a
+// type that owns nothing, `int64[0]` -- both measured, `0.0.4d.md` step 5.
+// `../unit/vec_moves.npk` is the positive twin: what a move-only `Vec` still
+// allows compiles and runs.
+mod:vec_alias_double_free;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Vec<int64>:v = raw vec_init::<int64>(4i64);
+    drop vec_push(@v, 7i64);
+    Vec<int64>:w = v;
+    drop vec_free(@v);
+    drop vec_free(@w);
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

@@ -69,6 +69,16 @@ use "./vec.npk".*;
 // now the compiler's to enforce as well: `Vec.items` is `hidden`, so this file
 // cannot index `.items` at all -- every access here goes through `vec_get` and
 // `vec_set` because nothing else compiles.
+//
+// AND SINCE CYCLE 0.0.4d A `SparseSet` IS MOVE-ONLY, BECAUSE ITS FIELDS ARE
+// (RX-161; `SAFETY.md` S-23b). A struct owns when a field does, and `Vec` owns
+// by construction, so `SparseSet:t = s;` is NITPICK-TYPE-046 -- the copy that
+// read a member ABSENT after the free (`tests/rejection/sparseset_alias_*.npk`).
+// The Pike VM's per-byte swap is three moves (`ENGINES.md` R-5;
+// `tests/unit/sparseset_alias_swap.npk`). A `SparseSet` passed BY VALUE is a
+// loan and still reaches both blocks (`sparseset_alias_param_free.npk`), so a
+// callee that changes one takes `SparseSet->`, as every function here does
+// (RX-162).
 pub struct:SparseSet = {
     sealed Vec<int32>:dense;               // the members, in insertion order; the first `count` are live
     sealed Vec<int32>:sparse;              // key -> its position in `dense`, meaningful only below `count`

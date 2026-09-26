@@ -64,6 +64,42 @@ its instruments live here, one code each, at a measured position:
   block (`../unit/vec_alias_*.npk`, `../unit/sparseset_alias_*.npk`); on that day
   those become fixtures here, refused the way this one is (RX-160).
 
+## The copies refused, and the write through `buf` — cycle 0.0.4d
+
+Since 0.0.4d `Vec` is move-only by construction (`../../meta/specs/SAFETY.md`
+S-23b; `../../meta/DECISIONS.md` RX-161): its last field is a zero-length array of
+an owning type, so the compiler treats every `Vec` — and every struct holding
+one — as an owner, and a copy of one is `NITPICK-TYPE-046`. The five shapes the
+fourth cycle-0.0 audit measured through a copy were units under `../unit/` until
+then, each asserting the wrong answer the copy gave; they are refusals here now,
+under the same names:
+
+- **`vec_alias_double_free.npk`** — a `Vec` and its copy both freed: a double free, 95.
+- **`vec_alias_read_after_free.npk`** — a read through the copy after the free returned the poison.
+- **`vec_alias_struct_copy.npk`** — `COMPILE.md` C-1's `Program` in miniature, copied; the copy read the poison.
+- **`sparseset_alias_double_free.npk`** — a `SparseSet` and its copy both freed: 95.
+- **`sparseset_alias_read_after_free.npk`** — through the copy a member read ABSENT while the count said one.
+
+And `buf` is `hidden` (RX-163):
+
+- **`bytes_buf_ptr_write.npk`** — `NITPICK-TYPE-080`. A consumer's
+  `b.buf.ptr[0i64] = 65u8;` wrote into the body through the sealed field until 0.0.4d.
+
+**Each is a test of the marker or the qualifier and not of its file, and the
+controls say so** (`../../meta/roadmap/0.0/0.0.4d.md` step 5): against the tree
+before 0.0.4d all six compile cleanly, and the five copies compile cleanly again
+with the marker's element made `int64`, which owns nothing. `../unit/vec_moves.npk`
+and `../unit/sparseset_alias_swap.npk` are the positive twins — the moves, loans
+and element-by-element copy a move-only `Vec` still allows, and the Pike VM's swap
+spelled with `move(...)`.
+
+**What this does not close is a LOAN.** A by-value parameter is lent, not copied,
+so it compiles for a move-only `Vec`, and a callee that writes through its address
+still frees or grows its caller's block — a compiler defect, pinned in `../unit/`
+(`vec_alias_param_free`, `vec_alias_param_grow`, `sparseset_alias_param_free`,
+`bytes_alias_param_grow`) and by `../probe/probe17_lent_field_drop.npk`, and raised
+(RX-162). The day the compiler holds a loan read-only, those move here.
+
 **Each is a test of the seal and not of its own file, and both halves are
 measured.** Against the tree before 0.0.4c's declarations all five compile
 cleanly (`../../meta/roadmap/0.0/0.0.4c.md` step 4, the control), and
@@ -71,12 +107,14 @@ cleanly (`../../meta/roadmap/0.0/0.0.4c.md` step 4, the control), and
 without it, the five would also pass a compiler that refused every access to
 these fields. **What the seal does not close** is stated in S-23: a write
 THROUGH `b.buf.ptr` still compiles from a consumer, and so does a whole-`Vec`
-copy.
+copy. *(Both closed at 0.0.4d — RX-163 and RX-161, the section above.)*
 
 ## Why they are the standing instance of rule B-7
 
-All seven import `src/` by a **relative** path — the two `failsafe_*` fixtures
-`../../src/lib.npk`, the seal's five the `../../src/core/` modules they seal —
+All fourteen import `src/` by a **relative** path — the two `failsafe_*` fixtures
+`../../src/lib.npk`, the other twelve the `../../src/core/` modules they test
+(*"all seven" went stale when the fourth triage added `bytes_copy.npk`; corrected
+at 0.0.4d*) —
 because every import here is relative until O-G3 closes (B-15). If any path is
 typo'd or the file moves, `npkc` exits **1** with `NITPICK-RESOLVE-005` — a genuine refusal, and
 these tests want a refusal. Under a *subset* rule they would pass, having

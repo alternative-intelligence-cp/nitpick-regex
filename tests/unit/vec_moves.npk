@@ -1,0 +1,66 @@
+// expect-exit: 0
+//
+// WHAT A MOVE-ONLY `Vec` STILL ALLOWS -- THE POSITIVE TWIN OF THE FIVE COPIES
+// `../rejection/` REFUSES SINCE CYCLE 0.0.4d (RX-161).
+//
+// Each refusal passes if the compiler refuses the copy -- and would ALSO pass
+// under a compiler that refused every use of a `Vec`. This file is the other
+// half, every value distinct from the vacant 0 and from the `0xAA` poison:
+//   1. a whole-`Vec` MOVE, `Vec<int64>:w = move(v);`, then a read through `w`
+//      (21);
+//   2. a struct holding a `Vec` -- `COMPILE.md` C-1's `Program` in miniature --
+//      built by moving the `Vec` in, then MOVED itself (22, 23);
+//   3. a LOAN: every `vec_get` below takes its `Vec` by value, with no `move`;
+//   4. `ENGINES.md` R-8's capture copy, ELEMENT BY ELEMENT into a fresh `Vec`,
+//      which keeps its values after the source is freed -- the two share no
+//      block (24, 25).
+// Every block is freed exactly once, so `exit 0` also says none leaked.
+mod:vec_moves;
+
+use "../../src/core/vec.npk".*;
+
+struct:Prog = {
+    Vec<int64>:insts;
+    int32:start;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    Vec<int64>:v = raw vec_init::<int64>(2i64);
+    drop vec_push(@v, 7i64);
+    drop vec_push(@v, 8i64);
+    Vec<int64>:w = move(v);
+    if ((raw vec_get(w, 1i64)) != 8i64) { exit 21i32; }
+    Prog:p = Prog{ insts: move(w), start: 5i32 };
+    Prog:q = move(p);
+    if ((raw vec_get(q.insts, 0i64)) != 7i64) { exit 22i32; }
+    if (q.start != 5i32) { exit 23i32; }
+    int64:n = q.insts.count;
+    Vec<int64>:c = raw vec_init::<int64>(n);
+    int64:i = 0i64;
+    while (i < n) decreases n - i {
+        drop vec_push(@c, raw vec_get(q.insts, i));
+        i = i + 1i64;
+    }
+    drop vec_free(@q.insts);
+    if ((raw vec_get(c, 0i64)) != 7i64) { exit 24i32; }
+    if ((raw vec_get(c, 1i64)) != 8i64) { exit 25i32; }
+    drop vec_free(@c);
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

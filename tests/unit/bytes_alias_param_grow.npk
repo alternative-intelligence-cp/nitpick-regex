@@ -1,0 +1,61 @@
+// expect-exit: 95
+//
+// A CALLEE THAT GROWS A LENT `Bytes` FREES ITS CALLER'S BODY -- A DOUBLE FREE
+// IN THE MANAGED REGIME, FOR A TYPE THAT WAS MOVE-ONLY ALL ALONG (RX-162).
+//
+// PINNED, NOT ENDORSED. `Bytes` holds a `buffer`, so a copy of one has always
+// been NITPICK-TYPE-046 (`../rejection/bytes_copy.npk`). But `grow` takes it BY
+// VALUE -- a loan -- and pushes through its own parameter's address until
+// `bytes_reserve` replaces the body, `b.buf = move(bigger)`. Overwriting an
+// owning field drops the old value, and through a loan the old value is the
+// CALLER's: its body is freed under it. `run`'s read then sees freed memory and
+// its scope-exit drop frees the body again -- 95, the allocator's `Unreachable`,
+// at -O0 and through `opt -O2`, measured at `c3bdae2`. The same mechanism with
+// no library code is `../probe/probe17_lent_field_drop.npk`.
+//
+// A compiler defect, raised as O-N21 and not worked around; every `Bytes`
+// function takes `Bytes->`. Any exit but 95 means the loan changed (21: the
+// caller's byte survived): read the compiler's ruling before editing this file.
+mod:bytes_alias_param_grow;
+
+use "../../src/core/bytes.npk".*;
+
+func:grow = NIL(Bytes:b) never fails {
+    int64:k = 0i64;
+    while (k < 64i64) decreases 64i64 - k {
+        drop bytes_push(@b, 66u8);
+        k = k + 1i64;
+    }
+    pass NIL;
+};
+
+func:run = int32() never fails {
+    Bytes:b = raw bytes_init(1i64);
+    drop bytes_push(@b, 65u8);
+    drop grow(b);
+    uint8:x = raw bytes_get(@b, 0i64);
+    if (x == 65u8) { pass 21i32; }
+    pass 22i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:r = raw run();
+    exit r;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

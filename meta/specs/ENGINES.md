@@ -54,6 +54,12 @@ is never used or freed (`../../tests/unit/sparseset_alias_swap.npk`). Under the
 author's decision on question 9 — `Vec` move-only by construction at 0.0.4d, before
 cycle 0.0 closes — a swap MOVES rather than copies, and 0.0.4d's design must keep
 it writable; that unit is the control that shows it did.)*
+*(2026-09-25, cycle 0.0.4d — RX-161: a `SparseSet` is move-only, and the swap is
+three `move`s — of two locals, or of two fields of the `Cache` through a pointer,
+`SparseSet:t = move(c.cur); c.cur = move(c.nxt); c.nxt = move(t);` — both measured
+at `c3bdae2`, the second a thousand times (`sparseset_alias_swap.npk`). A
+`SparseSet[2]` indexed by a flipping `int64` also compiles and runs and moves
+nothing; subcycle 0.7.0 chooses between them.)*
 
 **Rule R-6 — the set is deduplicated by program counter, and that is what makes
 it linear.** A program counter already in the set is not added again. A
@@ -73,7 +79,7 @@ thread splits. This copy is the Pike VM's real cost and is why the DFA exists
 for searches that do not need captures. *(Dated 2026-09-25 — RX-160: "copied"
 is ELEMENT BY ELEMENT into the new thread's own slots, never a copy of the `Vec`
 header, which would alias one block between two threads. Subcycle 0.7.2 builds it,
-after 0.0.4d makes `Vec` move-only by the author's decision on question 9.)* A program with no `Save` instructions
+after 0.0.4d makes `Vec` move-only by the author's decision on question 9.)* *(2026-09-25, cycle 0.0.4d — RX-161: measured, the element-by-element copy into a fresh `Vec` keeps its values after the source is freed, so the two share no block, and a header copy is `NITPICK-TYPE-046` — `../../tests/unit/vec_moves.npk`.)* A program with no `Save` instructions
 (`COMPILE.md` C-16) skips the machinery entirely.
 
 **Rule R-9 — zero-width instructions are followed transitively when a thread is
