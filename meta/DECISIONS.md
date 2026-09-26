@@ -4230,3 +4230,39 @@ byte, read with `??` and a default, for what one sentinel says; **a two-byte pee
 construct 0.1.0 writes needs one, and the grammar names where one is needed when a subcycle meets it;
 **`int32` offsets** — every one would be narrowed from an `int64` length, and the language has no checked
 narrowing.
+
+### RX-174 — the AST is a flat arena of sixteen kinds of 56-byte node that own nothing, every operand an `int64`, and only `ast.npk` touches its `Vec`
+
+**2026-09-26, cycle 0.1.0 (the plan's PD-18), at compiler `c970483`.** `src/syntax/ast.npk`, and `SYNTAX.md`
+rules Y-26 (the node) and Y-27 (the kinds):
+
+- **`HIR.md` H-2's shape, for H-2's reason**: a `Vec<AstNode>`, and a node names another by index, because a
+  `Vec` reallocates and a pointer into it would dangle. A node owns nothing — the S-23a check clears
+  `Vec<AstNode>` (measured: six element types, ten declarations) — and `AstNode` implements `Pod` in one line,
+  its `self` lent as the trait declares it, so `vec_get` hands a node back by value. A name or a property's
+  text stays in the pattern, as an offset and a length.
+- **Every operand is an `int64`.** The values come from `int64`s — the cursor's offset, a `Vec`'s count, a
+  parsed bound — and `=>!` narrows in silence, so an `int32` field would need a hand-written range check at every
+  write, against a bound `RegexOptions` may raise (`SAFETY.md` S-12, `API.md` A-7). The AST is compile-time
+  scratch.
+- **56 bytes, the same under any alignment rule**: `kind` and `flags` first, together, then six `int64`s —
+  no padding (measured 56 at `c970483`, `c3bdae2` and the next re-pin's control; the order `kind`, operands,
+  `flags` is 64). `tests/unit/ast_size.npk` exits with the size.
+- **The sixteen kinds are declared now, with their operands** (Y-27's table): every construct of §1's grammar
+  that survives parsing has a kind, and the node is shown to hold each before any is parsed. The flag bits are
+  Y-26's: the five pattern flags, and `LAZY`, `NEGATED` and `BYTE`.
+- **The arena is `Ast`: `hidden Vec<AstNode>:nodes`, `sealed int64:root`.** Outside `ast.npk` the `Vec`
+  cannot even be read (`NITPICK-TYPE-080`, `tests/rejection/ast_nodes_read.npk`), so `ast_get`, `ast_set` and
+  `ast_push` — `vec_get`, `vec_set` and `vec_push` underneath — are the only way in (S-23). `ast_set_root`
+  checks its index; `ast_free` frees the block and resets the root.
+
+*Alternatives declined:* **`int32` operands** — `0.1.0.md`'s first draft (its D1, "exactly like the HIR")
+and the cycle README's checklist: every one would narrow an `int64` in silence, and the HIR is 0.2's to size;
+**a payload enum per construct** — the spelling H-2 examined and declined, and the flat operands are what the
+HIR mirrors; **declaring each kind when the subcycle that parses it lands** — the node would be proven
+against the first constructs only, which is `0.1.0.md`'s own warning about a skeleton shaped by what fitted
+first; **children in a side array** — a second arena and an index pair per parent, where H-2 links siblings;
+**names copied into a `Bytes` in the `Ast`** (the first draft's D1) — the pattern is at hand for the AST's
+whole life, and `Hir.names` is the HIR's copy; **`nodes` sealed rather than hidden** — a consumer could then
+read the `Vec` and index it past `ast_get`; **`AstNode`'s fields sealed** — the parser, in another module,
+builds nodes, and a node has no invariant a constructor would keep.

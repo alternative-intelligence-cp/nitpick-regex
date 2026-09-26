@@ -113,6 +113,60 @@ pattern that is not valid UTF-8 is `InvalidPatternEncoding`. The **haystack**
 has no such requirement (`SAFETY.md` S-20); the **pattern** does, because a
 pattern is text a person wrote.
 
+**Rule Y-26 (RX-174) — the AST is a flat arena of nodes that own nothing, and
+every operand is an `int64`.** `src/syntax/ast.npk`:
+
+```nitpick
+pub struct:AstNode = {
+    AstKind:kind;      // Y-27
+    uint32:flags;      // the AST_FLAG_ bits
+    int64:a;           // Y-27's operands, by kind
+    int64:b;
+    int64:c;
+    int64:next;        // the next sibling in its parent's list, or AST_NONE
+    int64:pos;         // the construct's first byte in the pattern
+    int64:len;         // its length in bytes
+};
+```
+
+A node names another by its index in the same arena, or by `AST_NONE` (−1);
+never by pointer, which a growing `Vec` would leave dangling (`HIR.md` H-3). It
+owns nothing (`SAFETY.md` S-23a): a group's name and a property's text stay in
+the pattern, held by offset and length, and the caller keeps the pattern for as
+long as the AST lives. `flags` holds the pattern flags in force at the node —
+`AST_FLAG_I` 1, `AST_FLAG_M` 2, `AST_FLAG_S` 4, `AST_FLAG_X` 8, `AST_FLAG_U` 16
+(§4, scoped by Y-12) — and one bit for each of three kinds: `AST_FLAG_LAZY` 256
+on a `Repeat`, `AST_FLAG_NEGATED` 512 on a `Class`, `PerlClass`, `PosixClass` or
+`UnicodeClass`, and `AST_FLAG_BYTE` 1024 on a `Literal` that is a byte under
+`(?-u)` (Y-13). `#size_of<AstNode>()` is 56, measured, with no padding.
+
+**Rule Y-27 (RX-174) — the node kinds are a closed list of sixteen**, one for
+each construct of §1 that survives parsing; a refusal (§8) produces none.
+
+| Kind | Written | `a` | `b` | `c` | Bit |
+|---|---|---|---|---|---|
+| `Empty` | an empty pattern, alternative or group body | | | | |
+| `Literal` | a character, or an escape naming one | its codepoint; a byte under `BYTE` | | | `BYTE` |
+| `Dot` | `.` | | | | |
+| `Concat` | two or more pieces in sequence | the first | how many | | |
+| `Alternate` | two or more alternatives, `a\|b` | the first | how many | | |
+| `Repeat` | `*` `+` `?` `{n}` `{n,}` `{n,m}` | the repeated node | the minimum | the maximum; `AST_NONE` if unbounded | `LAZY` |
+| `Group` | `(…)` `(?:…)` `(?<name>…)` `(?flags:…)` | the body | its capture index; 0 if it captures nothing | its name's length, the name starting at `pos + 3`; 0 if unnamed | |
+| `Flags` | `(?flags)` | the flags it sets | the flags it clears | | |
+| `Anchor` | `^` `$` `\A` `\z` | 0, 1, 2, 3, in that order | | | |
+| `WordBoundary` | `\b` `\B` | 0, 1 | | | |
+| `Class` | `[…]`, a nested class, an operand of a class operator | the first item | how many | | `NEGATED` |
+| `ClassRange` | `a-z`, or one character in a class | the low codepoint | the high codepoint, equal for one character | | |
+| `PerlClass` | `\d` `\w` `\s`, in a class or out; a capital negates | 0, 1, 2 | | | `NEGATED` |
+| `PosixClass` | `[:name:]` `[:^name:]` | the name's place in §5.1's list, from 0 | | | `NEGATED` |
+| `UnicodeClass` | `\p{…}` `\pL` `\P{…}` `\PL` | the property text's offset | its length | | `NEGATED` |
+| `ClassOp` | `&&` `--` `~~` | the left operand | the right operand | 0, 1, 2, in that order | |
+
+A list's members — a `Concat`'s pieces, an `Alternate`'s alternatives, a
+`Class`'s items — are its first member and each member's `next`, in the order
+written. The subcycle that parses a construct produces its kind; the operands
+are this table's until a decision says otherwise.
+
 ---
 
 ## 4. Flags

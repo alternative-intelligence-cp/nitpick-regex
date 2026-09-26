@@ -1,0 +1,37 @@
+// expect-exit: 94
+//
+// `ast_set_root` AT AN INDEX NO NODE HAS STOPS. Cycle 0.1.0, RX-174.
+//
+// The root is `sealed` and set only here, so the check here is the whole of the
+// guarantee that `root` names a node or `AST_NONE`. This sets root 1 in a
+// one-node arena and must trap (94, `OutOfBounds`).
+mod:ast_oob_set_root;
+
+use "../../src/syntax/syntax.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Ast:t = raw ast_init(4i64);
+    discard(raw ast_push(@t, AstNode{ kind: AstKind.Empty, flags: 0u32, a: 0i64, b: 0i64, c: 0i64,
+                                      next: AST_NONE, pos: 0i64, len: 0i64 }));
+    drop ast_set_root(@t, 1i64);
+    drop ast_free(@t);
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

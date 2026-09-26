@@ -32,3 +32,24 @@ pub use "./cursor.npk".cursor_offset;
 pub use "./cursor.npk".cursor_peek;
 pub use "./cursor.npk".cursor_bump;
 pub use "./cursor.npk".cursor_eat;
+
+// ---- the AST arena (RX-174) ---------------------------------------------------
+pub use "./ast.npk".AST_NONE;
+pub use "./ast.npk".AST_FLAG_I;
+pub use "./ast.npk".AST_FLAG_M;
+pub use "./ast.npk".AST_FLAG_S;
+pub use "./ast.npk".AST_FLAG_X;
+pub use "./ast.npk".AST_FLAG_U;
+pub use "./ast.npk".AST_FLAG_LAZY;
+pub use "./ast.npk".AST_FLAG_NEGATED;
+pub use "./ast.npk".AST_FLAG_BYTE;
+pub use "./ast.npk".AstKind;
+pub use "./ast.npk".AstNode;
+pub use "./ast.npk".Ast;
+pub use "./ast.npk".ast_init;
+pub use "./ast.npk".ast_len;
+pub use "./ast.npk".ast_push;
+pub use "./ast.npk".ast_get;
+pub use "./ast.npk".ast_set;
+pub use "./ast.npk".ast_set_root;
+pub use "./ast.npk".ast_free;

@@ -1,0 +1,126 @@
+// expect-exit: 0
+//
+// THE AST ARENA: A HUNDRED NODES IN, EVERY FIELD OUT, THROUGH THE LAYER ENTRY --
+// AND FREED, SO A LEAKED `wild` BLOCK TRAPS. Cycle 0.1.0, RX-174; `SYNTAX.md`
+// Y-26, Y-27.
+//
+// WHAT IT PINS. `ordinal` is an EXHAUSTIVE `pick` over `AstKind`, no `(*)`, one
+// arm per kind in Y-27's order: a kind dropped, added or moved is a red run. A
+// hundred nodes go in from capacity 1, so the arena grows under them, each kind
+// in turn and every field distinct from its neighbours' (12: `ast_push` answers
+// the new index); each comes back through `ast_get` field for field (20 to 27).
+// `ast_set` rewrites one node and leaves its neighbour alone (30, 31);
+// `ast_set_root` sets the sealed root (32); `ast_free` resets it (33). The flag
+// bits are Y-26's values (40 to 47). The program exits 0 only after `ast_free`,
+// and D-151 traps a `wild` block still live at exit -- so an `ast_free` that
+// freed nothing, or a missing one, is red (96).
+mod:ast_unit;
+
+use "../../src/syntax/syntax.npk".*;
+
+func:ordinal = int64(AstKind:k) never fails {
+    int64:n = -1i64;
+    pick (k) {
+        (AstKind.Empty) { n = 0i64; },
+        (AstKind.Literal) { n = 1i64; },
+        (AstKind.Dot) { n = 2i64; },
+        (AstKind.Concat) { n = 3i64; },
+        (AstKind.Alternate) { n = 4i64; },
+        (AstKind.Repeat) { n = 5i64; },
+        (AstKind.Group) { n = 6i64; },
+        (AstKind.Flags) { n = 7i64; },
+        (AstKind.Anchor) { n = 8i64; },
+        (AstKind.WordBoundary) { n = 9i64; },
+        (AstKind.Class) { n = 10i64; },
+        (AstKind.ClassRange) { n = 11i64; },
+        (AstKind.PerlClass) { n = 12i64; },
+        (AstKind.PosixClass) { n = 13i64; },
+        (AstKind.UnicodeClass) { n = 14i64; },
+        (AstKind.ClassOp) { n = 15i64; }
+    }
+    pass n;
+};
+
+func:run = int32() never fails {
+    Ast:t = raw ast_init(1i64);
+    if ((raw ast_len(t)) != 0i64)   { pass 10i32; }
+    if (t.root != AST_NONE)         { pass 11i32; }
+    int64:i = 0i64;
+    int64:kk = 0i64;
+    while (i < 100i64) decreases 100i64 - i {
+        AstNode:n = AstNode{ kind: (kk =>! int32) =>! AstKind, flags: (i =>! uint32) + 7u32,
+                             a: i * 7i64, b: i * 11i64, c: 0i64 - i, next: i - 1i64,
+                             pos: i + 1000i64, len: i + 2i64 };
+        int64:at = raw ast_push(@t, n);
+        if (at != i) { pass 12i32; }
+        i = i + 1i64;
+        kk = kk + 1i64;
+        if (kk == 16i64) { kk = 0i64; }
+    }
+    if ((raw ast_len(t)) != 100i64) { pass 13i32; }
+    i = 0i64;
+    kk = 0i64;
+    while (i < 100i64) decreases 100i64 - i {
+        AstNode:g = raw ast_get(t, i);
+        if ((raw ordinal(g.kind)) != kk)         { pass 20i32; }
+        if (g.flags != (i =>! uint32) + 7u32)    { pass 21i32; }
+        if (g.a != i * 7i64)                     { pass 22i32; }
+        if (g.b != i * 11i64)                    { pass 23i32; }
+        if (g.c != 0i64 - i)                     { pass 24i32; }
+        if (g.next != i - 1i64)                  { pass 25i32; }
+        if (g.pos != i + 1000i64)                { pass 26i32; }
+        if (g.len != i + 2i64)                   { pass 27i32; }
+        i = i + 1i64;
+        kk = kk + 1i64;
+        if (kk == 16i64) { kk = 0i64; }
+    }
+    AstNode:m = raw ast_get(t, 50i64);
+    m.next = 99i64;
+    drop ast_set(@t, 50i64, m);
+    AstNode:m2 = raw ast_get(t, 50i64);
+    if (m2.next != 99i64)                        { pass 30i32; }
+    AstNode:m3 = raw ast_get(t, 51i64);
+    if (m3.next != 50i64)                        { pass 31i32; }
+    drop ast_set_root(@t, 99i64);
+    if (t.root != 99i64)                         { pass 32i32; }
+    drop ast_free(@t);
+    if (t.root != AST_NONE)                      { pass 33i32; }
+    pass 0i32;
+};
+
+func:flags = int32() never fails {
+    if (AST_FLAG_I != 1u32)          { pass 40i32; }
+    if (AST_FLAG_M != 2u32)          { pass 41i32; }
+    if (AST_FLAG_S != 4u32)          { pass 42i32; }
+    if (AST_FLAG_X != 8u32)          { pass 43i32; }
+    if (AST_FLAG_U != 16u32)         { pass 44i32; }
+    if (AST_FLAG_LAZY != 256u32)     { pass 45i32; }
+    if (AST_FLAG_NEGATED != 512u32)  { pass 46i32; }
+    if (AST_FLAG_BYTE != 1024u32)    { pass 47i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:r = raw run();
+    if (r != 0i32) { exit r; }
+    int32:f = raw flags();
+    exit f;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

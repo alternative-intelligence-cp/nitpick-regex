@@ -1,0 +1,150 @@
+// `src/syntax/ast.npk` — THE AST: A FLAT ARENA OF NODES THAT OWN NOTHING.
+// Cycle 0.1.0, RX-174; `meta/specs/SYNTAX.md` rules Y-26 and Y-27.
+//
+// THE SHAPE IS `HIR.md` H-2's, FOR H-2's REASON. The tree is a `Vec<AstNode>`,
+// and a node names another by INDEX, never by pointer: a `Vec` reallocates as
+// it grows and every pointer into it would dangle, while an index survives
+// (H-3). A node owns nothing -- no `string`, no `Vec`, no pointer -- which is
+// what lets a `Vec` hold it (`SAFETY.md` S-23a, RX-155; the harness's
+// `check_vec_elements_own_nothing` clears it by reading this file) and what lets
+// `vec_get` hand it back by value (`AstNode: Pod`, below). A group's name and a
+// property's text are not copied: the node holds their offset and length in the
+// pattern, which the caller keeps for the whole life of the AST.
+//
+// EVERY OPERAND IS `int64`, SO THE PARSER NARROWS NOTHING (RX-174). The values
+// it stores come from `int64`s -- the cursor's offset, a `Vec`'s count, a parsed
+// bound -- and the language has no checked narrowing: `=>!` truncates in
+// silence. An `int32` field would need a hand-written range check at every write,
+// against a bound `RegexOptions` may raise (`SAFETY.md` S-12, `API.md` A-7). The
+// AST is compile-time scratch, so its size is a cost paid once per pattern.
+//
+// FIFTY-SIX BYTES, MEASURED, AND THE SAME UNDER ANY ALIGNMENT RULE. `kind` and
+// `flags` are four bytes each and come first, together, so every field sits at
+// its natural alignment with nothing between -- `tests/unit/ast_size.npk` exits
+// with `#size_of<AstNode>()`. With `kind` first and `flags` last, the same fields
+// are 64 bytes, eight of them padding (measured at `c970483`).
+//
+// THE ARENA IS THE COMPILER'S TO GUARD. `Ast.nodes` is `hidden` (the compiler's
+// D-314): outside this file it cannot even be read (NITPICK-TYPE-080,
+// `tests/rejection/ast_nodes_read.npk`), so every access goes through `ast_get`,
+// `ast_set` and `ast_push` -- `vec_get`, `vec_set` and `vec_push` underneath, the
+// only bounds check this library has (S-23). `root` is `sealed`: read anywhere,
+// set only by `ast_set_root`.
+//
+// LAYERING (`BUILD.md` §6, B-16). Imports `core`, whose eleven arms a program
+// importing this file owes.
+mod:ast;
+
+use "../core/core.npk".*;
+
+// The index that names no node: an absent sibling, an unbounded repetition's
+// maximum, and the root of an `Ast` that nothing has been parsed into.
+pub fixed int64:AST_NONE = -1i64;
+
+// The flag bits (Y-26). The first five are the pattern flags in force at the
+// node (`SYNTAX.md` §4, scoped by Y-12); the last three each belong to a kind.
+pub fixed uint32:AST_FLAG_I = 1u32;          // `i`: case-insensitive
+pub fixed uint32:AST_FLAG_M = 2u32;          // `m`: multi-line
+pub fixed uint32:AST_FLAG_S = 4u32;          // `s`: `.` matches a newline
+pub fixed uint32:AST_FLAG_X = 8u32;          // `x`: extended
+pub fixed uint32:AST_FLAG_U = 16u32;         // `u`: Unicode mode, on by default
+pub fixed uint32:AST_FLAG_LAZY = 256u32;     // a `Repeat` with a trailing `?`
+pub fixed uint32:AST_FLAG_NEGATED = 512u32;  // a `Class`, `PerlClass`, `PosixClass` or `UnicodeClass`, negated
+pub fixed uint32:AST_FLAG_BYTE = 1024u32;    // a `Literal` that is a byte, under `(?-u)` (Y-13)
+
+// `SYNTAX.md` Y-27's closed list, in its order; what each kind's operands hold is
+// that rule's table. `tests/unit/ast_unit.npk` holds this list to the order with
+// an exhaustive `pick`.
+pub enum:AstKind = {
+    Empty;
+    Literal;
+    Dot;
+    Concat;
+    Alternate;
+    Repeat;
+    Group;
+    Flags;
+    Anchor;
+    WordBoundary;
+    Class;
+    ClassRange;
+    PerlClass;
+    PosixClass;
+    UnicodeClass;
+    ClassOp;
+};
+
+pub struct:AstNode = {
+    AstKind:kind;      // Y-27
+    uint32:flags;      // the AST_FLAG_ bits
+    int64:a;           // Y-27's operands, by kind
+    int64:b;
+    int64:c;
+    int64:next;        // the next sibling in its parent's list, or AST_NONE
+    int64:pos;         // the construct's first byte in the pattern
+    int64:len;         // its length in bytes
+};
+
+// `vec_get` hands back a `T: Pod` by value (RX-168), and a node owns nothing, so
+// its copy is itself. `self` is LENT, exactly as the trait declares it: an impl
+// declaring `move` on it compiles at `c970483` and is a double free through the
+// trait -- the workbench registry's O-N28, the compiler's DEF-116, refused
+// NITPICK-TYPE-014 from the compiler's landing 69
+// (`tests/probe/probe18_impl_adds_move.npk`).
+impl:AstNode:Pod = { func:pod_copy = AstNode(AstNode:self) never fails { pass self; }; };
+
+// MOVE-ONLY, because it holds a `Vec` (`SAFETY.md` S-23b, RX-161): transfer it
+// with `move(...)`, lend it by value to a reader, hand it by pointer to anything
+// that changes it.
+pub struct:Ast = {
+    hidden Vec<AstNode>:nodes;     // the arena
+    sealed int64:root;             // the root node, AST_NONE until a parse sets it
+};
+
+// obligation: never fails ensures result.root == AST_NONE && ast_len(result) == 0i64
+pub func:ast_init = Ast(int64:cap) never fails {
+    pass Ast{ nodes: raw vec_init::<AstNode>(cap), root: AST_NONE };
+};
+
+// obligation: never fails ensures result == t.nodes.count
+pub func:ast_len = int64(Ast:t) never fails {
+    pass t.nodes.count;
+};
+
+// obligation: never fails ensures ast_len(t) == old(ast_len(t)) + 1i64 && result == ast_len(t) - 1i64
+//
+// Appends a node and answers its index.
+pub func:ast_push = int64(Ast->:t, AstNode:n) never fails {
+    drop vec_push(@t.nodes, n);
+    pass t.nodes.count - 1i64;
+};
+
+// obligation: never fails requires i >= 0i64 && i < ast_len(t)
+pub func:ast_get = AstNode(Ast:t, int64:i) never fails {
+    pass raw vec_get(t.nodes, i);
+};
+
+// obligation: never fails requires i >= 0i64 && i < ast_len(t)
+pub func:ast_set = NIL(Ast->:t, int64:i, AstNode:n) never fails {
+    drop vec_set(@t.nodes, i, n);
+    pass NIL;
+};
+
+// obligation: never fails requires i >= 0i64 && i < ast_len(t)
+pub func:ast_set_root = NIL(Ast->:t, int64:i) never fails {
+    if (i < 0i64)           { drop vec_oob(i); }
+    if (i >= t.nodes.count) { drop vec_oob(i); }
+    t.root = i;
+    pass NIL;
+};
+
+// obligation: never fails ensures t.root == AST_NONE
+//
+// Frees the arena. A node owns nothing, so the block is the whole obligation,
+// and a unit that frees and exits 0 proves it (D-151: a leaked `wild` block
+// traps at exit).
+pub func:ast_free = NIL(Ast->:t) never fails {
+    drop vec_free(@t.nodes);
+    t.root = AST_NONE;
+    pass NIL;
+};

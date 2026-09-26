@@ -1,0 +1,40 @@
+// expect-exit: 94
+//
+// `ast_get` PAST THE LAST NODE STOPS. Cycle 0.1.0, RX-174.
+//
+// `ast_get` is `vec_get` underneath -- the accessor pair is the only bounds check
+// this library has, because `Vec<T>.items` is a bare `wild T->` and D-070 guards
+// no bare pointer (`SAFETY.md` S-23). This reads index 1 of a one-node arena and
+// must trap (94, `OutOfBounds`) rather than return a heap word: a wrapper that
+// clamped, or read `.items` itself, would pass the in-range unit and fail here.
+mod:ast_oob_get;
+
+use "../../src/syntax/syntax.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Ast:t = raw ast_init(4i64);
+    discard(raw ast_push(@t, AstNode{ kind: AstKind.Empty, flags: 0u32, a: 0i64, b: 0i64, c: 0i64,
+                                      next: AST_NONE, pos: 0i64, len: 0i64 }));
+    AstNode:g = raw ast_get(t, 1i64);
+    drop ast_free(@t);
+    if (g.pos != 0i64) { exit 10i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};
