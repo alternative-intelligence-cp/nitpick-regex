@@ -134,7 +134,8 @@ recursive = true
 # seal's five since cycle 0.0.4c, `bytes_copy` since the close's fourth triage,
 # the five `Vec` and `SparseSet` copies and `bytes_buf_ptr_write` since 0.0.4d,
 # and the six loan and pass-out pins and `vec_owning_get_moves_out` since 0.0.4e)
-# the `src/core/` modules they test -- which makes them the standing
+# the `src/core/` modules they test, and since cycle 0.1.0 three the syntax
+# layer's entry, `src/syntax/syntax.npk` -- which makes them the standing
 # instance of the B-7 hazard: a typo'd path exits 1 with RESOLVE-005, which is a
 # refusal, and only code-set equality tells it from the refusal the test is
 # about.

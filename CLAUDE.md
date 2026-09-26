@@ -5,10 +5,12 @@ Guidance for Claude Code sessions working in this repository.
 ## What this is
 
 `nregex` — a regular-expression library for **Nitpick**, the safety-critical
-systems language at `../../nitpick`. **Status: cycle 0.0, foundations, CLOSED on
-2026-09-26** — the sixth audit accepted it, and it is archived in
-`meta/roadmap/done/0.0/`; **cycle 0.1, the pattern parser, opens next** from
-`meta/roadmap/0.1/0.1.0.md`. The
+systems language at `../../nitpick`. **Status: cycle 0.1, the pattern parser, is
+open, and its 0.1.0 is done** — the pieces the parser is written in, in
+`src/syntax/`: the closed list of pattern errors and their one constructor, the
+byte cursor, and the AST arena (RX-171 … RX-175, `meta/roadmap/0.1/0.1.0.md`).
+Cycle 0.0, foundations, CLOSED on 2026-09-26 — the sixth audit accepted it, and
+it is archived in `meta/roadmap/done/0.0/`. The
 specifications, the decisions and the roadmap are complete; `tests/probe/` holds
 **32** language probes with recorded verdicts, split **25 / 7** by kind (16 / 7,
 then 17 / 6 when the `94874ce` re-pin discharged O-N10 and `probe02b` stopped
@@ -22,12 +24,14 @@ at the first `""` — found by the cycle 0.0 close's fourth triage, RX-157; then
 parameter shows — RX-161, RX-162; then 25 / 7 when cycle 0.0.4e moved probe 15 out
 of `refused/` and probe 17 into it — the compiler's lexer and its loan rule fixed —
 and added probe 18, a compiler defect an impl's `move` shows — RX-168 … RX-170);
-`tests/rejection/` holds twenty-one consumer-facing refusals (five of them the
+`tests/rejection/` holds twenty-four consumer-facing refusals (five of them the
 containers' seal, since 0.0.4c; one a `Bytes` copy refused `TYPE-046`, since the
 fourth triage; since 0.0.4d five `Vec` and `SparseSet` copies refused
 `TYPE-046` and a write through `Bytes.buf` refused `TYPE-080`; and since 0.0.4e the
 six loan and pass-out pins, refused `TYPE-085` and `TYPE-047`, and `vec_get` at an
-owning element, refused `TYPE-017`); `harness/` builds, sweeps,
+owning element, refused `TYPE-017`; and since 0.1.0 the syntax layer's three — a
+`PatternError` literal and a cursor's position written, each refused `TYPE-079`,
+and the AST's `Vec` read, refused `TYPE-080`); `harness/` builds, sweeps,
 diffs and judges them, **and proves first that it can fail**; and since 0.0.4
 `src/core/` is real — `Vec<T>`, `Bytes`, `ByteSet`, `SparseSet` and `limits.npk`,
 with 48 unit programs of their own — seven of them measuring what each `Vec` verb does at an
@@ -37,10 +41,13 @@ refusal since cycle 0.0.4e: `vec_get` takes `T: Pod`, RX-168); the swap and the 
 refusals prescribe — the six were units pinning a compiler defect until `c970483` refused them
 (RX-169); and `vec_get_pod_struct`, a consumer's own `Pod` for a POD struct, read back through
 `vec_get` with every name from `core.npk`'s re-exports — RX-168's positive half, pinned at the
-cycle 0.0 close (the sixth audit's N-30). **No matching happens yet**: `src/syntax/`,
-`src/hir/`, `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are
-still one placeholder module each. A full green run at compiler `c970483` is
-**220 units** (after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus eight tree checks; take those numbers from the runner's
+cycle 0.0 close (the sixth audit's N-30). **Since 0.1.0 `src/syntax/` holds the
+parser's pieces** — `pattern_error.npk`, `cursor.npk`, `ast.npk` and `parse.npk`
+behind its layer entry, with ten unit programs and three refusals of their own —
+and parses no construct yet. **No matching happens yet**: `src/hir/`,
+`src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are still one
+placeholder module each. A full green run at compiler `c970483` is
+**250 units** (after cycle 0.1.0; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus eight tree checks; take those numbers from the runner's
 summary rather than from here. **Nothing is PENDING any more**:
 `tests/unit/bytes_copy_string_empty.npk` was committed red under
 `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at

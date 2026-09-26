@@ -149,12 +149,31 @@ And `vec_get` takes `T: Pod` (RX-168):
 one that grows takes a pointer, a loop reads its binding, a generic takes `move T` —
 and all of it runs.
 
+## The syntax layer's three — cycle 0.1.0
+
+Each pins a guarantee the compiler now holds for `src/syntax/`, and each compiles
+with the one qualifier it tests deleted (`meta/roadmap/0.1/0.1.0.md`'s controls):
+
+- **`pattern_error_literal.npk`** — a `PatternError` literal outside
+  `src/syntax/pattern_error.npk`: `NITPICK-TYPE-079`, once per sealed field. So
+  `pattern_error(…)`, which takes an offset and refuses a negative one, is the
+  only way to build an error (RX-172).
+- **`cursor_pos_write.npk`** — a write of a `Cursor`'s `pos`: `NITPICK-TYPE-079`.
+  So nothing outside `cursor.npk` moves a cursor, and the parser's one byte of
+  lookahead is the compiler's rule (RX-173).
+- **`ast_nodes_read.npk`** — a read of `Ast.nodes`: `NITPICK-TYPE-080`. So every
+  access to the arena goes through `ast_get`, `ast_set` and `ast_push` (RX-174).
+  It reads `.count` rather than an element, so the `TYPE-022` cascade the
+  compiler adds at a generic call — gone at its next landing — cannot join its
+  code set.
+
 ## Why they are the standing instance of rule B-7
 
-All twenty-one import `src/` by a **relative** path — the two `failsafe_*` fixtures
-`../../src/lib.npk`, the other nineteen the `../../src/core/` modules they test
-(*"all seven" went stale when the fourth triage added `bytes_copy.npk`; corrected
-at 0.0.4d; "fourteen" and "twelve" at 0.0.4e*) —
+All twenty-four import `src/` by a **relative** path — the two `failsafe_*` fixtures
+`../../src/lib.npk`, nineteen the `../../src/core/` modules they test, and three
+`../../src/syntax/syntax.npk` (*"all seven" went stale when the fourth triage added
+`bytes_copy.npk`; corrected at 0.0.4d; "fourteen" and "twelve" at 0.0.4e;
+"twenty-one" at 0.1.0*) —
 because every import here is relative until O-G3 closes (B-15). If any path is
 typo'd or the file moves, `npkc` exits **1** with `NITPICK-RESOLVE-005` — a genuine refusal, and
 these tests want a refusal. Under a *subset* rule they would pass, having
