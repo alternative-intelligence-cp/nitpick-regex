@@ -52,7 +52,7 @@ cycle 0.0.
 
 | Cycle | Topic | Gated on |
 |---|---|---|
-| **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **NOT CLOSED. Its close was REFUSED by the [cycle 0.0 audit](0.0/0.0.5.md) on 2026-09-06 and the archive move was reversed; refused again three times since, the fourth on 2026-09-25. 0.0.4d LANDED 2026-09-25: `Vec` move-only by the author's decision, a loan still a compiler defect. Next: a fifth audit** | — |
+| **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **NOT CLOSED. Its close was REFUSED by the [cycle 0.0 audit](0.0/0.0.5.md) on 2026-09-06 and the archive move was reversed; refused again four times since, the fourth and fifth on 2026-09-25. 0.0.4d LANDED 2026-09-25: `Vec` move-only by the author's decision, a loan still a compiler defect; the fifth audit's triage ([§12](0.0/0.0.5.md)) made the harness read source as the compiler does. Next: the author's question 10 — recommended, a re-pin to a compiler carrying its 1.6.0 step 3g — then an audit** | — |
 | **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors | 0.0 |
 | **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction | 0.1 |
 | **0.3** | **Unicode** — generated tables, properties, scripts, simple case folding | 0.0 |
@@ -108,6 +108,17 @@ cycle 0.0.
 > shapes are refused, `Bytes.buf` is hidden and A′ replaces P-1; the LOAN is
 > pinned against a compiler defect, and whether the close waits for its fix is the
 > author's.
+>
+> **The fifth audit refused the close as well, the same evening** — one blocking
+> finding, BL-9: the harness's "one reading of source" read a lone carriage return
+> as a line end and an escaped import path as its text, and the skip's two
+> defences shared that reader, so two CRs took a red unit out of a GREEN run. Its
+> triage is [`0.0/0.0.5.md`](0.0/0.0.5.md) §12: 7 findings, 7 lines, RX-165 …
+> RX-167 — every `.npk` read as bytes, a path decoded as the compiler decodes it,
+> the skip's second defence asked of `npkc`, and two more second-handle shapes
+> pinned. **The close waits for the loan's refusal** — DEF-102's
+> `NITPICK-TYPE-085`, the compiler's 1.6.0 step 3g, not in `c3bdae2` — which is
+> the author's question 10 and a separate re-pin subcycle.
 
 **What it has produced so far**, against what this section planned: **25** probes
 rather than fourteen (five questions split into a positive and a negative half
@@ -138,6 +149,10 @@ to the rejection suite, `bytes_buf_ptr_write`, three loan units and the positive
 twin `vec_moves`, probes 16, 16b and 17, and the parse sweep's eight more files —
 **31** probes, `src/core/` with **51** unit programs, and decisions through
 RX-164.)*
+*(After the close's fifth audit triage, the same compiler: **214** units — two
+units pinning second handles on a move-only `Vec`, a `for` binding and a generic
+pass-out, and the parse sweep's two more files — `src/core/` with **53** unit
+programs, a self-check of **24** cases, 20 live, and decisions through RX-167.)*
 
 **Two probes refuted their own hypothesis**, which is the cycle's best return:
 `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler

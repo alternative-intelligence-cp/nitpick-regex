@@ -1,4 +1,23 @@
-# Cycle 0.0 — Foundations — **NOT CLOSED. The close was refused FOUR times — three on 2026-09-06, the fourth on 2026-09-25 — and it waits on 0.0.4d, the author's decision, and then a fifth audit.**
+# Cycle 0.0 — Foundations — **NOT CLOSED. The close was refused FIVE times — three on 2026-09-06, the fourth and fifth on 2026-09-25 — and it waits on the author's question 10: recommended, a re-pin to a compiler carrying its 1.6.0 step 3g, and then an audit that has seen it.**
+
+> ## The FIFTH refusal — the fix for the fourth's first finding had the same shape
+>
+> **[`../../audits/nitpick-regex-0.0-2026-09-25-fifth.md`](../../audits/nitpick-regex-0.0-2026-09-25-fifth.md)
+> returned DO NOT ACCEPT on one blocking finding.** BL-9: RX-157's "one reading of
+> source" was not the compiler's in two measured ways — every caller opened a
+> file in Python's text mode, so a lone carriage return was a line end, and an
+> import path was followed as its text rather than its decoded value — and the
+> skip's second defence read through the same reader, so two CRs took a red unit
+> out of a GREEN run (`209/209`, exit 0) and one escaped path hid a syscall in
+> `src/` from B-2 (`213/213`). **The triage is [`0.0.5.md`](0.0.5.md) §12 — 7
+> findings, 7 lines**: the harness opens every `.npk` as bytes, decodes a path by
+> the compiler's rules, and asks `npkc` whether a candidate defines `main`
+> (RX-165), each defence tested alone; the S-23a check's splice, qualifier and
+> discriminant cases (RX-166); two more second-handle shapes pinned — a `for`
+> binding and a generic pass-out, the registry's O-N22 (RX-167). **The loan's
+> refusal is not in this pin**: DEF-102's `NITPICK-TYPE-085` lands with the
+> compiler's 1.6.0 step 3g, and so does DEF-104 — the close waits for that
+> re-pin, the author's question 10, which this subcycle does not take.
 
 > ## 0.0.4d landed — `Vec` is move-only, and a loan is not a copy
 >
@@ -502,6 +521,12 @@ settled. **Nothing in this cycle is blocked on a question.**
       before the close, by the author's decision on question 9**; N-21 a compiler defect, not
       worked around, carried into `0.1.0.md` — `0.0.5.md` §11. RX-157 … RX-160; self-check cases
       15–18; seven alias units, one control, one rejection fixture, probe 15. **194/194**, GREEN
+- [x] **added by the FIFTH audit triage, at compiler `c3bdae2`:** every one of the fifth audit's
+      findings carries a line — **7 items, 7 lines**: BL-9, N-24, N-27, N-28 and N-29 FIXED; N-25
+      OPEN against the compiler's DEF-104 and N-26 against its DEF-102, each pinned by a unit and
+      neither worked around — `0.0.5.md` §12. RX-165 … RX-167; self-check cases 19–23; two units.
+      **214/214**, GREEN; CI run `36210627564` green on `be6511f`. The loan's refusal waits for the
+      re-pin that carries the compiler's 1.6.0 step 3g — the author's question 10
 
 ## Gate
 
@@ -521,8 +546,16 @@ satisfiable by passing.
 **AND, SINCE 2026-09-25, 0.0.4d LANDED FIRST.** The author decided on the board's
 question 9 that `Vec` becomes move-only by construction before this cycle
 closes, so N-15 is not a deferral past the close: the audit that accepts the
-close must have seen 0.0.4d's tree, in which every `tests/unit/*_alias_*` shape
-is refused (RX-160).
+close must have seen 0.0.4d's tree, in which every COPY shape the fourth audit
+measured is refused `NITPICK-TYPE-046` (RX-161) and the swap runs spelled with
+`move(...)`; and every LOAN shape — the four `tests/unit/*_alias_param_*` units,
+probe 17 and the `for` binding (RX-167) — is refused `NITPICK-TYPE-085` at a pin
+carrying the compiler's DEF-102 (its 1.6.0 step 3g), unless the author decides
+the close proceeds with the loan open against it (question 10). *(Reworded
+2026-09-25 by the fifth audit's triage, N-29. It read "in which every
+`tests/unit/*_alias_*` shape is refused (RX-160)", which counted
+`sparseset_alias_swap`, a shape that must run, and could not be met for a loan at
+`c3bdae2`; the note below had said so and the sentence had not moved.)*
 
 *(2026-09-25, cycle 0.0.4d — RX-161, RX-162. "Every `*_alias_*` shape is refused"
 was written before the shapes were measured against a move-only `Vec`, and it
