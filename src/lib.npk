@@ -7,16 +7,15 @@
 // graph happens to expose. `meta/specs/API.md` §1 is the list it grows into,
 // and `RX-113` records the measurement behind the rules below.
 //
-// THREE RULES, EACH PAID FOR BY A MEASUREMENT IN 0.0.1. Break any of them and
-// the failure appears in the CONSUMER, as `there is no type named X`, with
-// nothing wrong at the line that caused it.
+// TWO RULES, EACH PAID FOR BY A MEASUREMENT IN 0.0.1. Break either and the
+// failure appears in the CONSUMER, as `there is no type named X`, with nothing
+// wrong at the line that caused it.
 //
 //   1. EVERY LINE HERE IS `pub use`. A plain `use` re-exports nothing.
-//   2. THIS FILE NEVER PLAIN-`use`s A PATH IT ALSO `pub use`s. The first
-//      import of a name wins and a later one is silently declined
-//      (`symtab_bind_import`, `src/frontend/symbols.npk`), so a plain `use`
-//      written above a `pub use` of the same path downgrades the re-export to
-//      nothing AT NO DIAGNOSTIC. Provisional workbench question O-N13.
+//   2. RETIRED (RX-171). It said this file never plain-`use`s a path it also
+//      `pub use`s, because a plain `use` above the `pub use` silently cancelled
+//      the re-export -- the compiler's DEF-7 (workbench O-N13), fixed at
+//      `94874ce`. Measured at `c970483`, it does not.
 //   3. ONE NAME PER LINE. Several single-name `pub use` lines from one path DO
 //      compose — measured, both orders — so the list stays greppable and a
 //      removal is one line of diff.

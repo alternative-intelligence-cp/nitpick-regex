@@ -722,6 +722,9 @@ under LLVM 20.1.2. Three of the four correct a specification; the fourth is
 housekeeping the author asked for.*
 
 ### RX-113 — the umbrella re-exports with `pub use`, one name per line, and never plain-`use`s a path it re-exports
+> **SUPERSEDED IN PART by RX-171 (2026-09-26)** — its rule 2 and the every-file check its last paragraph asks
+> for: a plain `use` above a `pub use` of the same path no longer cancels the re-export (the compiler's DEF-7,
+> fixed at `94874ce`). Rules 1 and 3 stand.
 **2026-09-03, from building `src/lib.npk` and measuring what a consumer can
 see.**
 
@@ -4110,3 +4113,47 @@ agree with the compiler, and it no longer would; **following the grammar and not
 the lexer** — they agree now, and the day they part the lexer is still what reads
 the files; **flipping line 23's expectation alone** — measured above as a case a
 never-closing reader passes.
+
+### RX-171 — B-15a's rule 2 is retired: a plain `use` above a `pub use` of the same path no longer cancels the re-export, and nothing else gave the rule a reason
+
+**2026-09-26, cycle 0.1.0 (the plan's PD-15), at compiler `c970483`.** It supersedes RX-113 in part — its
+rule 2, *"the umbrella never plain-`use`s a path it also `pub use`s"*, and its last paragraph's promise of a
+check that no file holds both. Rules 1 and 3 stand, and so does everything RX-113 measured.
+
+**Why now.** Cycle 0.0's close found that the rule's one reason was a compiler defect — `symtab_bind_import`
+returned a name's prior binding without merging a later `pub use`'s flags: the workbench registry's O-N13, the
+compiler's DEF-7 — fixed at `94874ce` and struck as discharged at the fifth audit's triage, while live sites
+still stated it as current (`meta/roadmap/done/0.0/0.0.5.md` §13, finding 1). It handed the decision to this
+cycle, ahead of the first layer entry the library writes since the rule was made, `src/syntax/syntax.npk`.
+
+**Measured**, each shape a one-line edit to a copy of the tree, each consumer through `npkc`, `llc`, `ld.lld`
+and a run at −O0 and through `opt -O2`:
+
+| the copy | at `950bb1d` | at `94874ce` | at `c970483` |
+|---|---|---|---|
+| unedited | runs 0 | runs 0 | runs 0 |
+| `use "./api/api.npk".*;` above `src/lib.npk`'s `pub use` | **refused `NITPICK-RESOLVE-002`** at the consumer's `(ERegexPattern)` arm: the defect | runs 0 | runs 0 |
+| `use "./api/api.npk".ERegexPattern;` above it: the same name | **refused `NITPICK-RESOLVE-002`** | runs 0 | runs 0 |
+| that `pub use` made a plain `use` | refused `NITPICK-RESOLVE-002` | refused `NITPICK-RESOLVE-002` | refused `NITPICK-RESOLVE-002` |
+| `use "./vec.npk".*;` above, and in another copy below, `src/core/core.npk`'s `pub use` lines | | | `vec_get_pod_struct` runs 0 |
+
+The consumer at `950bb1d` and `94874ce` names the arms those compilers have, and at `c970483` the committed
+`tests/conformance/import.npk` is the consumer. A file holding only `pub use` lines also uses the names it
+re-exports, at `c970483` — a `pub use` binds its name in its own file — so no file needs a plain `use` of a path
+for a name it re-exports.
+
+**So rule 2 guarded against nothing, and its check never tested it alone.** `_check_umbrella` reads
+`src/lib.npk` only, where rule 1's branch already fails every plain `use`; the check over every file that
+RX-113 promised was never built. The branch goes and rule 1's stays. `BUILD.md` B-15a marks rule 2 retired,
+and `CLAUDE.md`, `CONTRIBUTING.md` item 7, `harness/treecheck.py` and the headers of `src/core/core.npk` and
+`src/lib.npk` stop stating the cancellation as current — eight sites: the seven the close named, and
+`check_layering`'s docstring, which said the shape "produces NO DIAGNOSTIC" in the present tense.
+
+*Alternatives declined:* **keeping rule 2 against a regression of DEF-7** — the compiler's own
+`tests/accept/reexport/` guards the fix, and this library's consumer programs (`tests/conformance/import.npk`,
+`tests/unit/vec_get_pod_struct.npk`) go red if a re-export they use stops working — RX-151 kept B-0 when its
+mechanism expired because a second, true reason held it, and here none does; **keeping it as style** — a specification
+states facts about the library, and this would state a lint with no failure behind it; **keeping it and
+building the every-file check RX-113 promised** — a check needs a failure message, and this one could give no
+true reason; **leaving it to the next audit** — the first layer entry written since is this subcycle's, and
+cycle 0.0's close placed the decision before it.

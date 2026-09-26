@@ -209,11 +209,13 @@ evidence.
   through a program root, and `tests/conformance/import.npk` is the smallest
   one. Run all four steps — `npkc`, `llc`, `ld.lld`, the binary — on anything
   you claim compiles.
-- **`src/lib.npk` re-exports with `pub use`, one name per line, and must never
-  plain-`use` a path it also `pub use`s** (RX-113). A plain `use` re-exports
-  nothing; a plain `use` above a `pub use` of the same path silently cancels the
-  re-export, at no diagnostic, and the failure lands in the consumer as "cannot
-  find X in this scope".
+- **`src/lib.npk` re-exports with `pub use`, one name per line** (RX-113). A
+  plain `use` re-exports nothing, and the failure lands in the consumer, not in
+  `src/lib.npk`. *(Until cycle 0.1.0 this bullet also said a file must never
+  plain-`use` a path it also `pub use`s, because a plain `use` above the
+  `pub use` silently cancelled the re-export — the compiler's DEF-7, fixed at
+  `94874ce`. Measured at `c970483` it no longer does, and that rule is retired:
+  RX-171.)*
 - **`exit 0` traps on a leaked `wild` block and sees nothing else** (RX-110).
   D-151 counts `wild` blocks, D-188 counts live drivers, and neither sees a
   managed body — so a container freed without dropping its owning elements

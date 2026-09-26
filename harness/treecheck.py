@@ -151,9 +151,11 @@ def check_layering(root):
       B-16   a module may not import a module to its LEFT.
       B-16a  `src/lib.npk` is above the diagram and nothing in `src/` imports it.
       B-17   `tests/oracle/` may import `core` and `hir` and NOTHING else.
-      B-15a  the umbrella is all `pub use`, and never plain-`use`s a path it
-             also `pub use`s -- the silent-cancellation shape RX-113 measured,
-             which produces NO DIAGNOSTIC and surfaces in the consumer.
+      B-15a  the umbrella is all `pub use` (rule 1): a plain `use` re-exports
+             nothing, and the failure surfaces in the consumer, not here. Rule 2
+             -- no plain `use` of a path also `pub use`d -- is retired (RX-171):
+             the cancellation it guarded against was the compiler's DEF-7,
+             fixed at `94874ce`.
     """
     fl, notes = [], []
     files = npk_files(root, "src")
@@ -209,41 +211,33 @@ def check_layering(root):
 
 
 def _check_umbrella(root, lib):
-    """RULE B-15a, AND IT IS THE ONE WITH NO COMPILER BEHIND IT.
+    """RULE B-15a RULE 1: EVERY LINE OF THE UMBRELLA IS `pub use`.
 
-    A plain `use` re-exports nothing, and a plain `use` written above a
-    `pub use` OF THE SAME PATH silently downgrades the re-export to nothing at
-    NO DIAGNOSTIC -- `symtab_bind_import` declines a name already bound and
-    returns the prior binding without merging the new flags (RX-113, workbench
-    O-N13). The failure lands in the CONSUMER as "cannot find X in this scope",
-    with nothing wrong at the line that caused it. No compiler will report this
-    for us; this check is the only thing that does."""
+    A plain `use` re-exports nothing, for any kind of symbol, and the failure
+    lands in the CONSUMER -- at `c970483` its `(ERegexPattern)` arm is
+    NITPICK-RESOLVE-002 -- with nothing wrong at the line that caused it. So a
+    plain `use` here fails the run.
+
+    RULE 2 IS RETIRED (RX-171), AND THIS CHECK NO LONGER TESTS IT. It said no
+    file plain-`use`s a path it also `pub use`s, because a plain `use` above the
+    `pub use` silently cancelled the re-export -- the compiler's DEF-7 (the
+    workbench registry's O-N13), fixed at `94874ce`. Measured at `c970483`, the
+    shape leaves the re-export intact. Its branch here never fired alone: in the
+    one file this check reads, rule 1's branch already fails every plain `use`."""
     if not os.path.exists(lib):
         return [f"src/lib.npk is missing -- it is the umbrella and the whole public "
                 f"surface (BUILD.md B-15a)"]
     fl = []
-    plain, pub = {}, {}
     try:
         text = lexical.read(lib)
     except OSError as e:
         return [f"src/lib.npk: {e}"]
     for ln, target, is_pub in lexical.imports(text):
-        if is_pub:
-            pub.setdefault(target, []).append(ln)
-        else:
-            plain.setdefault(target, []).append(ln)
+        if not is_pub:
             fl.append(f"src/lib.npk:{ln}: a plain `use` in the umbrella. EVERY LINE "
                       f"HERE IS `pub use` (B-15a rule 1): a plain `use` re-exports "
                       f"nothing, for any kind of symbol, and the failure appears in "
                       f"the consumer rather than here.")
-    for target, lns in sorted(plain.items()):
-        if target in pub:
-            fl.append(f"src/lib.npk: `{target}` is plain-`use`d at line "
-                      f"{lns[0]} AND `pub use`d at line {pub[target][0]}. THE PLAIN "
-                      f"ONE SILENTLY CANCELS THE RE-EXPORT (B-15a rule 2, RX-113): "
-                      f"the first import of a name wins, a later one is declined "
-                      f"without merging its flags, and there is NO DIAGNOSTIC. This "
-                      f"check is the only thing in the world that reports it.")
     return fl
 
 

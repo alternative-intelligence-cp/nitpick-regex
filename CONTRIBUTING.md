@@ -75,12 +75,12 @@ never for concluding; nothing is committed on the strength of a filtered run.
    **run all four steps** — `npkc`, `llc`, `ld.lld`, then the binary — and judge
    the last one. A change that "compiles" has not been tested.
 
-7. **`src/lib.npk` is `pub use`, one name per line, and never plain-`use`s a
-   path it re-exports** (RX-113). A plain `use` re-exports nothing, and a plain
-   `use` written above a `pub use` of the same path cancels the re-export
-   silently — no diagnostic, and the failure appears in a consumer as "cannot
-   find X in this scope". If you add a name to the public surface, add one
-   line, and add it to `API.md` §1 in the same commit.
+7. **`src/lib.npk` is `pub use`, one name per line** (RX-113). A plain `use`
+   re-exports nothing, and the failure appears in a consumer, not in
+   `src/lib.npk`. If you add a name to the public surface, add one line, and add
+   it to `API.md` §1 in the same commit. *(The rule that a file never
+   plain-`use`s a path it also `pub use`s is retired — RX-171: the
+   cancellation it guarded against was a compiler defect, fixed at `94874ce`.)*
 
 ## Tests
 

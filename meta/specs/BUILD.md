@@ -569,19 +569,27 @@ which is the umbrella that `pub use`s the public surface.
 > deliberately, which is a feature — the public surface is a list in one file a
 > reviewer can read.
 
-**Rule B-15a (RX-113) — how the umbrella re-exports, and the one way it must
-not.** Measured in 0.0.1 over a matrix of a type, an `error:` identity and a
-function:
+**Rule B-15a (RX-113; its rule 2 retired by RX-171) — how the umbrella
+re-exports.** Measured in 0.0.1 over a matrix of a type, an `error:` identity
+and a function:
 
 1. **Every line in `src/lib.npk` is `pub use`.** A plain `use` re-exports
-   nothing, for any kind of symbol.
-2. **No file plain-`use`s a path it also `pub use`s.** `symtab_bind_import`
-   declines a name already bound and, on the "same declaration reached twice"
-   path, returns the prior binding **without merging the new flags** — so a
-   plain `use` above a `pub use` of the same path silently downgrades the
-   re-export to nothing, at **no diagnostic**, and the failure appears in the
-   consumer as *"cannot find X in this scope"*. Provisional workbench
-   **O-N13**. `check_layering` gains this check at cycle 0.0.3.
+   nothing, for any kind of symbol — still so at `c970483`, where a consumer of
+   an umbrella whose one line is a plain `use` is refused `NITPICK-RESOLVE-002`
+   at its `(ERegexPattern)` arm. `check_layering` fails every plain `use` in
+   the umbrella.
+2. ~~**No file plain-`use`s a path it also `pub use`s.**~~ **Retired
+   2026-09-26 by RX-171.** Its reason was a compiler defect: `symtab_bind_import`
+   declined a name already bound and returned the prior binding without merging
+   the new flags, so a plain `use` above a `pub use` of the same path cancelled
+   the re-export at no diagnostic — the workbench registry's O-N13, the
+   compiler's DEF-7, fixed at `94874ce`. Measured at cycle 0.1.0: at `950bb1d`
+   the shape cancels the re-export and the consumer is refused
+   `NITPICK-RESOLVE-002`; at `94874ce` and at `c970483` it does not — above the
+   `pub use` or below it, a wildcard or the same name, in `src/lib.npk` and in
+   `src/core/core.npk` — and a `pub use` binds its name in its own file, so no
+   file needs a plain `use` of a path for a name it re-exports. What remained
+   of the rule was style.
 3. **One name per line.** Several single-name `pub use` lines from one path do
    compose, in either order, so `API.md` §1's list stays one name to a line.
 

@@ -16,10 +16,12 @@
 //
 // THE RE-EXPORT RULES ARE RX-113'S AND THEY ARE NOT STYLE. `use` is not
 // transitive (`MODULE_REFERENCE.md` §2.3), so every line here is `pub use`, one
-// name per line, and this file never plain-`use`s a path it also `pub use`s —
-// a plain `use` above a `pub use` of the same path silently downgrades the
-// re-export to nothing, AT NO DIAGNOSTIC, and the failure appears in the
-// consumer as "cannot find X in this scope".
+// name per line: a plain `use` re-exports nothing, and the failure appears in
+// the consumer, not here. *(Until cycle 0.1.0 this said the file must never
+// plain-`use` a path it also `pub use`s, because that silently cancelled the
+// re-export -- the compiler's DEF-7, fixed at `94874ce`. Measured at `c970483`,
+// a plain `use` of `./vec.npk` above or below these lines leaves every
+// re-export intact, and RX-171 retires that rule.)*
 mod:core;
 
 // ---- bounds: `SAFETY.md` §5's table, and nowhere else (S-12, RX-062) -------
