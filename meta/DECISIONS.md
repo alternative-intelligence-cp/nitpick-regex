@@ -4186,3 +4186,47 @@ negative offset would reach the user as a position that is not there; **declarin
 subcycle that produces it lands** — the enum would move under the gate's check, and each late kind would be one
 nothing notices is untested; **S-9's fields reordered to save the eight bytes of padding** — S-9 is the
 specification, the value is never in an array, and a parse stops at its first error.
+
+### RX-173 — the parser reads a pattern through a sealed cursor: `cursor_init` returns it, only its own functions move it, and it looks one byte ahead
+
+**2026-09-26, cycle 0.1.0 (the plan's PD-17), at compiler `c970483`.** `src/syntax/cursor.npk`:
+`struct:Cursor = { sealed uint8[]:src; sealed int64:pos; }`, built by `cursor_init(uint8[]:pat)` at offset 0,
+read by `cursor_at_end`, `cursor_offset` and `cursor_peek`, moved by `cursor_bump` and `cursor_eat` and by
+nothing else. A byte is answered as an `int32` from 0 to 255, and `CURSOR_END` (−1) when none is left; nothing
+reads past the pattern.
+
+- **Sealed, so the lookahead rule is the compiler's.** Cycle 0.1's checklist asks for "no lookahead beyond one
+  byte except where the grammar names it". With both fields sealed (the compiler's D-313) a write of `pos`
+  outside the file is `NITPICK-TYPE-079` (`tests/rejection/cursor_pos_write.npk`), and so is a `Cursor{ … }`
+  literal, once per field (measured) — so a construct that needs more lookahead asks for a function here, by a
+  decision, and there is no rewind to reach for.
+- **Returned by `cursor_init`, because that is sound now.** `0.1.0.md`'s first draft (its D2) kept the cursor
+  "a parameter everywhere, never a return value", for a reason cycle 0.0 met at `950bb1d`: a view that escaped
+  its frame drew no diagnostic (O-N9, the compiler's DEF-3). DEF-3 was fixed at `94874ce`. Measured at
+  `c970483`, `c3bdae2` and the next re-pin's control, `9f6f370`: a `Cursor` over a view of the constructor's
+  PARAMETER is returned and reads correctly (0 / 0), and one over a view of a LOCAL is `NITPICK-BORROW-001` at
+  the `pass` — the escape analysis sees through the struct. `SAFETY.md` §1's second row said a struct holding a
+  borrow cannot be returned; it gains a dated note, since what D-004 bars is a borrow of a local.
+- **What is NOT closed at `c970483`, and how it is kept out of reach.** A `string` reassigned while a `Cursor`
+  holds its view leaves the cursor reading freed memory: the next byte read is the allocator's `0xAA` poison
+  (170 at both legs). The compiler's view freeze refuses that write (its DEF-107, `NITPICK-BORROW-015` —
+  measured at `9f6f370`), and no pin of ours carries it. The parser never holds the pattern's owner — it takes
+  a view parameter — so nothing in `src/` can write it; a test keeps its pattern's owner unwritten while a
+  cursor is live.
+- **`int64` offsets, and every loop over a cursor is a `while` with an `int64` measure** (`decreases` the
+  length less the offset, the compiler's D-304). No `for` over a range, no `loop`, no `till`: at `c970483` each
+  has a shape that runs the wrong number of times at no diagnostic — a range ending at its type's maximum or
+  crossing an unsigned type's sign bit runs zero times, `loop` and `till` widen an unsigned bound by its sign,
+  `till` with a negative limit counts down, and a `for` binding sharing an outer local's name overwrites it
+  (the compiler's DEF-127 … DEF-130, registered 2026-09-26 for its 1.6.1d). A byte loop is exactly where those
+  shapes live; none is written here, and a design that needs one is a question for the author, not a
+  workaround.
+
+*Alternatives declined:* **the draft's D2 — a struct literal at every call site, its fields open** — the
+position would be writable by anyone holding a cursor and the lookahead rule a convention; its reason, the
+undiagnosed escape, is gone; **the offset alone, with the slice passed beside it to every call** — two things
+to keep together at every site, and nothing to seal; **`cursor_peek` answering `uint8?`** — an `Optional` per
+byte, read with `??` and a default, for what one sentinel says; **a two-byte peek or a rewind now** — no
+construct 0.1.0 writes needs one, and the grammar names where one is needed when a subcycle meets it;
+**`int32` offsets** — every one would be narrowed from an `int64` length, and the language has no checked
+narrowing.

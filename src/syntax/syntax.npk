@@ -22,3 +22,13 @@ mod:syntax;
 pub use "./pattern_error.npk".PatternErrorKind;
 pub use "./pattern_error.npk".PatternError;
 pub use "./pattern_error.npk".pattern_error;
+
+// ---- the byte cursor (RX-173) ----------------------------------------------
+pub use "./cursor.npk".CURSOR_END;
+pub use "./cursor.npk".Cursor;
+pub use "./cursor.npk".cursor_init;
+pub use "./cursor.npk".cursor_at_end;
+pub use "./cursor.npk".cursor_offset;
+pub use "./cursor.npk".cursor_peek;
+pub use "./cursor.npk".cursor_bump;
+pub use "./cursor.npk".cursor_eat;

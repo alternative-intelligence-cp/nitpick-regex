@@ -1,0 +1,94 @@
+// `src/syntax/cursor.npk` — THE BYTE CURSOR THE PARSER READS A PATTERN WITH.
+// Cycle 0.1.0, RX-173.
+//
+// A PATTERN IS READ AS BYTES (`SYNTAX.md` Y-11), and the cursor is a view of
+// them and an `int64` offset: the offset of the next byte, from 0 to the
+// pattern's length. Every position the parser reports comes from here
+// (`cursor_offset`), which is Y-10's byte offset on every error made structural.
+//
+// ONE BYTE OF LOOKAHEAD, AND THE COMPILER HOLDS THE PARSER TO IT. Both fields are
+// `sealed` (the compiler's D-313): outside this file nothing builds a `Cursor`
+// but `cursor_init`, which starts it at 0, and nothing moves one but the
+// functions below -- a write of `pos` is NITPICK-TYPE-079
+// (`tests/rejection/cursor_pos_write.npk`). So cycle 0.1's rule "no lookahead
+// beyond one byte except where the grammar names it" is not a convention: a
+// construct that needs more asks for a function here, by a decision, and there
+// is no rewind to reach for.
+//
+// `cursor_init` RETURNS A STRUCT HOLDING A VIEW, AND THAT IS SOUND AT THIS
+// LIBRARY'S PIN. The view is of `cursor_init`'s PARAMETER -- the caller's bytes --
+// and the compiler accepts exactly that and refuses the unsound case: a `Cursor`
+// over a view of a LOCAL, returned, is NITPICK-BORROW-001 at the `pass` (measured
+// at `c970483`, at `c3bdae2`, and at the next re-pin's control, `9f6f370`). Cycle
+// 0.0 wrote "a view is a parameter, never a return value" while the compiler
+// could not see that escape (O-N9, the compiler's DEF-3, fixed at `94874ce`).
+//
+// WHAT `c970483` DOES NOT SEE: THE PATTERN'S OWNER WRITTEN WHILE A CURSOR HOLDS
+// ITS VIEW. A `string` reassigned under a live `Cursor` leaves the cursor reading
+// freed memory -- measured, the next byte read is the allocator's `0xAA` poison
+// (exit 170 at both legs). The compiler's view freeze refuses that write (its
+// DEF-107, NITPICK-BORROW-015, measured at `9f6f370`), and our pin does not carry
+// it. The parser holds a view PARAMETER, never the owner, so no code in `src/`
+// can do it; a test keeps its pattern's owner unwritten while a cursor lives.
+//
+// A WRONG `pos` COULD NOT READ PAST THE PATTERN ANYWAY. `src` is a slice, which
+// carries its length, so D-070's bounds guard traps an out-of-range index
+// (`OutOfBounds`) rather than reading a byte -- measured with a forged `pos` of
+// -1 at `c970483`. The seal keeps `pos` in range; the slice is the second line.
+//
+// EVERY LOOP OVER A CURSOR IS A `while` WITH AN `int64` MEASURE, `decreases
+// <length> - <offset>` (the compiler's D-304) -- never a `for` over a range, a
+// `loop` or a `till`. At `c970483` each of those has a shape that runs the wrong
+// number of times in silence (the compiler's DEF-127 … DEF-130, registered on
+// 2026-09-26 for its 1.6.1d), and a byte loop is exactly where they live.
+//
+// LAYERING (`BUILD.md` §6, B-16). Imports nothing, so a program importing only
+// this file owes eight arms: the floor's six, `IntOverflow` and `OutOfBounds`.
+mod:cursor;
+
+// What `cursor_peek` and `cursor_bump` answer when no byte is left. A byte is
+// 0 … 255, so -1 names none.
+pub fixed int32:CURSOR_END = -1i32;
+
+pub struct:Cursor = {
+    sealed uint8[]:src;    // the pattern: a VIEW of the caller's bytes (Y-11)
+    sealed int64:pos;      // the offset of the next byte, 0 .. src.len
+};
+
+// obligation: never fails ensures result.pos == 0i64
+pub func:cursor_init = Cursor(uint8[]:pat) never fails {
+    pass Cursor{ src: pat, pos: 0i64 };
+};
+
+// obligation: never fails ensures result == (c.pos >= c.src.len)
+pub func:cursor_at_end = bool(Cursor->:c) never fails {
+    pass c.pos >= c.src.len;
+};
+
+// obligation: never fails ensures result == c.pos
+pub func:cursor_offset = int64(Cursor->:c) never fails {
+    pass c.pos;
+};
+
+// The next byte, 0 … 255, without moving past it -- `CURSOR_END` at the end,
+// and never a read past it.
+pub func:cursor_peek = int32(Cursor->:c) never fails {
+    if (c.pos >= c.src.len) { pass CURSOR_END; }
+    pass c.src[c.pos] => int32;
+};
+
+// The next byte, moving past it -- `CURSOR_END` at the end, which does not move.
+pub func:cursor_bump = int32(Cursor->:c) never fails {
+    if (c.pos >= c.src.len) { pass CURSOR_END; }
+    int32:b = c.src[c.pos] => int32;
+    c.pos = c.pos + 1i64;
+    pass b;
+};
+
+// Moves past the next byte if it is `want`, and says whether it did.
+pub func:cursor_eat = bool(Cursor->:c, uint8:want) never fails {
+    if (c.pos >= c.src.len)   { pass false; }
+    if (c.src[c.pos] != want) { pass false; }
+    c.pos = c.pos + 1i64;
+    pass true;
+};

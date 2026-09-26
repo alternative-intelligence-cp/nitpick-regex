@@ -1,0 +1,80 @@
+// expect-exit: 0
+//
+// THE BYTE CURSOR, WALKED ONE BYTE AT A TIME, THROUGH THE LAYER ENTRY. Cycle
+// 0.1.0, RX-173.
+//
+// `walk` reads a three-byte pattern -- `a`, then NUL, then 0xFF, because the
+// cursor reads BYTES (`SYNTAX.md` Y-11) and neither of the last two is a
+// character anything special happens to -- and checks the offset after every
+// call: `peek` does not move (13), a `eat` that misses does not move (15), one
+// that matches does (17), `bump` returns the byte and moves (18 to 21). At the end
+// `peek` and `bump` answer `CURSOR_END` and `bump` does not move (23, 24, 26), and
+// `eat` misses (25) -- so nothing reads past the pattern. `empty` does the same
+// at offset 0. `pos` is also read directly, as `c.pos` -- a sealed field is read
+// anywhere -- and must agree with `cursor_offset` (27).
+//
+// Each pattern's owner -- `pat3`, `none` -- is never written while a cursor holds
+// its view: at compiler `c970483` that write goes unrefused and the cursor then
+// reads freed memory (`src/syntax/cursor.npk`'s header).
+mod:cursor_unit;
+
+use "../../src/syntax/syntax.npk".*;
+
+func:walk = int32(uint8[]:pat) never fails {
+    Cursor:c = raw cursor_init(pat);
+    if (raw cursor_at_end(@c))               { pass 10i32; }
+    if ((raw cursor_offset(@c)) != 0i64)     { pass 11i32; }
+    if ((raw cursor_peek(@c)) != 97i32)      { pass 12i32; }
+    if ((raw cursor_offset(@c)) != 0i64)     { pass 13i32; }
+    if (raw cursor_eat(@c, 98u8))            { pass 14i32; }
+    if ((raw cursor_offset(@c)) != 0i64)     { pass 15i32; }
+    if (!(raw cursor_eat(@c, 97u8)))         { pass 16i32; }
+    if ((raw cursor_offset(@c)) != 1i64)     { pass 17i32; }
+    if ((raw cursor_bump(@c)) != 0i32)       { pass 18i32; }
+    if ((raw cursor_offset(@c)) != 2i64)     { pass 19i32; }
+    if ((raw cursor_bump(@c)) != 255i32)     { pass 20i32; }
+    if ((raw cursor_offset(@c)) != 3i64)     { pass 21i32; }
+    if (!(raw cursor_at_end(@c)))            { pass 22i32; }
+    if ((raw cursor_peek(@c)) != CURSOR_END) { pass 23i32; }
+    if ((raw cursor_bump(@c)) != CURSOR_END) { pass 24i32; }
+    if (raw cursor_eat(@c, 97u8))            { pass 25i32; }
+    if ((raw cursor_offset(@c)) != 3i64)     { pass 26i32; }
+    if (c.pos != (raw cursor_offset(@c)))    { pass 27i32; }
+    pass 0i32;
+};
+
+func:empty = int32(uint8[]:pat) never fails {
+    Cursor:c = raw cursor_init(pat);
+    if (!(raw cursor_at_end(@c)))            { pass 30i32; }
+    if ((raw cursor_peek(@c)) != CURSOR_END) { pass 31i32; }
+    if ((raw cursor_bump(@c)) != CURSOR_END) { pass 32i32; }
+    if ((raw cursor_offset(@c)) != 0i64)     { pass 33i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    uint8[3]:pat3 = [97u8, 0u8, 255u8];
+    int32:r = raw walk(pat3[0i64...3i64]);
+    if (r != 0i32) { exit r; }
+    string:none = "";
+    int32:q = raw empty(string_bytes(none));
+    exit q;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

@@ -50,6 +50,16 @@ through one is `NITPICK-TYPE-085`, and a generic body's pass-out of a lent `T` i
 of an owning element out of a `Vec` is refused rather than a move (S-23a,
 RX-168).)*
 
+*(2026-09-26, cycle 0.1.0 — RX-173: the second row is narrower than it reads.
+D-004 keeps a BORROW of a local, `@x`, out of `pass`. A struct holding a view of
+a PARAMETER, or a pointer parameter, IS returned, and runs, at `c970483` and at
+`c3bdae2` — what it borrows is the caller's. What the compiler refuses is the
+unsound case: a struct holding a view of a LOCAL, returned, is
+`NITPICK-BORROW-001` at the `pass`. So `cursor_init` returns the parser's
+`Cursor`. Open at `c970483`: writing the viewed value while the view is live —
+a `Cursor`'s pattern reassigned — reads freed memory; the compiler's DEF-107
+refuses it, `NITPICK-BORROW-015`, in no pin of ours yet.)*
+
 ---
 
 ## 2. The linear-time guarantee, and what it costs

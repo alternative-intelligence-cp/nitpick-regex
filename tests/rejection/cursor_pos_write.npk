@@ -1,0 +1,43 @@
+// expect-error: NITPICK-TYPE-079
+// expect-error-at: 22:5
+//
+// NOTHING OUTSIDE `src/syntax/cursor.npk` MOVES A CURSOR. Cycle 0.1.0, RX-173.
+//
+// WHAT IT PINS. `Cursor.pos` is `sealed` (the compiler's D-313), so this write,
+// outside that file, is NITPICK-TYPE-079. That is what makes cycle 0.1's rule --
+// no lookahead beyond one byte except where the grammar names it -- the
+// compiler's: a parser can move a cursor only through `cursor_bump` and
+// `cursor_eat`, and nothing rewinds one. The literal form, `Cursor{ … }`
+// outside the file, is refused the same way, once per field.
+//
+// A TEST OF THE SEAL, NOT OF THIS FILE: with `cursor.npk`'s two `sealed`s
+// deleted it compiles (`meta/roadmap/0.1/0.1.0.md`, step 3's controls).
+mod:cursor_pos_write;
+
+use "../../src/syntax/syntax.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    string:s = "ab";
+    Cursor:c = raw cursor_init(string_bytes(s));
+    c.pos = 1i64;
+    discard(c);
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};
