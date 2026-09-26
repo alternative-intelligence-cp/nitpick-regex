@@ -24,13 +24,25 @@ Cycle 0.0.2 picks them up as the harness's first `program`-stage entries.
 
 | Directory | Files | Declared as | Judged by |
 |---|---|---|---|
-| `tests/probe/` | **24**, each `// expect-exit: N` | `probe`, stage `program` | it compiles, links, runs, and exits with that code — at −O0 and again under `opt -O2` |
+| `tests/probe/` | **25**, each `// expect-exit: N` | `probe`, stage `program` | it compiles, links, runs, and exits with that code — at −O0 and again under `opt -O2` |
 | `tests/probe/refused/` | **7**, each `// expect-error: CODE` | `probe-refused`, stage `compile`, kind `negative` | `npkc` exits **1** and reports **exactly** that code set (B-7, D-237) |
 
-> **The split is 24 / 7, and 31 is the count of probes in this repository.** It
-> was 16 / 7, then 17 / 6, then 19 / 6, then 22 / 5, then 22 / 6, and every move
-> was a probe changing directory or name because the compiler changed its answer —
-> not a probe being deleted, which P-5 forbids — or a probe ADDED.
+> **The split is 25 / 7, and 32 is the count of probes in this repository.** It
+> was 16 / 7, then 17 / 6, then 19 / 6, then 22 / 5, then 22 / 6, then 24 / 7, and
+> every move was a probe changing directory or name because the compiler changed its
+> answer — not a probe being deleted, which P-5 forbids — or a probe ADDED.
+>
+> **2026-09-26, cycle 0.0.4e, at the re-pin to `c970483` (RX-168, RX-169, RX-170).**
+> Two probes crossed and one was added. `probe15_block_string_close.npk` moved OUT of
+> `refused/`: the compiler's lexer closes a block string at `"""` since its 1.6.0
+> step 3e (DEF-98), so `"""a""b"""` compiles and exits 4, and `harness/lexical.py`
+> and self-check case 18 moved with it. `probe17_lent_field_drop.npk` moved INTO
+> `refused/`: overwriting an owning field of a lent parameter is `NITPICK-TYPE-085`
+> since 3g (DEF-102). Each still gives its old verdict at `c3bdae2`, so each move is
+> the pin's. `probe18_impl_adds_move.npk` (exit 95) is new: a compiler defect found at
+> the subcycle's planning — an impl may declare `move` on a parameter its trait
+> lends, and a call through the trait then double-frees. It says what to do when it
+> reddens.
 >
 > **2026-09-25, cycle 0.0.4d (RX-161, RX-162).** Three probes added.
 > `probe16_zero_length_owner.npk` (exit 24) and

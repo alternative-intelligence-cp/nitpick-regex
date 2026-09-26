@@ -135,6 +135,9 @@ Most of the list, which is why the residue is small:
   is not: it is a loan, this rule does not see it, and a callee writing through
   its address still frees or grows the caller's block — a compiler defect,
   `SAFETY.md` S-23b.)*
+  *(2026-09-26, cycle 0.0.4e — RX-168, RX-169. At `c970483` the loan is inside a rule
+  too, the compiler's: a write through one is `NITPICK-TYPE-085`. And `vec_get` at an
+  owning `T` is refused (`T: Pod`) rather than a move out of the slot.)*
 - **`Result<T>` everywhere** with no unchecked unwrap outside a `never fails`
   callee (D-163), so no error is dropped.
 

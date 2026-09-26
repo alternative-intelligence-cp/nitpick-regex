@@ -44,6 +44,12 @@ third cycle 0.0 audit's BL-5, RX-155.)*
 one, or of any struct holding one, is refused like any owner's. A by-value
 parameter is a loan, not a copy, and S-23b says what it still reaches.)*
 
+*(Since cycle 0.0.4e, at compiler `c970483`: a loan is READ-ONLY — every write
+through one is `NITPICK-TYPE-085`, and a generic body's pass-out of a lent `T` is
+`NITPICK-TYPE-047` (S-23b, RX-169) — and `vec_get` takes `T: Pod`, so a by-value read
+of an owning element out of a `Vec` is refused rather than a move (S-23a,
+RX-168).)*
+
 ---
 
 ## 2. The linear-time guarantee, and what it costs
@@ -452,7 +458,8 @@ than a style note:**
   `../../tests/rejection/`), and `Bytes.buf` is `hidden`, so a write through
   `b.buf.ptr` is `NITPICK-TYPE-080` (`bytes_buf_ptr_write.npk`) — `Bytes`' half of
   this rule is the compiler's too. What stays open is a LOAN, which is not a
-  copy: S-23b's last two rows.)*
+  copy: S-23b's last two rows.)* *(Closed at `c970483`, cycle 0.0.4e: S-23b's
+  rows say how — RX-169.)*
 - **A VIOLATION TRAPS `OutOfBounds` (RX-130, and the trap itself was broken —
   RX-143).** `vec_get`, `vec_set`, `bytes_get` and `bytes_set` do not return a
   `Result` on an out-of-range index: S-4 says matching cannot fail and
@@ -535,7 +542,8 @@ than a style note:**
   *(2026-09-25, cycle 0.0.4d — RX-162: for a COPY it does. A BY-VALUE parameter is
   a loan, still compiles, and carries the old `cap` into its callee, so the guard
   reaches one binding there as before — `vec_alias_param_grow.npk` is a double
-  free it cannot see, 95.)*
+  free it cannot see, 95.)* *(Refused at `c970483`, cycle 0.0.4e: that file is a
+  rejection fixture, `NITPICK-TYPE-085` — RX-169.)*
 - **An unchecked index is a WRONG ANSWER, not a crash.** That inverts the
   failure mode §1 advertises. A wrong program counter in an engine reads an
   unrelated heap word as an instruction; a wrong sparse-set probe adds a thread
@@ -570,6 +578,14 @@ stripped and the type after them judged, so `fixed int32` clears and
 `fixed string` does not; and an enum's payload is read only from `Name(…)`, never
 from a discriminant `= (…)`. And since RX-165 it reads each file as the compiler
 does — bytes, `\n` the only line end — which is what a `// …<CR>/*` had defeated.)*
+*(Amended 2026-09-26 by RX-168, cycle 0.0.4e: FOR `vec_get` THE COMPILER SAYS SO
+TOO. At `c970483` the old `vec_get` does not compile at any `T`, and it takes
+`T: Pod` — one `never fails` method returning its lent `self`, which an owning type
+cannot implement as declared (`pass self` of a lent owner is `NITPICK-TYPE-047`). So
+`vec_get` at an owning `T` is `NITPICK-TYPE-017` for every consumer, not a move. The
+other verbs are unchanged, and the rule and its check stand for them — and for
+`vec_get` too, as the belt: an impl that declares `move` on its `self` defeats the
+bound, a compiler defect pinned by `tests/probe/probe18_impl_adds_move.npk`.)*
 
 The language accepts `Vec<string>`. `TYPE-046` asks for `move` when an owning
 place is copied, `pass` moves implicitly, and D-264 checks each generic body in
@@ -580,7 +596,7 @@ audit (BL-5, at `3d15ac9`) and again at `c3bdae2`, one unit per verb:
 | verb | at an owning `T` | unit |
 |---|---|---|
 | `vec_push`, `vec_insert`, `vec_pop`, `vec_free_owning` | ownership-correct | `vec_owning_freed`, `vec_owning_insert_moves`, `vec_owning_pop_moves_out` |
-| `vec_get` | **MOVES the element out**: the slot is emptied and still counted, so a second read is empty | `vec_owning_get_moves_out` |
+| `vec_get` | **refused, `NITPICK-TYPE-017`, since cycle 0.0.4e**: it takes `T: Pod` (RX-168). Through `c3bdae2` it MOVED the element out — the slot emptied and still counted, so a second read was empty | `vec_owning_get_moves_out`, a rejection fixture since 0.0.4e |
 | `vec_set` | orphans what it overwrites | `vec_owning_set_orphans` |
 | `vec_remove`, `vec_swap_remove` | orphan what they remove | `vec_owning_remove_orphans`, `vec_owning_swap_remove_orphans` |
 | `vec_truncate`, `vec_clear`, `vec_free` | orphan what they discard | `vec_owning_truncate_orphans`, `vec_owning_clear_orphans`, `vec_owning_leak` |
@@ -620,17 +636,17 @@ so the compiler treats every `Vec<T>` as an owner (D-183's layout walk), and an
 owner is move-only (TYPE-046). A struct holding a `Vec` owns by containment:
 `SparseSet`, `COMPILE.md` C-1's `Program`, `SYNTAX.md` Y-9's parser state.
 
-| written | at `c3bdae2`, since 0.0.4d |
+| written | at `c3bdae2`, since 0.0.4d — and at `c970483`, since 0.0.4e |
 |---|---|
 | `Vec<T>:w = v;`, `SparseSet:t = s;`, a struct holding a `Vec` copied | `NITPICK-TYPE-046` — the five copy fixtures in `../../tests/rejection/` |
 | `Vec<T>:w = move(v);`; a struct built by moving a `Vec` in, then moved | compiles and runs; `v` is invalid after (D-065) — `../../tests/unit/vec_moves.npk` |
 | two `SparseSet`s swapped: three `move`s, of locals or of fields through a pointer | compiles and runs — `../../tests/unit/sparseset_alias_swap.npk`; `ENGINES.md` R-5 |
 | a `Vec`'s content copied | element by element into a fresh `Vec`, which shares no block — `vec_moves.npk`; `ENGINES.md` R-8 |
-| `f(v)`, where `f` takes `Vec<T>` by value | compiles WITHOUT `move`: the parameter is a LOAN (D-065, D-183), and `move` of it is `NITPICK-TYPE-047`. `vec_get` is one, and its signature is unchanged |
-| a callee freeing or growing through its loan's address, `vec_free(@v)`, `vec_push(@v, x)` | **compiles, and the caller's header names a released block** — `vec_alias_param_free`, `vec_alias_param_grow`, `sparseset_alias_param_free` |
-| a callee overwriting an owning field of a loan | **compiles, and drops the caller's value** — a double free with no `wild` block: `../../tests/probe/probe17_lent_field_drop.npk`, `bytes_alias_param_grow` |
-| a `for` binding over an array of containers freed through, `for (Vec<int64>:x in arr) { drop vec_free(@x); }` | **compiles — the binding is a loan like a parameter, and the element's block is freed through it**; the array's element still says `count == 1` and reads the free poison — `../../tests/unit/vec_alias_for_binding_free.npk` |
-| a generic function passing out its lent `T`, `func:id<T> = T(T:x) { pass x; }`, at `T = Vec<int64>` | **compiles, and the result is a second owner of the block** — `../../tests/unit/vec_alias_generic_passout.npk`; the same body written for one type is `NITPICK-TYPE-047` |
+| `f(v)`, where `f` takes `Vec<T>` by value | compiles WITHOUT `move`: the parameter is a LOAN (D-065, D-183), and `move` of it is `NITPICK-TYPE-047`. `vec_get` is one; since 0.0.4e it keeps that parameter and takes `T: Pod` (RX-168), and the loan is read-only |
+| a callee freeing or growing through its loan's address, `vec_free(@v)`, `vec_push(@v, x)` | **refused `NITPICK-TYPE-085` at `c970483`**, at the `@` (DEF-102). Through `c3bdae2` it compiled, and the caller's header named a released block — `vec_alias_param_free`, `vec_alias_param_grow`, `sparseset_alias_param_free`, rejection fixtures since 0.0.4e |
+| a callee overwriting an owning field of a loan | **refused `NITPICK-TYPE-085` at `c970483`**, at the write (DEF-102). Through `c3bdae2` it compiled and dropped the caller's value — a double free with no `wild` block: `../../tests/probe/refused/probe17_lent_field_drop.npk`, `bytes_alias_param_grow` |
+| a `for` binding over an array of containers freed through, `for (Vec<int64>:x in arr) { drop vec_free(@x); }` | **refused `NITPICK-TYPE-085` at `c970483`**, at `@x` — the binding is a loan like a parameter (DEF-102). Through `c3bdae2` it compiled, and the array's element read the free poison — `../../tests/rejection/vec_alias_for_binding_free.npk` |
+| a generic function passing out its lent `T`, `func:id<T> = T(T:x) { pass x; }`, at `T = Vec<int64>` | **refused `NITPICK-TYPE-047` at `c970483`**, at the `pass` (DEF-104), as the same body written for one type always was. Through `c3bdae2` it compiled and the result was a second owner of the block — `../../tests/rejection/vec_alias_generic_passout.npk` |
 
 The last four rows are compiler defects, raised and not worked around (W-11).
 The first three are one — a loan is not held read-only: the workbench registry's
@@ -644,6 +660,13 @@ takes a lent bare `T`. *(This said "the last two rows are a compiler defect"
 until the fifth cycle 0.0 audit's N-25 and N-26, which added the last two —
 RX-167. The re-pin to a compiler carrying 3g measures each row rather than
 assuming it.)*
+*(2026-09-26, cycle 0.0.4e, compiler `c970483` — RX-169. The re-pin measured each
+row, and each is refused as the table now says; every file a row names still runs
+at `c3bdae2`, so each refusal is the pin's. "No type refuses it" stands and matters
+less: the COMPILER refuses it. A callee that must change a container takes `move T:p`
+with `move(...)` at the call, or a pointer — `../../tests/unit/loan_spellings.npk`
+runs each. And DEF-104's gate reached `src/` after all, through a `T` place rather
+than a `T` parameter — `vec_get`, `vec_pop`; RX-168.)*
 **The marker costs nothing measured:** `#size_of<Vec<int64>>()` is 24 as before;
 the generated drop frees nothing, so the block stays `wild`, freed by `vec_free`,
 and D-151 still traps one never freed (S-22 is unchanged); no consumer's bill

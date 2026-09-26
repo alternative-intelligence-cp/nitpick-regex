@@ -444,9 +444,13 @@ def _case17(d):
 # FILE and read back through `lexical.read`, because two of BL-9's forms live in
 # how a file is READ (a lone CR, 17-19) rather than in how its text is scanned.
 # Lines 20-22 are escaped paths, whose value is the decoded one (BL-9 (b)); 23 is
-# a block string with a `""` in its body, which the lexer at `c3bdae2` closes
-# there and consumes three bytes (DEF-98) -- so what follows is CODE, and the
-# `use` in it is read; `LEXICAL_REFERENCE.md` §6.3's `"""` close reads none (N-28).
+# a block string with a `""` in its body and a `use` in it, closed at `"""`, and a
+# second `use` after the close. The lexer since the compiler's 1.6.0 step 3e
+# (DEF-98; read at `c970483`) reads only the second; the lexer through `c3bdae2`
+# closed at the first `""`, consuming three bytes, read the FIRST `use` as code,
+# and opened a block that runs to the end of the text -- so each close reads the
+# other's import and neither reads both (N-28; RX-170). Both readings were
+# measured against the two compilers, `meta/roadmap/0.0/0.0.4e.md` §1.6.
 _LEX_TEXT = (
     'mod:lexcase;\n'                                        # 1
     'use "./real_a.npk".*;\n'                               # 2  an import
@@ -470,13 +474,13 @@ _LEX_TEXT = (
     'use "..\\x2freal_c.npk".*;\n'                          # 20 an import, `../real_c.npk`
     'use ".\\u{2F}real_d.npk".*;\n'                         # 21 an import, `./real_d.npk`
     'use "./back\\\\slash.npk".*;\n'                         # 22 an import, one backslash
-    'string:bs = """a""b use "./in_block_pin.npk".*; """x""!;\n'  # 23 an import AT c3bdae2
+    'string:bs = """a""b use "./in_block.npk".*; """; use "./after_block.npk".*;\n'  # 23
 )
 _LEX_IMPORTS = [(2, "./real_a.npk", False), (3, "./real_b.npk", True),
                 (9, "./after_raw.npk", False), (13, "./after_char.npk", False),
                 (15, "./gapped.npk", True), (19, "./after_cr_comment.npk", False),
                 (20, "../real_c.npk", False), (21, "./real_d.npk", False),
-                (22, "./back\\slash.npk", False), (23, "./in_block_pin.npk", False)]
+                (22, "./back\\slash.npk", False), (23, "./after_block.npk", False)]
 
 
 def _run_case18(case):
@@ -523,7 +527,7 @@ def _run_case18(case):
                        "with the compiler's lexer: " + "; ".join(wrong))
     return Outcome(case, True, f"read {len(got)} imports through lexical.read and "
                                f"blanked every comment and literal form as the "
-                               f"compiler's lexer does at c3bdae2")
+                               f"compiler's lexer does at c970483")
 
 
 def _case18(d):

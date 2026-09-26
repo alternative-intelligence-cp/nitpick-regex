@@ -14,8 +14,8 @@
 // In the Pike VM's thread set that is a thread lost or invented, with a green
 // suite beside it. Now the copy is NITPICK-TYPE-046.
 //
-// NOT CLOSED BY THIS: the same wrong answer through a BY-VALUE parameter, which
-// is a loan and not a copy (`../unit/sparseset_alias_param_free.npk`, RX-162).
+// NOT CLOSED BY THIS, BUT SINCE `c970483`: the same answer through a BY-VALUE
+// parameter, a loan, is NITPICK-TYPE-085 (`sparseset_alias_param_free.npk`, RX-169).
 //
 // A TEST OF THE MARKER, NOT OF THIS FILE: it compiles cleanly against the tree
 // before 0.0.4d and with a marker whose element owns nothing (`0.0.4d.md` step

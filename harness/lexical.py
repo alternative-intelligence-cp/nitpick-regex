@@ -26,7 +26,9 @@ DECODED value, so `"..\\x2f..\\x2fsrc/core/zz.npk"` reached `src/` for the compi
 nowhere for B-2's scans -- a syscall in `src/` behind `213/213` GREEN. Hence `read()`
 below, the one way a `.npk` file is opened, and `_decode()`.
 
-WHAT IT MIRRORS, READ AT COMPILER `c3bdae2` WITH `git show`, NOT FROM A SUMMARY:
+WHAT IT MIRRORS, READ AT COMPILER `c3bdae2` WITH `git show`, NOT FROM A SUMMARY
+-- AND AGAIN AT `c970483` (cycle 0.0.4e), where `lexer.npk` differs only in the
+block-string close below and `escapes.npk` and `p_parse_import` not at all:
 `src/frontend/lexer.npk`, `lexer_skip_trivia` and `lexer_next`;
 `src/frontend/escapes.npk`, `escape_decode` and `decode_string`; `p_parse_import` in
 `src/frontend/parse_decl.npk`; and `LEXICAL_REFERENCE.md` §2, §6.3 and §6.4.
@@ -45,12 +47,14 @@ WHAT IT MIRRORS, READ AT COMPILER `c3bdae2` WITH `git show`, NOT FROM A SUMMARY:
     lexer's "newline in a string literal", which stops there rather than
     swallowing the file).
   * `""` followed by anything but `"` is an EMPTY string; `\"\"\"` opens a BLOCK
-    string, which closes at the first `""` not escaped by `\\` and consumes
-    THREE BYTES there, whatever the third is. That is the lexer at `c3bdae2`
-    (DEF-98), not `LEXICAL_REFERENCE.md` §6.3's grammar, which closes at `\"\"\"`;
-    probe 15 records the refusal, self-check case 18 holds a block string with a
-    `""` in its body and requires this reading (the fifth audit's N-28), and the
-    re-pin that carries DEF-98's fix changes both.
+    string, which closes at the first `\"\"\"` not escaped by `\\` -- a `""` in its
+    body is two body characters -- and consumes those three. That is the lexer
+    since the compiler's 1.6.0 step 3e (DEF-98), read at `c970483`, and
+    `LEXICAL_REFERENCE.md` §6.3's grammar. THROUGH `c3bdae2` THE LEXER CLOSED AT
+    THE FIRST `""` AND CONSUMED THREE BYTES THERE, AND SO DID THIS MODULE (RX-170):
+    probe 15 records the verdict, and self-check case 18 holds a block string with
+    a `""` in its body and a `use` after its close, and fails against the old close
+    (the fifth audit's N-28).
   * `r"..."` is RAW -- no escapes, closed by the next `"` -- when the `r` BEGINS
     A TOKEN, i.e. the byte before it is not `[0-9A-Za-z_]` (otherwise `r` is the
     tail of an identifier or a numeric literal, and the `"` opens a plain one).
@@ -80,7 +84,7 @@ the tree as a root, turns red whatever this module reads in them: a NUL byte
 `_?`, `_!`, `_~`, `_^` at the start of a template part; `e+r"` after a float; an
 invalid escape or UTF-8 sequence; and a path that begins neither `./`, `../`
 nor `/`, which the compiler resolves against the dependency roots -- empty at
-`c3bdae2`, so `NITPICK-RESOLVE-005` (measured) -- while the harness's callers join
+`c3bdae2` and `c970483`, so `NITPICK-RESOLVE-005` (measured at both) -- while the harness's callers join
 it to the importer's directory.
 
 AND IT IS NOT THE ONLY DEFENCE. The program suites' "imported by a sibling" skip
@@ -90,7 +94,7 @@ two defences share no reader (RX-165).
 
 ITS OWN TEST IS SELF-CHECK CASE 18, which writes one text holding every form
 above to a FILE, reads it back through `read()`, and requires exactly the
-imports and the code the compiler would see at `c3bdae2`. Cases 19, 20 and 21
+imports and the code the compiler would see at `c970483`. Cases 19, 20 and 21
 are BL-9's three routes through the whole runner.
 """
 import os
@@ -271,9 +275,12 @@ def spans(text):
         if c == '"':
             if nx == '"':
                 if i + 2 < n and text[i + 2] == '"':
+                    # A BLOCK STRING CLOSES AT `"""` (DEF-98, the compiler's 1.6.0
+                    # step 3e; RX-170) -- through `c3bdae2` at the first `""`.
                     j = i + 3
                     while j < n:
-                        if text[j] == '"' and j + 1 < n and text[j + 1] == '"':
+                        if (text[j] == '"' and j + 2 < n and text[j + 1] == '"'
+                                and text[j + 2] == '"'):
                             break
                         if text[j] == "\\":
                             j += 1

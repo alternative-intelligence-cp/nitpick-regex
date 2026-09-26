@@ -49,7 +49,7 @@
 # which is where the workbench keeps them.
 set -u
 
-PIN=c3bdae2
+PIN=c970483
 OLD_PIN=950bb1d
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/../.." && pwd)"

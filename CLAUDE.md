@@ -7,7 +7,7 @@ Guidance for Claude Code sessions working in this repository.
 `nregex` — a regular-expression library for **Nitpick**, the safety-critical
 systems language at `../../nitpick`. **Status: cycle 0.0, foundations.** The
 specifications, the decisions and the roadmap are complete; `tests/probe/` holds
-**31** language probes with recorded verdicts, split **24 / 7** by kind (16 / 7,
+**32** language probes with recorded verdicts, split **25 / 7** by kind (16 / 7,
 then 17 / 6 when the `94874ce` re-pin discharged O-N10 and `probe02b` stopped
 being refused — RX-125; then 19 / 6 when the `3d15ac9` re-pin made
 `limit<Rules>` live and `probe13b` stopped being refused — RX-127; then 22 / 5
@@ -16,22 +16,26 @@ then 22 / 6 when probe 15 recorded that the compiler's lexer closes a block stri
 at the first `""` — found by the cycle 0.0 close's fourth triage, RX-157; then
 24 / 7 when cycle 0.0.4d added probe 16 and its refused twin, the language fact
 `Vec`'s move-only marker rests on, and probe 17, a compiler defect a lent
-parameter shows — RX-161, RX-162);
-`tests/rejection/` holds fourteen consumer-facing refusals (five of them the
+parameter shows — RX-161, RX-162; then 25 / 7 when cycle 0.0.4e moved probe 15 out
+of `refused/` and probe 17 into it — the compiler's lexer and its loan rule fixed —
+and added probe 18, a compiler defect an impl's `move` shows — RX-168 … RX-170);
+`tests/rejection/` holds twenty-one consumer-facing refusals (five of them the
 containers' seal, since 0.0.4c; one a `Bytes` copy refused `TYPE-046`, since the
-fourth triage; and since 0.0.4d five `Vec` and `SparseSet` copies refused
-`TYPE-046` and a write through `Bytes.buf` refused `TYPE-080`); `harness/` builds, sweeps,
+fourth triage; since 0.0.4d five `Vec` and `SparseSet` copies refused
+`TYPE-046` and a write through `Bytes.buf` refused `TYPE-080`; and since 0.0.4e the
+six loan and pass-out pins, refused `TYPE-085` and `TYPE-047`, and `vec_get` at an
+owning element, refused `TYPE-017`); `harness/` builds, sweeps,
 diffs and judges them, **and proves first that it can fail**; and since 0.0.4
 `src/core/` is real — `Vec<T>`, `Bytes`, `ByteSet`, `SparseSet` and `limits.npk`,
-with 53 unit programs of their own — eight of them measuring what each `Vec` verb does at an
-owning element type, which `SAFETY.md` S-23a keeps out of `src/`; six pinning what still reaches
-a move-only `Vec`'s block without a copy — four through a LENT `Vec`, `SparseSet` or `Bytes`
-(RX-162), one through a `for` binding and one through a generic function passing out its lent
-`T` (RX-167), each a compiler defect raised; and the swap and the moves a move-only `Vec` still
-allows (RX-161). **No matching happens yet**: `src/syntax/`,
+with 47 unit programs of their own — seven of them measuring what each `Vec` verb does at an
+owning element type, which `SAFETY.md` S-23a keeps out of `src/` (the eighth, `vec_get`'s, is a
+refusal since cycle 0.0.4e: `vec_get` takes `T: Pod`, RX-168); the swap and the moves a move-only
+`Vec` still allows (RX-161); and `loan_spellings`, the spellings the six loan and pass-out
+refusals prescribe — the six were units pinning a compiler defect until `c970483` refused them
+(RX-169). **No matching happens yet**: `src/syntax/`,
 `src/hir/`, `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are
-still one placeholder module each. A full green run at compiler `c3bdae2` is
-**214 units** (after the cycle 0.0 close's fifth audit triage; 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus eight tree checks; take those numbers from the runner's
+still one placeholder module each. A full green run at compiler `c970483` is
+**218 units** (after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus eight tree checks; take those numbers from the runner's
 summary rather than from here. **Nothing is PENDING any more**:
 `tests/unit/bytes_copy_string_empty.npk` was committed red under
 `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
@@ -114,6 +118,11 @@ Full statement in `meta/specs/SAFETY.md` §1. The ones that bite hardest:
   `check_vec_elements_own_nothing`, which is default-deny (RX-158): it clears an
   element only when it can see that it owns nothing. This bullet said until the third cycle 0.0
   audit that the language forced it.
+  *(Since cycle 0.0.4e, compiler `c970483`, it does for `vec_get`: the old body is refused at
+  every `T` (DEF-104), and `vec_get` takes `T: Pod`, which an owning type cannot implement as
+  declared — so `vec_get` at `Vec<string>` is `NITPICK-TYPE-017`, not a move (RX-168). An impl
+  that declares `move` on its `self` defeats that: a compiler defect,
+  `tests/probe/probe18_impl_adds_move.npk`.)*
   **And since cycle 0.0.4d a `Vec` IS itself an owner** — a hidden zero-length array of
   `string` makes it one — so a `Vec`, a `SparseSet` and any struct holding one are
   move-only: copy one and it is `TYPE-046`; transfer it with `move(...)`; lend it BY VALUE
@@ -123,6 +132,9 @@ Full statement in `meta/specs/SAFETY.md` §1. The ones that bite hardest:
   function passing out its lent `T` compiles and hands back a second owner — TYPE-047 is
   not asked of a lent `T` in a generic body (the registry's O-N22, the compiler's DEF-104).
   So no generic in `src/` takes a lent bare `T` (RX-167).
+  *(At `c970483`, cycle 0.0.4e, all three are refused — a write through a loan
+  `NITPICK-TYPE-085`, the generic pass-out `NITPICK-TYPE-047` (RX-169). A callee that
+  changes a container takes `move T:p` or a pointer: `tests/unit/loan_spellings.npk`.)*
 - **There are no closures** (D-018), so replacement is a template and iteration
   is a struct with `next`.
 - **Integer overflow and division by zero trap. OUT-OF-RANGE INDEXING DOES NOT,
@@ -293,6 +305,20 @@ evidence.
   116 and 117 (RX-149). A `core` consumer's bill went 6 → 9 or 10, measured the
   way `meta/OPEN_QUESTIONS.md` O-B3 says to — and 10 or 11 since cycle 0.0.4c,
   whose `ListLen` on the containers' counts adds `LimitViolated` (S-24a).
+- **At compiler `c970483` (cycle 0.0.4e) the language refuses more, and misses one
+  thing it should refuse.** A write through a loan is `NITPICK-TYPE-085` and a generic
+  body's pass-out of a lent `T` is `NITPICK-TYPE-047` (RX-169); a `T` PLACE passed out
+  of a lent or pointed-to container is `TYPE-047` too, at every `T`, which is why
+  `vec_get` takes `T: Pod` and `vec_pop` spells `move(...)` (RX-168). A function that
+  can reach its closing brace is `NITPICK-FLOW-001`, `NIL` functions included —
+  **none in this tree did**: the compiler's own sweep of every file, where a file the
+  type checker refuses is not flow-checked (measured), and the refused files' bodies
+  read. A keyword cannot be a declared name (`NITPICK-PARSE-001`) and `main` is
+  exactly `int32(cstring[]:argv)` (`NITPICK-TYPE-083`) — none here either. A block
+  string closes at `"""` (DEF-98, RX-170). **What it should refuse and does not:** an
+  impl that declares `move` on a parameter its trait lends compiles, and a call
+  through the trait then double-frees — `tests/probe/probe18_impl_adds_move.npk`,
+  the workbench registry's O-N28.
 - **A sealed field is read anywhere and written only by its own module; a
   hidden one is not even read outside it** (the compiler's D-313 and D-314,
   measured here at `c3bdae2`, cycle 0.0.4c, RX-153). `Vec.items` is hidden and
@@ -317,6 +343,9 @@ evidence.
   step 3g, not in `c3bdae2`. A `for` binding is the same loan, and a generic identity is
   a second owner (O-N22, DEF-104): RX-167, `tests/unit/vec_alias_for_binding_free.npk`
   and `vec_alias_generic_passout.npk`.)*
+  *(Since cycle 0.0.4e, compiler `c970483`, none of that stays open: the loan is
+  `NITPICK-TYPE-085` and the generic pass-out `NITPICK-TYPE-047`, and each file named
+  above is a refusal in `tests/rejection/` or `tests/probe/refused/` — RX-169.)*
 - **An exit status is one byte.** `exit 321` reports 65, silently. Compose
   weights that cannot sum past 255, or print the value and assert on stdout.
 - **`&{…}` interpolates only inside a backtick template.** `"&{k}"` in double

@@ -198,6 +198,9 @@ func:main = int32(cstring[]:_~argv) {
     // `vec_owning_get_moves_out.npk` measures. This comment said until the third
     // cycle-0.0 audit (BL-5) that such a copy "is TYPE-046" -- refused -- and
     // declined to read for that reason; nothing refuses it (RX-155).
+    // (Since cycle 0.0.4e, compiler `c970483`, something does: `vec_get` takes
+    // `T: Pod`, so the read this comment declines is NITPICK-TYPE-017 here --
+    // `../rejection/vec_owning_get_moves_out.npk`, RX-168.)
     if (s.cap < 3i64)                                   { exit 131i32; }
     // DROPS EVERY ELEMENT, then the block. `vec_free` would release the block
     // and orphan three string bodies, and this program would still exit 0.

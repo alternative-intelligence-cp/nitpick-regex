@@ -1,0 +1,55 @@
+// expect-error: NITPICK-TYPE-085
+// expect-error-at: 32:32
+//
+// A `for` BINDING OVER AN ARRAY OF CONTAINERS IS A LOAN, AND A WRITE THROUGH IT
+// IS REFUSED -- NITPICK-TYPE-085 at `@x`, since the compiler's 1.6.0 step 3g
+// (DEF-102), carried by the pin `c970483` -- cycle 0.0.4e, RX-169. The fifth
+// cycle-0.0 audit's N-26, measured rather than assumed: 3g closes the loan for
+// this shape too, so cycle 0.0's gate holds for it.
+//
+// WHAT IT PINS. `for (Vec<int64>:x in arr) { drop vec_free(@x); }` binds each
+// element as a parameter is bound -- the parser builds it as a `ParamDecl` -- so
+// `x` is lent, and through `c3bdae2` the loop freed each element's block through
+// it; `arr[0]` then read the free poison -- exit 0 at -O0 and through `opt -O2`,
+// when this file was `tests/unit/vec_alias_for_binding_free.npk`, PINNED, NOT
+// ENDORSED (RX-167). The free NAMES ITS `T`, `vec_free::<int64>`, so the refusal
+// is the only diagnostic: written `vec_free(@x)` the compiler adds
+// NITPICK-TYPE-022 at the same call, the refused argument's cascade (measured at
+// `c970483`). It still runs, 0, at `c3bdae2`: the refusal is the pin's
+// (`meta/roadmap/0.0/0.0.4e.md` step 5). A loop READS its binding and the array
+// frees its own elements -- `../unit/loan_spellings.npk`.
+mod:vec_alias_for_binding_free;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Vec<int64>:a = raw vec_init::<int64>(2i64);
+    drop vec_push(@a, 7i64);
+    Vec<int64>:b = raw vec_init::<int64>(2i64);
+    drop vec_push(@b, 8i64);
+    Vec<int64>[2]:arr = [move(a), move(b)];
+    for (Vec<int64>:x in arr) {
+        drop vec_free::<int64>(@x);
+    }
+    int64:y = raw vec_get(arr[0i64], 0i64);
+    if (y == 7i64) { exit 21i32; }
+    if ((y & 255i64) != 170i64) { exit 22i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

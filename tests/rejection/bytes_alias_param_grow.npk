@@ -1,21 +1,20 @@
-// expect-exit: 95
+// expect-error: NITPICK-TYPE-085
+// expect-error-at: 25:25
 //
-// A CALLEE THAT GROWS A LENT `Bytes` FREES ITS CALLER'S BODY -- A DOUBLE FREE
-// IN THE MANAGED REGIME, FOR A TYPE THAT WAS MOVE-ONLY ALL ALONG (RX-162).
+// A CALLEE CANNOT GROW ITS CALLER'S `Bytes` THROUGH A LOAN -- refused
+// NITPICK-TYPE-085 since the compiler's 1.6.0 step 3g (DEF-102), carried by the
+// pin `c970483` -- cycle 0.0.4e, RX-169.
 //
-// PINNED, NOT ENDORSED. `Bytes` holds a `buffer`, so a copy of one has always
-// been NITPICK-TYPE-046 (`../rejection/bytes_copy.npk`). But `grow` takes it BY
-// VALUE -- a loan -- and pushes through its own parameter's address until
-// `bytes_reserve` replaces the body, `b.buf = move(bigger)`. Overwriting an
-// owning field drops the old value, and through a loan the old value is the
-// CALLER's: its body is freed under it. `run`'s read then sees freed memory and
-// its scope-exit drop frees the body again -- 95, the allocator's `Unreachable`,
-// at -O0 and through `opt -O2`, measured at `c3bdae2`. The same mechanism with
-// no library code is `../probe/probe17_lent_field_drop.npk`.
-//
-// A compiler defect, raised as O-N21 and not worked around; every `Bytes`
-// function takes `Bytes->`. Any exit but 95 means the loan changed (21: the
-// caller's byte survived): read the compiler's ruling before editing this file.
+// WHAT IT PINS. Through `c3bdae2` `grow` pushed through its lent parameter's
+// address until `bytes_reserve` replaced the body, `b.buf = move(bigger)`; that
+// overwrite dropped the CALLER's body, and the caller's own drop freed it again
+// -- 95 at -O0 and through `opt -O2`, when this file was
+// `tests/unit/bytes_alias_param_grow.npk`, PINNED, NOT ENDORSED (RX-162). The
+// same mechanism with no library code is
+// `../probe/refused/probe17_lent_field_drop.npk`, refused the same way. It still
+// runs, 95, at `c3bdae2`: the refusal is the pin's (`meta/roadmap/0.0/0.0.4e.md`
+// step 5). A callee that grows a `Bytes` takes `Bytes->`, as every function in
+// `bytes.npk` does -- `../unit/loan_spellings.npk`.
 mod:bytes_alias_param_grow;
 
 use "../../src/core/bytes.npk".*;

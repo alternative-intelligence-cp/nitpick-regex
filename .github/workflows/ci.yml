@@ -82,7 +82,7 @@ permissions:
   contents: read
 
 env:
-  # ../BOARD.md's pinned toolchain, by FULL sha. `c3bdae2` is the short form
+  # ../BOARD.md's pinned toolchain, by FULL sha. `c970483` is the short form
   # used in the roadmap and the transcripts.
   #
   # BUMPED 2026-09-06 FROM `950bb1d`, WHICH WAS 57 COMMITS AND TWO RE-PINS
@@ -99,7 +99,14 @@ env:
   # close. This commit is deliberately RED on its own: the tree it pins is not
   # yet adopted. It is pushed only together with the adoption, so CI runs
   # once, on the adopted tree (`meta/roadmap/0.0/0.0.4b.md` §3).
-  NITPICK_COMMIT: c3bdae270d63c93ab6e89825fddeec9425e2c6fd
+  #
+  # AND BUMPED 2026-09-26 FROM `c3bdae2` TO `c970483`, the end of the compiler's
+  # 1.6.0 chain -- DEF-95 to DEF-106 and DEF-108 -- IN THE ADOPTION'S OWN COMMIT
+  # (`meta/roadmap/0.0/0.0.4e.md`), so CI runs once, on the adopted tree. The
+  # old tree does not compile at the new pin (`vec.npk`, NITPICK-TYPE-047) and
+  # the new tree's refusals do not refuse at the old one, so neither commit
+  # could be green alone.
+  NITPICK_COMMIT: c9704830ea9c738f523bf6646a355f52679b3aee
   # nitpick.toml [toolchain] llvm. Exact patch release: a patch may change
   # instruction selection, which is why the manifest names three digits.
   LLVM_VERSION: 20.1.2
@@ -272,7 +279,7 @@ jobs:
       # compiler lives in the workbench's gitignored toolchain directory and is
       # not on a runner. The working-pin assertions are the ones that guard a
       # re-pin, and they all run.
-      - name: RX-120's floor, syscaller and difference, asserted at `c3bdae2`
+      - name: RX-120's floor, syscaller and difference, asserted at `c970483`
         run: harness/baseline/rx120.sh
 
       - name: Run the harness

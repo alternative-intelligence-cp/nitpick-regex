@@ -49,6 +49,7 @@ pub use "./vec.npk".vec_free;
 pub use "./vec.npk".vec_free_owning;
 pub use "./vec.npk".vec_reserve;
 pub use "./vec.npk".vec_get;
+pub use "./vec.npk".Pod;
 pub use "./vec.npk".vec_set;
 pub use "./vec.npk".vec_push;
 pub use "./vec.npk".vec_pop;

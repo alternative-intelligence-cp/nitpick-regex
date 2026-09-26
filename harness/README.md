@@ -30,7 +30,7 @@ reporting it.
 | `treecheck.py` | the live tree checks — the library diffed against its own documents; every one but `check_specs_current` can fail the run, and the runner prints each with what it examined |
 | `selfcheck.py` | **the harness fed wrong expectations and required to fail**; runs FIRST |
 | `baseline/` | the empty program the two scans are differences against, `rx120.sh`, and the two REVIEWED LISTS — `RESIDUE.txt` (what `nregex` needs from the runtime, RX-131) and `PENDING.txt` (every unit a `pending-until:` marker takes out of the denominator, RX-154), each checked both ways |
-| `baseline/rx120.sh` | **executable**: builds the floor and a syscaller at the pinned compiler and ASSERTS floor == 5, syscaller == 6, difference == `{npk_sys6}` (at `c3bdae2`; 2 and 3 at `3d15ac9`); with `950bb1d` present it also asserts 29/29/identical, compiling the two programs without the two arms that compiler does not have (RX-148). A harness **build step** and its own CI step. It replaced a hand-copied transcript that recorded a command which could not have produced the output beside it (RX-142's neighbourhood; cycle 0.0 audit, adjudication (a)) |
+| `baseline/rx120.sh` | **executable**: builds the floor and a syscaller at the pinned compiler and ASSERTS floor == 5, syscaller == 6, difference == `{npk_sys6}` (at `c3bdae2` and `c970483`; 2 and 3 at `3d15ac9`); with `950bb1d` present it also asserts 29/29/identical, compiling the two programs without the two arms that compiler does not have (RX-148). A harness **build step** and its own CI step. It replaced a hand-copied transcript that recorded a command which could not have produced the output beside it (RX-142's neighbourhood; cycle 0.0 audit, adjudication (a)) |
 | `selfcheck/` | fixtures that must **fail**; `selfcheck.py` drives them |
 
 ## What a green run asserts
@@ -96,6 +96,8 @@ block-string close, 18; the skip's second defence deleted, or asked of the reade
 again, 23 alone; both defences removed, 18, 19, 20 and 23 — 19 is the case that
 needs both gone; `range(exp.stress)` narrowed to one run, 22; the first leg only,
 11 and 22; and all three of BL-9's fixes reverted together, 18, 19, 20, 21 and 23.
+And cycle 0.0.4e (`0.0.4e.md` step 6) put `c3bdae2`'s block-string close back into
+`lexical.py` in a copy, after moving the module to the new one: it reddens 18.
 
 ## What it does not assert yet
 

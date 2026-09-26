@@ -34,7 +34,7 @@ use "../../src/lib.npk".*;
 func:main = int32(cstring[]:_~argv) {
     // ONE parameter, discarded (D-089 §4; the two-parameter form this file had
     // until cycle 0.0.4c is NITPICK-TYPE-083 from the compiler's 1.6.0 step 3c,
-    // DEF-96, landed on its `main` at `d156c4f` -- no pin of ours carries it yet).
+    // DEF-96, landed at `d156c4f` and in our pin since `c970483`, cycle 0.0.4e).
     // The CONTROL: both are on the residue list, so neither may be reported.
     wild int8->:mem = alloc(64i64);
     wild int8->:bigger = ralloc(mem, 128i64);

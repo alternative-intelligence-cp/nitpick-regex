@@ -99,6 +99,7 @@ still frees or grows its caller's block — a compiler defect, pinned in `../uni
 (`vec_alias_param_free`, `vec_alias_param_grow`, `sparseset_alias_param_free`,
 `bytes_alias_param_grow`) and by `../probe/probe17_lent_field_drop.npk`, and raised
 (RX-162). The day the compiler holds a loan read-only, those move here.
+*(That day was cycle 0.0.4e's re-pin to `c970483` — the section below.)*
 
 **Each is a test of the seal and not of its own file, and both halves are
 measured.** Against the tree before 0.0.4c's declarations all five compile
@@ -109,12 +110,51 @@ these fields. **What the seal does not close** is stated in S-23: a write
 THROUGH `b.buf.ptr` still compiles from a consumer, and so does a whole-`Vec`
 copy. *(Both closed at 0.0.4d — RX-163 and RX-161, the section above.)*
 
+## The loan and the generic pass-out refused, and `vec_get` at an owner — cycle 0.0.4e
+
+Since cycle 0.0.4e the pin is compiler `c970483`, which holds a LOAN read-only
+(DEF-102, `NITPICK-TYPE-085`) and asks `NITPICK-TYPE-047` of a lent `T` in a generic
+body (DEF-104) — `../../meta/DECISIONS.md` RX-169. The six files that pinned what a
+loan still reached were units under `../unit/` until then, PINNED, NOT ENDORSED;
+they are refusals here now, under the same names, each refused exactly its code at
+the `@` or the `pass`:
+
+- **`vec_alias_param_free.npk`**, **`vec_alias_param_grow.npk`** — a callee freeing or
+  growing its caller's `Vec` through `@v`: `NITPICK-TYPE-085`.
+- **`sparseset_alias_param_free.npk`** — the same for a `SparseSet`: `NITPICK-TYPE-085`.
+- **`bytes_alias_param_grow.npk`** — a callee growing a lent `Bytes`, whose field
+  overwrite dropped the caller's body: `NITPICK-TYPE-085`.
+- **`vec_alias_for_binding_free.npk`** — a `for` binding freed through:
+  `NITPICK-TYPE-085` at `@x`.
+- **`vec_alias_generic_passout.npk`** — a generic identity handing back its lent
+  `T`: `NITPICK-TYPE-047` at the `pass`.
+
+Two of them name their free's `T` — `vec_free::<int64>(@v)` — because written
+`vec_free(@v)` the refused argument leaves `T` nothing to be inferred from, and the
+compiler adds `NITPICK-TYPE-022` at the same call: a code about the cascade, which
+B-7's equality would make part of what the file asserts. Their language twin,
+`../probe/refused/probe17_lent_field_drop.npk`, moved with them.
+
+And `vec_get` takes `T: Pod` (RX-168):
+
+- **`vec_owning_get_moves_out.npk`** — `vec_get` at `Vec<string>`: `NITPICK-TYPE-017`.
+  Through `c3bdae2` it moved the element out of its slot; the name is kept so RX-155
+  still finds it.
+
+**Each refusal is shown to be the pin's or the bound's**
+(`../../meta/roadmap/0.0/0.0.4e.md` step 5): the six loan and pass-out files and probe
+17 still compile and run at `c3bdae2`, each with the exit it asserted as a unit; and
+`vec_owning_get_moves_out` compiles and runs against the tree before 0.0.4e.
+`../unit/loan_spellings.npk` is the positive twin: a callee that frees takes `move`,
+one that grows takes a pointer, a loop reads its binding, a generic takes `move T` —
+and all of it runs.
+
 ## Why they are the standing instance of rule B-7
 
-All fourteen import `src/` by a **relative** path — the two `failsafe_*` fixtures
-`../../src/lib.npk`, the other twelve the `../../src/core/` modules they test
+All twenty-one import `src/` by a **relative** path — the two `failsafe_*` fixtures
+`../../src/lib.npk`, the other nineteen the `../../src/core/` modules they test
 (*"all seven" went stale when the fourth triage added `bytes_copy.npk`; corrected
-at 0.0.4d*) —
+at 0.0.4d; "fourteen" and "twelve" at 0.0.4e*) —
 because every import here is relative until O-G3 closes (B-15). If any path is
 typo'd or the file moves, `npkc` exits **1** with `NITPICK-RESOLVE-005` — a genuine refusal, and
 these tests want a refusal. Under a *subset* rule they would pass, having
@@ -145,8 +185,8 @@ every run and requires the harness to catch it.
   pass on a broken command line.
 - **`main` takes ONE parameter: `func:main = int32(cstring[]:_~argv)`.** The
   compiler's D-089 §4 fixes it, and its 1.6.0 step 3c refuses any other `main`
-  `NITPICK-TYPE-083` (its DEF-96) — landed on the compiler's `main` at `d156c4f`;
-  no pin of ours carries it yet — a code beside the one the fixture names, which B-7's
+  `NITPICK-TYPE-083` (its DEF-96) — landed at `d156c4f`, in our pin since
+  `c970483` — a code beside the one the fixture names, which B-7's
   equality would fail. The two `failsafe_*` fixtures declared
   `int32(int32:argc, cstring[]:argv)` until cycle 0.0.4c; `npkc` accepted it
   without a word through `c3bdae2`.

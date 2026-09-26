@@ -727,6 +727,10 @@ def check_vec_elements_own_nothing(root):
     it -- while `vec_set`, `vec_remove`, `vec_swap_remove`, `vec_truncate`,
     `vec_clear` and `vec_free` orphan what they discard. Measured at
     `c3bdae2`, and pinned per verb by the `vec_owning_*` units.
+    *(Since cycle 0.0.4e, compiler `c970483`: `vec_get` takes `T: Pod` and an
+    owning `T` is refused at compile time, NITPICK-TYPE-017 (RX-168). The six
+    orphaning verbs are as stated, and this check is still the rule for them and
+    the belt for `vec_get`, whose bound an impl declaring `move` defeats.)*
 
     So the restriction is this library's, and this is what makes it a rule
     rather than a request: `src/` is the code that ships, and a `Vec` whose
@@ -789,8 +793,8 @@ def check_vec_elements_own_nothing(root):
                     f"{rel}:{ln}:{col}: {shown} -- the element is not cleared: {why}. "
                     f"`Vec<T>` is for a NON-OWNING `T` (SAFETY.md S-23a, RX-155), and "
                     f"this check clears only what it can see owns nothing (RX-158): at "
-                    f"an owning `T`, `vec_get` MOVES the element out of its slot and "
-                    f"six verbs orphan what they discard, invisibly to `exit 0`. Keep "
+                    f"an owning `T` six verbs orphan what they discard, invisibly to "
+                    f"`exit 0`, and `vec_get` is refused only by its `Pod` bound (RX-168). Keep "
                     f"the element POD -- an offset into a `Bytes`, as HIR.md H-2 does "
                     f"for group names -- or widen the check by a decision.")
     ndecl = sum(len(v) for v in decls.values())

@@ -11,8 +11,8 @@
 // decided for `Vec` on the board's question 9 (2026-09-25): MOVE-ONLY BY
 // CONSTRUCTION, which landed as 0.0.4d (RX-161): a `Vec` copy is refused the
 // way this one is (`vec_alias_*.npk` and `sparseset_alias_*.npk` here). A loan
-// is not a copy, and a `Bytes` lent to a callee that grows it still dies
-// (`../unit/bytes_alias_param_grow.npk`, RX-162).
+// is not a copy; a `Bytes` lent to a callee that grows it died through `c3bdae2`
+// and is refused since `c970483` (`bytes_alias_param_grow.npk` here, RX-169).
 //
 // A TEST OF THE LANGUAGE'S RULE AT THIS LIBRARY'S TYPE, NOT OF THIS FILE: until
 // 0.0.4d the same program copying a `Vec` compiled, linked and ran, so the

@@ -469,7 +469,17 @@ implied and nothing here is blocked.
 
 ---
 
-### O-N17 — **PROVISIONAL, awaiting the author's number**: the borrow tracker taints a function's return by SIGNATURE, so a function that takes a container by borrow cannot return an owned `string`
+### ~~O-N17 — **PROVISIONAL, awaiting the author's number**: the borrow tracker taints a function's return by SIGNATURE, so a function that takes a container by borrow cannot return an owned `string`~~ — **RE-HOMED: it is the workbench registry's O-N27, the same finding, registered 2026-09-26** (the entry below)
+
+*(2026-09-26, cycle 0.0.4e: struck in favour of O-N27, as the registry directs. The
+number collided and the finding was never filed under it; the orchestrator
+registered it as O-N27 after `nitpick-time` measured it independently, and sent it
+to the compiler as a design input to its S-106 (DEF-107's decision), where it is
+recorded as S-107. **Re-measured here at `c3bdae2` and at `c970483`**: the
+registry's reproduction — a `func:make = string(Box->:b)` returning
+`string_concat("small", "!")`, called `pass raw make(@b);` from the frame owning
+`b` — is `NITPICK-BORROW-001` at both. The heading and the text below are kept as
+raised, so the four citations in `roadmap/0.0/0.0.5.md` §8 still resolve.)*
 
 *⚠ 2026-09-25, found by the fifth cycle 0.0 audit's triage: **THIS NUMBER COLLIDES, and the finding has no registry number at all.** The workbench registry's `O-N17` is `nitpick-time`'s *"a generic function that moves OUT of an indexed element at an owning `T` calls a `@npk.vacant.<n>` helper the emitter never defines"* — assigned there by the orchestrator on 2026-09-05 and discharged since `aaffb87` — and nothing in the registry records this entry's finding. It is the same collision the registry's own note describes for a worker's `O-N12`, from the other side: this id was proposed here and never confirmed. A worker does not assign an `O-N` id (`../PLAYBOOK.md`), so it is raised by path for the orchestrator to number or to close, and it is kept under this heading so that the four citations in `roadmap/0.0/0.0.5.md` §8, a closed record, still resolve. Whether it still holds at `c3bdae2` is unmeasured here.*
 
@@ -516,7 +526,13 @@ signature — and it closes an unsound hole and an over-strict refusal at once. 
 only one can be had, **O-N9 first**: a false accept is a use-after-free and a
 false reject is an inconvenience.
 
-### O-N21 — **the workbench registry's**: a callee writing through a LENT parameter frees or grows its caller's value
+### ~~O-N21 — **the workbench registry's**: a callee writing through a LENT parameter frees or grows its caller's value~~ — **DISCHARGED upstream: refused `NITPICK-TYPE-085` since the compiler's 1.6.0 step 3g (DEF-102), in our pin since `c970483`; RX-169**
+
+*(2026-09-26, cycle 0.0.4e: measured at `c970483`, every face refused exactly
+`NITPICK-TYPE-085` at its write — the four units, the `for` binding and probe 17,
+each now a refusal (`tests/rejection/`, `tests/probe/refused/`) and each still
+running at `c3bdae2` with its old exit, so the refusal is the pin's. The text below
+is kept as raised.)*
 
 **Filed in the workbench registry (`../meta/OPEN_QUESTIONS.md` §"For the
 compiler") on 2026-09-25 and sent to the compiler seat at 19:55; confirmed as the
@@ -537,7 +553,7 @@ comment in the assignment lowering reasons that *"the struct's owner is exactly
 who is overwriting it"* — and **`@` of a lent parameter lets the callee free or
 grow the caller's container**. The committed reproduction, with no library code
 and no `wild`, is
-[`probe17_lent_field_drop.npk`](../tests/probe/probe17_lent_field_drop.npk): the
+[`probe17_lent_field_drop.npk`](../tests/probe/refused/probe17_lent_field_drop.npk): the
 caller reads its own string's body as the `0xAA` free poison, exit 70, at −O0
 and through `opt -O2`.
 
@@ -554,7 +570,16 @@ that changes a container takes it by pointer; any consumer that writes through a
 container it was lent, the parser at cycle 0.1 first; and whether cycle 0.0's
 close waits for the fix is the author's, the board's question 10.
 
-### O-N22 — **the workbench registry's**: `NITPICK-TYPE-047` is not asked of a lent `T` inside a generic body, so a generic function hands back its lent parameter as a second owner
+### ~~O-N22 — **the workbench registry's**: `NITPICK-TYPE-047` is not asked of a lent `T` inside a generic body, so a generic function hands back its lent parameter as a second owner~~ — **DISCHARGED upstream: refused `NITPICK-TYPE-047` since the compiler's 1.6.0 step 3g (DEF-104), in our pin since `c970483`; RX-169 — and its reach here was wider than this entry said: RX-168**
+
+*(2026-09-26, cycle 0.0.4e: measured at `c970483`, `vec_alias_generic_passout` is
+refused `NITPICK-TYPE-047` at its `pass` and runs at `c3bdae2`. "Nothing in `src/`,
+where no generic takes a lent bare `T`" below was true of a PARAMETER and not the
+whole of it: the fixed gate also refuses a `T` PLACE passed out of a lent or
+pointed-to container, which was `vec_get` and `vec_pop` — the tree did not compile
+at `c970483` until `vec_get` took `T: Pod` and `vec_pop` spelled `move(...)`
+(RX-168). The workbench registry's entry states the same "none" and is corrected
+there, not here.)*
 
 **Raised by this repository's fifth cycle 0.0 audit (N-25), 2026-09-25, at compiler
 `c3bdae2`; reproduced by the orchestrator, filed in the workbench registry
@@ -583,6 +608,49 @@ nothing in `src/`, where no generic takes a lent bare `T` — `vec_push`, `vec_s
 `vec_insert` and `drop_element` take `move T`; and it is not a clause of cycle
 0.0's gate.
 
+
+### O-N28 — **the workbench registry's**: an impl may declare `move` on a parameter its trait lends, and a call through the trait then hands the callee a value the caller still owns
+
+**Raised by this repository's cycle 0.0.4e planning at compiler `c970483` and
+filed in the workbench registry (`../meta/OPEN_QUESTIONS.md` §"For the compiler")**;
+the registry's entry is the authority, and this one restates it so a citation from
+this tree resolves without leaving it. `impl:string:Dup = { func:dup =
+string(move string:self) never fails { pass self; }; };` compiles against `trait:Dup
+= { func:dup = Self(Self:self) never fails; };`, and a call through the trait lends
+its argument to a callee that takes ownership of it: two owners of one body, a
+double free, 95, at −O0 and through `opt -O2`, at `c970483` and `c3bdae2` —
+`../tests/probe/probe18_impl_adds_move.npk`, no library code. The same impl written
+as declared is `NITPICK-TYPE-047`; a plain function with a `move` parameter called
+without `move(...)` is `NITPICK-TYPE-046`; a prelude trait is no different
+(`impl:Named:Eq` with `move Named:self` double-frees at `a.eq(b)`); and the reverse
+mismatch, a trait's `move Self:self` implemented lent, also compiles.
+`TRAITS_REFERENCE.md` §2: "An impl's method must have the signature the trait
+declares". *What it means here:* `vec_get`'s `T: Pod` (RX-168) refuses an owning
+type only through `Pod`'s declared, lent `self`; a consumer's `move`-self impl
+defeats it (95 through `vec_get`, measured). **What it blocks (W-27):** nothing in
+`src/`, which writes no such impl; O-R3 waits for it.
+
+### O-N27 — **the workbench registry's**: the borrow tracker taints a call's result by SIGNATURE, so an owned string built by `f(Container->)` cannot be returned from the frame that owns the container
+
+**Registered 2026-09-26 in the workbench registry (`../meta/OPEN_QUESTIONS.md`
+§"For the compiler")**, from this repository's cycle 0.0 triage — filed here on
+2026-09-06 under a local number, O-N17 above, that collided — and measured
+independently by `nitpick-time`'s 0.1.4b. Sent to the compiler as a design input to
+its S-106 (DEF-107's decision) and recorded there as S-107, with the recommendation
+that 1.6.1 step 0's per-function summaries refine the marking. The registry's entry
+is the authority; this one restates it so a citation from this tree resolves
+without leaving it.
+
+A function that takes a container by pointer and returns an owned `string` it
+BUILT — which cannot alias its argument — is refused `NITPICK-BORROW-001` (*"a
+borrow cannot travel up"*) when called from the frame owning the container, bound
+first or not; with the container a parameter of the returning frame, or the string
+built inline, it compiles and runs. Measured here at `c3bdae2` and at `c970483`
+(cycle 0.0.4e): `BORROW-001` at both. **Sound and coarse** — a false reject, the
+mirror of a view escaping, both from a rule keyed on a call's shape rather than a
+value's provenance. *What it means here:* refused code, not unsafe code; this
+library meets the shape at cycle 0.6, where replacement returns built text, and
+O-N17's two working spellings stand. **What it blocks (W-27):** nothing today.
 
 ## O-G — the compiler's, raised from here
 
@@ -784,6 +852,18 @@ movemask intrinsic, which is a better request than a speculative one.
   avoids the Pike VM for simple captures. It doubles the compiler's output and
   needs its own correctness argument. **Decide at cycle 0.8**, where the DFA's
   capture story is settled; `O-C2` is the compiler half.
+- **O-R3 — `struct:Vec<T: Pod>`: S-23a stated at the type, not only at
+  `vec_get`.** Since cycle 0.0.4e `vec_get` takes `T: Pod` (RX-168), which an owning
+  type cannot implement as declared, so the one verb that hands an element back
+  refuses an owning `T`. Bounding the TYPE would refuse `Vec<string>` itself — every
+  verb, every consumer — and retire `check_vec_elements_own_nothing` into a belt;
+  it would also refuse the seven owning-element measurement units and remove
+  `vec_free_owning`'s reason to exist. **Recommendation: yes, at cycle 0.1's
+  opening subcycle, once the compiler refuses an impl that declares `move` on a
+  parameter its trait lends** (RX-168's hole, probe 18) — before that fix a
+  `move`-self impl defeats a bound on the type exactly as it defeats `vec_get`'s,
+  and the tree check stays the only guarantee over `src/`. **Open by design until
+  then**: it is gated on a compiler fix, not on a decision here.
 
 ### The pattern language
 

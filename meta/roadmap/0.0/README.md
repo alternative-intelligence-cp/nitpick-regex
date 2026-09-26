@@ -1,4 +1,19 @@
-# Cycle 0.0 — Foundations — **NOT CLOSED. The close was refused FIVE times — three on 2026-09-06, the fourth and fifth on 2026-09-25 — and it waits on the author's question 10: recommended, a re-pin to a compiler carrying its 1.6.0 step 3g, and then an audit that has seen it.**
+# Cycle 0.0 — Foundations — **NOT CLOSED. The close was refused FIVE times — three on 2026-09-06, the fourth and fifth on 2026-09-25 — and waited on the author's question 10, answered (a): a re-pin to a compiler carrying its 1.6.0 step 3g. That re-pin is 0.0.4e, to `c970483`; an audit that has seen it is next.**
+
+> ## 0.0.4e — the adoption to compiler `c970483`: the loan refused, `vec_get` bounded
+>
+> **[`0.0.4e.md`](0.0.4e.md).** The re-pin question 10 waited for, to the end of the
+> compiler's 1.6.0 chain. **The loan is refused**: every write through a lent
+> container is `NITPICK-TYPE-085` and a generic pass-out of a lent `T`
+> `NITPICK-TYPE-047`, so the six pins and probe 17 are refusals, each still running
+> at `c3bdae2`, and `loan_spellings` runs what the refusals prescribe (RX-169). **The
+> tree did not compile at the new pin until `src/` changed**: DEF-104's gate refuses
+> a `T` place passed out of a lent or pointed-to container at every `T`, which was
+> `vec_get` and `vec_pop` — so `vec_get` takes `T: Pod`, a trait an owning type cannot
+> implement as declared, and `vec_pop` spells `move(...)` (RX-168). `lexical.py`
+> closes a block string at `"""` and probe 15 runs (RX-170). Planning found a
+> compiler defect, pinned as probe 18: an impl may declare `move` on a parameter its
+> trait lends.
 
 > ## The FIFTH refusal — the fix for the fourth's first finding had the same shape
 >
@@ -566,6 +581,12 @@ the close proceeds with the loan open against it (question 10). *(Reworded
 `tests/unit/*_alias_*` shape is refused (RX-160)", which counted
 `sparseset_alias_swap`, a shape that must run, and could not be met for a loan at
 `c3bdae2`; the note below had said so and the sentence had not moved.)*
+
+*(2026-09-26, cycle 0.0.4e — RX-169. THE LOAN CLAUSE IS MET at `c970483`: the four
+`*_alias_param_*` fixtures, probe 17 and the `for` binding are each refused
+`NITPICK-TYPE-085` at the position its own `expect-error-at` records, and each still
+runs at `c3bdae2`, so each refusal is the pin's; the generic pass-out is
+`NITPICK-TYPE-047`. The audit that accepts the close sees this tree.)*
 
 *(2026-09-25, cycle 0.0.4d — RX-161, RX-162. "Every `*_alias_*` shape is refused"
 was written before the shapes were measured against a move-only `Vec`, and it

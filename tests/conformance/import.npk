@@ -41,7 +41,7 @@ func:main = int32(cstring[]:_~argv) {
     // this file declared `int32(int32:argc, cstring[]:argv)` and `discard`ed
     // both: `npkc` accepted it without a word through `c3bdae2`, and the
     // compiler's 1.6.0 step 3c refuses it `NITPICK-TYPE-083` (its DEF-96), landed
-    // on the compiler's `main` at `d156c4f` -- no pin of ours carries it yet.
+    // at `d156c4f` and in our pin since `c970483` (cycle 0.0.4e).
     exit 0i32;
 };
 

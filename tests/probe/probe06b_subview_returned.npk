@@ -3,6 +3,17 @@
 // PROBE 06b — RETURNING A `uint8[]` SUBRANGE IS ACCEPTED. THE HYPOTHESIS WAS
 // THAT IT WOULD BE REFUSED, AND IT WAS REFUTED.
 //
+// *(Dated 2026-09-26, cycle 0.0.4e, compilers `c3bdae2` and `c970483` -- the fifth
+// cycle-0.0 audit's triage left these headers for the re-pin. O-N9 IS DISCHARGED:
+// the compiler's DEF-3 landed at its 1.5.1b (in every pin from `94874ce`).
+// Re-measured at both pins: a view of a LOCAL returned is NITPICK-BORROW-001, a
+// view of a TEMPORARY is NITPICK-BORROW-012 -- the code this header calls "not in
+// the pinned toolchain" -- and a subrange of a PARAMETER returned, the shape
+// below, compiles and runs, as the header says DEF-3's rule would keep it. Every
+// present-tense sentence below about O-N9, DEF-3 being "scheduled" or
+// "unlanded", and a code "not in the pinned toolchain" was true at `950bb1d` and
+// `3d15ac9` and is history; the measured behaviour it records has not moved.)*
+//
 // `0.0.0.md` §4 wrote this half as "expected **refused**", and §5 instructed the
 // executor that an acceptance means "stop and re-plan `API.md` §2". **That
 // instruction is not followed, and the reason is that the plan predates the

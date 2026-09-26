@@ -300,7 +300,8 @@ reader** — a file is skipped only when both say so:
   skip, B-2b's reach, the expectation markers and every tree check — is opened
   by `lexical.read`, as **bytes**, so `\n` is the only line end and a carriage
   return is whitespace, as in the compiler's lexer; and it is read through
-  `harness/lexical.py`, which mirrors that lexer at `c3bdae2`: comments (`/* */`
+  `harness/lexical.py`, which mirrors that lexer at `c970483` (at `c3bdae2` until
+  cycle 0.0.4e, RX-170 — the block string's close): comments (`/* */`
   does not nest), plain, raw and block strings, character literals and template
   text are not code, a template's `&{…}` is, and a `use` is the keyword followed
   by a plain string literal, `pub` or not, **whose path is the literal's decoded

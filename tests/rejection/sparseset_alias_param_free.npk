@@ -1,0 +1,52 @@
+// expect-error: NITPICK-TYPE-085
+// expect-error-at: 22:20
+//
+// A CALLEE CANNOT FREE ITS CALLER'S `SparseSet` THROUGH A LOAN -- refused
+// NITPICK-TYPE-085 since the compiler's 1.6.0 step 3g (DEF-102), carried by the
+// pin `c970483` -- cycle 0.0.4e, RX-169. The silent wrong answer
+// `sparseset_alias_read_after_free.npk` beside it refuses for a copy, refused
+// here for a loan.
+//
+// WHAT IT PINS. Through `c3bdae2` `consume` freed both blocks through its lent
+// parameter's address, and the caller then read member 3 ABSENT while `sset_len`
+// said 1 -- exit 0 at -O0 and through `opt -O2`, when this file was
+// `tests/unit/sparseset_alias_param_free.npk`, PINNED, NOT ENDORSED (RX-162). At
+// `c970483` the `@s` is refused. It still runs, 0, at `c3bdae2`: the refusal is
+// the pin's (`meta/roadmap/0.0/0.0.4e.md` step 5). A callee that frees a
+// `SparseSet` takes it as `move SparseSet:s` -- `../unit/loan_spellings.npk`.
+mod:sparseset_alias_param_free;
+
+use "../../src/core/sparseset.npk".*;
+
+func:consume = NIL(SparseSet:s) never fails {
+    drop sset_free(@s);
+    pass NIL;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    SparseSet:s = raw sset_init(8i64);
+    drop sset_insert(@s, 3i64);
+    drop consume(s);
+    bool:has = raw sset_contains(@s, 3i64);
+    int64:n = raw sset_len(@s);
+    if (has) { exit 21i32; }
+    if (n != 1i64) { exit 22i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

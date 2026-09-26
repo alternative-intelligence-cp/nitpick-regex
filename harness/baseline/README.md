@@ -65,7 +65,8 @@ exactly `{npk_sys6}`, which is the claim that matters. What moved, and why:
     That is the list working -- an entry added by reasoning rather than by
     measurement is exactly what it exists to catch."*
 
-`rx120.sh` asserts 5 / 6 / `{npk_sys6}` at `c3bdae2`, and its `950bb1d` leg
+`rx120.sh` asserts 5 / 6 / `{npk_sys6}` at `c3bdae2` and at `c970483` (the
+floor unchanged by the compiler's 1.6.0 chain, cycle 0.0.4e), and its `950bb1d` leg
 still reproduces RX-120 as first measured — 29 / 29, identical, `npk_sys6` in
 the floor — by compiling both programs with the two arms that compiler does not
 have removed (RX-148).

@@ -1,0 +1,61 @@
+// expect-error: NITPICK-TYPE-085
+// expect-error-at: 32:28
+//
+// A CALLEE CANNOT FREE ITS CALLER'S `Vec` THROUGH A LOAN: A PLAIN BY-VALUE
+// PARAMETER OF AN OWNING TYPE IS READ-ONLY SINCE THE COMPILER'S 1.6.0 STEP 3g
+// (DEF-102, the workbench registry's O-N21), carried by the pin `c970483` --
+// cycle 0.0.4e, RX-169. N-15's loan face (the fourth cycle-0.0 audit's BL-8),
+// closed.
+//
+// WHAT IT PINS. `consume` takes `Vec<int64>` by value -- a LOAN (the compiler's
+// D-065 and D-183) -- and frees through its own parameter's address. Through
+// `c3bdae2` that compiled, and the caller's next `vec_get` read the reclaimed
+// block, the `0xAA` poison: exit 0 at -O0 and through `opt -O2`, when this file
+// was `tests/unit/vec_alias_param_free.npk`, PINNED, NOT ENDORSED (RX-162). At
+// `c970483` the `@v` is NITPICK-TYPE-085, "a plain parameter of an owning type
+// is LENT", and nothing after it is reached.
+//
+// THE FREE NAMES ITS `T`, `vec_free::<int64>`, so the refusal is the only
+// diagnostic: written `vec_free(@v)`, the refused argument leaves `T` nothing to
+// be inferred from, and the compiler adds NITPICK-TYPE-022 at the same call -- a
+// code about the cascade, not the loan (measured at `c970483`).
+//
+// THE REFUSAL IS THE PIN'S: this file still compiles and runs at `c3bdae2`, exit
+// 0 at both levels (`meta/roadmap/0.0/0.0.4e.md` step 5). Its positive twin,
+// `../unit/loan_spellings.npk`, frees through a `move Vec<int64>:v` parameter and
+// grows through `Vec<int64>->`, the spellings TYPE-085's message names.
+mod:vec_alias_param_free;
+
+use "../../src/core/vec.npk".*;
+
+func:consume = NIL(Vec<int64>:v) never fails {
+    drop vec_free::<int64>(@v);
+    pass NIL;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    Vec<int64>:v = raw vec_init::<int64>(4i64);
+    drop vec_push(@v, 7i64);
+    drop consume(v);
+    int64:x = raw vec_get(v, 0i64);
+    if (x == 7i64) { exit 21i32; }
+    if ((x & 255i64) != 170i64) { exit 22i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

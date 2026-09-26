@@ -284,7 +284,9 @@ requires it to report every one as a failure. The list is `harness/selfcheck.py`
 18. the harness's one reading of source, `harness/lexical.py`, fed a file
     holding one of each lexical form this repository has found to matter, read
     back through `lexical.read` — it must read exactly the imports and the code
-    the compiler does at `c3bdae2` (RX-157, RX-165). Tested on the instrument, as
+    the compiler does at `c970483` (RX-157, RX-165; at `c3bdae2` until cycle
+    0.0.4e, whose RX-170 moved the block-string close and rewrote line 23 to read
+    the two closes apart). Tested on the instrument, as
     case 10 is. *(It said "every lexical form the compiler has" until the fifth
     cycle 0.0 audit, which found two it lacked — a lone CR and an escaped path,
     BL-9 — and a third it could not tell apart, the block string's two closes,

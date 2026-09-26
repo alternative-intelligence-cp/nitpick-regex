@@ -1,0 +1,56 @@
+// expect-error: NITPICK-TYPE-047
+// expect-error-at: 27:5
+//
+// A GENERIC FUNCTION CANNOT HAND BACK ITS LENT `T` -- NITPICK-TYPE-047 at the
+// `pass`, since the compiler's 1.6.0 step 3g (DEF-104, the workbench registry's
+// O-N22), carried by the pin `c970483` -- cycle 0.0.4e, RX-169. The fifth
+// cycle-0.0 audit's N-25.
+//
+// WHAT IT PINS. `func:id<T> = T(T:x) { pass x; }` passes on a loan. Through
+// `c3bdae2` TYPE-047 was not asked of a lent `T` in a generic body -- its gate
+// asked `type_drops`, false for an unsubstituted `T` -- so at `T = Vec<int64>` the
+// result was a second owner of the block: after `vec_free(@a)` a read through it
+// returned the free poison, exit 0 at -O0 and through `opt -O2`, when this file
+// was `tests/unit/vec_alias_generic_passout.npk`, PINNED, NOT ENDORSED (RX-167).
+// At `c970483` the gate asks `type_owns_for_move` -- D-264's predicate, a bare
+// `T` owns -- and the `pass` is refused with the code its `string` twin always
+// got. It still runs, 0, at `c3bdae2`: the refusal is the pin's
+// (`meta/roadmap/0.0/0.0.4e.md` step 5). A generic that passes its argument on
+// takes it as `move T:x` -- `../unit/loan_spellings.npk`. The same gate reached
+// `vec_get` and `vec_pop` in `src/core/vec.npk`: that is why `vec_get` takes
+// `T: Pod` and `vec_pop` spells its move (RX-168).
+mod:vec_alias_generic_passout;
+
+use "../../src/core/vec.npk".*;
+
+func:id<T> = T(T:x) never fails {
+    pass x;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    Vec<int64>:a = raw vec_init::<int64>(4i64);
+    drop vec_push(@a, 7i64);
+    Vec<int64>:b = raw id::<Vec<int64>>(a);
+    drop vec_free(@a);
+    int64:x = raw vec_get(b, 0i64);
+    if (x == 7i64) { exit 21i32; }
+    if ((x & 255i64) != 170i64) { exit 22i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

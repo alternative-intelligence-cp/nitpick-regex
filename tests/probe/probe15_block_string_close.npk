@@ -1,0 +1,44 @@
+// expect-exit: 4
+//
+// PROBE 15 -- A BLOCK STRING CLOSES AT `"""`, AND A `""` INSIDE ITS BODY IS TWO
+// BODY CHARACTERS: the compiler's lexer since its 1.6.0 step 3e (DEF-98), carried
+// by the pin `c970483` -- cycle 0.0.4e, RX-170.
+//
+// WHAT THE SPECIFICATION SAYS. `LEXICAL_REFERENCE.md` §6.3:
+//     BlockStringLiteral ::= '"""' (SourceCharacter - '"""')* '"""'
+// so `"""a""b"""` is one literal whose body is `a""b` -- four bytes, and `main`
+// exits with its length: 4 at -O0 and through `opt -O2`, measured at `c970483`.
+//
+// WHAT THE COMPILER DID THROUGH `c3bdae2`: `lexer_next` ended a block string at
+// the first `""` and consumed three characters there, so `"""a""` was one
+// literal, the `""b` its "closing quotes", and the last `"""` opened a second
+// that never closed -- NITPICK-LEX-005, with the parser's cascade, PARSE-001 and
+// PARSE-003. Found 2026-09-25 by cycle 0.0.5's fourth audit triage while writing
+// `harness/lexical.py` (RX-157), raised, and fixed as DEF-98; this file sat in
+// `refused/` with those three codes until cycle 0.0.4e moved it here. It still
+// refuses at `c3bdae2` (`meta/roadmap/0.0/0.0.4e.md` step 5), so the verdict is
+// the pin's.
+//
+// WHAT KEEPS THE READER IN STEP: `harness/lexical.py` mirrors the lexer, not the
+// grammar, and moved with it (RX-170). Self-check case 18 holds a block string
+// with `""` in its body and a `use` after its close, and fails against the old
+// close; this probe is what says the lexer moved.
+mod:probe15_block_string_close;
+
+func:main = int32(cstring[]:_~argv) {
+    string:s = """a""b""";
+    exit (string_byte_length(s) =>! int32);
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault)   { exit 107i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

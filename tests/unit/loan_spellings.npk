@@ -1,0 +1,126 @@
+// expect-exit: 0
+//
+// THE SPELLINGS A LOAN'S REFUSAL PRESCRIBES, EACH ONE RUN -- the positive twin of
+// the six loan and pass-out fixtures `../rejection/` holds since cycle 0.0.4e
+// (RX-169), at compiler `c970483`.
+//
+// Each refusal passes if the compiler refuses the loan -- and would ALSO pass
+// under a compiler that refused every container parameter. This file is the
+// other half: what NITPICK-TYPE-085's message and NITPICK-TYPE-047's name as the
+// way to do what the refused files did, each checked on a value distinct from the
+// vacant 0 and the `0xAA` poison, and every block freed exactly once, so `exit 0`
+// also says none leaked (`WildLeak`, 96) and none was freed twice (95):
+//   1. a callee that FREES takes `move Vec<int64>:v`, and the caller writes
+//      `move(a)` (21);
+//   2. a callee that GROWS takes `Vec<int64>->`, and the caller passes `@w` --
+//      the caller's own header then sees the growth (22, 23, 24);
+//   3. the same two for a `SparseSet` (25) and a `Bytes` (26, 27);
+//   4. a `for` binding READS; the array frees its own elements by index (28);
+//   5. a generic that passes its argument on takes `move T:x` (29).
+// Measured 0 at -O0 and through `opt -O2` at `c970483` and at `c3bdae2`: these
+// were always legal, and now they are the spellings that compile.
+mod:loan_spellings;
+
+use "../../src/core/vec.npk".*;
+use "../../src/core/sparseset.npk".*;
+use "../../src/core/bytes.npk".*;
+
+func:consume = int64(move Vec<int64>:v) never fails {
+    int64:x = raw vec_get(v, 0i64);
+    drop vec_free(@v);
+    pass x;
+};
+
+func:grow = NIL(Vec<int64>->:v) never fails {
+    int64:k = 0i64;
+    while (k < 64i64) decreases 64i64 - k {
+        drop vec_push(v, 9i64);
+        k = k + 1i64;
+    }
+    pass NIL;
+};
+
+func:sconsume = bool(move SparseSet:s) never fails {
+    bool:h = raw sset_contains(@s, 3i64);
+    drop sset_free(@s);
+    pass h;
+};
+
+func:bgrow = NIL(Bytes->:b) never fails {
+    int64:k = 0i64;
+    while (k < 64i64) decreases 64i64 - k {
+        drop bytes_push(b, 66u8);
+        k = k + 1i64;
+    }
+    pass NIL;
+};
+
+func:id_owned<T> = T(move T:x) never fails {
+    pass x;
+};
+
+func:run = int32() never fails {
+    Vec<int64>:a = raw vec_init::<int64>(1i64);
+    drop vec_push(@a, 7i64);
+    if ((raw consume(move(a))) != 7i64) { pass 21i32; }
+
+    Vec<int64>:w = raw vec_init::<int64>(1i64);
+    drop vec_push(@w, 7i64);
+    drop grow(@w);
+    if (w.count != 65i64) { pass 22i32; }
+    if ((raw vec_get(w, 0i64)) != 7i64) { pass 23i32; }
+    if ((raw vec_get(w, 64i64)) != 9i64) { pass 24i32; }
+    drop vec_free(@w);
+
+    SparseSet:s = raw sset_init(8i64);
+    drop sset_insert(@s, 3i64);
+    if (!(raw sconsume(move(s)))) { pass 25i32; }
+
+    Bytes:b = raw bytes_init(1i64);
+    drop bytes_push(@b, 65u8);
+    drop bgrow(@b);
+    if ((raw bytes_len(@b)) != 65i64) { pass 26i32; }
+    if ((raw bytes_get(@b, 0i64)) != 65u8) { pass 27i32; }
+
+    Vec<int64>:p = raw vec_init::<int64>(1i64);
+    drop vec_push(@p, 7i64);
+    Vec<int64>:q = raw vec_init::<int64>(1i64);
+    drop vec_push(@q, 8i64);
+    Vec<int64>[2]:arr = [move(p), move(q)];
+    int64:total = 0i64;
+    for (Vec<int64>:x in arr) {
+        total = total + (raw vec_get(x, 0i64));
+    }
+    if (total != 15i64) { pass 28i32; }
+    drop vec_free(@arr[0i64]);
+    drop vec_free(@arr[1i64]);
+
+    Vec<int64>:g = raw vec_init::<int64>(1i64);
+    drop vec_push(@g, 7i64);
+    Vec<int64>:h = raw id_owned::<Vec<int64>>(move(g));
+    if ((raw vec_get(h, 0i64)) != 7i64) { pass 29i32; }
+    drop vec_free(@h);
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:r = raw run();
+    exit r;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

@@ -1,0 +1,60 @@
+// expect-error: NITPICK-TYPE-085
+// expect-error-at: 35:5
+//
+// PROBE 17 -- OVERWRITING AN OWNING FIELD OF A LENT PARAMETER IS REFUSED:
+// NITPICK-TYPE-085 at the write, since the compiler's 1.6.0 step 3g (DEF-102, the
+// workbench registry's O-N21), carried by the pin `c970483` -- cycle 0.0.4e,
+// RX-169. No library code, no `wild`, no pointer cast anywhere in the program.
+//
+// WHAT THE LANGUAGE SAYS. An ordinary parameter is LENT: "passing transfers
+// nothing", the callee may read it and may not keep it (the compiler's D-065 and
+// D-183). WHAT THE COMPILER DID THROUGH `c3bdae2`: the assignment `b.s = …` below
+// dropped the field's old value first -- D-186's unconditional field drop, which
+// reasons that "the struct's owner is exactly who is overwriting it" -- and for a
+// lent parameter the old value is the CALLER's string, so `main` read the free
+// poison, `0xAA`: exit 70 at -O0 and through `opt -O2`, when this was
+// `tests/probe/probe17_lent_field_drop.npk` (found by cycle 0.0.4d's planning,
+// raised as O-N21, RX-162). WHAT IT DOES AT `c970483`: a place rooted at a lent
+// parameter whose type owns admits no write path, and the write is refused. It
+// still compiles and runs, 70, at `c3bdae2` (`meta/roadmap/0.0/0.0.4e.md` step 5),
+// so the verdict is the pin's. TYPE-085's message names what remains: read it,
+// `.clone()` the part you change, or take it as `move Box:b` and let the caller
+// write `move(b)`; `../../unit/loan_spellings.npk` runs the library's spellings.
+//
+// WHAT IT REACHED HERE: a lent `Bytes` grown by its callee, and a lent `Vec` or
+// `SparseSet` freed or grown through `@` -- each refused the same way now
+// (`../../rejection/bytes_alias_param_grow.npk`, `vec_alias_param_*.npk`,
+// `sparseset_alias_param_free.npk`).
+mod:probe17_lent_field_drop;
+
+struct:Box = {
+    string:s;
+};
+
+func:overwrite = NIL(Box:b) never fails {
+    b.s = string_concat("xyzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz", "w");
+    pass NIL;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    Box:b = Box{ s: string_concat("abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "c") };
+    drop overwrite(b);
+    uint8[]:bs = string_bytes(b.s);
+    if (bs[0i64] == 97u8) { exit 21i32; }
+    if (bs[0i64] == 170u8) { exit 70i32; }
+    exit 71i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault)   { exit 107i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

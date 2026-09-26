@@ -33,7 +33,7 @@ use "../../src/lib.npk".*;
 
 func:main = int32(cstring[]:_~argv) {
     // ONE parameter (D-089 §4). The compiler's 1.6.0 step 3c refuses a second,
-    // NITPICK-TYPE-083 (DEF-96, at `d156c4f`, not our pin) -- B-7 would fail it.
+    // NITPICK-TYPE-083 (DEF-96, in our pin since `c970483`) -- B-7 would fail it.
     exit 0i32;
 };
 

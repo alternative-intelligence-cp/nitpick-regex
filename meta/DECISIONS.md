@@ -3166,6 +3166,9 @@ the pending exit written in the list only — the marker is what a reader of the
 unit sees, so it must say which failure it excuses.
 
 ### RX-155 — `Vec<T>` is for a `T` that owns nothing, because nothing in the language keeps an owner out; the restriction is stated per verb, measured per verb, and enforced over `src/`
+> **SUPERSEDED IN PART by RX-168 (2026-09-26)** — its declined alternative, *"a marker-trait bound
+> (`vec_get<T: Pod>`)"*: at `c970483` the old `vec_get` does not compile, and the language refuses an
+> owning `Pod` impl written as declared, so the bound is taken. The rule, its check and its table stand.
 > **SUPERSEDED IN PART by RX-158 (2026-09-25)** — the check's mechanism, a denylist of nine words the fourth
 > audit walked twelve shapes past (N-18), and the unqualified "enforced over `src/`" made on it. The rule stands;
 > the check is default-deny.
@@ -3331,6 +3334,8 @@ here, at `c3bdae2`, and every audit measurement it rests on was reproduced
 before anything was changed.*
 
 ### RX-157 — the harness reads Nitpick source ONE way, the compiler's, and a file that declares `main` is never skipped
+> **SUPERSEDED IN PART by RX-170 (2026-09-26)** — its paragraph that a block string closes at the first
+> `""` and `lexical.py` follows that: the lexer closes at `"""` since the compiler's 1.6.0 step 3e.
 > **SUPERSEDED IN PART by RX-165 (2026-09-25)** — its claim that the reading was the compiler's (every caller
 > opened files in text mode, a lone CR ending a line, and a path was its literal's text), and its second part's
 > "holds whatever the reader gets wrong next", which asked the same reader. The one reader and its lexer mirror stand.
@@ -3655,6 +3660,10 @@ copy in `src/`** — a house rule where the compiler can refuse, blind to every
 consumer; **accept and document** — the author declined it on question 9.
 
 ### RX-162 — a by-value parameter is a LOAN, not a copy: `vec_get` keeps its signature, and what a loan still reaches is a compiler defect, pinned and raised, not worked around
+> **SUPERSEDED IN PART by RX-168 and RX-169 (2026-09-26)** — `vec_get` keeps its parameter and gains a
+> bound, `T: Pod` (RX-168); and the loan is REFUSED at `c970483`, `NITPICK-TYPE-085`, so its pins are
+> rejection fixtures and the gate's loan clause is met (RX-169). A loan is still a loan, and nothing was
+> worked around.
 > **SUPERSEDED IN PART by RX-167 (2026-09-25)** — its count of what pins the loan, "the four loan units and
 > probe 17": a `for` binding is a fifth loan unit, and a generic pass-out is a sixth second handle, O-N22. Its
 > decision on `vec_get` and on loans stands.
@@ -3770,6 +3779,9 @@ on was reproduced here before anything changed, and every number below was taken
 at `c3bdae2`, at −O0 and through `opt -O2` where a program ran.*
 
 ### RX-165 — the harness opens every `.npk` as the compiler does, decodes an import path by the compiler's escape rules, and the skip's second defence is the compiler's own answer
+> **SUPERSEDED IN PART by RX-170 (2026-09-26)** — item 4's case 18 *"read the way the lexer at `c3bdae2`
+> reads it"*: the block string closes at `"""` at `c970483`, and line 23 is rewritten to read the two
+> closes apart. Everything else stands.
 
 **2026-09-25, the fifth cycle 0.0 audit's BL-9, with N-28 and N-29's lexical
 lines.** It supersedes RX-157 in part — its claim that `lexical.py` was the
@@ -3904,6 +3916,9 @@ remedy) — three small rules against a check that cleared an owning field;
 W-18 keeps out of this harness.
 
 ### RX-167 — two more shapes reach a move-only `Vec`'s block without a copy — a `for` binding, and a generic function passing out its lent `T` — each pinned as a unit and raised, not worked around
+> **SUPERSEDED IN PART by RX-168 and RX-169 (2026-09-26)** — both shapes are refused at `c970483`, and
+> their units are rejection fixtures (RX-169); and "Nothing in `src/` changes" was true of a lent `T`
+> PARAMETER and not the whole of DEF-104's reach — `vec_get` and `vec_pop` (RX-168).
 
 **2026-09-25, the fifth cycle 0.0 audit's N-25 and N-26.** It supersedes RX-162 in
 part — its count of what pins the loan, "the four loan units and probe 17". Its
@@ -3939,3 +3954,159 @@ row is; `src/core/vec.npk`'s "a `Vec` CANNOT BE COPIED" is qualified. Nothing in
 lent `T`** — a house rule where the compiler is already fixing it (W-11), blind to
 every consumer; **holding the close for N-25** — it is no clause of cycle 0.0's
 gate and `src/` has no exposure; whether it should become one is the author's.
+
+### RX-168 — `vec_get` takes `T: Pod`, a trait an owning type cannot implement as it is declared, and `vec_pop` spells its move: DEF-104's gate reaches `src/`
+
+**2026-09-26, cycle 0.0.4e (the plan's PD-12), at compiler `c970483`.** It supersedes
+RX-155 in part — its declined alternative *"a marker-trait bound (`vec_get<T:
+Pod>`)"*, both of whose reasons are false at `c970483`; RX-162 in part —
+*"`vec_get` keeps its signature"*: it keeps its parameter and gains a bound; and
+RX-167 in part — its reach, *"Nothing in `src/` changes: no generic there takes a
+lent bare `T`"*, true of a parameter and not the whole of DEF-104's.
+
+**Measured: the tree as it stood does not compile at `c970483`.** `src/core/vec.npk`
+is refused `NITPICK-TYPE-047` twice — `vec_get`'s `pass v.items[i]` (*"this
+parameter was lent, not given"*) and `vec_pop`'s `pass v.items[v.count]` (*"`T` is
+owned by what this pointer reaches"*) — and so is every file that imports it: the
+harness ran `78/223`. The mechanism, read at `c970483` with `git show`: DEF-104
+made `refuse_move_of_borrowed` and `refuse_pass_of_pointee_owned` ask
+`type_owns_for_move`, which answers yes for a bare `T` (D-264), and a generic body
+is checked once — so a `T` PLACE passed out of a lent or pointed-to container is
+refused at every `T`, a scalar included. The fifth audit's N-25 and RX-167 looked
+at a lent `T` PARAMETER, of which `src/` has none, and not at a `T` place rooted
+in one; the audit's post-re-pin item 8 expected `vec_get` to compile.
+
+**`vec_pop` spells the move**: `pass move(v.items[v.count]);` — the prelude's own
+`list_pop`, and what the implicit move did: diffed at `c3bdae2`, `vec_pop<string>`
+writes the same vacancy into the slot past `count`, plus one temporary and its
+flag. Ownership-correct at every `T`, as RX-155 found it.
+
+**`vec_get` takes `T: Pod`.** `pub trait:Pod = { func:pod_copy = Self(Self:self)
+never fails; };` is declared in `vec.npk` and re-exported by `core.npk`; `vec_get`
+reads `pass raw v.items[i].pod_copy();`; nine impls cover `int8` to `int64`,
+`uint8` to `uint64` and `bool`, each `pass self`. **The language decides who may
+implement it**: `pass self` of a lent owner is `NITPICK-TYPE-047`, so written as
+the trait declares it, `impl:string:Pod`, `impl:Bytes:Pod`, `impl:SparseSet:Pod`,
+`impl:Vec<int64>:Pod` and an impl for a struct holding a `string` are each refused
+(measured). So `vec_get` at an owning `T` is `NITPICK-TYPE-017` — S-23a's `vec_get`
+row, which a later cycle's `Vec<string>` could only break at a harness check over
+`src/`, is the compiler's now, for every consumer.
+`tests/unit/vec_owning_get_moves_out.npk` moves to `tests/rejection/` as that
+refusal. Measured at `c970483`: all thirteen `src/` files compile; the nine bills
+are unchanged (10, 10, 10, 10, 6, 11, 6, 6, 6) — `pod_copy` is `never fails` and
+adds no identity; `#size_of<Vec<int64>>()` 24, `SparseSet` 56, `Bytes` 32; the
+floor 5 / 6 / `{npk_sys6}`; and a consumer of `core.npk` implements `Pod` for its
+own POD struct in one line and reads it back. The same `src/` compiles at
+`c3bdae2`, so the design is not the pin's.
+
+**The one hole, a compiler defect found at planning** (the workbench registry's O-N28): an impl may
+declare `move` on a parameter its trait lends, the compiler accepts it, and a
+call through the trait then hands the callee a value the caller still owns — a
+double free, 95, with no library code (`tests/probe/probe18_impl_adds_move.npk`,
+at `c970483` and `c3bdae2`), and through `vec_get` a consumer's `impl:string:Pod`
+written that way returns a second owner of the element (95, measured). No impl
+in this repository does it, `check_vec_elements_own_nothing` still refuses an
+owning element in `src/`, and `TRAITS_REFERENCE.md` §2 already says an impl must
+have the signature the trait declares. Probe 18 reddens when the compiler agrees.
+
+*Alternatives declined:* **`.clone()` under the prelude's `Clone`** — the language's
+own spelling for a copy of a `T` place (D-264), and the prelude declares `clone`
+MAY FAIL, so in a `never fails` body it is `Result<T>`: `NITPICK-TYPE-007` as
+written, `NITPICK-TYPE-042` under `raw` (both measured); `?!` would put a trap
+identity in every consumer's bill and `relay` would make `vec_get` fallible and
+every `raw vec_get` a `TYPE-042` — an error channel on the search path, against
+S-4. **`vec_get(Vec<T>->:v, …)` with `pass move(v.items[i])`** — RX-162's first
+declined alternative with a third cost: at an owning `T` the read empties the
+slot, and every reader holding a lent `Vec` would need `@v`, which is
+`NITPICK-TYPE-085` now. **A local `#wild_slice` over the lent header's `items`**
+(`nitpick-time`'s `vec_at` shape, which compiles at `c970483` because its root is
+a pointer) — for a LENT `Vec` it moves an owning element out of the caller's block
+through the loan, which is what `TYPE-085` refuses when it is written directly:
+the refusal routed around, not answered. **A getter per element type** — a verb
+per type, where S-23a's question is the generic one. **`struct:Vec<T: Pod>`** —
+S-23a at the type, for every verb and every consumer; it refuses the seven
+owning-element measurement units and removes `vec_free_owning`'s reason to exist —
+a redesign, not an adoption. It is O-R3, open with a recommendation. **Waiting for
+a never-failing `Clone` from the compiler** — a language decision (a `string`'s
+clone allocates), raised as a design input, `0.0.4e.md` §6.2, and not waited on.
+**Another name** — `Copy` is a name a prelude may yet declare, and D-239 would then
+refuse ours; `Pod` is RX-155's own word for what it asks.
+
+### RX-169 — the loan and the generic pass-out are REFUSED at `c970483`: the six pins and probe 17 move to their refusal homes, each shown to be the pin's, and the spellings the refusals prescribe run
+
+**2026-09-26, cycle 0.0.4e (the plan's PD-13), at compiler `c970483`.** It supersedes
+RX-162 in part — *"PINNED, NOT ENDORSED"* and *"cannot be met at `c3bdae2` for a
+loan"*: they are refused and the gate's loan clause is met — and RX-167 in part —
+its two units' *"pinned, not endorsed"*. Their decisions on `vec_get`'s loan and on
+not working around a defect stand.
+
+**Measured at `c970483`**, each file through `npkc` alone and each refusal
+exactly its code under B-7, at the position its own `expect-error-at` records: a
+write through a lent container is `NITPICK-TYPE-085` (DEF-102) —
+`vec_alias_param_free` and `vec_alias_param_grow` at their callee's `@v`,
+`sparseset_alias_param_free` at `@s`, `bytes_alias_param_grow` at `@b`,
+`vec_alias_for_binding_free` at `@x` (the fifth audit's N-26: the `for` binding
+is a loan to 3g, as its parser reading predicted), and probe 17 at its field
+write; the generic identity's `pass x` is `NITPICK-TYPE-047` (DEF-104). The six
+units move to `tests/rejection/` and probe 17 to `tests/probe/refused/`, under
+their names, their headers rewritten. **Each refusal is the pin's**: every one
+still compiles and runs at `c3bdae2` with the exit it asserted as a unit — 0, 95,
+0, 95, 0, 0, and 70 — at −O0 and through `opt -O2`.
+
+**Two frees name their `T`.** Written `vec_free(@v)`, the refused argument leaves
+`T` nothing to be inferred from and the compiler adds `NITPICK-TYPE-022` at the
+same call; `vec_free::<int64>(@v)` leaves `TYPE-085` alone. The cascade is the
+compiler's diagnostic recovery, not the loan, and B-7's equality would have made it
+part of what the file asserts.
+
+**The positive twin, `tests/unit/loan_spellings.npk`**, runs what the refusals
+prescribe — a callee that frees takes `move Vec<int64>:v` and its caller writes
+`move(a)`; one that grows takes `Vec<int64>->`; the same for a `SparseSet` and a
+`Bytes`; a `for` loop reads its binding and the array frees its elements by index;
+a generic that passes its argument on takes `move T:x` — each value checked, every
+block freed once: exit 0 at both levels, at `c970483` and at `c3bdae2`. Without it
+the refusals would also pass a compiler that refused every container parameter.
+
+**Cycle 0.0's gate** — every loan shape refused at a pin carrying DEF-102 — **is
+met**: the four `*_alias_param_*` fixtures, probe 17 and the `for` binding.
+
+*Alternatives declined:* **keeping `TYPE-022` in the two expectation sets** — it
+pins the compiler's recovery after an error, which may change without the loan
+changing; **new names for the moved files** — RX-160, RX-162 and RX-167 find them
+by name, 0.0.4d's precedent; **leaving them in `tests/unit/` behind a marker** — a
+refusal is a `check`-stage fact, and the rejection suite is where B-7 holds it.
+
+### RX-170 — `harness/lexical.py` closes a block string at `"""`, as the compiler's lexer has since its 1.6.0 step 3e (DEF-98): probe 15 runs, and self-check case 18 reads the two closes apart in both directions
+
+**2026-09-26, cycle 0.0.4e (the plan's PD-14), at compiler `c970483`.** It supersedes
+RX-157 in part — its paragraph that the lexer closes a block string at the first
+`""` and `lexical.py` follows it — and RX-165 in part — item 4's case 18 *"read the
+way the lexer at `c3bdae2` reads it"*. The one-reader rule, the lexer mirror, the
+bytes, the decoded path and both defences stand.
+
+**Measured.** `lexer_next` at `c970483` breaks a block string only when the
+current byte and the next two are quotes (`lexer_peek3`), and a backslash still
+skips the byte after it; the lexer's diff from `c3bdae2` is that alone,
+`escapes.npk` is unchanged, and `parse_decl.npk`'s change is DEF-103's declared-name
+check, which reads no import. Probe 15, `"""a""b"""`, compiles and exits 4 at −O0
+and through `opt -O2` at `c970483` and is refused `LEX-005`, `PARSE-001`,
+`PARSE-003` at `c3bdae2`; it moves out of `refused/` with `expect-exit: 4`.
+
+**Case 18's line 23 is rewritten, not only re-expected.** It read `"""a""b use
+"./in_block_pin.npk".*; """x""!;` and required its import, the old close's
+reading. Merely flipping the expectation to "no import" would also pass a reader
+that never closed a block string at all. It now reads `"""a""b use
+"./in_block.npk".*; """; use "./after_block.npk".*;` and requires
+`./after_block.npk` alone: the new close reads the `use` after the literal; the
+old one reads the `use` inside it and opens a block that never closes. Both
+readings were measured against the compilers, in a module holding that line: at
+`c970483` the only import is `./after_block.npk` (`NITPICK-RESOLVE-005` naming it,
+nothing naming the other), and at `c3bdae2` the compiler reads `./in_block.npk`
+and reports the second block unterminated (`LEX-005`). `c3bdae2`'s close, restored
+in a copy of `lexical.py`, reddens case 18 alone.
+
+*Alternatives declined:* **keeping the old close** — the module's purpose is to
+agree with the compiler, and it no longer would; **following the grammar and not
+the lexer** — they agree now, and the day they part the lexer is still what reads
+the files; **flipping line 23's expectation alone** — measured above as a case a
+never-closing reader passes.

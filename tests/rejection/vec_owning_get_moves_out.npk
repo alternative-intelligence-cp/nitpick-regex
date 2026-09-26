@@ -1,0 +1,55 @@
+// expect-error: NITPICK-TYPE-017
+// expect-error-at: 32:31
+//
+// `vec_get` AT AN OWNING `T` IS REFUSED: IT TAKES `T: Pod` SINCE CYCLE 0.0.4e
+// (RX-168), AND AN OWNING TYPE CANNOT IMPLEMENT `Pod` AS IT IS DECLARED. The name
+// is kept so RX-155's citations still find the file.
+//
+// WHAT IT PINS. Through `c3bdae2` `vec_get` returned its `T` by value from
+// `pass v.items[i]`, an implicit MOVE, so at `T = string` the first read TOOK the
+// element -- the slot zeroed and marked vacant -- and a second read returned an
+// empty string from a slot `count` still counted: exit 0 at -O0 and through
+// `opt -O2`, when this file was `tests/unit/vec_owning_get_moves_out.npk` and read
+// twice (RX-155; `SAFETY.md` S-23a's table). At `c970483` that body is refused at
+// EVERY `T`, NITPICK-TYPE-047 -- DEF-104's gate treats `T` as owning -- and
+// `vec_get` reads through `pod_copy`, whose `pass self` is NITPICK-TYPE-047 for an
+// owning type. So `vec_get` at `Vec<string>` is NITPICK-TYPE-017 here, "`string`
+// does not implement `Pod`". One call, so one diagnostic.
+//
+// A TEST OF THE BOUND, NOT OF THIS FILE: against the tree before cycle 0.0.4e
+// this file compiles and runs, exit 0, at `c3bdae2` (`meta/roadmap/0.0/0.0.4e.md`
+// step 5) -- the refusal is the bound's, at either pin -- and `vec_get` at
+// `int32`, `int64` and a POD struct runs throughout the unit suite.
+mod:vec_owning_get_moves_out;
+
+use "../../src/core/vec.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Vec<string>:v = raw vec_init::<string>(4i64);
+    string:e = string_concat("abcdefghij", "k");        // 11 bytes of heap body
+    drop vec_push(@v, move(e));
+
+    string:first = raw vec_get(v, 0i64);
+    if (string_byte_length(first) != 11i64)             { exit 21i32; }
+    if (v.count != 1i64)                                { exit 23i32; }
+
+    drop vec_free_owning(@v);
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (IntOverflow)    { exit 93i32; },
+        (OutOfBounds)    { exit 94i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault) { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated) { exit 109i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

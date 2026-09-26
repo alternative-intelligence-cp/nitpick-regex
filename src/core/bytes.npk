@@ -48,6 +48,10 @@
 // is a double free, 95 (`tests/unit/bytes_alias_param_grow.npk`; the form with
 // no library code is `tests/probe/probe17_lent_field_drop.npk`). A compiler
 // defect, raised and not worked around; every function here takes `Bytes->`.)*
+// *(Dated 2026-09-26, cycle 0.0.4e, compiler `c970483` -- RX-169. Refused now: the
+// `@b` is NITPICK-TYPE-085, the compiler's DEF-102, so a lent `Bytes` is
+// read-only; both files are refusals, `tests/rejection/bytes_alias_param_grow.npk`
+// and `tests/probe/refused/probe17_lent_field_drop.npk`.)*
 //
 // **AND `exit 0` THEREFORE PROVES NOTHING ABOUT A `Bytes`** (`SAFETY.md` §8b,
 // S-22). D-151 counts `wild` blocks; a `buffer` body is managed. A `Bytes`

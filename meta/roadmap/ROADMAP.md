@@ -52,7 +52,7 @@ cycle 0.0.
 
 | Cycle | Topic | Gated on |
 |---|---|---|
-| **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **NOT CLOSED. Its close was REFUSED by the [cycle 0.0 audit](0.0/0.0.5.md) on 2026-09-06 and the archive move was reversed; refused again four times since, the fourth and fifth on 2026-09-25. 0.0.4d LANDED 2026-09-25: `Vec` move-only by the author's decision, a loan still a compiler defect; the fifth audit's triage ([§12](0.0/0.0.5.md)) made the harness read source as the compiler does. Next: the author's question 10 — recommended, a re-pin to a compiler carrying its 1.6.0 step 3g — then an audit** | — |
+| **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **NOT CLOSED. Its close was REFUSED by the [cycle 0.0 audit](0.0/0.0.5.md) on 2026-09-06 and the archive move was reversed; refused again four times since, the fourth and fifth on 2026-09-25. 0.0.4d LANDED 2026-09-25: `Vec` move-only by the author's decision, a loan still a compiler defect; the fifth audit's triage ([§12](0.0/0.0.5.md)) made the harness read source as the compiler does. 0.0.4e ([`0.0.4e.md`](0.0/0.0.4e.md)) re-pinned to `c970483`, question 10's answer: the loan refused, `vec_get` bounded by `Pod`. Next: an audit that has seen it, then the close** | — |
 | **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors | 0.0 |
 | **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction | 0.1 |
 | **0.3** | **Unicode** — generated tables, properties, scripts, simple case folding | 0.0 |
@@ -119,6 +119,12 @@ cycle 0.0.
 > pinned. **The close waits for the loan's refusal** — DEF-102's
 > `NITPICK-TYPE-085`, the compiler's 1.6.0 step 3g, not in `c3bdae2` — which is
 > the author's question 10 and a separate re-pin subcycle.
+>
+> **0.0.4e re-pinned to `c970483`** ([`0.0/0.0.4e.md`](0.0/0.0.4e.md)), RX-168 …
+> RX-170: the loan and the generic pass-out refused and their pins moved to the
+> rejection suite; `vec_get` bounded by `T: Pod`, because DEF-104's gate refused the
+> old body at every `T`; `vec_pop`'s move spelled; the harness's block-string close
+> moved with the compiler's lexer. The close waits for an audit that has seen it.
 
 **What it has produced so far**, against what this section planned: **25** probes
 rather than fourteen (five questions split into a positive and a negative half
@@ -153,6 +159,11 @@ RX-164.)*
 units pinning second handles on a move-only `Vec`, a `for` binding and a generic
 pass-out, and the parse sweep's two more files — `src/core/` with **53** unit
 programs, a self-check of **24** cases, 20 live, and decisions through RX-167.)*
+*(After cycle 0.0.4e, at compiler `c970483`: **218** units — six loan and pass-out
+units and `vec_owning_get_moves_out` moved to the rejection suite, probe 15 and probe
+17 crossed, probe 18 and `loan_spellings` added, and the parse sweep's two more files
+— **32** probes, `src/core/` with **47** unit programs, and decisions through
+RX-170.)*
 
 **Two probes refuted their own hypothesis**, which is the cycle's best return:
 `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler
