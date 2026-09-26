@@ -4266,3 +4266,33 @@ first; **children in a side array** — a second arena and an index pair per par
 whole life, and `Hir.names` is the HIR's copy; **`nodes` sealed rather than hidden** — a consumer could then
 read the `Vec` and index it past `ast_get`; **`AstNode`'s fields sealed** — the parser, in another module,
 builds nodes, and a node has no invariant a constructor would keep.
+
+### RX-175 — the syntax layer answers a `PatternError` as a value, `PatternError?`, never as an identity; the pattern's length is refused first; and 0.1.0 writes no parser, only the entry's first refusal and a unit that composes the pieces
+
+**2026-09-26, cycle 0.1.0 (the plan's PD-19), at compiler `c970483`.**
+
+- **A value, because `syntax` is below the error.** The library's one `error:` identity, `ERegexPattern`, is
+  `api`'s (`SAFETY.md` S-8), and `syntax` sits below `api` (`BUILD.md` B-16), so it cannot raise it. A parse
+  answers `PatternError?` — `NIL`, or the first error — and `api` turns the first error into the identity.
+  Cycle 0.1.1's parse is `parse_pattern(uint8[]:pat, Ast->:out)`: the pattern as a view, the tree by pointer,
+  and the arena the caller's to free either way.
+- **The length first** (the first draft's D5): `parse_check_length(uint8[]:pat)` answers `PatternTooLong`
+  for a pattern longer than `NREGEX_PATTERN_BYTES` — its offset the first byte past the bound, its length the
+  bytes over it, its detail the bound — and `NIL` otherwise, and the parse calls it before a cursor exists: it
+  is the cheapest refusal, and it bounds everything after it, the arena included. Measured: on the bound
+  `NIL`, one over refused (`tests/unit/parse_check_length.npk`), and a refused pattern pushes no node
+  (`tests/unit/syntax_skeleton.npk`).
+- **No parser in `src/` at 0.1.0.** The subcycle's acceptance — a skeleton that accepts `a` and reports offset
+  0 for `(` — is a unit, `tests/unit/syntax_skeleton.npk`, built from `syntax.npk`'s re-exports alone.
+  `src/syntax/parse.npk` holds the entry's first refusal and nothing else until 0.1.1.
+- **The bill.** `src/syntax/syntax.npk` reaches `core`, so a program importing it owes `core`'s eleven arms
+  (measured): the language's six, `IntOverflow`, `OutOfBounds`, `DecreasesViolated`, `LimitViolated` and
+  `ShiftRange`. `SAFETY.md` S-11 says `syntax` is below the error too.
+
+*Alternatives declined:* **an `error:` identity in `syntax`** — REACH-002 makes an identity an arm in every
+program that can reach it, and S-8 allows the library exactly one; **`Result<Ast>` failing with
+`ERegexPattern`** — `syntax` would import `api`, to its left (B-16); **a `bool` and a `PatternError`
+out-parameter** — the caller would build a `PatternError` to pass in, and the closed list has no kind that
+means "none"; **a skeleton parser in `src/`** — outside its two cases it would have to trap or answer a kind
+about a pattern it did not parse, and 0.1.1 would delete it; **the length checked during the scan** — the
+cheapest refusal would come after the most expensive work.

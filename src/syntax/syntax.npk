@@ -8,6 +8,13 @@
 // that the shape is both writable and sufficient: 10 000 levels deep is
 // refused at depth 251 and the program survives.
 //
+// SINCE CYCLE 0.1.0 THE LAYER HOLDS THE PIECES EVERY LATER SUBCYCLE IS WRITTEN
+// IN, AND PARSES NO CONSTRUCT YET: `pattern_error.npk` (the closed kind list and
+// the one constructor, RX-172), `cursor.npk` (the byte cursor, RX-173), `ast.npk`
+// (the arena, RX-174) and `parse.npk` (the parser's entry and its first refusal,
+// RX-175). `tests/unit/syntax_skeleton.npk` shows they compose, through this
+// file's re-exports alone.
+//
 // EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1
 // and 3): `use` is not transitive, a plain `use` re-exports nothing, and one
 // name to a line keeps the list greppable and a removal one line of diff. Each
@@ -53,3 +60,6 @@ pub use "./ast.npk".ast_get;
 pub use "./ast.npk".ast_set;
 pub use "./ast.npk".ast_set_root;
 pub use "./ast.npk".ast_free;
+
+// ---- the parser's entry (RX-175) ----------------------------------------------
+pub use "./parse.npk".parse_check_length;

@@ -209,6 +209,14 @@ import-scoped, and `nregex`'s layering (`BUILD.md` §6) puts `core`, `unicode`
 and `hir` below the error: a program importing `nregex/unicode.npk` to ask
 whether a codepoint is alphabetic owes **nothing**.
 
+*(2026-09-26, cycle 0.1.0 — RX-175: `syntax` is below the error too; it sits
+under `hir` in B-16's diagram and cannot import `api`. So the parser answers a
+`PatternError` as a value, `PatternError?`, and `api` turns the first one into
+`ERegexPattern`. `src/syntax/syntax.npk` reaches `core`, so a program importing
+it owes `core`'s eleven arms, measured at `c970483`: the language's six,
+`IntOverflow`, `OutOfBounds`, `DecreasesViolated`, `LimitViolated` and
+`ShiftRange` — none of this library's own.)*
+
 ### 4.2 The budget is charged by more than `error:` declarations
 
 **Rule S-24 (RX-127) — `nregex` declares no `limit<Rules>` anywhere in `src/`,

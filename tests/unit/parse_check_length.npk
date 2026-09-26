@@ -1,0 +1,84 @@
+// expect-exit: 0
+//
+// `parse_check_length` AT ITS BOUND: ON IT, ACCEPTED; ONE OVER, REFUSED. Cycle
+// 0.1.0, RX-175 -- `SAFETY.md` §5's "a test sitting exactly on it and one
+// exceeding it", for `NREGEX_PATTERN_BYTES`.
+//
+// Patterns of 0, 1, the bound less one and exactly the bound answer `NIL` (10 to
+// 13). One byte over, and sixteen over, answer `PatternTooLong` -- its offset the
+// first byte past the bound, its length the bytes over it, its detail the bound
+// (20 to 24, 30 to 34). Every length is written from the constant, so the unit
+// states the rule rather than today's number, 65 536.
+//
+// The bytes are `a`s pushed into a `Bytes` and copied out as a `string`, whose
+// view each case slices; the `string` is not written while the view is live.
+mod:parse_check_length;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+
+func:fits = bool(uint8[]:pat) never fails {
+    PatternError?:e = raw parse_check_length(pat);
+    pass e == NIL;
+};
+
+func:check_over = int32(uint8[]:pat, int32:base) never fails {
+    PatternError?:e = raw parse_check_length(pat);
+    if (e == NIL) { pass base; }
+    PatternError:got = e ?? raw pattern_error(PatternErrorKind.UnclosedGroup, 0i64, 0i64, 0u32);
+    bool:right = false;
+    pick (got.kind) {
+        (PatternErrorKind.PatternTooLong) { right = true; },
+        (*)                               { right = false; }
+    }
+    if (!right)                                               { pass base + 1i32; }
+    if (got.offset != NREGEX_PATTERN_BYTES)                   { pass base + 2i32; }
+    if (got.span_len != pat.len - NREGEX_PATTERN_BYTES)       { pass base + 3i32; }
+    if (got.detail != (NREGEX_PATTERN_BYTES =>! uint32))      { pass base + 4i32; }
+    pass 0i32;
+};
+
+func:run = int32(uint8[]:v) never fails {
+    int64:bound = NREGEX_PATTERN_BYTES;
+    if (!(raw fits(v[0i64...0i64])))                   { pass 10i32; }
+    if (!(raw fits(v[0i64...1i64])))                   { pass 11i32; }
+    if (!(raw fits(v[0i64...(bound - 1i64)])))         { pass 12i32; }
+    if (!(raw fits(v[0i64...bound])))                  { pass 13i32; }
+    int32:r = raw check_over(v[0i64...(bound + 1i64)], 20i32);
+    if (r != 0i32) { pass r; }
+    r = raw check_over(v[0i64...(bound + 16i64)], 30i32);
+    pass r;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int64:n = NREGEX_PATTERN_BYTES + 16i64;
+    Bytes:b = raw bytes_init(n);
+    int64:i = 0i64;
+    while (i < n) decreases n - i {
+        drop bytes_push(@b, 97u8);
+        i = i + 1i64;
+    }
+    string:s = raw bytes_copy_string(@b);
+    uint8[]:v = string_bytes(s);
+    if (v.len != n) { exit 9i32; }
+    int32:r = raw run(v);
+    exit r;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

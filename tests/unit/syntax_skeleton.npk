@@ -1,0 +1,241 @@
+// expect-exit: 0
+//
+// THE PIECES COMPOSE: A SKELETON PARSE, BUILT HERE FROM `src/syntax/syntax.npk`'S
+// RE-EXPORTS ALONE. Cycle 0.1.0, RX-175 -- the subcycle's acceptance: it accepts
+// `a`, and it reports offset 0 for `(`.
+//
+// `skeleton` IS NOT THE PARSER AND PARSES NO CONSTRUCT; cycle 0.1.1 writes
+// `parse_pattern`, fresh, in `src/syntax/parse.npk`. It is a test of the pieces
+// every later subcycle is written in: the length refused first, before a cursor
+// exists (`parse_check_length`); the cursor read a byte at a time; nodes pushed
+// into the arena, linked through `next` and rooted; an error built by
+// `pattern_error` at the cursor's offset. Its domain is bytes other than `(` and
+// `)`, each taken as a literal, and `(`, which it reports unclosed -- no input here
+// holds a `)`, so every `(` it meets IS unclosed.
+//
+// THE CASES. The empty pattern is one `Empty` root (10 to 13). "a" is one
+// `Literal` root, 97 at offset 0 (20 to 24). "ab" is a `Concat` of two `Literal`s
+// linked in order (30 to 37). "(" is `UnclosedGroup` at offset 0, length 1, with
+// no root (40 to 44); "ab(" is the same at offset 2, after two nodes (50 to 52). A
+// pattern of exactly `NREGEX_PATTERN_BYTES` bytes is accepted, a `Concat` of that
+// many literals (60 to 62); one byte more is `PatternTooLong` and pushes NO node
+// (70 to 73) -- the length is refused before anything reads the pattern.
+//
+// The scan is a `while` over the cursor's `int64` offset, `decreases` the bytes
+// left: never a `for`, a `loop` or a `till` (the compiler's DEF-127 … DEF-130 at
+// `c970483`). No pattern's owner is written while a cursor holds its view.
+mod:syntax_skeleton;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+
+func:ordinal = int64(AstKind:k) never fails {
+    int64:n = -1i64;
+    pick (k) {
+        (AstKind.Empty) { n = 0i64; },
+        (AstKind.Literal) { n = 1i64; },
+        (AstKind.Dot) { n = 2i64; },
+        (AstKind.Concat) { n = 3i64; },
+        (AstKind.Alternate) { n = 4i64; },
+        (AstKind.Repeat) { n = 5i64; },
+        (AstKind.Group) { n = 6i64; },
+        (AstKind.Flags) { n = 7i64; },
+        (AstKind.Anchor) { n = 8i64; },
+        (AstKind.WordBoundary) { n = 9i64; },
+        (AstKind.Class) { n = 10i64; },
+        (AstKind.ClassRange) { n = 11i64; },
+        (AstKind.PerlClass) { n = 12i64; },
+        (AstKind.PosixClass) { n = 13i64; },
+        (AstKind.UnicodeClass) { n = 14i64; },
+        (AstKind.ClassOp) { n = 15i64; }
+    }
+    pass n;
+};
+
+func:skeleton = PatternError?(uint8[]:pat, Ast->:out) never fails {
+    PatternError?:long = raw parse_check_length(pat);
+    if (long != NIL) { pass long; }
+    Cursor:c = raw cursor_init(pat);
+    int64:first = AST_NONE;
+    int64:last = AST_NONE;
+    int64:count = 0i64;
+    while (!(raw cursor_at_end(@c))) decreases pat.len - c.pos {
+        int64:at = raw cursor_offset(@c);
+        int32:b = raw cursor_bump(@c);
+        if (b == 40i32) {
+            pass raw pattern_error(PatternErrorKind.UnclosedGroup, at, 1i64, 0u32);
+        }
+        int64:i = raw ast_push(out, AstNode{ kind: AstKind.Literal, flags: AST_FLAG_U, a: b => int64,
+                                             b: 0i64, c: 0i64, next: AST_NONE, pos: at, len: 1i64 });
+        if (last == AST_NONE) { first = i; }
+        else {
+            AstNode:prev = raw ast_get(<-out, last);
+            prev.next = i;
+            drop ast_set(out, last, prev);
+        }
+        last = i;
+        count = count + 1i64;
+    }
+    if (count == 0i64) {
+        int64:e = raw ast_push(out, AstNode{ kind: AstKind.Empty, flags: AST_FLAG_U, a: 0i64, b: 0i64,
+                                             c: 0i64, next: AST_NONE, pos: 0i64, len: 0i64 });
+        drop ast_set_root(out, e);
+        pass NIL;
+    }
+    if (count == 1i64) {
+        drop ast_set_root(out, first);
+        pass NIL;
+    }
+    int64:cat = raw ast_push(out, AstNode{ kind: AstKind.Concat, flags: AST_FLAG_U, a: first, b: count,
+                                           c: 0i64, next: AST_NONE, pos: 0i64, len: pat.len });
+    drop ast_set_root(out, cat);
+    pass NIL;
+};
+
+func:unclosed_at = int32(PatternError?:e, int64:off, int32:base) never fails {
+    if (e == NIL) { pass base; }
+    PatternError:got = e ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
+    bool:right = false;
+    pick (got.kind) {
+        (PatternErrorKind.UnclosedGroup) { right = true; },
+        (*)                              { right = false; }
+    }
+    if (!right)               { pass base + 1i32; }
+    if (got.offset != off)    { pass base + 2i32; }
+    if (got.span_len != 1i64) { pass base + 3i32; }
+    pass 0i32;
+};
+
+func:case_empty = int32() never fails {
+    string:s = "";
+    Ast:t = raw ast_init(4i64);
+    PatternError?:e = raw skeleton(string_bytes(s), @t);
+    if (e != NIL)                               { pass 10i32; }
+    if ((raw ast_len(t)) != 1i64)               { pass 11i32; }
+    if (t.root != 0i64)                         { pass 12i32; }
+    AstNode:r = raw ast_get(t, t.root);
+    if ((raw ordinal(r.kind)) != 0i64)          { pass 13i32; }
+    drop ast_free(@t);
+    pass 0i32;
+};
+
+func:case_a = int32() never fails {
+    string:s = "a";
+    Ast:t = raw ast_init(4i64);
+    PatternError?:e = raw skeleton(string_bytes(s), @t);
+    if (e != NIL)                               { pass 20i32; }
+    if ((raw ast_len(t)) != 1i64)               { pass 21i32; }
+    AstNode:r = raw ast_get(t, t.root);
+    if ((raw ordinal(r.kind)) != 1i64)          { pass 22i32; }
+    if (r.a != 97i64)                           { pass 23i32; }
+    if (r.pos != 0i64)                          { pass 24i32; }
+    drop ast_free(@t);
+    pass 0i32;
+};
+
+func:case_ab = int32() never fails {
+    string:s = "ab";
+    Ast:t = raw ast_init(4i64);
+    PatternError?:e = raw skeleton(string_bytes(s), @t);
+    if (e != NIL)                               { pass 30i32; }
+    if ((raw ast_len(t)) != 3i64)               { pass 31i32; }
+    AstNode:r = raw ast_get(t, t.root);
+    if ((raw ordinal(r.kind)) != 3i64)          { pass 32i32; }
+    if (r.b != 2i64)                            { pass 33i32; }
+    AstNode:x = raw ast_get(t, r.a);
+    if (x.a != 97i64)                           { pass 34i32; }
+    AstNode:y = raw ast_get(t, x.next);
+    if (y.a != 98i64)                           { pass 35i32; }
+    if (y.pos != 1i64)                          { pass 36i32; }
+    if (y.next != AST_NONE)                     { pass 37i32; }
+    drop ast_free(@t);
+    pass 0i32;
+};
+
+func:case_open = int32() never fails {
+    string:s = "(";
+    Ast:t = raw ast_init(4i64);
+    PatternError?:e = raw skeleton(string_bytes(s), @t);
+    int32:r = raw unclosed_at(e, 0i64, 40i32);
+    if (r != 0i32)                              { pass r; }
+    if (t.root != AST_NONE)                     { pass 44i32; }
+    drop ast_free(@t);
+    pass 0i32;
+};
+
+func:case_ab_open = int32() never fails {
+    string:s = "ab(";
+    Ast:t = raw ast_init(4i64);
+    PatternError?:e = raw skeleton(string_bytes(s), @t);
+    int32:r = raw unclosed_at(e, 2i64, 50i32);
+    if (r != 0i32)                              { pass r; }
+    if ((raw ast_len(t)) != 2i64)               { pass 52i32; }
+    drop ast_free(@t);
+    pass 0i32;
+};
+
+func:case_bound = int32(uint8[]:v) never fails {
+    int64:bound = NREGEX_PATTERN_BYTES;
+    Ast:t = raw ast_init(4i64);
+    PatternError?:e = raw skeleton(v[0i64...bound], @t);
+    if (e != NIL)                               { pass 60i32; }
+    if ((raw ast_len(t)) != bound + 1i64)       { pass 61i32; }
+    AstNode:r = raw ast_get(t, t.root);
+    if (r.b != bound)                           { pass 62i32; }
+    drop ast_free(@t);
+    Ast:u = raw ast_init(4i64);
+    PatternError?:f = raw skeleton(v[0i64...(bound + 1i64)], @u);
+    if (f == NIL)                               { pass 70i32; }
+    PatternError:got = f ?? raw pattern_error(PatternErrorKind.UnclosedGroup, 0i64, 0i64, 0u32);
+    bool:right = false;
+    pick (got.kind) {
+        (PatternErrorKind.PatternTooLong) { right = true; },
+        (*)                               { right = false; }
+    }
+    if (!right)                                 { pass 71i32; }
+    if (got.offset != bound)                    { pass 72i32; }
+    if ((raw ast_len(u)) != 0i64)               { pass 73i32; }
+    drop ast_free(@u);
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:r = raw case_empty();
+    if (r != 0i32) { exit r; }
+    r = raw case_a();
+    if (r != 0i32) { exit r; }
+    r = raw case_ab();
+    if (r != 0i32) { exit r; }
+    r = raw case_open();
+    if (r != 0i32) { exit r; }
+    r = raw case_ab_open();
+    if (r != 0i32) { exit r; }
+    int64:n = NREGEX_PATTERN_BYTES + 1i64;
+    Bytes:b = raw bytes_init(n);
+    int64:i = 0i64;
+    while (i < n) decreases n - i {
+        drop bytes_push(@b, 97u8);
+        i = i + 1i64;
+    }
+    string:s = raw bytes_copy_string(@b);
+    r = raw case_bound(string_bytes(s));
+    exit r;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

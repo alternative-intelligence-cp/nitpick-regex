@@ -1,0 +1,35 @@
+// `src/syntax/parse.npk` — THE PARSER'S ENTRY. Cycle 0.1.0 writes its first
+// refusal and nothing else; cycle 0.1.1 writes the parse (RX-175).
+//
+// HOW `syntax` SAYS A PATTERN IS WRONG: WITH A VALUE. The library's one `error:`
+// identity, `ERegexPattern`, is `api`'s (`SAFETY.md` S-8), and `syntax` sits
+// below `api` (`BUILD.md` B-16), so the parser answers a `PatternError` as a
+// value -- `PatternError?`, `NIL` when nothing is wrong -- and `api` turns the
+// first one into the identity. The parse (0.1.1) takes the pattern as a view and
+// the tree by pointer, `parse_pattern(uint8[]:pat, Ast->:out)`, and answers
+// `PatternError?`.
+//
+// THE LENGTH FIRST, BEFORE A CURSOR EXISTS (RX-175). `NREGEX_PATTERN_BYTES` is the
+// cheapest refusal there is, and it bounds everything after it, the arena
+// included, so it runs before anything reads a byte of the pattern.
+//
+// LAYERING (`BUILD.md` §6, B-16). Imports `core` for the bound and
+// `pattern_error` for the value; a program importing it owes `core`'s eleven arms.
+mod:parse;
+
+use "../core/core.npk".*;
+use "./pattern_error.npk".*;
+
+// obligation: never fails ensures (result == NIL) == (pat.len <= NREGEX_PATTERN_BYTES)
+//
+// `NIL` if the pattern is at most `NREGEX_PATTERN_BYTES` long, else
+// `PatternTooLong`: its offset the first byte past the bound, its length the bytes
+// over it, its detail the bound. The bound is 65 536, which a `uint32` holds, so
+// the narrowing truncates nothing (`SAFETY.md` S-12).
+pub func:parse_check_length = PatternError?(uint8[]:pat) never fails {
+    if (pat.len > NREGEX_PATTERN_BYTES) {
+        pass raw pattern_error(PatternErrorKind.PatternTooLong, NREGEX_PATTERN_BYTES,
+                               pat.len - NREGEX_PATTERN_BYTES, NREGEX_PATTERN_BYTES =>! uint32);
+    }
+    pass NIL;
+};
