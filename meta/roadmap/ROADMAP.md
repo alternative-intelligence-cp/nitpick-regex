@@ -53,7 +53,7 @@ cycle 0.0.
 | Cycle | Topic | Gated on |
 |---|---|---|
 | **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **DONE 2026-09-26, archived to [`done/0.0/`](done/0.0/README.md).** The sixth W-22 audit ACCEPTED the close at compiler `c970483`, after five refusals — three on 2026-09-06, two on 2026-09-25 — and two inserted subcycles, 0.0.4d (`Vec` move-only) and 0.0.4e (the re-pin that refused the loan). The close is [`done/0.0/0.0.5.md`](done/0.0/0.0.5.md) §13 | — |
-| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **NEXT: it opens from [`0.1/0.1.0.md`](0.1/0.1.0.md)** | 0.0 |
+| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **NEXT: it opens from [`0.1/0.1.0.md`](0.1/0.1.0.md), planned and rehearsed at `c970483`** | 0.0 |
 | **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction | 0.1 |
 | **0.3** | **Unicode** — generated tables, properties, scripts, simple case folding | 0.0 |
 | **0.4** | **UTF-8 automata** — codepoint ranges to byte ranges, alphabet compression | 0.3 |

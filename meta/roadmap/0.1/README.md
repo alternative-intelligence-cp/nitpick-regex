@@ -5,7 +5,10 @@ byte offset on every error.**
 
 > **OPENS NEXT.** Cycle 0.0 closed on 2026-09-26 — the sixth audit accepted it, and it
 > is archived in [`../done/0.0/`](../done/0.0/README.md). [`0.1.0.md`](0.1.0.md) is the
-> first dispatch, revised at that close for what its last audit taught.
+> first dispatch, revised at that close for what its last audit taught — and made
+> execution-grade by a planner before that dispatch, rehearsed at `c970483` on
+> 2026-09-26: B-15a's rule 2 decided first, then the error list, the cursor, the AST
+> and the parser's entry, five decisions in six commits (`0.1.0.md` §2, §3).
 
 > **`0.1.0.md` is written execution-grade at cycle 0.0's close** (0.0.5, step
 > 5), so this cycle is openable by a session that was not present for the
@@ -41,11 +44,13 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
 ## Checklist
 
 ### 0.1.0 — the cursor and the AST
-- [ ] a byte cursor over `uint8[]` with `offset`, `peek`, `bump`, `eat`, and **no lookahead beyond one byte** except where the grammar names it
-- [ ] the AST as a flat POD arena indexed by `int32`, the same shape the HIR uses (`HIR.md` H-2) — a `Vec<AstNode>` reallocates and a pointer into it would dangle
-- [ ] `PatternError` with `kind`, `offset`, `span_len`, `detail`
-- [ ] every error constructed through one helper, so no site can forget the offset
-- [ ] `NREGEX_PATTERN_BYTES` enforced before anything else runs
+- [ ] `BUILD.md` B-15a's rule 2 decided before the layer entry gains its first `pub use` — its reason was a compiler defect fixed at `94874ce` (`0.1.0.md` PD-15)
+- [ ] a byte cursor over `uint8[]` with `offset`, `peek`, `bump`, `eat`, and **no lookahead beyond one byte** except where the grammar names it — its fields sealed, so that is the compiler's rule (PD-17)
+- [ ] the AST as a flat POD arena, the same shape the HIR uses (`HIR.md` H-2) — a `Vec<AstNode>` reallocates and a pointer into it would dangle — its operands `int64` so the parser narrows nothing, and the node kinds declared (PD-18; the draft said `int32`)
+- [ ] `PatternError` with `kind`, `offset`, `span_len`, `detail`, and `PatternErrorKind` all of `SYNTAX.md` §9 (PD-16)
+- [ ] every error constructed through one helper, so no site can forget the offset — the fields sealed, so no other site compiles (PD-16)
+- [ ] `NREGEX_PATTERN_BYTES` enforced before anything else runs (PD-19)
+- [ ] a skeleton that accepts `a` and reports offset 0 for `(`, composed from the layer entry alone (PD-19)
 
 ### 0.1.1 — the core grammar
 - [ ] alternation, concatenation, groups (capturing, non-capturing, named), quantifiers (`*`, `+`, `?`, `{n}`, `{n,}`, `{n,m}`, each with a lazy `?`)
