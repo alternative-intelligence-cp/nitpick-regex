@@ -191,6 +191,7 @@ settled. **Nothing in this cycle is blocked on a question.**
 | [0.0.4b](0.0.4b.md) | **The adoption to compiler `c3bdae2`** — every loop's clause, the new arms, the floor re-recorded, the probes the pin changed, CI's nested-repository walk, CI moved to the pin | every file compiles, links, runs and meets its header at `c3bdae2`, and CI is green there |
 | [0.0.4c](0.0.4c.md) | **The access properties** — `Vec`, `Bytes` and `SparseSet` sealed, `items` hidden, `ListLen` on the counts | a consumer cannot write a count or read `items`, and a count driven negative traps where it goes wrong |
 | [0.0.4d](0.0.4d.md) | **`Vec` move-only by construction** — the author's decision on the board's question 9, 2026-09-25 (RX-160) — with `Bytes.buf` hidden and A′ replacing P-1 (Q-6) | the five COPY shapes refused `NITPICK-TYPE-046` in `tests/rejection/`, `sparseset_alias_swap` running with `move(...)`, and the LOAN shapes pinned against a compiler defect — measured at planning: a by-value parameter is a loan, not a copy, and no type refuses it |
+| [0.0.4e](0.0.4e.md) | **The adoption to compiler `c970483`** — the author's answer to question 10, (a): the loan and the generic pass-out refused (DEF-102, DEF-104), `vec_get` bounded by `Pod` and `vec_pop`'s move spelled (DEF-104 reached `src/`), the block-string close moved (DEF-98), `FLOW-001` measured, CI moved to the pin | the six loan and pass-out pins and probe 17 refused at measured positions, each shown to be the pin's; `src/` compiling at both pins; `218/218` GREEN at `c970483`, and CI green there |
 | [0.0.5](0.0.5.md) | **Close** — the findings, the spec amendments the probes forced, the handoff to 0.1 | the audit triage discharged, `done/0.0/`, and 0.1 openable by a fresh session |
 
 ## Checklist
@@ -460,6 +461,15 @@ settled. **Nothing in this cycle is blocked on a question.**
       **DONE** — RX-161 … RX-164, in order, each with its alternatives declined; the two markers sit on RX-153 and RX-160.
 - [x] every sweep in step 7 re-run with its denominator; `210/210` GREEN at `c3bdae2`; `check_refs` clean before and after staging; CI green, read from its log  
       **DONE** — the seven sweeps' per-file movement matched the plan's table, 63 rows of 63; `210/210` GREEN at `c3bdae2` (85.3 s before, 87.1 s at the commit); `check_refs` clean before and after staging (211, then 219 files); CI run `36204367914` green on `8a1c4da`, read from its job's log.
+
+### 0.0.4e — the adoption to compiler `c970483` (inserted 2026-09-26)
+- [ ] the pin's sums and ancestry — `5bdae98` an ancestor, `2dde296` not (the fifth audit's item 1, restated); the red run at `c970483` recorded (`78/223`, `vec.npk`'s two `NITPICK-TYPE-047`s); `214/214` GREEN at `c3bdae2`
+- [ ] `vec_pop` spells `move(...)`; `Pod` with nine scalar impls, re-exported from `core.npk`; `vec_get<T: Pod>`; `src/` compiling at both pins; bills and sizes unchanged
+- [ ] the six loan and pass-out pins and probe 17 refused exactly their codes at measured positions and moved under their names; `vec_owning_get_moves_out` refused `NITPICK-TYPE-017`; each refusal shown to be the pin's or the bound's
+- [ ] `loan_spellings` runs; probe 15 exits 4; probe 18 exits 95; `lexical.py` closes at `"""` and case 18 reads the two closes apart; `c3bdae2`'s close fails case 18 alone
+- [ ] DEF-95, DEF-96, DEF-97, DEF-99/105/106, DEF-103 and DEF-108 each measured: nothing to drop, nothing refused, N-21's shapes building, no `FLOW-001` site
+- [ ] PD-12 … PD-14 recorded; the markers; O-N17 re-homed, O-N21 and O-N22 discharged, the O-R entry opened; probe 06b's and 07's headers dated
+- [ ] every sweep's per-file movement against the plan's §7; `218/218` GREEN at `c970483`; `check_refs` clean before and after staging; CI green on both commits, read from the log, `npkc.ll` compared with notice 66's
 
 ### 0.0.5 — close
 - [x] every probe verdict reconciled against the specifications
