@@ -1,0 +1,82 @@
+// expect-exit: 0
+//
+// A CONSUMER'S OWN `Pod`, FOR A STRUCT THAT OWNS NOTHING, READ BACK THROUGH
+// `vec_get` -- AND EVERY NAME THIS FILE USES REACHES IT THROUGH `core.npk`'S
+// RE-EXPORTS. RX-168's positive half, which the sixth cycle 0.0 audit (N-30,
+// 2026-09-26) found pinned by nothing: the committed suite called `vec_get` at
+// `int32` and `int64` only, and no file implemented `Pod` for a struct.
+//
+// WHAT IT PINS. Since cycle 0.0.4e `vec_get` takes `T: Pod` (RX-168; `SAFETY.md`
+// S-23a), and `src/core/core.npk` re-exports `Pod` so a struct declared OUTSIDE
+// `src/core/` can implement it where it is declared, in one line -- the line
+// cycle 0.1 writes for its `AstNode` (`meta/roadmap/0.1/0.1.0.md` §5, D6's
+// `ast_get`). This file imports `core.npk` and nothing else, so it goes red if
+// that re-export is lost -- deleted, or made a plain `use`, it is NITPICK-TYPE-001
+// "there is no type named `Pod`" at the `impl` line here while `src/` compiles --
+// if the bound stops admitting a struct that owns nothing, or if `vec_get` hands
+// back the wrong slot (reading slot 0 whatever the index, it exits 23).
+//
+// Three elements pushed from capacity 1, so the block grows twice under them;
+// every field distinct from the others, from the vacant 0 and from the `0xAA`
+// poison, so a read of the wrong slot, of a vacancy or of a freed block cannot
+// pass (21 to 26). Index 1 is read TWICE (27, 28): through `c3bdae2` a by-value
+// get at an owning `T` moved the element out and a second read was empty
+// (S-23a's table); a POD struct's read is a copy, and the slot still holds it.
+// `count` is read after the reads (29). The block is freed BEFORE any value is checked,
+// so each checked value is the caller's own copy, not a view into the block.
+// Measured 0 at -O0 and through `opt -O2` at `c970483`; with the `impl` line
+// deleted, each of the four calls is NITPICK-TYPE-017 there.
+mod:vec_get_pod_struct;
+
+use "../../src/core/core.npk".*;
+
+struct:Pt = { int32:x; int32:y; };
+impl:Pt:Pod = { func:pod_copy = Pt(Pt:self) never fails { pass self; }; };
+
+func:run = int32() never fails {
+    Vec<Pt>:v = raw vec_init::<Pt>(1i64);
+    drop vec_push(@v, Pt{ x: 3i32, y: 4i32 });
+    drop vec_push(@v, Pt{ x: 5i32, y: 6i32 });
+    drop vec_push(@v, Pt{ x: 7i32, y: 8i32 });
+
+    Pt:a = raw vec_get(v, 0i64);
+    Pt:b = raw vec_get(v, 1i64);
+    Pt:c = raw vec_get(v, 2i64);
+    Pt:again = raw vec_get(v, 1i64);
+    int64:n = v.count;
+    drop vec_free(@v);
+
+    if (a.x != 3i32)     { pass 21i32; }
+    if (a.y != 4i32)     { pass 22i32; }
+    if (b.x != 5i32)     { pass 23i32; }
+    if (b.y != 6i32)     { pass 24i32; }
+    if (c.x != 7i32)     { pass 25i32; }
+    if (c.y != 8i32)     { pass 26i32; }
+    if (again.x != 5i32) { pass 27i32; }
+    if (again.y != 6i32) { pass 28i32; }
+    if (n != 3i64)       { pass 29i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:r = raw run();
+    exit r;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

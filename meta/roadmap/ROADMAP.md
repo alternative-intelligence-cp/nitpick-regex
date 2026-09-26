@@ -164,6 +164,9 @@ units and `vec_owning_get_moves_out` moved to the rejection suite, probe 15 and 
 17 crossed, probe 18 and `loan_spellings` added, and the parse sweep's two more files
 — **32** probes, `src/core/` with **47** unit programs, and decisions through
 RX-170.)*
+*(At the close, the same compiler: **220** units — `vec_get_pod_struct`, a consumer's
+own `Pod` for a POD struct through `core.npk`'s re-exports, the sixth audit's N-30,
+and the parse sweep's one more file — `src/core/` with **48** unit programs.)*
 
 **Two probes refuted their own hypothesis**, which is the cycle's best return:
 `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler

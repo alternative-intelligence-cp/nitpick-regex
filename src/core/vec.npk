@@ -507,7 +507,7 @@ pub func:vec_reserve<T> = NIL(Vec<T>->:v, int64:need) never fails {
 // THE HOLE, stated where a reader meets it: the compiler also accepts an impl
 // that declares its `self` `move` where the trait lends it, and a call through
 // the trait then hands the callee a value the caller still owns -- a double
-// free (95). the workbench registry's O-N28; `tests/probe/probe18_impl_adds_move.npk` pins it with no
+// free (95). The workbench registry's O-N28; `tests/probe/probe18_impl_adds_move.npk` pins it with no
 // library code. No impl here does it, and the harness's S-23a check still
 // refuses an owning element anywhere in `src/`.
 pub trait:Pod = {

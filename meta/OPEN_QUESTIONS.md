@@ -630,6 +630,18 @@ type only through `Pod`'s declared, lent `self`; a consumer's `move`-self impl
 defeats it (95 through `vec_get`, measured). **What it blocks (W-27):** nothing in
 `src/`, which writes no such impl; O-R3 waits for it.
 
+**Confirmed by the compiler seat as its DEF-116** (the registry's entry), to be
+fixed as its landing 69, after landings 67 and 68 and an advance notice, F14: a
+parameter's `move` becomes part of the signature, and a mismatch in either
+direction will be refused `NITPICK-TYPE-014`, naming the parameter and the
+direction. F14 reported this repository's exposure, measured by the compiler seat
+with the landing's checker, as exactly one file: probe 18, refused `TYPE-014` at
+42:39. **Cycle 0.0's close did not wait for it** — the author's
+answer (b) to the board's question 11, 2026-09-26, the sixth cycle 0.0 audit
+concurring on the ground that nothing in the close or in `src/` depends on it. The
+re-pin that carries landing 69 moves probe 18 to `../tests/probe/refused/` with
+`NITPICK-TYPE-014` and names DEF-116 at O-N28's other sites.
+
 ### O-N27 — **the workbench registry's**: the borrow tracker taints a call's result by SIGNATURE, so an owned string built by `f(Container->)` cannot be returned from the frame that owns the container
 
 **Registered 2026-09-26 in the workbench registry (`../meta/OPEN_QUESTIONS.md`

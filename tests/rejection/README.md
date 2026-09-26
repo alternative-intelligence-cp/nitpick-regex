@@ -142,7 +142,7 @@ And `vec_get` takes `T: Pod` (RX-168):
   still finds it.
 
 **Each refusal is shown to be the pin's or the bound's**
-(`../../meta/roadmap/0.0/0.0.4e.md` step 5): the six loan and pass-out files and probe
+(`../../meta/roadmap/0.0/0.0.4e.md` step 6): the six loan and pass-out files and probe
 17 still compile and run at `c3bdae2`, each with the exit it asserted as a unit; and
 `vec_owning_get_moves_out` compiles and runs against the tree before 0.0.4e.
 `../unit/loan_spellings.npk` is the positive twin: a callee that frees takes `move`,

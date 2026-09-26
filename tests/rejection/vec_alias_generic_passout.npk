@@ -15,7 +15,7 @@
 // At `c970483` the gate asks `type_owns_for_move` -- D-264's predicate, a bare
 // `T` owns -- and the `pass` is refused with the code its `string` twin always
 // got. It still runs, 0, at `c3bdae2`: the refusal is the pin's
-// (`meta/roadmap/0.0/0.0.4e.md` step 5). A generic that passes its argument on
+// (`meta/roadmap/0.0/0.0.4e.md` step 6). A generic that passes its argument on
 // takes it as `move T:x` -- `../unit/loan_spellings.npk`. The same gate reached
 // `vec_get` and `vec_pop` in `src/core/vec.npk`: that is why `vec_get` takes
 // `T: Pod` and `vec_pop` spells its move (RX-168).

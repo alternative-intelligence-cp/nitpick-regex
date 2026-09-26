@@ -27,15 +27,17 @@ six loan and pass-out pins, refused `TYPE-085` and `TYPE-047`, and `vec_get` at 
 owning element, refused `TYPE-017`); `harness/` builds, sweeps,
 diffs and judges them, **and proves first that it can fail**; and since 0.0.4
 `src/core/` is real — `Vec<T>`, `Bytes`, `ByteSet`, `SparseSet` and `limits.npk`,
-with 47 unit programs of their own — seven of them measuring what each `Vec` verb does at an
+with 48 unit programs of their own — seven of them measuring what each `Vec` verb does at an
 owning element type, which `SAFETY.md` S-23a keeps out of `src/` (the eighth, `vec_get`'s, is a
 refusal since cycle 0.0.4e: `vec_get` takes `T: Pod`, RX-168); the swap and the moves a move-only
 `Vec` still allows (RX-161); and `loan_spellings`, the spellings the six loan and pass-out
 refusals prescribe — the six were units pinning a compiler defect until `c970483` refused them
-(RX-169). **No matching happens yet**: `src/syntax/`,
+(RX-169); and `vec_get_pod_struct`, a consumer's own `Pod` for a POD struct, read back through
+`vec_get` with every name from `core.npk`'s re-exports — RX-168's positive half, pinned at the
+cycle 0.0 close (the sixth audit's N-30). **No matching happens yet**: `src/syntax/`,
 `src/hir/`, `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are
 still one placeholder module each. A full green run at compiler `c970483` is
-**218 units** (after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus eight tree checks; take those numbers from the runner's
+**220 units** (after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus eight tree checks; take those numbers from the runner's
 summary rather than from here. **Nothing is PENDING any more**:
 `tests/unit/bytes_copy_string_empty.npk` was committed red under
 `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
