@@ -36,7 +36,7 @@
 // -- a trap exit, or a refusal for a new `failsafe` arm -- and that is the
 // notification. Do not "fix" the probe: read this header, then
 // `VERIFICATION.md` P-1 and Q-6. The redirect table for the move is
-// `meta/roadmap/0.0/0.0.4b.md` §5 step 6 (RX-152).
+// `meta/roadmap/done/0.0/0.0.4b.md` §5 step 6 (RX-152).
 mod:probe13a_prove_unchecked;
 
 error:E9;

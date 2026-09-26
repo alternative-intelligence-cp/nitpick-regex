@@ -8,8 +8,10 @@ makes the guarantee below possible.
 > **The guarantee, in one sentence: a search takes time linear in the length of
 > the haystack, on every pattern, on every input, always.**
 
-> **Status: planning.** No code yet. The specification set is in
-> [`meta/specs/`](meta/specs/) and the plan in
+> **Status: cycle 0.0, the foundations, closed on 2026-09-26.** The language
+> probes, the test harness and the storage primitives in `src/core/` are built
+> and audited; nothing matches a pattern yet. **Cycle 0.1, the pattern parser, is
+> next.** The specification set is in [`meta/specs/`](meta/specs/) and the plan in
 > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
 > discipline the compiler used — specs first, then a cycle map, then
 > execution-grade subcycles, then code.

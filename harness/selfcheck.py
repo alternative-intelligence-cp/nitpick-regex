@@ -450,7 +450,7 @@ def _case17(d):
 # closed at the first `""`, consuming three bytes, read the FIRST `use` as code,
 # and opened a block that runs to the end of the text -- so each close reads the
 # other's import and neither reads both (N-28; RX-170). Both readings were
-# measured against the two compilers, `meta/roadmap/0.0/0.0.4e.md` §1.6.
+# measured against the two compilers, `meta/roadmap/done/0.0/0.0.4e.md` §1.6.
 _LEX_TEXT = (
     'mod:lexcase;\n'                                        # 1
     'use "./real_a.npk".*;\n'                               # 2  an import

@@ -330,7 +330,7 @@ mod:vec;
 // `vec_free(@v)`, `vec_get(w, 0)` reads the free poison (exit 170) and
 // `vec_free(@w)` is a double free (95, the third audit's N-15) -- as is
 // `vec_free_owning` through a copy, which first walks the freed block (95).
-// `meta/roadmap/0.0/0.0.4c.md` records both; the board's question 9 carries
+// `meta/roadmap/done/0.0/0.0.4c.md` records both; the board's question 9 carries
 // them to the author.
 // *(Dated 2026-09-25 -- RX-160. The copy is not the only second handle: a
 // BY-VALUE `Vec<T>` parameter is one, and a callee may free its caller's block

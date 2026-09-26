@@ -12,7 +12,7 @@
 // said 1 -- exit 0 at -O0 and through `opt -O2`, when this file was
 // `tests/unit/sparseset_alias_param_free.npk`, PINNED, NOT ENDORSED (RX-162). At
 // `c970483` the `@s` is refused. It still runs, 0, at `c3bdae2`: the refusal is
-// the pin's (`meta/roadmap/0.0/0.0.4e.md` step 6). A callee that frees a
+// the pin's (`meta/roadmap/done/0.0/0.0.4e.md` step 6). A callee that frees a
 // `SparseSet` takes it as `move SparseSet:s` -- `../unit/loan_spellings.npk`.
 mod:sparseset_alias_param_free;
 

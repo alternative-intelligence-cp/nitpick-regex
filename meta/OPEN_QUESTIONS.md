@@ -52,7 +52,7 @@ P-1 writes an obligation as a comment *"in the exact syntax it will take"*, and
 rested its safety on the rung refusing each construct by name; P-1a (RX-127)
 narrowed that to `prove`, `requires` and `ensures` at `3d15ac9`. **At `c3bdae2`
 none of them refuses.** Measured here by the `probe13` family, as cycle 0.0.4b
-re-points it ([`roadmap/0.0/0.0.4b.md`](roadmap/0.0/0.0.4b.md) §5 step 6):
+re-points it ([`roadmap/done/0.0/0.0.4b.md`](roadmap/done/0.0/0.0.4b.md) §5 step 6):
 
 | Construct, live | In a plain build | What a consumer owes |
 |---|---|---|
@@ -126,7 +126,7 @@ deliberately *not* rewritten.
    `nitpick-regex O-N3`.** That line is in the workbench, which this repository
    does not write. It is raised in 0.0.1's report for the author to correct.
 
-**`meta/roadmap/0.0/0.0.0.md` was deliberately NOT renumbered.** It is a closed
+**`meta/roadmap/done/0.0/0.0.0.md` was deliberately NOT renumbered.** It is a closed
 subcycle's execution record, independently verified at `9b80d69`, and a verified
 artifact is not edited afterwards — the workbench's own `RECORD.md` keeps a
 misnumbered `O-N7` for exactly this reason. Its `O-N1` and `O-N4` mean the
@@ -134,13 +134,13 @@ misnumbered `O-N7` for exactly this reason. Its `O-N1` and `O-N4` mean the
 those citations resolve.
 
 ### ~~O-N1~~ — **RENUMBERED to `O-G1`** (this repository's legacy local id), RX-114
-Cited under the old number only in `meta/roadmap/0.0/0.0.0.md`, which is frozen.
+Cited under the old number only in `meta/roadmap/done/0.0/0.0.0.md`, which is frozen.
 **The workbench registry's `O-N1` is a different thing** — `clone_exec` has no
 signal-mask slot, raised by `nitpick-tui` — and this library has no interest in
 it.
 
 ### ~~O-N4~~ — **RENUMBERED to `O-G4`** (this repository's legacy local id), RX-114
-Cited under the old number only in `meta/roadmap/0.0/0.0.0.md`, which is frozen.
+Cited under the old number only in `meta/roadmap/done/0.0/0.0.0.md`, which is frozen.
 **The workbench registry's `O-N4` is a different thing** — `npkc` is quadratic
 in the size of one declaration, raised by `nitpick-time`, the compiler's DEF-1.
 `nregex` generates no large single declaration before cycle 0.3's Unicode
@@ -166,7 +166,7 @@ The registry still names our local id by its old number; correcting that is the
 author's, and it is in 0.0.1's report.
 
 ### ~~O-N9 — **the workbench registry's**: a `uint8[]` view escapes its owning frame, silently~~ — **DISCHARGED upstream: refused `NITPICK-BORROW-001` since `94874ce`** (the compiler's DEF-3 / D-249, 1.5.1b step 2)
-*Struck 2026-09-25 by the fifth cycle 0.0 audit's triage, citing the workbench registry (`../meta/OPEN_QUESTIONS.md` §"For the compiler"), which carries the strike with its evidence — re-measured by the workbench's registry audit (`wb-registry-sweep-1821`), each with a control at an older kept pin, and spot-checked by the orchestrator. Its evidence: `nitpick-time`'s `view_escape/` cases 3–5 are refused at `c3bdae2` (case 5 read the `0xAA` poison, 170, at `950bb1d`), case 6 — the legal view parameter — still runs 0, and seven further escape routes are refused. The text below is kept as raised. **What it means here now:** the house rule *"a view is a parameter, never a return value"* is still this library's (RX-050's offsets need no view at all), and the sites that call the escape "the one the compiler does not diagnose" are stale in the same way — listed, not rewritten, in `roadmap/0.0/0.0.5.md` §12.*
+*Struck 2026-09-25 by the fifth cycle 0.0 audit's triage, citing the workbench registry (`../meta/OPEN_QUESTIONS.md` §"For the compiler"), which carries the strike with its evidence — re-measured by the workbench's registry audit (`wb-registry-sweep-1821`), each with a control at an older kept pin, and spot-checked by the orchestrator. Its evidence: `nitpick-time`'s `view_escape/` cases 3–5 are refused at `c3bdae2` (case 5 read the `0xAA` poison, 170, at `950bb1d`), case 6 — the legal view parameter — still runs 0, and seven further escape routes are refused. The text below is kept as raised. **What it means here now:** the house rule *"a view is a parameter, never a return value"* is still this library's (RX-050's offsets need no view at all), and the sites that call the escape "the one the compiler does not diagnose" are stale in the same way — listed, not rewritten, in `roadmap/done/0.0/0.0.5.md` §12.*
 **Not ours, not open to us, and already accepted.** D-004's escape rule is
 enforced for `@`-borrows and **not** for slice views: `string_bytes(local)`
 returns a view that outlives its owner and reading it afterwards reads freed
@@ -479,9 +479,9 @@ recorded as S-107. **Re-measured here at `c3bdae2` and at `c970483`**: the
 registry's reproduction — a `func:make = string(Box->:b)` returning
 `string_concat("small", "!")`, called `pass raw make(@b);` from the frame owning
 `b` — is `NITPICK-BORROW-001` at both. The heading and the text below are kept as
-raised, so the four citations in `roadmap/0.0/0.0.5.md` §8 still resolve.)*
+raised, so the four citations in `roadmap/done/0.0/0.0.5.md` §8 still resolve.)*
 
-*⚠ 2026-09-25, found by the fifth cycle 0.0 audit's triage: **THIS NUMBER COLLIDES, and the finding has no registry number at all.** The workbench registry's `O-N17` is `nitpick-time`'s *"a generic function that moves OUT of an indexed element at an owning `T` calls a `@npk.vacant.<n>` helper the emitter never defines"* — assigned there by the orchestrator on 2026-09-05 and discharged since `aaffb87` — and nothing in the registry records this entry's finding. It is the same collision the registry's own note describes for a worker's `O-N12`, from the other side: this id was proposed here and never confirmed. A worker does not assign an `O-N` id (`../PLAYBOOK.md`), so it is raised by path for the orchestrator to number or to close, and it is kept under this heading so that the four citations in `roadmap/0.0/0.0.5.md` §8, a closed record, still resolve. Whether it still holds at `c3bdae2` is unmeasured here.*
+*⚠ 2026-09-25, found by the fifth cycle 0.0 audit's triage: **THIS NUMBER COLLIDES, and the finding has no registry number at all.** The workbench registry's `O-N17` is `nitpick-time`'s *"a generic function that moves OUT of an indexed element at an owning `T` calls a `@npk.vacant.<n>` helper the emitter never defines"* — assigned there by the orchestrator on 2026-09-05 and discharged since `aaffb87` — and nothing in the registry records this entry's finding. It is the same collision the registry's own note describes for a worker's `O-N12`, from the other side: this id was proposed here and never confirmed. A worker does not assign an `O-N` id (`../PLAYBOOK.md`), so it is raised by path for the orchestrator to number or to close, and it is kept under this heading so that the four citations in `roadmap/done/0.0/0.0.5.md` §8, a closed record, still resolve. Whether it still holds at `c3bdae2` is unmeasured here.*
 
 **Raised by cycle 0.0.5's audit triage, 2026-09-06, measured at `3d15ac9`.**
 This is the exact inverse of **O-N9** and the two belong together: O-N9 is a
@@ -1011,7 +1011,7 @@ movemask intrinsic, which is a better request than a speculative one.
   one, and prove nothing about the one that is coming.
 
   *Dated 2026-09-25, cycle 0.0.4b: the instrument was run per public module at
-  both pins and the bills are in `roadmap/0.0/0.0.4b.md` step 11 and
+  both pins and the bills are in `roadmap/done/0.0/0.0.4b.md` step 11 and
   `specs/SAFETY.md` §4.2 — `3d15ac9` → `c3bdae2`: `vec`, `bytes`, `sparseset`
   6 → 9; `byteset` and `core` 6 → 10; `limits`, `lib`, `api`, `syntax` 4 → 6,
   the language's floor. Two more kinds of charge met here (`DecreasesViolated`

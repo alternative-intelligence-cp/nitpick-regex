@@ -16,7 +16,7 @@
 // `tests/probe/probe17_lent_field_drop.npk` (found by cycle 0.0.4d's planning,
 // raised as O-N21, RX-162). WHAT IT DOES AT `c970483`: a place rooted at a lent
 // parameter whose type owns admits no write path, and the write is refused. It
-// still compiles and runs, 70, at `c3bdae2` (`meta/roadmap/0.0/0.0.4e.md` step 6),
+// still compiles and runs, 70, at `c3bdae2` (`meta/roadmap/done/0.0/0.0.4e.md` step 6),
 // so the verdict is the pin's. TYPE-085's message names what remains: read it,
 // `.clone()` the part you change, or take it as `move Box:b` and let the caller
 // write `move(b)`; `../../unit/loan_spellings.npk` runs the library's spellings.

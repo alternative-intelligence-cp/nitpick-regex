@@ -3,6 +3,10 @@
 **`src/syntax/`: pattern text to an AST, driven by an explicit stack, with a
 byte offset on every error.**
 
+> **OPENS NEXT.** Cycle 0.0 closed on 2026-09-26 — the sixth audit accepted it, and it
+> is archived in [`../done/0.0/`](../done/0.0/README.md). [`0.1.0.md`](0.1.0.md) is the
+> first dispatch, revised at that close for what its last audit taught.
+
 > **`0.1.0.md` is written execution-grade at cycle 0.0's close** (0.0.5, step
 > 5), so this cycle is openable by a session that was not present for the
 > probes. That is the convention for every cycle: the opening subcycle file is

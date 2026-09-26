@@ -88,7 +88,9 @@ red is unreachable, which is the exact failure this file exists to prevent.
 B-7's equality half reddens cases 3 and 3a and nothing else; disabling the IR
 call-edge scan reddens case 8 and **not** case 9, which is RX-120's own finding
 reproduced from the other side; comparing exit codes by truthiness instead of by
-value reddens case 1. `../meta/roadmap/0.0/0.0.3.md` §4 has the transcripts.
+value reddens case 1. `../meta/roadmap/done/0.0/0.0.3.md`'s record, §4, has the
+per-case table — a summary: the runs' transcripts were never committed. *(It said
+"§4 has the transcripts" until cycle 0.0's close; 0.0.3's verifier had found it so.)*
 **And at every triage since**: the fifth (`0.0.5.md` §12) reverted each of its
 fixes in a copy and read which cases went red — the reader back in text mode
 reddens 18 and 20; the escape decoding removed, 18 and 21; `395308f`'s

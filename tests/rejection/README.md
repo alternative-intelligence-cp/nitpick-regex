@@ -86,7 +86,7 @@ And `buf` is `hidden` (RX-163):
   `b.buf.ptr[0i64] = 65u8;` wrote into the body through the sealed field until 0.0.4d.
 
 **Each is a test of the marker or the qualifier and not of its file, and the
-controls say so** (`../../meta/roadmap/0.0/0.0.4d.md` step 5): against the tree
+controls say so** (`../../meta/roadmap/done/0.0/0.0.4d.md` step 5): against the tree
 before 0.0.4d all six compile cleanly, and the five copies compile cleanly again
 with the marker's element made `int64`, which owns nothing. `../unit/vec_moves.npk`
 and `../unit/sparseset_alias_swap.npk` are the positive twins — the moves, loans
@@ -103,7 +103,7 @@ still frees or grows its caller's block — a compiler defect, pinned in `../uni
 
 **Each is a test of the seal and not of its own file, and both halves are
 measured.** Against the tree before 0.0.4c's declarations all five compile
-cleanly (`../../meta/roadmap/0.0/0.0.4c.md` step 4, the control), and
+cleanly (`../../meta/roadmap/done/0.0/0.0.4c.md` step 4, the control), and
 `../unit/sealed_reads.npk` makes every READ a consumer is entitled to and runs —
 without it, the five would also pass a compiler that refused every access to
 these fields. **What the seal does not close** is stated in S-23: a write
@@ -142,7 +142,7 @@ And `vec_get` takes `T: Pod` (RX-168):
   still finds it.
 
 **Each refusal is shown to be the pin's or the bound's**
-(`../../meta/roadmap/0.0/0.0.4e.md` step 6): the six loan and pass-out files and probe
+(`../../meta/roadmap/done/0.0/0.0.4e.md` step 6): the six loan and pass-out files and probe
 17 still compile and run at `c3bdae2`, each with the exit it asserted as a unit; and
 `vec_owning_get_moves_out` compiles and runs against the tree before 0.0.4e.
 `../unit/loan_spellings.npk` is the positive twin: a callee that frees takes `move`,
@@ -176,7 +176,7 @@ every run and requires the harness to catch it.
   brittle: adding a line above the span moves it, and the first two fixtures
   here had their line numbers corrected by measurement rather than by counting;
   the seal's five were pinned by measurement from the start
-  (`../../meta/roadmap/0.0/0.0.4c.md` step 3).
+  (`../../meta/roadmap/done/0.0/0.0.4c.md` step 3).
 - **Measure, never predict.** Run
   `$NPKC tests/rejection/<file>.npk -o /dev/null` and read the span it prints.
 - **Assert the specific exit integer.** `npkc` exit **2** is not a refusal — the

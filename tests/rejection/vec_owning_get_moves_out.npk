@@ -17,7 +17,7 @@
 // does not implement `Pod`". One call, so one diagnostic.
 //
 // A TEST OF THE BOUND, NOT OF THIS FILE: against the tree before cycle 0.0.4e
-// this file compiles and runs, exit 0, at `c3bdae2` (`meta/roadmap/0.0/0.0.4e.md`
+// this file compiles and runs, exit 0, at `c3bdae2` (`meta/roadmap/done/0.0/0.0.4e.md`
 // step 6) -- the refusal is the bound's, at either pin -- and `vec_get` runs at
 // `int32` and `int64` across the unit suite, and at a POD struct in `../unit/vec_get_pod_struct.npk`.
 mod:vec_owning_get_moves_out;

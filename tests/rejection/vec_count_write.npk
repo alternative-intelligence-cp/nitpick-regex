@@ -13,7 +13,7 @@
 //
 // A TEST OF THE SEAL, NOT OF THIS FILE, and both halves are measured: the same
 // file against the tree before 0.0.4c's declarations compiles cleanly
-// (`meta/roadmap/0.0/0.0.4c.md` step 4, the control), and
+// (`meta/roadmap/done/0.0/0.0.4c.md` step 4, the control), and
 // `tests/unit/sealed_reads.npk` READS this field and runs. Without that twin
 // the refusal would also pass a compiler that refused every access to it.
 mod:vec_count_write;

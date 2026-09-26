@@ -12,7 +12,7 @@
 // `tests/unit/bytes_alias_param_grow.npk`, PINNED, NOT ENDORSED (RX-162). The
 // same mechanism with no library code is
 // `../probe/refused/probe17_lent_field_drop.npk`, refused the same way. It still
-// runs, 95, at `c3bdae2`: the refusal is the pin's (`meta/roadmap/0.0/0.0.4e.md`
+// runs, 95, at `c3bdae2`: the refusal is the pin's (`meta/roadmap/done/0.0/0.0.4e.md`
 // step 6). A callee that grows a `Bytes` takes `Bytes->`, as every function in
 // `bytes.npk` does -- `../unit/loan_spellings.npk`.
 mod:bytes_alias_param_grow;

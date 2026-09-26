@@ -1,4 +1,18 @@
-# Cycle 0.0 — Foundations — **NOT CLOSED. The close was refused FIVE times — three on 2026-09-06, the fourth and fifth on 2026-09-25 — and waited on the author's question 10, answered (a): a re-pin to a compiler carrying its 1.6.0 step 3g. That re-pin is 0.0.4e, to `c970483`; an audit that has seen it is next.**
+# Cycle 0.0 — Foundations — **CLOSED 2026-09-26. The sixth W-22 audit ACCEPTED it at compiler `c970483`, after five refusals — three on 2026-09-06, the fourth and fifth on 2026-09-25 — and after the re-pin the author's question 10 waited for.**
+
+> ## CLOSED, 2026-09-26 — the sixth audit accepted, and the cycle is archived
+>
+> **[`../../../audits/nitpick-regex-0.0-2026-09-26-sixth.md`](../../../audits/nitpick-regex-0.0-2026-09-26-sixth.md)
+> returned ACCEPT**: all 23 items of the fifth audit's post-re-pin checklist met at
+> `c970483`, each re-measured rather than read from a record, and five findings, none
+> blocking. **The close is [`0.0.5.md`](0.0.5.md) §13**: N-30, N-31 and N-33 fixed in
+> `0d2a717` — among them `tests/unit/vec_get_pod_struct.npk`, RX-168's positive half —
+> N-32 in that record, and N-34 the workbench's, done there. The author answered the
+> board's question 11 (b): the close does not wait for the compiler's fix of O-N28
+> (DEF-116, its landing 69), which probe 18 pins and nothing in `src/` depends on. This
+> folder moved to `meta/roadmap/done/0.0/` in the closing commit, and it is not
+> rewritten from here on (`../README.md`). **Cycle 0.1, the pattern parser, opens from
+> [`../../0.1/0.1.0.md`](../../0.1/0.1.0.md).**
 
 > ## 0.0.4e — the adoption to compiler `c970483`: the loan refused, `vec_get` bounded
 >
@@ -17,7 +31,7 @@
 
 > ## The FIFTH refusal — the fix for the fourth's first finding had the same shape
 >
-> **[`../../audits/nitpick-regex-0.0-2026-09-25-fifth.md`](../../audits/nitpick-regex-0.0-2026-09-25-fifth.md)
+> **[`../../audits/nitpick-regex-0.0-2026-09-25-fifth.md`](../../../audits/nitpick-regex-0.0-2026-09-25-fifth.md)
 > returned DO NOT ACCEPT on one blocking finding.** BL-9: RX-157's "one reading of
 > source" was not the compiler's in two measured ways — every caller opened a
 > file in Python's text mode, so a lone carriage return was a line end, and an
@@ -49,7 +63,7 @@
 
 > ## The FOURTH refusal, and the author's answer that came with it
 >
-> **[`../../audits/nitpick-regex-0.0-2026-09-25-fourth.md`](../../audits/nitpick-regex-0.0-2026-09-25-fourth.md)
+> **[`../../audits/nitpick-regex-0.0-2026-09-25-fourth.md`](../../../audits/nitpick-regex-0.0-2026-09-25-fourth.md)
 > returned DO NOT ACCEPT on two blocking findings, and both were about the last
 > triage rather than the code.** BL-7: the fix for BL-6 left a second way out
 > of the count — a `use` inside a SIBLING's `/* */` took a red unit out of a
@@ -69,7 +83,7 @@
 > ## Resumed 2026-09-25 at compiler `c3bdae2` — and the adoption comes first
 >
 > **A third audit refused the close as well** (workbench `f1071fb`; filed here as
-> [`../../audits/nitpick-regex-0.0-2026-09-06-third.md`](../../audits/nitpick-regex-0.0-2026-09-06-third.md)),
+> [`../../audits/nitpick-regex-0.0-2026-09-06-third.md`](../../../audits/nitpick-regex-0.0-2026-09-06-third.md)),
 > and the libraries then paused for the compiler's cycle 1.5. They resume at its
 > close, `c3bdae2`, **where this tree does not compile**: every `failsafe` lacks
 > `StackExhausted` and `MachineFault`, and every `while` must state `decreases`
@@ -94,7 +108,7 @@
 
 > ## The SECOND refusal, and it found a defect in the fix for the first
 >
-> **[`../../audits/nitpick-regex-0.0-2026-09-06-second.md`](../../audits/nitpick-regex-0.0-2026-09-06-second.md)**
+> **[`../../audits/nitpick-regex-0.0-2026-09-06-second.md`](../../../audits/nitpick-regex-0.0-2026-09-06-second.md)**
 > returned **DO-NOT-ACCEPT** on two blocking findings. One, `BL-4`, was
 > **introduced by the first triage's own fix commit**. The other, `BL-3`, is the
 > largest defect this cycle has found and it sits one level below the template the
@@ -124,7 +138,7 @@
 > same day.** The close was reported `READY-TO-CLOSE`, passed by an independent
 > verifier on eight checks, and refused by the audit on **two blocking findings
 > in `src/core/`** — the cycle's headline deliverable. The audit is
-> [`../../audits/nitpick-regex-0.0-2026-09-06.md`](../../audits/nitpick-regex-0.0-2026-09-06.md)
+> [`../../audits/nitpick-regex-0.0-2026-09-06.md`](../../../audits/nitpick-regex-0.0-2026-09-06.md)
 > and the triage is [`0.0.5.md`](0.0.5.md) §8.
 >
 > **The folder is back at `meta/roadmap/0.0/`, so every citation of the form
@@ -267,7 +281,7 @@ settled. **Nothing in this cycle is blocked on a question.**
       **DONE** — seven, one per layer, each naming the specification that fills it, the cycle that
       does, and what `BUILD.md` §6 permits it to import. All seven compile at `npkc` exit 0
       (`tests/conformance/TRANSCRIPT.txt` §A) — and all seven are refused by `llc`, which is **RX-115**.
-- [~] `nitpick.toml`'s `[[test]]` table has its first entries: `probe` and `conformance`  
+- [x] `nitpick.toml`'s `[[test]]` table has its first entries: `probe` and `conformance`  
       **HALF DONE WHEN THIS WAS WRITTEN AT 0.0.1, AND FULLY DONE AT 0.0.2 — the counts below are
       0.0.1's and are kept because they are the reasoning's evidence.** `conformance` is declared at
       `compile`/`positive` and is live. `probe` was **not** declared: 16 of the 23 probes then in the
@@ -277,6 +291,8 @@ settled. **Nothing in this cycle is blocked on a question.**
       directory and declared **both** `probe` and `probe-refused`, and the split today is
       **19 / 6 over 25 probes** (`tests/probe/README.md`). The three-entry shape is in the manifest ready
       to uncomment and the split is 0.0.2's, above.
+      *(Ticked at the close, 2026-09-26: it was marked `[~]` from 0.0.1, and its own text says it was
+      done at 0.0.2 — a box a close must not leave half-marked.)*
 - [x] a consumer program under `tests/conformance/` imports `src/lib.npk` by relative path and compiles, with a comment naming O-G3 as the reason the path is relative  
       **DONE, and it links and runs** — `npkc` 0, `llc` 0, `ld.lld` 0, binary 0, and the same four
       through `opt -O2` (rule B-3). Six controls beside it, each failing for the right reason.
@@ -524,11 +540,11 @@ settled. **Nothing in this cycle is blocked on a question.**
       and the seventeen added by the second was seen to FAIL before it was trusted, and so were the
       seventh tree check, the RX-120 assertion and the new `pending-until:` marker.
 - [x] `0.1/0.1.0.md` written execution-grade
-- [ ] cycle archived to `done/0.0/`, `ROADMAP.md` updated — **DONE ON 2026-09-06 AND REVERSED THE SAME DAY.**
-      The W-22 audit refused the close (two blocking findings in `src/core/`), so the
-      move was undone with one `git mv` and this box is open again. It is ticked at
-      the close the audit accepts, and not before. See the note at the head of this
-      file and `0.0.5.md` §8.
+- [x] cycle archived to `done/0.0/`, `ROADMAP.md` updated — **DONE 2026-09-26, at the close the
+      sixth audit accepted** (`0.0.5.md` §13). *It was done on 2026-09-06 and reversed the same
+      day: the W-22 audit refused that close (two blocking findings in `src/core/`), the move
+      was undone with one `git mv`, and this box stayed open until the close an audit
+      accepted (`0.0.5.md` §8, RX-140).*
 - [x] **added by the audit triage:** every one of the audit's 15 findings carries a line —
       fixed, deferred to a named cycle with a reason, or refused with its cost stated —
       counted rather than asserted (`0.0.5.md` §8)
@@ -559,6 +575,13 @@ settled. **Nothing in this cycle is blocked on a question.**
       neither worked around — `0.0.5.md` §12. RX-165 … RX-167; self-check cases 19–23; two units.
       **214/214**, GREEN; CI run `36210627564` green on `be6511f`. The loan's refusal waits for the
       re-pin that carries the compiler's 1.6.0 step 3g — the author's question 10
+- [x] **added by the SIXTH audit, the one that ACCEPTED, at compiler `c970483`:** every one of its
+      findings carries a line — **5 findings, 5 lines**: N-30, N-31 and N-33 FIXED in `0d2a717`;
+      N-32 answered in the record, as it asked; N-34 the workbench's, and DONE there — and its
+      three judged corrections and its view on question 11 a line each (`0.0.5.md` §13).
+      `tests/unit/vec_get_pod_struct.npk`, with each way it must go red shown in a copy.
+      **220/220**, GREEN; CI run `36235938292` green on `0d2a717`, its `npkc.ll` row equal to
+      the pin's ladder row
 
 ## Gate
 
@@ -594,6 +617,20 @@ the close proceeds with the loan open against it (question 10). *(Reworded
 `NITPICK-TYPE-085` at the position its own `expect-error-at` records, and each still
 runs at `c3bdae2`, so each refusal is the pin's; the generic pass-out is
 `NITPICK-TYPE-047`. The audit that accepts the close sees this tree.)*
+
+*(2026-09-26, the close — THE GATE IS MET, each clause read again at `c970483`. A full
+`harness/run.py`: `220/220`, GREEN. The self-check first: the gate's eleven cases and
+thirteen more, 20 live, each red on its wrong expectation, and 4 printed PENDING on
+stages that do not exist until 0.3, 0.5 and 0.8 — the reading 0.0.3's box gave the
+eleven, three of which were pending then. `check_no_syscalls` green over real objects:
+the floor five symbols and four edges, `rx120.sh` held, B-2 on 49 units. `src/core/`'s
+four primitives each with a suite. Every probe with a recorded verdict, and the last
+two's consequences written: probe 15's in RX-170, probe 18's in `SAFETY.md` S-23a and
+`vec.npk`. The copy and loan clauses as the notes above say. **And the audit clause:
+the sixth audit, which saw `37695a7`, ACCEPTED** — the closing commits change only what
+its findings asked for, the archive, and the handoff. The author's answer (b) to the
+board's question 11 is that the close does not wait for O-N28 (DEF-116), pinned by
+probe 18.)*
 
 *(2026-09-25, cycle 0.0.4d — RX-161, RX-162. "Every `*_alias_*` shape is refused"
 was written before the shapes were measured against a move-only `Vec`, and it

@@ -21,7 +21,7 @@
 // code about the cascade, not the loan (measured at `c970483`).
 //
 // THE REFUSAL IS THE PIN'S: this file still compiles and runs at `c3bdae2`, exit
-// 0 at both levels (`meta/roadmap/0.0/0.0.4e.md` step 6). Its positive twin,
+// 0 at both levels (`meta/roadmap/done/0.0/0.0.4e.md` step 6). Its positive twin,
 // `../unit/loan_spellings.npk`, frees through a `move Vec<int64>:v` parameter and
 // grows through `Vec<int64>->`, the spellings TYPE-085's message names.
 mod:vec_alias_param_free;

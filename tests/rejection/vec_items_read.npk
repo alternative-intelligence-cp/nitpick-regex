@@ -13,7 +13,7 @@
 // `NITPICK-TYPE-080`. The refusal is the assertion.
 //
 // A TEST OF THE HIDING, NOT OF THIS FILE: against the tree before 0.0.4c's
-// declarations it compiles cleanly (`meta/roadmap/0.0/0.0.4c.md` step 4).
+// declarations it compiles cleanly (`meta/roadmap/done/0.0/0.0.4c.md` step 4).
 // The index here is in range on purpose -- the file is refused for touching the
 // field at all, not for what the index would have read.
 mod:vec_items_read;

@@ -279,7 +279,7 @@ stated:**
 
 *At `c3bdae2` this is the language's rule (the compiler's D-304; cycle
 0.0.4b): every `while` in the tree states `decreases` — 61 loops, 37 in the
-sweep tool's shape and 24 read (`../roadmap/0.0/decreases_read.txt`), none
+sweep tool's shape and 24 read (`../roadmap/done/0.0/decreases_read.txt`), none
 `unbounded` — and the check runs in every build, trapping `DecreasesViolated`
 (108). Each row of the table above is a clause the cycle that writes the loop
 states, not only a line here.*

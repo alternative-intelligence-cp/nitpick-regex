@@ -52,8 +52,8 @@ cycle 0.0.
 
 | Cycle | Topic | Gated on |
 |---|---|---|
-| **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **NOT CLOSED. Its close was REFUSED by the [cycle 0.0 audit](0.0/0.0.5.md) on 2026-09-06 and the archive move was reversed; refused again four times since, the fourth and fifth on 2026-09-25. 0.0.4d LANDED 2026-09-25: `Vec` move-only by the author's decision, a loan still a compiler defect; the fifth audit's triage ([§12](0.0/0.0.5.md)) made the harness read source as the compiler does. 0.0.4e ([`0.0.4e.md`](0.0/0.0.4e.md)) re-pinned to `c970483`, question 10's answer: the loan refused, `vec_get` bounded by `Pod`. Next: an audit that has seen it, then the close** | — |
-| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors | 0.0 |
+| **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **DONE 2026-09-26, archived to [`done/0.0/`](done/0.0/README.md).** The sixth W-22 audit ACCEPTED the close at compiler `c970483`, after five refusals — three on 2026-09-06, two on 2026-09-25 — and two inserted subcycles, 0.0.4d (`Vec` move-only) and 0.0.4e (the re-pin that refused the loan). The close is [`done/0.0/0.0.5.md`](done/0.0/0.0.5.md) §13 | — |
+| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **NEXT: it opens from [`0.1/0.1.0.md`](0.1/0.1.0.md)** | 0.0 |
 | **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction | 0.1 |
 | **0.3** | **Unicode** — generated tables, properties, scripts, simple case folding | 0.0 |
 | **0.4** | **UTF-8 automata** — codepoint ranges to byte ranges, alphabet compression | 0.3 |
@@ -73,14 +73,22 @@ cycle 0.0.
 
 ## What each cycle produces
 
-### 0.0 — Foundations — **NOT CLOSED. The close was refused on 2026-09-06 and the archive was reversed.**
+### 0.0 — Foundations — **DONE 2026-09-26: the sixth audit accepted the close, and the cycle is archived in [`done/0.0/`](done/0.0/README.md).**
+
+> **Closed 2026-09-26, at compiler `c970483`.** The sixth W-22 audit — narrow by
+> design, over 0.0.4e's re-pin against the fifth audit's 23-item checklist — met every
+> item and returned ACCEPT with five non-blocking findings; the close answered them
+> and archived the folder ([`done/0.0/0.0.5.md`](done/0.0/0.0.5.md) §13). The notes
+> below are this section's history, kept as written: five refused closes, and what
+> each refusal found. *(The heading read "NOT CLOSED. The close was refused on
+> 2026-09-06 and the archive was reversed." until this close.)*
 
 > **This row said DONE and archived for four hours and it was wrong.** Cycle
 > 0.0's close was reported `READY-TO-CLOSE`, passed by an independent verifier
 > on eight checks, and then **refused by the W-22 audit** on two blocking
 > findings in `src/core/` — a use-after-free the shipped suite constructed and
 > declined to read, and a non-terminating `vec_reserve`. The cycle's own record
-> ([`0.0/0.0.5.md`](0.0/0.0.5.md) §8) has the triage. The archive move was
+> ([`done/0.0/0.0.5.md`](done/0.0/0.0.5.md) §8) has the triage. The archive move was
 > reversed with one `git mv`, because a cycle folder in `done/` is a claim that
 > the cycle is finished, and leaving a false claim in place in order to keep a
 > tidy directory is the defect class this cycle spent five subcycles finding.
@@ -91,20 +99,20 @@ cycle 0.0.
 
 > **Resumed 2026-09-25 at compiler `c3bdae2`, after a third refused close and
 > the libraries' pause for the compiler's cycle 1.5.** The tree does not compile
-> at that pin, so the adoption comes first — [`0.0/0.0.4b.md`](0.0/0.0.4b.md) and
-> [`0.0/0.0.4c.md`](0.0/0.0.4c.md) — and the close is re-attempted after them,
-> against the third audit. **The re-attempt is [`0.0/0.0.5.md`](0.0/0.0.5.md)
+> at that pin, so the adoption comes first — [`done/0.0/0.0.4b.md`](done/0.0/0.0.4b.md) and
+> [`done/0.0/0.0.4c.md`](done/0.0/0.0.4c.md) — and the close is re-attempted after them,
+> against the third audit. **The re-attempt is [`done/0.0/0.0.5.md`](done/0.0/0.0.5.md)
 > §10**: seven findings, seven lines, six fixed and one open against the board's
 > question 9. It reports `READY-TO-CLOSE`, not closed: the tree it leaves has not
 > been seen by an audit, which the cycle's gate requires.
 >
 > **The fourth audit refused that tree too, the same day, and the author answered
-> question 9.** Its triage is [`0.0/0.0.5.md`](0.0/0.0.5.md) §11: 8 findings, 8
+> question 9.** Its triage is [`done/0.0/0.0.5.md`](done/0.0/0.0.5.md) §11: 8 findings, 8
 > lines, RX-157 … RX-160. **`Vec` becomes move-only by construction as subcycle
 > 0.0.4d, BEFORE cycle 0.0 closes** — so the next act is 0.0.4d's plan, and the
 > fifth audit sees both.
 >
-> **0.0.4d landed 2026-09-25** (`0.0/0.0.4d.md`), RX-161 … RX-164: the five copy
+> **0.0.4d landed 2026-09-25** (`done/0.0/0.0.4d.md`), RX-161 … RX-164: the five copy
 > shapes are refused, `Bytes.buf` is hidden and A′ replaces P-1; the LOAN is
 > pinned against a compiler defect, and whether the close waits for its fix is the
 > author's.
@@ -113,14 +121,14 @@ cycle 0.0.
 > finding, BL-9: the harness's "one reading of source" read a lone carriage return
 > as a line end and an escaped import path as its text, and the skip's two
 > defences shared that reader, so two CRs took a red unit out of a GREEN run. Its
-> triage is [`0.0/0.0.5.md`](0.0/0.0.5.md) §12: 7 findings, 7 lines, RX-165 …
+> triage is [`done/0.0/0.0.5.md`](done/0.0/0.0.5.md) §12: 7 findings, 7 lines, RX-165 …
 > RX-167 — every `.npk` read as bytes, a path decoded as the compiler decodes it,
 > the skip's second defence asked of `npkc`, and two more second-handle shapes
 > pinned. **The close waits for the loan's refusal** — DEF-102's
 > `NITPICK-TYPE-085`, the compiler's 1.6.0 step 3g, not in `c3bdae2` — which is
 > the author's question 10 and a separate re-pin subcycle.
 >
-> **0.0.4e re-pinned to `c970483`** ([`0.0/0.0.4e.md`](0.0/0.0.4e.md)), RX-168 …
+> **0.0.4e re-pinned to `c970483`** ([`done/0.0/0.0.4e.md`](done/0.0/0.0.4e.md)), RX-168 …
 > RX-170: the loan and the generic pass-out refused and their pins moved to the
 > rejection suite; `vec_get` bounded by `T: Pod`, because DEF-104's gate refused the
 > old body at every `T`; `vec_pop`'s move spelled; the harness's block-string close
@@ -175,7 +183,7 @@ defect, not a licence — RX-112), and `probe08b`'s unguarded read was claimed t
 `SAFETY.md` §5.3 and made the accessor pair the only bounds check this library
 has (RX-111).
 
-The findings a sibling repository should read are `0.0/0.0.5.md` §A —
+The findings a sibling repository should read are `done/0.0/0.0.5.md` §A —
 25 of them — and §D, *what cycle 0.0 taught*.
 
 The **language probes** first: fourteen small programs asking the compiler

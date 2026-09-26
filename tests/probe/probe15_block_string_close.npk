@@ -16,7 +16,7 @@
 // PARSE-003. Found 2026-09-25 by cycle 0.0.5's fourth audit triage while writing
 // `harness/lexical.py` (RX-157), raised, and fixed as DEF-98; this file sat in
 // `refused/` with those three codes until cycle 0.0.4e moved it here. It still
-// refuses at `c3bdae2` (`meta/roadmap/0.0/0.0.4e.md` step 6), so the verdict is
+// refuses at `c3bdae2` (`meta/roadmap/done/0.0/0.0.4e.md` step 6), so the verdict is
 // the pin's.
 //
 // WHAT KEEPS THE READER IN STEP: `harness/lexical.py` mirrors the lexer, not the

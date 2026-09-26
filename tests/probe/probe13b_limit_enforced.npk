@@ -15,7 +15,7 @@
 // `LimitViolated`, which REACH-002 arms in any program carrying a limited
 // binding. A probe named `…_refused` that is not refused is a false claim in a
 // filename, so it moved and was renamed -- the precedent is `probe02b` at cycle
-// 0.0.3 (RX-125), and the redirect table is `meta/roadmap/0.0/0.0.4.md` §7.
+// 0.0.3 (RX-125), and the redirect table is `meta/roadmap/done/0.0/0.0.4.md` §7.
 //
 // MATTERS BECAUSE this is the rung whose silent version is worst. A `limit`
 // that lowered to nothing would tell the caller its argument had been checked

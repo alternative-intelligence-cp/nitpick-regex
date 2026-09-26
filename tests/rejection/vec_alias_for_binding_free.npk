@@ -16,7 +16,7 @@
 // is the only diagnostic: written `vec_free(@x)` the compiler adds
 // NITPICK-TYPE-022 at the same call, the refused argument's cascade (measured at
 // `c970483`). It still runs, 0, at `c3bdae2`: the refusal is the pin's
-// (`meta/roadmap/0.0/0.0.4e.md` step 6). A loop READS its binding and the array
+// (`meta/roadmap/done/0.0/0.0.4e.md` step 6). A loop READS its binding and the array
 // frees its own elements -- `../unit/loan_spellings.npk`.
 mod:vec_alias_for_binding_free;
 

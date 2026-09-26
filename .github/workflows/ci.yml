@@ -23,7 +23,7 @@
 # committed red under a `pending-until:` marker and counted as neither a pass
 # nor a failure. At `c3bdae2` it started passing, the harness reddened the run
 # with "IS NOW STALE", and the marker was deleted
-# (`meta/roadmap/0.0/0.0.4b.md` step 7). What the marker guarantees is RX-154's,
+# (`meta/roadmap/done/0.0/0.0.4b.md` step 7). What the marker guarantees is RX-154's,
 # since the cycle 0.0 third audit's BL-6 measured that it guaranteed less than
 # it said: it names the exit it excuses, every pending unit is a line in
 # `harness/baseline/PENDING.txt` checked both ways, and its commit is a label
@@ -98,11 +98,11 @@ env:
   # AND BUMPED 2026-09-25 FROM `3d15ac9` TO `c3bdae2`, the compiler's 1.5
   # close. This commit is deliberately RED on its own: the tree it pins is not
   # yet adopted. It is pushed only together with the adoption, so CI runs
-  # once, on the adopted tree (`meta/roadmap/0.0/0.0.4b.md` §3).
+  # once, on the adopted tree (`meta/roadmap/done/0.0/0.0.4b.md` §3).
   #
   # AND BUMPED 2026-09-26 FROM `c3bdae2` TO `c970483`, the end of the compiler's
   # 1.6.0 chain -- DEF-95 to DEF-106 and DEF-108 -- IN THE ADOPTION'S OWN COMMIT
-  # (`meta/roadmap/0.0/0.0.4e.md`), so CI runs once, on the adopted tree. The
+  # (`meta/roadmap/done/0.0/0.0.4e.md`), so CI runs once, on the adopted tree. The
   # old tree does not compile at the new pin (`vec.npk`, NITPICK-TYPE-047) and
   # the new tree's refusals do not refuse at the old one, so neither commit
   # could be green alone.

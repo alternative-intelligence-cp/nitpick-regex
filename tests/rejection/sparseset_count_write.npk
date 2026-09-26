@@ -13,7 +13,7 @@
 // below is `NITPICK-TYPE-079` at compile time. The refusal is the assertion.
 //
 // A TEST OF THE SEAL, NOT OF THIS FILE: against the tree before 0.0.4c's
-// declarations it compiles cleanly (`meta/roadmap/0.0/0.0.4c.md` step 4), and
+// declarations it compiles cleanly (`meta/roadmap/done/0.0/0.0.4c.md` step 4), and
 // `tests/unit/sealed_reads.npk` READS this field and runs.
 mod:sparseset_count_write;
 

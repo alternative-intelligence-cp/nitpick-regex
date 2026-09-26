@@ -35,7 +35,7 @@
 // checks a refusal's codes and cannot see which identity a `REACH-002` line
 // names, so `probe13g`, the positive twin, is what shows this refusal is about
 // the contract and not about some other missing arm. Redirect table:
-// `meta/roadmap/0.0/0.0.4b.md` §5 step 6 (RX-152).
+// `meta/roadmap/done/0.0/0.0.4b.md` §5 step 6 (RX-152).
 mod:probe13c_requires_arm_missing;
 
 error:E9;

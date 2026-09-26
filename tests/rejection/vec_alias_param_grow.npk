@@ -12,7 +12,7 @@
 // `tests/unit/vec_alias_param_grow.npk`, PINNED, NOT ENDORSED (RX-162). At
 // `c970483` the `@v` in `grow` is refused, and nothing after it is reached. It
 // still compiles and runs, 95, at `c3bdae2`: the refusal is the pin's
-// (`meta/roadmap/0.0/0.0.4e.md` step 6). A callee that grows its caller's `Vec`
+// (`meta/roadmap/done/0.0/0.0.4e.md` step 6). A callee that grows its caller's `Vec`
 // takes it by pointer, `Vec<int64>->` -- `../unit/loan_spellings.npk`.
 mod:vec_alias_param_grow;
 

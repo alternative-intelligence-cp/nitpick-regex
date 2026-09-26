@@ -5,7 +5,10 @@ Guidance for Claude Code sessions working in this repository.
 ## What this is
 
 `nregex` — a regular-expression library for **Nitpick**, the safety-critical
-systems language at `../../nitpick`. **Status: cycle 0.0, foundations.** The
+systems language at `../../nitpick`. **Status: cycle 0.0, foundations, CLOSED on
+2026-09-26** — the sixth audit accepted it, and it is archived in
+`meta/roadmap/done/0.0/`; **cycle 0.1, the pattern parser, opens next** from
+`meta/roadmap/0.1/0.1.0.md`. The
 specifications, the decisions and the roadmap are complete; `tests/probe/` holds
 **32** language probes with recorded verdicts, split **25 / 7** by kind (16 / 7,
 then 17 / 6 when the `94874ce` re-pin discharged O-N10 and `probe02b` stopped
@@ -186,8 +189,8 @@ file's `mod:` name must equal its basename.
 ## What cycles 0.0.0, 0.0.1 and 0.0.2 measured, that a reader would otherwise assume
 
 Each of these was written the other way round in some document here before it
-was measured. `meta/roadmap/0.0/0.0.0.md` §7,
-`tests/conformance/TRANSCRIPT.txt` and `meta/roadmap/0.0/0.0.2.md` §5 are the
+was measured. `meta/roadmap/done/0.0/0.0.0.md` §7,
+`tests/conformance/TRANSCRIPT.txt` and `meta/roadmap/done/0.0/0.0.2.md` §5 are the
 evidence.
 
 - **An `Optional` is not `pick`-able.** `pick (m) { (NIL) {…}, (Match:g) {…} }`
@@ -297,7 +300,7 @@ evidence.
   identities — `StackExhausted` (D-305: every function's stack is checked) and
   `MachineFault` (D-307: the four fault signals reach `failsafe`) join the four.
   **Every `while` states `decreases E` or `unbounded`** (D-304) — 61 loops
-  at the adoption, the reading in `meta/roadmap/0.0/decreases_read.txt`
+  at the adoption, the reading in `meta/roadmap/done/0.0/decreases_read.txt`
   (RX-150), 81 at the fourth triage and 86 after cycle 0.0.4d, none `unbounded` (a count, dated: this
   said 61 until the fourth audit found 79, N-23; the compiler enforces the clause) — and a measured loop reachable from a consumer charges it
   `DecreasesViolated`: the **fourth** kind of charge `SAFETY.md` §4.2 counts.

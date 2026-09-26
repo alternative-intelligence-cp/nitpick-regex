@@ -15,7 +15,7 @@
 // THE SHAPE A CONSUMER USES INSTEAD is a read BY VALUE, `vec_get(s.sparse, k)`
 // -- `tests/unit/sealed_reads.npk` does it and runs, as `sparseset_unit.npk`
 // already did. A TEST OF THE SEAL, NOT OF THIS FILE: against the tree before
-// 0.0.4c's declarations it compiles cleanly (`meta/roadmap/0.0/0.0.4c.md`
+// 0.0.4c's declarations it compiles cleanly (`meta/roadmap/done/0.0/0.0.4c.md`
 // step 4).
 mod:sparseset_dense_address;
 

@@ -440,7 +440,7 @@ than a style note:**
   does either qualifier stop a whole-`Vec` copy, which names no field and is a
   second handle on the block (after `vec_free`, the copy reads the free poison,
   exit 170). Both residues are the board's question 9 and are recorded in
-  `../roadmap/0.0/0.0.4c.md`.)*
+  `../roadmap/done/0.0/0.0.4c.md`.)*
   *(Dated 2026-09-25, the fourth cycle 0.0 audit's BL-8 — RX-160. The copy's
   reach is wider than one binding: a whole-`SparseSet` copy freed twice exits 95,
   and read after the free it reports a member ABSENT while its count says one —

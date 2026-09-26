@@ -25,7 +25,7 @@
 // to an owning type only through its declared, lent `self`. A consumer's
 // `impl:string:Pod` written with `move string:self` compiles, and `vec_get` at
 // `Vec<string>` then hands back a second owner of the element -- 95, measured at
-// planning (`meta/roadmap/0.0/0.0.4e.md` §1.4). No impl in this repository does
+// planning (`meta/roadmap/done/0.0/0.0.4e.md` §1.4). No impl in this repository does
 // it, and `check_vec_elements_own_nothing` still refuses an owning element in
 // `src/`.
 //

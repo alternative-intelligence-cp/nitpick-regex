@@ -18,7 +18,7 @@
 // written when `buf` was sealed; the change moved nothing in it.
 //
 // A TEST OF THE SEAL, NOT OF THIS FILE: against the tree before 0.0.4c's
-// declarations it compiles cleanly (`meta/roadmap/0.0/0.0.4c.md` step 4).
+// declarations it compiles cleanly (`meta/roadmap/done/0.0/0.0.4c.md` step 4).
 mod:bytes_len_write;
 
 use "../../src/core/bytes.npk".*;
