@@ -3,7 +3,10 @@
 **`src/syntax/`: pattern text to an AST, driven by an explicit stack, with a
 byte offset on every error.**
 
-> **OPENS NEXT.** Cycle 0.0 closed on 2026-09-26 — the sixth audit accepted it, and it
+> **OPEN. [`0.1.0`](0.1.0.md) is DONE (2026-09-26)** — RX-171 … RX-175 in six work
+> commits, `64a5ca9` … `0d26478`, 250/250 at `c970483` and in CI — **and 0.1.1, the
+> core grammar, is next**; its file is its planner's to write (`0.1.0.md` §8). *(Until
+> 0.1.0's record this banner opened "OPENS NEXT":)* Cycle 0.0 closed on 2026-09-26 — the sixth audit accepted it, and it
 > is archived in [`../done/0.0/`](../done/0.0/README.md). [`0.1.0.md`](0.1.0.md) is the
 > first dispatch, revised at that close for what its last audit taught — and made
 > execution-grade by a planner before that dispatch, rehearsed at `c970483` on
@@ -44,13 +47,13 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
 ## Checklist
 
 ### 0.1.0 — the cursor and the AST
-- [ ] `BUILD.md` B-15a's rule 2 decided before the layer entry gains its first `pub use` — its reason was a compiler defect fixed at `94874ce` (`0.1.0.md` PD-15)
-- [ ] a byte cursor over `uint8[]` with `offset`, `peek`, `bump`, `eat`, and **no lookahead beyond one byte** except where the grammar names it — its fields sealed, so that is the compiler's rule (PD-17)
-- [ ] the AST as a flat POD arena, the same shape the HIR uses (`HIR.md` H-2) — a `Vec<AstNode>` reallocates and a pointer into it would dangle — its operands `int64` so the parser narrows nothing, and the node kinds declared (PD-18; the draft said `int32`)
-- [ ] `PatternError` with `kind`, `offset`, `span_len`, `detail`, and `PatternErrorKind` all of `SYNTAX.md` §9 (PD-16)
-- [ ] every error constructed through one helper, so no site can forget the offset — the fields sealed, so no other site compiles (PD-16)
-- [ ] `NREGEX_PATTERN_BYTES` enforced before anything else runs (PD-19)
-- [ ] a skeleton that accepts `a` and reports offset 0 for `(`, composed from the layer entry alone (PD-19)
+- [x] `BUILD.md` B-15a's rule 2 decided before the layer entry gains its first `pub use` — its reason was a compiler defect fixed at `94874ce` (`0.1.0.md` PD-15) — **retired, RX-171, `64a5ca9`**: block 1a measured the shape refused `NITPICK-RESOLVE-002` at `950bb1d` and running at `94874ce` and `c970483`; eight live sites corrected and `_check_umbrella`'s rule-2 branch removed, a planted plain `use` still failing it by rule 1; 220/220
+- [x] a byte cursor over `uint8[]` with `offset`, `peek`, `bump`, `eat`, and **no lookahead beyond one byte** except where the grammar names it — its fields sealed, so that is the compiler's rule (PD-17) — **RX-173, `7c34431`**: `src/syntax/cursor.npk`; a write of `pos` outside it is `NITPICK-TYPE-079` (`tests/rejection/cursor_pos_write.npk`); `tests/unit/cursor_unit.npk` 0 at `c970483` and `9f6f370`; 234/234
+- [x] the AST as a flat POD arena, the same shape the HIR uses (`HIR.md` H-2) — a `Vec<AstNode>` reallocates and a pointer into it would dangle — its operands `int64` so the parser narrows nothing, and the node kinds declared (PD-18; the draft said `int32`) — **RX-174, `c291752`**: `src/syntax/ast.npk`, 56 bytes (`tests/unit/ast_size.npk` exits 56), sixteen kinds (`SYNTAX.md` Y-26, Y-27), `nodes` hidden (`NITPICK-TYPE-080`, `tests/rejection/ast_nodes_read.npk`); 245/245
+- [x] `PatternError` with `kind`, `offset`, `span_len`, `detail`, and `PatternErrorKind` all of `SYNTAX.md` §9 (PD-16) — **RX-172, `bcbf7e3`**: `src/syntax/pattern_error.npk`, all thirty-seven kinds in §9's order, held there by an exhaustive `pick` in `tests/unit/pattern_error_unit.npk`; 229/229
+- [x] every error constructed through one helper, so no site can forget the offset — the fields sealed, so no other site compiles (PD-16) — **RX-172, `bcbf7e3`**: a `PatternError` literal outside the module is `NITPICK-TYPE-079`, once per field (`tests/rejection/pattern_error_literal.npk`); `pattern_error` stops on a negative offset or length, 94
+- [x] `NREGEX_PATTERN_BYTES` enforced before anything else runs (PD-19) — **RX-175, `1224dce`**: `parse_check_length` answers `NIL` on the bound and `PatternTooLong` one over (`tests/unit/parse_check_length.npk`), and a refused pattern pushes no node; 250/250
+- [x] a skeleton that accepts `a` and reports offset 0 for `(`, composed from the layer entry alone (PD-19) — **RX-175, `1224dce`**: `tests/unit/syntax_skeleton.npk`, through `syntax.npk`'s re-exports alone (one deleted: `NITPICK-RESOLVE-002`); 250/250 locally, and in CI run 36252533730 on `0d26478`
 
 ### 0.1.1 — the core grammar
 - [ ] alternation, concatenation, groups (capturing, non-capturing, named), quantifiers (`*`, `+`, `?`, `{n}`, `{n,}`, `{n,m}`, each with a lazy `?`)
