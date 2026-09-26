@@ -1,4 +1,5 @@
-// `src/syntax/` — the pattern parser. PLACEHOLDER: nothing yet.
+// `src/syntax/syntax.npk` — THE PATTERN PARSER'S LAYER ENTRY. A module above
+// `syntax` writes one import, this file, and reaches what the layer offers.
 //
 // FILLED BY cycle 0.1, governed by `meta/specs/SYNTAX.md`. Pattern text to an
 // AST, driven by an EXPLICIT STACK and never by native recursion (RX-032,
@@ -7,7 +8,17 @@
 // that the shape is both writable and sufficient: 10 000 levels deep is
 // refused at depth 251 and the program survives.
 //
-// LAYERING (`BUILD.md` §6, rule B-16). May import: `unicode`, `core`.
+// EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1
+// and 3): `use` is not transitive, a plain `use` re-exports nothing, and one
+// name to a line keeps the list greppable and a removal one line of diff. Each
+// section names the decision that put it here.
 //
-// See `src/core/core.npk` for why a placeholder exists at all (P-6).
+// LAYERING (`BUILD.md` §6, rule B-16). May import: `unicode`, `core`. A program
+// importing this file owes `core`'s eleven arms (measured at `c970483`), because
+// `pattern_error.npk` imports `core`.
 mod:syntax;
+
+// ---- what a pattern can get wrong (RX-172) ---------------------------------
+pub use "./pattern_error.npk".PatternErrorKind;
+pub use "./pattern_error.npk".PatternError;
+pub use "./pattern_error.npk".pattern_error;

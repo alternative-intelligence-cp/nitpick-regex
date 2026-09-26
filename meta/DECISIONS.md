@@ -4157,3 +4157,32 @@ states facts about the library, and this would state a lint with no failure behi
 building the every-file check RX-113 promised** — a check needs a failure message, and this one could give no
 true reason; **leaving it to the next audit** — the first layer entry written since is this subcycle's, and
 cycle 0.0's close placed the decision before it.
+
+### RX-172 — `PatternErrorKind` is `SYNTAX.md` §9 complete and in order; `PatternError` is sealed, so `pattern_error(…)` is the only way to build one, and it stops on a negative offset
+
+**2026-09-26, cycle 0.1.0 (the plan's PD-16), at compiler `c970483`.** `src/syntax/pattern_error.npk`:
+
+- **`PatternErrorKind` holds all thirty-seven of `SYNTAX.md` §9, in its order, now** — before the parser
+  produces any. `check_error_kinds_tested` (0.1.6) diffs the enum against the tests that provoke each kind,
+  and cannot be written against a moving enum; a kind added later is one nobody notices is untested.
+  `tests/unit/pattern_error_unit.npk` holds the enum to §9 with an exhaustive `pick`: a kind dropped, added or
+  moved is a red run.
+- **`PatternError` is `SAFETY.md` S-9's four fields, each `sealed`** (the compiler's D-313). Outside the
+  file a `PatternError{ … }` literal is `NITPICK-TYPE-079` — measured, once per field, at the literal
+  (`tests/rejection/pattern_error_literal.npk`) — so `pattern_error(kind, offset, span_len, detail)` is the one
+  way to build an error, and `SYNTAX.md` Y-10's offset on every error is the compiler's to hold. The value is
+  32 bytes (measured); S-9 fixes the fields' order, and nothing stores one in a `Vec`.
+- **`pattern_error` stops on a negative `offset` or `span_len`**, through `core`'s `vec_oob` (94): either is
+  a defect in the code that built the error, and a stop beats a position that is not in the user's pattern.
+- **The file is `pattern_error.npk`, because `error.npk` cannot exist**: `error` is a keyword, a file's
+  `mod:` name is its basename (B-13), and `mod:error;` is `NITPICK-RESOLVE-012` (measured). It imports `core`
+  for `vec_oob`, so it — and the layer entry, `src/syntax/syntax.npk`, which re-exports its three names —
+  costs a consumer `core`'s eleven arms.
+
+*Alternatives declined:* **the fields open, with a tree check or a reviewed grep for other construction
+sites** — the first draft of `0.1.0.md`'s acceptance; the seal makes the compiler refuse every other site,
+where a grep only finds the ones that exist today; **a constructor that stores what it is given** — a
+negative offset would reach the user as a position that is not there; **declaring each kind when the
+subcycle that produces it lands** — the enum would move under the gate's check, and each late kind would be one
+nothing notices is untested; **S-9's fields reordered to save the eight bytes of padding** — S-9 is the
+specification, the value is never in an array, and a parse stops at its first error.

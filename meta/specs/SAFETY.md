@@ -171,6 +171,15 @@ and **one** error identity, because REACH-002 counts identities and not
 variants. A caller that wants to report "unclosed group at byte 14" has
 everything it needs; a `failsafe` that wants to stop has one arm.
 
+*(2026-09-26, cycle 0.1.0 — RX-172: `src/syntax/pattern_error.npk` declares it,
+every field `sealed` (the compiler's D-313), so outside that file a
+`PatternError` literal is `NITPICK-TYPE-079` and `pattern_error(kind, offset,
+span_len, detail)` is the only way to build one — Y-10's offset on every error,
+held by the compiler (`tests/rejection/pattern_error_literal.npk`). The
+constructor stops on a negative offset or length, a defect in the code that
+built the error. Thirty-two bytes, measured. `SYNTAX.md` §9 lists thirty-seven
+kinds; "thirty" above is a round number.)*
+
 ### 4.1 `PatternErrorKind`
 
 A closed enum, exhaustive over everything the parser and the compiler can

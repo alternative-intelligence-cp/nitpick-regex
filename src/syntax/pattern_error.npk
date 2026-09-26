@@ -1,0 +1,115 @@
+// `src/syntax/pattern_error.npk` — WHAT A PATTERN CAN GET WRONG, AND THE ONE
+// WAY TO SAY SO. Cycle 0.1.0, RX-172.
+//
+// `PatternErrorKind` is `meta/specs/SYNTAX.md` §9's closed list: every kind, in
+// that section's order, declared complete before the parser produces any of
+// them. `check_error_kinds_tested`, cycle 0.1's gate at 0.1.6, diffs this enum
+// against the tests that provoke each kind, and it cannot be written against an
+// enum that is still moving; a kind added later is a kind nobody notices is
+// untested.
+//
+// `PatternError` is `SAFETY.md` rule S-9's value: the kind, the byte offset into
+// the pattern (`SYNTAX.md` Y-10), a length where the construct spans more than a
+// point, and a kind-specific detail. EVERY FIELD IS `sealed` (the compiler's
+// D-313): read anywhere, written only here -- so outside this file a
+// `PatternError{ … }` literal is NITPICK-TYPE-079, and `pattern_error(…)` below
+// is the only way anything can build one. No site can forget an offset, because
+// there is no other way to build the value than to pass one
+// (`tests/rejection/pattern_error_literal.npk`).
+//
+// A VALUE, NOT AN `error:` IDENTITY. The library has one identity,
+// `ERegexPattern`, and it is `api`'s (S-8); `syntax` sits below `api` (`BUILD.md`
+// B-16), so the parser hands a `PatternError` back as a value and `api` turns it
+// into the identity (RX-175).
+//
+// THE FILE IS NOT `error.npk`, AND CANNOT BE. `error` is a keyword (the
+// `error:` declaration), a file's `mod:` name must equal its basename (B-13), and
+// `mod:error;` is refused NITPICK-RESOLVE-012 at 1:1 -- measured at `c970483`. So
+// the module is named for the value it builds.
+//
+// LAYERING (`BUILD.md` §6, rule B-16). `syntax` may import `unicode` and `core`;
+// this file imports `core` for one thing, its out-of-range stop `vec_oob`, so a
+// program importing it owes `core`'s eleven arms.
+mod:pattern_error;
+
+use "../core/core.npk".*;
+
+// `SYNTAX.md` §9, in its order. `tests/unit/pattern_error_unit.npk` holds this
+// list to that order with an exhaustive `pick`, so a kind added, dropped or
+// moved here is a red run, not a review comment.
+pub enum:PatternErrorKind = {
+    // structure
+    UnclosedGroup;
+    UnopenedGroup;
+    UnclosedClass;
+    EmptyClass;
+    NestTooDeep;
+    TrailingBackslash;
+    EmptyAlternate;
+
+    // quantifiers
+    NothingToRepeat;
+    DoubleRepeat;
+    BadRepeatBounds;
+    RepeatTooLarge;
+    RepeatProductTooLarge;
+
+    // classes
+    BadClassRange;
+    UnknownPosixClass;
+    UnknownUnicodeProperty;
+    ClassOpMismatch;
+    ClassTooLarge;
+
+    // escapes
+    UnknownEscape;
+    BadHexEscape;
+    BadUnicodeEscape;
+    InvalidCodepoint;
+
+    // groups and flags
+    DuplicateGroupName;
+    BadGroupName;
+    UnknownFlag;
+    TooManyCaptureGroups;
+    WrongNamedGroupSpelling;
+
+    // refusals (§8)
+    BackreferenceUnsupported;
+    LookaroundUnsupported;
+    AtomicGroupUnsupported;
+    RecursionUnsupported;
+    UnsupportedAnchor;
+    UnsupportedGroup;
+    UnsupportedQuoting;
+
+    // limits and encoding
+    PatternTooLong;
+    ProgramTooLarge;
+    InvalidPatternEncoding;
+    ByteModeNonAscii;
+};
+
+// `SAFETY.md` S-9, field for field. Thirty-two bytes, measured at `c970483`:
+// S-9 fixes the fields and their order, and the padding that order costs is
+// harmless because nothing stores a `PatternError` in a `Vec` -- a parse stops
+// at its first error.
+pub struct:PatternError = {
+    sealed PatternErrorKind:kind;    // SYNTAX.md §9's closed list
+    sealed int64:offset;             // byte offset into the pattern (Y-10)
+    sealed int64:span_len;           // 0 when the position is a point
+    sealed uint32:detail;            // kind-specific: the offending codepoint, the bound exceeded
+};
+
+// obligation: never fails requires offset >= 0i64 && span_len >= 0i64
+//
+// THE ONE CONSTRUCTOR (RX-172). A negative offset or length is a defect in the
+// code that built the error, never in the pattern, and it stops HERE, on `core`'s
+// one out-of-range stop (exit 94, `OutOfBounds`), rather than reaching a user as
+// a position that is not in their pattern. `tests/unit/pattern_error_offset_negative.npk`
+// and `pattern_error_span_negative.npk` are the two stops.
+pub func:pattern_error = PatternError(PatternErrorKind:kind, int64:offset, int64:span_len, uint32:detail) never fails {
+    if (offset < 0i64)   { drop vec_oob(offset); }
+    if (span_len < 0i64) { drop vec_oob(span_len); }
+    pass PatternError{ kind: kind, offset: offset, span_len: span_len, detail: detail };
+};

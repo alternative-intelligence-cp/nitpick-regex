@@ -1,0 +1,43 @@
+// expect-error: NITPICK-TYPE-079
+// expect-error-at: 22:22
+//
+// A `PatternError` IS BUILT BY `pattern_error` AND BY NOTHING ELSE. Cycle 0.1.0,
+// RX-172; `SYNTAX.md` Y-10, `SAFETY.md` S-9.
+//
+// WHAT IT PINS. Every field of `PatternError` is `sealed` (the compiler's D-313):
+// written only by `src/syntax/pattern_error.npk`. So this struct literal, outside
+// that file, is NITPICK-TYPE-079 -- once for each field it writes, all four at
+// the literal -- and the one way left to build an error is the constructor,
+// which takes an offset and refuses a negative one. The rule "every error
+// carries a byte offset" is the compiler's to hold, not a tree check's or a
+// reviewed grep's.
+//
+// A TEST OF THE SEAL, NOT OF THIS FILE: with the four `sealed`s deleted it
+// compiles (`meta/roadmap/0.1/0.1.0.md`, step 2's controls).
+mod:pattern_error_literal;
+
+use "../../src/syntax/syntax.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    PatternError:e = PatternError{ kind: PatternErrorKind.UnclosedGroup, offset: 0i64, span_len: 1i64, detail: 0u32 };
+    discard(e);
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

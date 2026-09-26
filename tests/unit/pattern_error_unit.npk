@@ -1,0 +1,98 @@
+// expect-exit: 0
+//
+// `PatternErrorKind` IS `SYNTAX.md` §9, ALL THIRTY-SEVEN, IN ITS ORDER -- AND
+// `pattern_error` BUILDS EACH ONE, THROUGH THE LAYER ENTRY. Cycle 0.1.0, RX-172.
+//
+// WHAT IT PINS. `ordinal` is an EXHAUSTIVE `pick` over the enum, no `(*)`, one
+// arm per kind in §9's order, each answering its place in that list. So the enum
+// cannot gain a kind (the `pick` then misses one: NITPICK-PICK-001), lose one (an
+// arm then names no variant, and the file is refused -- at `c970483` by the
+// emitter, NITPICK-EMIT-002, which the frontend should have caught), or reorder
+// two (tag k answers some other place: exit 20) without this file going red.
+// Every kind is then built by
+// `pattern_error` with an offset, a length and a detail of its own, and each
+// field read back (21, 22, 23): the constructor stores what it is given.
+//
+// The kind is made from its place, `k =>! PatternErrorKind` -- the language's
+// spelling for a tag-only enum's tag (the compiler's D-140), which it does not
+// range-check, so the loop's bound keeps `k` inside the list. Every name here
+// reaches the file through `src/syntax/syntax.npk`'s re-exports.
+mod:pattern_error_unit;
+
+use "../../src/syntax/syntax.npk".*;
+
+func:ordinal = int64(PatternErrorKind:k) never fails {
+    int64:n = -1i64;
+    pick (k) {
+        (PatternErrorKind.UnclosedGroup) { n = 0i64; },
+        (PatternErrorKind.UnopenedGroup) { n = 1i64; },
+        (PatternErrorKind.UnclosedClass) { n = 2i64; },
+        (PatternErrorKind.EmptyClass) { n = 3i64; },
+        (PatternErrorKind.NestTooDeep) { n = 4i64; },
+        (PatternErrorKind.TrailingBackslash) { n = 5i64; },
+        (PatternErrorKind.EmptyAlternate) { n = 6i64; },
+        (PatternErrorKind.NothingToRepeat) { n = 7i64; },
+        (PatternErrorKind.DoubleRepeat) { n = 8i64; },
+        (PatternErrorKind.BadRepeatBounds) { n = 9i64; },
+        (PatternErrorKind.RepeatTooLarge) { n = 10i64; },
+        (PatternErrorKind.RepeatProductTooLarge) { n = 11i64; },
+        (PatternErrorKind.BadClassRange) { n = 12i64; },
+        (PatternErrorKind.UnknownPosixClass) { n = 13i64; },
+        (PatternErrorKind.UnknownUnicodeProperty) { n = 14i64; },
+        (PatternErrorKind.ClassOpMismatch) { n = 15i64; },
+        (PatternErrorKind.ClassTooLarge) { n = 16i64; },
+        (PatternErrorKind.UnknownEscape) { n = 17i64; },
+        (PatternErrorKind.BadHexEscape) { n = 18i64; },
+        (PatternErrorKind.BadUnicodeEscape) { n = 19i64; },
+        (PatternErrorKind.InvalidCodepoint) { n = 20i64; },
+        (PatternErrorKind.DuplicateGroupName) { n = 21i64; },
+        (PatternErrorKind.BadGroupName) { n = 22i64; },
+        (PatternErrorKind.UnknownFlag) { n = 23i64; },
+        (PatternErrorKind.TooManyCaptureGroups) { n = 24i64; },
+        (PatternErrorKind.WrongNamedGroupSpelling) { n = 25i64; },
+        (PatternErrorKind.BackreferenceUnsupported) { n = 26i64; },
+        (PatternErrorKind.LookaroundUnsupported) { n = 27i64; },
+        (PatternErrorKind.AtomicGroupUnsupported) { n = 28i64; },
+        (PatternErrorKind.RecursionUnsupported) { n = 29i64; },
+        (PatternErrorKind.UnsupportedAnchor) { n = 30i64; },
+        (PatternErrorKind.UnsupportedGroup) { n = 31i64; },
+        (PatternErrorKind.UnsupportedQuoting) { n = 32i64; },
+        (PatternErrorKind.PatternTooLong) { n = 33i64; },
+        (PatternErrorKind.ProgramTooLarge) { n = 34i64; },
+        (PatternErrorKind.InvalidPatternEncoding) { n = 35i64; },
+        (PatternErrorKind.ByteModeNonAscii) { n = 36i64; }
+    }
+    pass n;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int64:k = 0i64;
+    while (k < 37i64) decreases 37i64 - k {
+        PatternErrorKind:kind = (k =>! int32) =>! PatternErrorKind;
+        PatternError:e = raw pattern_error(kind, k * 3i64, k + 1i64, (k =>! uint32) + 1000u32);
+        if ((raw ordinal(e.kind)) != k)             { exit 20i32; }
+        if (e.offset != k * 3i64)                   { exit 21i32; }
+        if (e.span_len != k + 1i64)                 { exit 22i32; }
+        if (e.detail != (k =>! uint32) + 1000u32)   { exit 23i32; }
+        k = k + 1i64;
+    }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};
