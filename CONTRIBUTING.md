@@ -50,9 +50,10 @@ never for concluding; nothing is committed on the strength of a filtered run.
 
 4. **A `Match` is byte offsets and an iterator cannot be returned.** Both fall
    out of borrows being second-class (D-004). Do not try to hand a caller a
-   slice; the caller slices its own haystack. The compiler currently *accepts*
-   the slice return (registry O-N9, its DEF-3, scheduled); that acceptance is a
-   defect being repaired and is not a licence — see RX-112.
+   slice; the caller slices its own haystack. The compiler *accepted* the
+   slice return until `94874ce` (registry O-N9, its DEF-3), and refuses it
+   `NITPICK-BORROW-001` since — measured at `c3bdae2`; the acceptance was never a
+   licence — see RX-112.
 
 5. **Indexing is NOT bounds-checked on the types this library indexes**
    (RX-111, RX-118). D-070's check attaches to a slice `T[]` and a fixed array

@@ -144,9 +144,9 @@ every run and requires the harness to catch it.
   The harness says so by name; a test that treated `!= 0` as a refusal would
   pass on a broken command line.
 - **`main` takes ONE parameter: `func:main = int32(cstring[]:_~argv)`.** The
-  compiler's D-089 §4 fixes it, and its 1.6.0 step 3c **will** refuse any other
-  `main` `NITPICK-TYPE-083` (its DEF-96) — per the compiler seat's advance notice;
-  no pin carries it yet — a code beside the one the fixture names, which B-7's
+  compiler's D-089 §4 fixes it, and its 1.6.0 step 3c refuses any other `main`
+  `NITPICK-TYPE-083` (its DEF-96) — landed on the compiler's `main` at `d156c4f`;
+  no pin of ours carries it yet — a code beside the one the fixture names, which B-7's
   equality would fail. The two `failsafe_*` fixtures declared
   `int32(int32:argc, cstring[]:argv)` until cycle 0.0.4c; `npkc` accepted it
   without a word through `c3bdae2`.

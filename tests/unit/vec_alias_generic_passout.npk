@@ -1,0 +1,62 @@
+// expect-exit: 0
+//
+// A GENERIC FUNCTION HANDS BACK ITS LENT `T` AS A SECOND OWNER -- AND AT
+// `T = Vec<int64>` THAT IS A SECOND HANDLE ON THE BLOCK. The fifth cycle-0.0
+// audit's N-25; the workbench registry's O-N22, the compiler's DEF-104.
+//
+// PINNED, NOT ENDORSED. `id<T>` takes its `T` by value -- a LOAN (the compiler's
+// D-065 and D-183) -- and passes it out. The same body written for `string`,
+// `func:idstr = string(string:x) { pass x; }`, is refused NITPICK-TYPE-047, "this
+// parameter was lent, not given". In a generic body the check is not asked: the
+// gate asks `type_drops`, which is false for an unsubstituted `T`, and a generic
+// body is checked once -- D-264 fixed the same gate for TYPE-046 (DEF-23), and
+// this is its TYPE-047 sibling. So `b` is a second owner of `a`'s block: after
+// `vec_free(@a)` the read through `b` is the `0xAA` free poison, exit 0 here
+// (21: the value survived; 22: something else came back). Measured at
+// `c3bdae2`, at -O0 and through `opt -O2`. It is not a COPY -- `Vec<int64>:b = a;`
+// is NITPICK-TYPE-046 since cycle 0.0.4d (RX-161) -- and it is not the loan
+// `vec_alias_param_free.npk` pins: nothing here writes through a parameter.
+//
+// WHEN THIS REDDENS. DEF-104 rides with the compiler's 1.6.0 step 3g (both of its
+// gates ask `type_owns_for_move`): at a pin that carries it, `pass x` in `id` is
+// refused NITPICK-TYPE-047, the code its `string` twin already gets, and this file
+// stops compiling. It then moves to `../rejection/` with
+// `// expect-error: NITPICK-TYPE-047` at the `pass`, and `SAFETY.md` S-23b's row
+// says from which pin. Nothing in `src/` has this shape: no generic of this
+// library takes a lent bare `T` -- `vec_push`, `vec_set`, `vec_insert` and
+// `drop_element` take `move T` (RX-167).
+mod:vec_alias_generic_passout;
+
+use "../../src/core/vec.npk".*;
+
+func:id<T> = T(T:x) never fails {
+    pass x;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    Vec<int64>:a = raw vec_init::<int64>(4i64);
+    drop vec_push(@a, 7i64);
+    Vec<int64>:b = raw id::<Vec<int64>>(a);
+    drop vec_free(@a);
+    int64:x = raw vec_get(b, 0i64);
+    if (x == 7i64) { exit 21i32; }
+    if ((x & 255i64) != 170i64) { exit 22i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

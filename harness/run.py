@@ -46,12 +46,19 @@ stub this replaced could assert almost nothing:
   * every unit a `pending-until:` marker took out of the denominator is on the
     reviewed list `harness/baseline/PENDING.txt`, gave exactly the exit its
     marker names on every leg and every run, and did not meet its expectation
-    (RX-154, RX-159); and every file of a program suite that declares `main` was
-    judged, whatever a sibling's text seems to import (RX-157) -- so neither a
-    marker line nor a comment in another file can move a red out of a green run.
+    (RX-154, RX-159); and every file of a program suite that THE COMPILER says
+    defines `main` was judged, whatever a sibling's text seems to import (RX-157,
+    RX-165), and every file judged through an importer instead is named in the
+    run. That closes the routes measured -- a marker line, and a `use` a sibling's
+    text only seems to hold -- and claims nothing wider: the skip's two defences
+    share no reader and each is tested alone (self-check cases 19 and 23).
     *(Until the fourth cycle-0.0 audit this bullet ended at the marker and said
     "one comment line cannot move a red out of a green run". It could, from a
-    sibling: a `use` inside a `/* */` took a unit out, `173/173` GREEN -- BL-7.)*
+    sibling: a `use` inside a `/* */` took a unit out, `173/173` GREEN -- BL-7.
+    It then said "neither a marker line nor a comment in another file can move a
+    red out of a green run", and the fifth audit's BL-9 did it with two lone
+    carriage returns, `209/209` GREEN, because both defences read through one
+    reader.)*
   * AND THE RUNNER WAS SHOWN ABLE TO FAIL FIRST (V-21, cycle 0.0.3): the
     self-check feeds it every live kind of wrong expectation `TESTING.md` V-20
     names and requires a red for each, before any suite runs.
@@ -336,6 +343,11 @@ def _suites(c, m, rep, only, say):
             rep.unit(t["name"], t.get("path", "?"), [str(e)])
             n = 1
         say(f"      {t['name']}  ({t['stage']}{kind})  {n} unit(s)")
+        if t.get("stage") != "parse":
+            sk = c.skipped.get(t["name"], [])
+            say(f"      {t['name']}: {len(sk)} file(s) judged only through an importer "
+                f"-- a sibling imports each, and npkc finds no `main` in it (RX-165)"
+                + (f": {', '.join(sk)}" if sk else ""))
         for suite, name, ok, msg in rep.rows:
             if suite != t["name"]:
                 continue

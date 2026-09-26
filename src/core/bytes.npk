@@ -66,6 +66,10 @@
 // PARAMETER, never a return value**, so the shape this file offers instead is
 // `bytes_get` for one byte and `bytes_extend` for bulk, and a caller that wants
 // to hand the bytes somewhere passes the `Bytes` itself.
+// *(Dated 2026-09-25, the fifth cycle-0.0 audit's triage: O-N9 is DISCHARGED --
+// since `94874ce` the escape is refused NITPICK-BORROW-001 (the compiler's DEF-3),
+// measured at `c3bdae2` with a view of a local refused and a view of a parameter
+// accepted. The house rule stays this file's: nothing here returns a view.)*
 //
 // **AND THIS FILE BROKE THAT RULE AT ITS LAST FUNCTION FOR A WHOLE SUBCYCLE.**
 // `bytes_take_string` returned `string_from_bytes(...)`, which is a view over

@@ -562,6 +562,14 @@ was a denylist of nine words, and the audit walked twelve shapes past it, six
 of them showing `vec_get`'s move-out. What it still cannot follow is an
 instantiation, so a generic over `Vec<T>` outside `vec.npk` fails rather than
 passes.)*
+*(Amended again 2026-09-25 by RX-166, the fifth cycle 0.0 audit's N-24: a member
+holding a `#` — a macro splice or an attribute — fails, because a `#ByteSet();`
+splice in a struct body was read as the POD struct `ByteSet` and an owning
+`string` field was cleared; the qualifiers `fixed`, `nodrop` and `move` are
+stripped and the type after them judged, so `fixed int32` clears and
+`fixed string` does not; and an enum's payload is read only from `Name(…)`, never
+from a discriminant `= (…)`. And since RX-165 it reads each file as the compiler
+does — bytes, `\n` the only line end — which is what a `// …<CR>/*` had defeated.)*
 
 The language accepts `Vec<string>`. `TYPE-046` asks for `move` when an owning
 place is copied, `pass` moves implicitly, and D-264 checks each generic body in
@@ -604,7 +612,7 @@ here needs them.
 
 ### 5.3b What a `Vec` copy is, and what a loan still reaches
 
-**Rule S-23b (RX-161, RX-162, cycle 0.0.4d) — `Vec` is move-only by
+**Rule S-23b (RX-161, RX-162, cycle 0.0.4d; RX-167) — `Vec` is move-only by
 construction; a by-value parameter is a loan, and no type refuses it.**
 `Vec<T>`'s last field is `hidden string[0]:move_only`: a fixed array of no
 strings, which occupies no bytes and holds nothing, and whose element type owns —
@@ -621,11 +629,21 @@ owner is move-only (TYPE-046). A struct holding a `Vec` owns by containment:
 | `f(v)`, where `f` takes `Vec<T>` by value | compiles WITHOUT `move`: the parameter is a LOAN (D-065, D-183), and `move` of it is `NITPICK-TYPE-047`. `vec_get` is one, and its signature is unchanged |
 | a callee freeing or growing through its loan's address, `vec_free(@v)`, `vec_push(@v, x)` | **compiles, and the caller's header names a released block** — `vec_alias_param_free`, `vec_alias_param_grow`, `sparseset_alias_param_free` |
 | a callee overwriting an owning field of a loan | **compiles, and drops the caller's value** — a double free with no `wild` block: `../../tests/probe/probe17_lent_field_drop.npk`, `bytes_alias_param_grow` |
+| a `for` binding over an array of containers freed through, `for (Vec<int64>:x in arr) { drop vec_free(@x); }` | **compiles — the binding is a loan like a parameter, and the element's block is freed through it**; the array's element still says `count == 1` and reads the free poison — `../../tests/unit/vec_alias_for_binding_free.npk` |
+| a generic function passing out its lent `T`, `func:id<T> = T(T:x) { pass x; }`, at `T = Vec<int64>` | **compiles, and the result is a second owner of the block** — `../../tests/unit/vec_alias_generic_passout.npk`; the same body written for one type is `NITPICK-TYPE-047` |
 
-The last two rows are a compiler defect — a loan is not held read-only — raised
-and not worked around (W-11). Until it is fixed, a function that changes a
-container takes it by pointer (`Vec<T>->`, `SparseSet->`, `Bytes->`), as every
-function in `src/core/` does, and a by-value container parameter is for reading.
+The last four rows are compiler defects, raised and not worked around (W-11).
+The first three are one — a loan is not held read-only: the workbench registry's
+O-N21, the compiler's DEF-102, refused `NITPICK-TYPE-085` from its 1.6.0 step 3g,
+which the pin `c3bdae2` does not carry. The fourth is `TYPE-047` not asked of a
+lent `T` inside a generic body: O-N22, the compiler's DEF-104, riding with the
+same step. Until they are fixed, a function that changes a container takes it by
+pointer (`Vec<T>->`, `SparseSet->`, `Bytes->`), as every function in `src/core/`
+does, a by-value container parameter is for reading, and no generic in `src/`
+takes a lent bare `T`. *(This said "the last two rows are a compiler defect"
+until the fifth cycle 0.0 audit's N-25 and N-26, which added the last two —
+RX-167. The re-pin to a compiler carrying 3g measures each row rather than
+assuming it.)*
 **The marker costs nothing measured:** `#size_of<Vec<int64>>()` is 24 as before;
 the generated drop frees nothing, so the block stays `wild`, freed by `vec_free`,
 and D-151 still traps one never freed (S-22 is unchanged); no consumer's bill

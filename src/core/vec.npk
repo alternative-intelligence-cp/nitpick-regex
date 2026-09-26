@@ -214,6 +214,19 @@
 // (RX-162); until it is fixed, a callee that must change a `Vec` takes
 // `Vec<T>->`, as every function below does.
 //
+// *(Dated 2026-09-25, the fifth cycle-0.0 audit's N-25 and N-26 -- RX-167. "A
+// `Vec` CANNOT BE COPIED" is true of a COPY, which is NITPICK-TYPE-046, and not of
+// every second handle. A GENERIC function that passes out its lent `T` --
+// `func:id<T> = T(T:x) { pass x; }` -- compiles at `T = Vec<int64>` and hands back
+// a second owner of the block, because TYPE-047 is not asked of a lent `T` in a
+// generic body (the workbench registry's O-N22, the compiler's DEF-104, riding
+// with its 1.6.0 step 3g; `tests/unit/vec_alias_generic_passout.npk`). And a `for`
+// binding over an array of `Vec`s is a loan like a parameter, through which a loop
+// frees each element's block (`tests/unit/vec_alias_for_binding_free.npk`). No
+// function below has either shape: no generic here takes a lent bare `T`, and
+// there is no `for`. Both are pinned, not endorsed, and the re-pin to a compiler
+// carrying 3g measures whether each is refused.)*
+//
 // ============================================================================
 // LIFETIME, AND WHAT `exit 0` PROVES ABOUT IT (P-20, S-22)
 // ============================================================================

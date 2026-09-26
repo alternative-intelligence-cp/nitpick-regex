@@ -50,6 +50,11 @@ Cycle 0.0.2 picks them up as the harness's first `program`-stage entries.
 > `harness/lexical.py`, which mirrors the lexer and not the grammar; the day this
 > probe stops being refused, both the probe and that module change. It blocks
 > nothing here — no `.npk` in this repository holds a block string.
+> *(Since the fifth audit's triage, 2026-09-25, the tie is not only this prose:
+> self-check case 18 holds a block string with `""` in its body and requires the
+> lexer's reading at `c3bdae2`, and `395308f`'s three-quote close, put into
+> `lexical.py` in a copy, fails it — N-28, RX-165. The re-pin that carries DEF-98
+> changes the probe, the module and the case together.)*
 >
 > **2026-09-25, at the re-pin to `c3bdae2` (cycle 0.0.4b, RX-152).** `prove`,
 > `requires` and `ensures` are all live, so the three files that recorded their

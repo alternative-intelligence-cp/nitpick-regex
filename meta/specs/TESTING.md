@@ -281,9 +281,26 @@ requires it to report every one as a failure. The list is `harness/selfcheck.py`
 16. a `PENDING.txt` line that no pending unit matches (RX-159);
 17. a `RESIDUE.txt` entry, in a list the fixture owns, that no scanned program
     references (RX-159);
-18. the harness's one reading of source, `harness/lexical.py`, fed every
-    lexical form the compiler has — it must read exactly the imports and the
-    code the compiler does (RX-157). Tested on the instrument, as case 10 is.
+18. the harness's one reading of source, `harness/lexical.py`, fed a file
+    holding one of each lexical form this repository has found to matter, read
+    back through `lexical.read` — it must read exactly the imports and the code
+    the compiler does at `c3bdae2` (RX-157, RX-165). Tested on the instrument, as
+    case 10 is. *(It said "every lexical form the compiler has" until the fifth
+    cycle 0.0 audit, which found two it lacked — a lone CR and an escaped path,
+    BL-9 — and a third it could not tell apart, the block string's two closes,
+    N-28. A list of forms is what was tested, not what exists.)*;
+19. a red unit hidden by two lone carriage returns — a sibling's
+    `// see<CR>use …` and `// note<CR>/*` above the unit's own `main` — which
+    must be judged and go red (RX-165, `BUILD.md` B-4d);
+20. a syscall behind a `/*` that follows a lone CR in a line comment — B-2 must
+    still reach `src/` and name the calling function (RX-165);
+21. a syscall behind an escaped import path — the same (RX-165);
+22. a pending unit whose exit changes from run to run, and one whose legs
+    disagree — each must be red, and a steady control PENDING (RX-159, the
+    fifth audit's N-27). On the instrument, with stand-in executables;
+23. the program suites' skip under a reader stubbed to invent every import and
+    see no code — the compiler's `main` must still keep every program in the
+    count (RX-165). On the instrument.
 
 *(Reconciled 2026-09-25 by the third cycle 0.0 audit's triage, RX-154. This list
 had eight bullets and `CASES` eleven entries, and they disagreed in BOTH
@@ -301,6 +318,16 @@ fail against a harness with its own check removed. Case 11 also requires its
 pending unit to be observed through `opt -O2` since RX-159 (N-19). **19 cases,
 15 live, 4 pending** on the day they were written; the runner prints the counts
 from `selfcheck.CASES`, and that line is the authority.)*
+
+*(Extended 2026-09-25 by the fifth cycle 0.0 audit's triage, RX-165: 19–23. Case
+15's two defences shared a reader, and BL-9 walked through both at once; 19 is
+that plant and 23 tests the second defence ALONE, since a case over the pair goes
+red while either holds and so cannot see one deleted. Each was seen to fail
+against a copy of the harness with its fix reverted — 18, 19, 20, 21 and 23 with
+all three of BL-9's fixes reverted together, 23 alone with only the second
+defence deleted or asked of the reader again, 19 only with both defences gone —
+and 22 against `range(exp.stress)` narrowed to one run. **24 cases, 20 live, 4
+pending** on the day they were written.)*
 
 **Rule V-21 — the self-check runs first in every full invocation.** A harness
 that has not proven it can fail has not proven anything.

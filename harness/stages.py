@@ -11,10 +11,11 @@ to `npkg` the day O-G3 closes is a change of runner and not a change of suite
     makes `tests/probe/` and `tests/probe/refused/` two declarable suites
     (RX-119);
   * a file another file in the same suite imports is not run standalone --
-    AND, HERE ONLY, A FILE THAT DECLARES `main` IS ALWAYS RUN (RX-157). `npkg`
-    has no such exception and needs none while its reader agrees with the
-    compiler; this runner's did not, and the fourth cycle-0.0 audit (BL-7) took
-    a red unit out of a GREEN run with a `use` inside a sibling's `/* */`.
+    AND, HERE ONLY, A FILE THE COMPILER SAYS DEFINES `main` IS ALWAYS RUN
+    (RX-157, RX-165). `npkg` has no such exception and needs none while its
+    reader is the compiler's own; this runner's is not, and two audits took a red
+    unit out of a GREEN run through it -- the fourth (BL-7) with a `use` inside a
+    sibling's `/* */`, the fifth (BL-9) with two lone carriage returns.
 
 RULE B-7 (D-237) IS IMPLEMENTED HERE AND IT IS LOAD-BEARING. The set of
 diagnostic codes a rejection test reports must EQUAL the set its expectations
@@ -60,41 +61,49 @@ def files_of(root, paths, recursive, suffix=".npk"):
     return out
 
 
-def imported_by_others(paths):
-    """The files of one suite that are NOT run standalone -- RX-157.
+def imported_by_others(c, paths):
+    """The files of one suite that are NOT run standalone -- RX-157, RX-165.
 
-    `npkg`'s rule: a file another file in the SAME SUITE imports is a helper, and
-    is judged through its importer rather than on its own. Two things make that
-    safe here, and until the fourth cycle-0.0 audit (BL-7) neither held:
+    `npkg`'s rule: a file another file in the SAME suite imports is a helper, and
+    is judged through its importer rather than on its own. TWO DEFENCES make that
+    safe here, and since RX-165 THEY SHARE NO READER -- a file is skipped only
+    when both say so:
 
-      * THE IMPORT IS READ THE WAY THE COMPILER READS IT -- `lexical.imports`,
-        the harness's one reading of source, which skips comments, strings and
-        templates and sees `pub use` as well as `use`. This reader used to take
-        any line that STARTED `use "`, so a `use` inside a sibling's `/* */`
-        block named a unit the compiler never imported: `173/173`, GREEN, exit 0,
-        over a unit giving 94 where it expected 77 -- one edit, in a file other
-        than the red one.
-      * A FILE THAT DECLARES `main` IS NEVER SKIPPED. It is a program, and a
-        program is judged. D-248 already refuses a REAL import of one
+      * THE IMPORT IS READ THE WAY THE COMPILER READS IT -- `lexical.read` and
+        `lexical.imports`, the harness's one reading of source: bytes, `\\n` the
+        only line end, comments, strings and templates skipped, `pub use` seen,
+        the path decoded. This reader used to take any line that STARTED
+        `use "`, so a `use` inside a sibling's `/* */` block named a unit the
+        compiler never imported (`173/173` GREEN, BL-7); and until RX-165 it read
+        a lone CR as a line end, so `// see<CR>use "x.npk".*;` named one too (BL-9).
+      * A FILE THE COMPILER SAYS DEFINES `main` IS NEVER SKIPPED. It is a program,
+        and a program is judged; D-248 refuses a REAL import of one
         (`NITPICK-RESOLVE-013`, measured at `c3bdae2`), so the exception costs
-        nothing legitimate -- and it holds whatever the next reader gets wrong,
-        which the first bullet cannot promise about itself.
+        nothing legitimate. THE ANSWER IS `npkc`'s, NOT A READER'S: the candidate
+        is compiled as a root and its IR asked for `@main` (`build.defines_main`).
+        A candidate `npkc` does not compile is judged too -- nothing could show it
+        is not a program. Until RX-165 this bullet asked `lexical.declares_main`,
+        THE SAME READER AS THE FIRST, and "it holds whatever the next reader gets
+        wrong" was false by construction: `// note<CR>/*` above a red unit's
+        `main` blanked it from both at once, and with the sibling's CR import the
+        red unit left the count -- `209/209`, GREEN, exit 0 (BL-9 (a)).
 
-    Either defence alone closes BL-7's route; both are kept, because the second
-    is what survives a defect in the first."""
+    Either defence alone keeps a program in the count, and the pair is measured
+    that way: each removed alone, the fifth audit's plant stays red; both removed,
+    it is green (`0.0.5.md` §12). Self-check case 19 is that plant."""
     used = set()
     for p in paths:
         for target in _uses(p):
             if os.path.normpath(target) != os.path.normpath(p):
                 used.add(os.path.normpath(target))
     return {os.path.normpath(p) for p in paths
-            if os.path.normpath(p) in used and not _declares_main(p)}
+            if os.path.normpath(p) in used and _compiler_sees_no_main(c, p)}
 
 
 def _read(path):
     try:
-        return open(path, encoding="utf-8", errors="replace").read()
-    except OSError:
+        return lexical.read(path)
+    except (OSError, ValueError):
         return ""
 
 
@@ -103,8 +112,17 @@ def _uses(path):
             for _, target, _ in lexical.imports(_read(path))]
 
 
-def _declares_main(path):
-    return lexical.declares_main(_read(path))
+def _compiler_sees_no_main(c, path):
+    """True only when `npkc`, compiling `path` as a ROOT, exits 0 and its IR
+    defines no `main` -- the second defence's whole question, asked of the
+    compiler and never of `lexical.py` (RX-165)."""
+    rel = os.path.relpath(path, c.root)
+    base = os.path.join(c.tmp, "mainchk_" + rel.replace("/", "_").replace(".", "_"))
+    r = build.emit(c, path, base + ".ll")
+    if r.timed_out or r.code != build.NPKC_OK or not os.path.exists(base + ".ll"):
+        return False
+    with open(base + ".ll", "rb") as fh:
+        return not build.defines_main(fh.read())
 
 
 def empty_suite(name, rel):
@@ -168,8 +186,11 @@ def run_binary(exe, args, stress, want, name, tail, mem_cap_mib=0):
 # AND THE MARKER WAS NOT THE ONLY ROUTE OUT, which RX-154 had said it was. The
 # fourth audit's BL-7 moved a red unit out through a `use` inside a SIBLING's
 # `/* */` -- no marker, no line here -- because the "imported by a sibling"
-# skip read that comment as an import. RX-157 closes the route twice (see
-# `imported_by_others`), and self-check case 15 is its red.
+# skip read that comment as an import; RX-157 closed that route with two
+# defences, and the fifth audit's BL-9 walked through both at once with two lone
+# carriage returns, because they shared a reader. RX-165 gives the second its
+# own -- the compiler's (see `imported_by_others`); self-check cases 15 and 19
+# are the two reds.
 PENDING_LIST = "harness/baseline/PENDING.txt"
 
 
@@ -501,9 +522,12 @@ def run_entry(c, entry, only, record):
         return 1
     # `parse` judges every file AS A ROOT, so the "imported by a sibling" skip
     # does not apply to it -- see `parse_sweep`. Everywhere else a file skipped
-    # here is a helper that a sibling REALLY imports and that declares no `main`
-    # (RX-157): never a program, and never on the strength of a comment.
-    skip = set() if stage == "parse" else imported_by_others(files)
+    # here is a helper that a sibling REALLY imports and that the COMPILER finds
+    # no `main` in (RX-157, RX-165): never a program, and never on the strength of
+    # a comment. The run SAYS which files it skipped, because a unit that left the
+    # count is otherwise visible only as a denominator one short.
+    skip = set() if stage == "parse" else imported_by_others(c, files)
+    c.skipped[name] = sorted(os.path.relpath(k, c.root) for k in skip)
     n = 0
     for p in files:
         if os.path.normpath(p) in skip:
@@ -511,7 +535,9 @@ def run_entry(c, entry, only, record):
         rel = os.path.relpath(p, c.root)
         if only and not any(o in rel for o in only):
             continue
-        exp = expect_mod.read(open(p, encoding="utf-8", errors="replace").read())
+        # The markers are read from the bytes the compiler reads (RX-165): a lone
+        # CR is not a line end for `npkg`'s `text_lines` either.
+        exp = expect_mod.read(_read(p))
         if stage == "program":
             fl = _program_like(c, p, rel, exp, with_opt_leg=True)
         elif stage == "compile" and kind == "positive":

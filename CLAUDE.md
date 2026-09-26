@@ -23,13 +23,15 @@ fourth triage; and since 0.0.4d five `Vec` and `SparseSet` copies refused
 `TYPE-046` and a write through `Bytes.buf` refused `TYPE-080`); `harness/` builds, sweeps,
 diffs and judges them, **and proves first that it can fail**; and since 0.0.4
 `src/core/` is real — `Vec<T>`, `Bytes`, `ByteSet`, `SparseSet` and `limits.npk`,
-with 51 unit programs of their own — eight of them measuring what each `Vec` verb does at an
-owning element type, which `SAFETY.md` S-23a keeps out of `src/`; four pinning what a LENT
-`Vec`, `SparseSet` or `Bytes` still reaches, a compiler defect (RX-162); and the swap and the
-moves a move-only `Vec` still allows (RX-161). **No matching happens yet**: `src/syntax/`,
+with 53 unit programs of their own — eight of them measuring what each `Vec` verb does at an
+owning element type, which `SAFETY.md` S-23a keeps out of `src/`; six pinning what still reaches
+a move-only `Vec`'s block without a copy — four through a LENT `Vec`, `SparseSet` or `Bytes`
+(RX-162), one through a `for` binding and one through a generic function passing out its lent
+`T` (RX-167), each a compiler defect raised; and the swap and the moves a move-only `Vec` still
+allows (RX-161). **No matching happens yet**: `src/syntax/`,
 `src/hir/`, `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are
 still one placeholder module each. A full green run at compiler `c3bdae2` is
-**210 units** (after cycle 0.0.4d; 194 after the cycle 0.0 close's fourth audit triage, 174 after the third), plus eight tree checks; take those numbers from the runner's
+**214 units** (after the cycle 0.0 close's fifth audit triage; 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus eight tree checks; take those numbers from the runner's
 summary rather than from here. **Nothing is PENDING any more**:
 `tests/unit/bytes_copy_string_empty.npk` was committed red under
 `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
@@ -116,7 +118,11 @@ Full statement in `meta/specs/SAFETY.md` §1. The ones that bite hardest:
   `string` makes it one — so a `Vec`, a `SparseSet` and any struct holding one are
   move-only: copy one and it is `TYPE-046`; transfer it with `move(...)`; lend it BY VALUE
   only to a function that reads it; hand it by POINTER to anything that changes it
-  (`SAFETY.md` S-23b; RX-161, RX-162).
+  (`SAFETY.md` S-23b; RX-161, RX-162). **Move-only is not "one handle"**: a callee can
+  still free through its loan's address, a `for` binding is a loan too, and a GENERIC
+  function passing out its lent `T` compiles and hands back a second owner — TYPE-047 is
+  not asked of a lent `T` in a generic body (the registry's O-N22, the compiler's DEF-104).
+  So no generic in `src/` takes a lent bare `T` (RX-167).
 - **There are no closures** (D-018), so replacement is a template and iteration
   is a struct with `next`.
 - **Integer overflow and division by zero trap. OUT-OF-RANGE INDEXING DOES NOT,
@@ -306,7 +312,11 @@ evidence.
   `bytes_capacity` (RX-163) — and a `Vec` copy is `TYPE-046` (RX-161). What stays open is
   a LOAN: a by-value parameter is lent, not copied, and a callee that writes through its
   address frees or grows its caller's block — a compiler defect, raised (RX-162;
-  `tests/unit/*_alias_param_*.npk`, `tests/probe/probe17_lent_field_drop.npk`).)*
+  `tests/unit/*_alias_param_*.npk`, `tests/probe/probe17_lent_field_drop.npk`) — the
+  registry's O-N21, the compiler's DEF-102, refused `NITPICK-TYPE-085` from its 1.6.0
+  step 3g, not in `c3bdae2`. A `for` binding is the same loan, and a generic identity is
+  a second owner (O-N22, DEF-104): RX-167, `tests/unit/vec_alias_for_binding_free.npk`
+  and `vec_alias_generic_passout.npk`.)*
 - **An exit status is one byte.** `exit 321` reports 65, silently. Compose
   weights that cannot sum past 255, or print the value and assert on stdout.
 - **`&{…}` interpolates only inside a backtick template.** `"&{k}"` in double
@@ -330,8 +340,11 @@ builds every declared suite with the pinned `npkc`, and every PROGRAM it also
 assembles, scans, links closed-world, runs and judges by exit code — every
 `program`-stage file twice, at −O0 and through `opt -O2`; the sweep, the refusals
 and the rejection fixtures are judged by `npkc` alone and neither link nor run.
-Every reading of source it makes goes through `harness/lexical.py`, which mirrors
-the compiler's lexer (RX-157). It reads `nitpick.toml` for every path and every
+Every reading of source it makes goes through `harness/lexical.py`, which opens each
+`.npk` file as BYTES — `\n` the only line end — and mirrors the compiler's lexer, a
+`use` path being the literal's decoded value (RX-157, RX-165); and the program suites'
+"imported by a sibling" skip asks `npkc` itself whether a file defines `main`, so its
+two defences share no reader. It reads `nitpick.toml` for every path and every
 flag and hardcodes none. **Since 0.0.3 it also sweeps every `.npk` in the tree with the `parse`
 stage, judges `tests/rejection/` at the `check` stage, runs the tree checks (the count is
 the one stated at the top of this file), and

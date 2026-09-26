@@ -43,9 +43,21 @@ a `use` inside a SIBLING's `/* */` took a red unit out of the count through the
 Cases 16 and 17 are the second directions of the two reviewed lists -- a
 `PENDING.txt` line no marker matches, a `RESIDUE.txt` entry no program
 references -- which nothing tested (N-20, RX-159). Case 18 feeds the harness's
-one reading of source every lexical form the compiler has, and requires the
-imports and the code the compiler would see (RX-157), because eight checks now
-stand on it.
+one reading of source a file holding one of each lexical form this repository
+has found to matter -- read back through `lexical.read`, as bytes -- and
+requires the imports and the code the compiler would see (RX-157, RX-165),
+because eight checks stand on it. *(It said "every lexical form the compiler
+has" until the fifth cycle-0.0 audit, which found two it lacked -- a lone CR and
+an escaped path, BL-9 -- and a third it could not tell apart -- the block
+string's two closes, N-28. A list of forms is what was tested, not what exists.)*
+
+THE FIFTH AUDIT (BL-9) WALKED THROUGH BOTH OF RX-157's DEFENCES AT ONCE, because
+they shared a reader: two lone carriage returns, `209/209` GREEN over a red unit.
+Case 19 is that plant and goes red while either defence holds (RX-165), so it
+cannot see one of them deleted; case 23 tests the second defence ALONE, under a
+reader stubbed to invent every import and see no code. Cases 20 and 21 are a
+lone CR and an escaped path hiding a syscall from B-2. Case 22 is RX-159's
+"every run" half, which no case exercised (N-27).
 
 WHY CASE 7 IS THE MOST IMPORTANT ONE IN THE LIST, though it cannot run for
 five more cycles: it is the case that proves RX-041 -- "every engine gives the
@@ -427,8 +439,14 @@ def _case17(d):
     return TOML % PROGRAM_ENTRY
 
 
-# CASE 18'S TEXT: one of every lexical form the compiler's lexer has at
-# `c3bdae2`, each hiding a `use` and a `/`, beside the ones that are real code.
+# CASE 18'S TEXT: one of each lexical form this repository has found to matter,
+# each hiding a `use` and a `/`, beside the ones that are real code -- written to a
+# FILE and read back through `lexical.read`, because two of BL-9's forms live in
+# how a file is READ (a lone CR, 17-19) rather than in how its text is scanned.
+# Lines 20-22 are escaped paths, whose value is the decoded one (BL-9 (b)); 23 is
+# a block string with a `""` in its body, which the lexer at `c3bdae2` closes
+# there and consumes three bytes (DEF-98) -- so what follows is CODE, and the
+# `use` in it is read; `LEXICAL_REFERENCE.md` §6.3's `"""` close reads none (N-28).
 _LEX_TEXT = (
     'mod:lexcase;\n'                                        # 1
     'use "./real_a.npk".*;\n'                               # 2  an import
@@ -446,27 +464,49 @@ _LEX_TEXT = (
     'string:t = `use "./template.npk" a / b &{ n / 2 }`;\n' # 14 one `/` is code
     'pub /* gap */ use /* gap */ "./gapped.npk".*;\n'       # 15 a re-export
     'int64:x = y.use;\n'                                    # 16 a field, not a keyword
+    '// see\ruse "./after_cr.npk".*; a / b\n'               # 17 a lone CR is not a line end
+    '// note\r/* a / b\n'                                   # 18 ...so this `/*` is comment text
+    'use "./after_cr_comment.npk".*;\n'                     # 19 an import
+    'use "..\\x2freal_c.npk".*;\n'                          # 20 an import, `../real_c.npk`
+    'use ".\\u{2F}real_d.npk".*;\n'                         # 21 an import, `./real_d.npk`
+    'use "./back\\\\slash.npk".*;\n'                         # 22 an import, one backslash
+    'string:bs = """a""b use "./in_block_pin.npk".*; """x""!;\n'  # 23 an import AT c3bdae2
 )
 _LEX_IMPORTS = [(2, "./real_a.npk", False), (3, "./real_b.npk", True),
                 (9, "./after_raw.npk", False), (13, "./after_char.npk", False),
-                (15, "./gapped.npk", True)]
+                (15, "./gapped.npk", True), (19, "./after_cr_comment.npk", False),
+                (20, "../real_c.npk", False), (21, "./real_d.npk", False),
+                (22, "./back\\slash.npk", False), (23, "./in_block_pin.npk", False)]
 
 
 def _run_case18(case):
     """Case 18, on the instrument itself -- as case 10 is. `lexical.py` is read
     by the program suites' skip, by B-2's reach and by every tree check, so a
     regression in it weakens all of them at once and reddens none: this is the
-    red it would otherwise not have."""
+    red it would otherwise not have. THROUGH A FILE since RX-165: the text is
+    written byte for byte and read back by `lexical.read`, because the fifth
+    audit's lone CR was lost in the READ, before any scanning began (BL-9 (a))."""
     import lexical
+    d = tempfile.mkdtemp(prefix="nregex-selfcheck-18-")
+    try:
+        path = os.path.join(d, "lexcase.npk")
+        with open(path, "wb") as fh:
+            fh.write(_LEX_TEXT.encode("latin-1"))
+        text = lexical.read(path)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
     wrong = []
-    got = lexical.imports(_LEX_TEXT)
+    if text != _LEX_TEXT:
+        wrong.append("the file read back is not the bytes written -- a line end or a "
+                     "byte was translated on the way in")
+    got = lexical.imports(text)
     if got != _LEX_IMPORTS:
         wrong.append(f"imports read {got!r}, and the compiler reads {_LEX_IMPORTS!r}")
-    code = lexical.blank(_LEX_TEXT)
+    code = lexical.blank(text)
     if len(code) != len(_LEX_TEXT) or code.count("\n") != _LEX_TEXT.count("\n"):
         wrong.append("blanking moved a byte or a line")
     lines = code.split("\n")
-    for ln in (4, 6, 8, 9, 11):
+    for ln in (4, 6, 8, 9, 11, 17, 18):
         if "/" in lines[ln - 1]:
             wrong.append(f"line {ln}: a `/` inside a comment or a literal survived")
     if lines[13].count("/") != 1:
@@ -475,19 +515,208 @@ def _run_case18(case):
     if "after_char" in lines[12] or "use" not in lines[12]:
         wrong.append("line 13: the `'\"'` literal hid the rest of the line, or was "
                      "not blanked")
-    if lexical.declares_main("// func:main = x\n/* func:main = y */"):
-        wrong.append("a `func:main` in a comment was read as a declaration")
-    if not lexical.declares_main("func:main = int32(cstring[]:_~argv) {"):
-        wrong.append("a real `func:main` was not seen")
+    if "use" not in lines[18]:
+        wrong.append("line 19: the `/*` inside line 18's comment was read as a block "
+                     "comment and hid the code after it")
     if wrong:
         return Outcome(case, False, "the harness's one reading of source disagrees "
                        "with the compiler's lexer: " + "; ".join(wrong))
-    return Outcome(case, True, f"read {len(got)} imports and blanked every comment "
-                               f"and literal form as the compiler's lexer does")
+    return Outcome(case, True, f"read {len(got)} imports through lexical.read and "
+                               f"blanked every comment and literal form as the "
+                               f"compiler's lexer does at c3bdae2")
 
 
 def _case18(d):
     return None                                   # handled by `_run_case18`
+
+
+def _case19(d):
+    """A RED UNIT HIDDEN BY TWO LONE CARRIAGE RETURNS -- the fifth audit's BL-9 (a).
+
+    The plant that walked through both of RX-157's defences at once, `209/209`
+    GREEN: the red unit (case 1's fault) carries `// note<CR>/*` above its `main`,
+    and a sibling carries `// see<CR>use "cr_red.npk".*;`. To the compiler both
+    are line comments -- each file compiles, links and runs. To a reader that
+    makes a CR a line end, the sibling imports the red unit and the red unit's
+    `main` sits inside an unterminated block comment, so the old skip judged it
+    a helper. RX-165 gives the two defences no reader in common: the bytes reader
+    sees no import, and the COMPILER sees the red unit's `main`. This case goes
+    red while EITHER holds, and was mutation-tested with each removed alone and
+    with both removed together (`0.0.5.md` §12)."""
+    _write(d, "tests/case/cr_red.npk",
+           "// expect-exit: 42\n"
+           "mod:cr_red;\n\n"
+           "// note\r/*\n"
+           "func:main = int32(cstring[]:_~argv) {\n"
+           "    exit 41i32;\n"
+           "};\n" + FAILSAFE)
+    _write(d, "tests/case/cr_sibling.npk",
+           "// expect-exit: 0\n"
+           "mod:cr_sibling;\n"
+           '// see\ruse "cr_red.npk".*;\n\n'
+           "func:main = int32(cstring[]:_~argv) {\n"
+           "    exit 0i32;\n"
+           "};\n" + FAILSAFE)
+    return TOML % PROGRAM_ENTRY
+
+
+def _syscaller(d, name, before_use, path):
+    """Case 8's fixture, renamed, with `before_use` written above its one `use`
+    and its path spelled `path` -- the two ways BL-9 hid B-2's reach."""
+    text = open(os.path.join(ROOT, "harness/selfcheck/syscall_consumer.npk"),
+                encoding="utf-8", newline="").read()
+    for old, new in (("mod:syscall_consumer;", f"mod:{name};"),
+                     ('use "../../src/lib.npk".*;', before_use + f'use "{path}".*;')):
+        if text.count(old) != 1:
+            raise RuntimeError(f"case fixture: `{old}` is not in syscall_consumer.npk "
+                               f"exactly once, so the substitution did not happen")
+        text = text.replace(old, new)
+    _lib(d)
+    _write(d, f"tests/case/{name}.npk", text)
+
+
+def _case20(d):
+    """A SYSCALL BEHIND `// note<CR>/*` -- BL-9 (a) on B-2's reach.
+
+    The real `use` of `src/` follows a line comment whose text holds a lone CR
+    and a `/*`. The compiler reads a comment and then the import; a reader that
+    makes the CR a line end sees an unterminated block comment swallow the
+    import, answers "does not reach src/", and neither scan runs -- so the
+    `sys(39i64)` in `main` passes. It must be named."""
+    _syscaller(d, "cr_syscall_consumer", "// note\r/*\n", "../../src/lib.npk")
+    return TOML % PROGRAM_ENTRY
+
+
+def _case21(d):
+    """A SYSCALL BEHIND AN ESCAPED IMPORT PATH -- BL-9 (b).
+
+    `"..\\x2f..\\x2fsrc/lib.npk"` is `"../../src/lib.npk"` to the compiler, which
+    takes a string literal's DECODED value as the path; a reader that follows
+    the literal's text finds no `src/` and neither scan runs. It must be named."""
+    _syscaller(d, "esc_syscall_consumer", "", "..\\x2f..\\x2fsrc/lib.npk")
+    return TOML % PROGRAM_ENTRY
+
+
+def _stand_in(d, name, codes):
+    """A stand-in executable exiting `codes[k % len(codes)]` on its k-th run -- a
+    counter file beside it -- so a 'program' whose answer changes from run to run
+    is DETERMINISTIC here, which no real program could promise."""
+    path = os.path.join(d, name)
+    arms = "".join(f"if [ $((n % {len(codes)})) -eq {k} ]; then exit {c}; fi\n"
+                   for k, c in enumerate(codes))
+    with open(path, "w", encoding="utf-8", newline="") as fh:
+        fh.write('#!/bin/sh\nn=$(cat "$0.n" 2>/dev/null || echo 0)\n'
+                 'echo $((n + 1)) > "$0.n"\n' + arms + "exit 1\n")
+    os.chmod(path, 0o755)
+    return path
+
+
+def _run_case22(case):
+    """Case 22, on the instrument -- `stages._pending` with stand-in executables,
+    as the fourth audit's triage measured N-19 by hand and no case repeated.
+
+    RX-159 holds a pending unit to its named exit on EVERY LEG and EVERY RUN. The
+    −O2 leg has had a case since then (11); "every run" and "the legs disagree"
+    had none, and `range(exp.stress)` narrowed to one run left the self-check
+    green (the fifth audit's N-27). Three calls, `stress: 3`, pending on 92:
+    92, 94, 92 on each leg must be red; 92 at −O0 and 94 through −O2 must be red;
+    and the control, 92 on every run of both, must be PENDING -- so the case
+    cannot pass by calling everything red."""
+    import stages
+    import expect as expect_mod
+    exp = expect_mod.read("// expect-exit: 0\n// pending-until: 0123abc exit 92\n"
+                          "// stress: 3\n")
+    d = tempfile.mkdtemp(prefix="nregex-selfcheck-22-")
+    wrong = []
+    try:
+        trials = (
+            ("flips.npk", [("at -O0", _stand_in(d, "flip_a", [92, 94])),
+                           ("through opt -O2", _stand_in(d, "flip_b", [92, 94]))], False,
+             "a unit giving 92, 94, 92 on each leg"),
+            ("legs.npk", [("at -O0", _stand_in(d, "leg_a", [92])),
+                          ("through opt -O2", _stand_in(d, "leg_b", [94]))], False,
+             "a unit giving 92 at -O0 and 94 through opt -O2"),
+            ("steady.npk", [("at -O0", _stand_in(d, "steady_a", [92])),
+                            ("through opt -O2", _stand_in(d, "steady_b", [92]))], True,
+             "the control, 92 on every run of both legs"),
+        )
+        said = []
+        for name, legs, pending, what in trials:
+            r = stages._pending(None, legs, name, exp)
+            is_pending = len(r) == 1 and isinstance(r[0], stages.Pending)
+            is_red = (len(r) == 1 and isinstance(r[0], str)
+                      and "PENDING ON A DIFFERENT FAILURE" in r[0])
+            if pending and not is_pending:
+                wrong.append(f"{what} was not PENDING: {r!r}")
+            elif not pending and not is_red:
+                shown = r[0].line() if is_pending else repr(r)
+                wrong.append(f"{what} was not red: {shown}")
+            else:
+                said.append(what + (" PENDING" if pending else " red"))
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+    if wrong:
+        return Outcome(case, False, "a pending unit is not held on every run and every "
+                       "leg: " + "; ".join(wrong))
+    return Outcome(case, True, "; ".join(said))
+
+
+def _case22(d):
+    return None                                   # handled by `_run_case22`
+
+
+def _run_case23(case):
+    """Case 23, on the instrument -- `stages.imported_by_others` with its READER
+    STUBBED OUT, so the second defence is tested ALONE (RX-165).
+
+    RX-157 said its second defence "holds whatever the reader gets wrong next",
+    and it shared the reader: the fifth audit's BL-9 walked through both at once.
+    A case that exercises the pair together cannot see that -- case 19 goes red
+    while either holds, so it stays green with defence 2 deleted. Here the reader
+    is replaced by the worst one possible: `_uses` says every file imports every
+    other, and `lexical.blank` blanks every byte, so no reader-based rule could
+    see a `main` anywhere. The compiler still must: of a red program, a clean
+    program and a helper with no `main`, only the helper may be skipped. With
+    defence 2 deleted all three are skipped; asked of the reader again, the same."""
+    import types
+    import build
+    import lexical
+    import stages
+    import toolchain
+    npkc, _ = toolchain.compiler(lambda s: None)
+    d = tempfile.mkdtemp(prefix="nregex-selfcheck-23-")
+    real_uses, real_blank = stages._uses, lexical.blank
+    try:
+        files = {"prog_red.npk": _program("prog_red", 41, 42),
+                 "prog_ok.npk": _program("prog_ok", 0, 0),
+                 "helper.npk": "mod:helper;\n\npub func:h = int64() never fails {\n"
+                               "    pass 7i64;\n};\n"}
+        paths = []
+        for name, text in files.items():
+            _write(d, name, text)
+            paths.append(os.path.join(d, name))
+        c = types.SimpleNamespace(root=d, tmp=d, npkc=npkc)
+        stages._uses = lambda path: [q for q in paths if q != path]
+        lexical.blank = lambda text, sp=None: "".join(
+            ch if ch == "\n" else " " for ch in text)
+        skip = stages.imported_by_others(c, paths)
+    finally:
+        stages._uses, lexical.blank = real_uses, real_blank
+        shutil.rmtree(d, ignore_errors=True)
+    want = {os.path.normpath(os.path.join(d, "helper.npk"))}
+    if skip != want:
+        shown = sorted(os.path.basename(k) for k in skip) or ["nothing"]
+        return Outcome(case, False, f"with a reader that invents every import and sees "
+                       f"no code, the skip took {', '.join(shown)} -- only helper.npk "
+                       f"may go: the compiler's `main` is the second defence's whole "
+                       f"question, and it must not need the reader")
+    return Outcome(case, True, "with a reader that invents every import and sees no "
+                               "code, the compiler kept both programs and let the "
+                               "helper go")
+
+
+def _case23(d):
+    return None                                   # handled by `_run_case23`
 
 
 def _case10(d):
@@ -594,10 +823,27 @@ CASES = [
          "the third triage scoped it out of every inner run (N-20)",
          _case17, ["`npk_selfcheck_case17` is permitted and NO SCANNED PROGRAM "
                    "REFERENCES IT"]),
-    Case(18, "the harness's one reading of source, fed every lexical form",
-         "RX-157: the program suites' skip, B-2's reach and every tree check stand "
-         "on it, so its regression would weaken all of them and redden none",
+    Case(18, "the harness's one reading of source, fed each form that has mattered",
+         "RX-157, RX-165: the program suites' skip, B-2's reach and every tree check "
+         "stand on it, so its regression would weaken all of them and redden none",
          _case18, ()),
+    Case(19, "a red unit hidden by two lone carriage returns",
+         "RX-165: the fifth audit's BL-9 (a), 209/209 GREEN through both of RX-157's "
+         "defences at once, because they shared a reader",
+         _case19, ["cr_red.npk", "exited 41, expected 42"]),
+    Case(20, "a syscall behind a `/*` that follows a lone CR in a line comment",
+         "RX-165: BL-9 (a) on B-2's reach -- the reader blanked the real import",
+         _case20, ["cr_syscall_consumer.npk", "`main` calls `npk_sys6`"]),
+    Case(21, "a syscall behind an escaped import path",
+         "RX-165: BL-9 (b) -- the reader followed the path's text, not its value",
+         _case21, ["esc_syscall_consumer.npk", "`main` calls `npk_sys6`"]),
+    Case(22, "a pending unit whose answer changes from run to run, or leg to leg",
+         "RX-159's every-run half, which no case exercised (the fifth audit's N-27)",
+         _case22, ()),
+    Case(23, "the skip's second defence alone, under a reader that invents every import",
+         "RX-165: a defence 'that holds whatever the reader gets wrong' is tested with "
+         "the reader wrong -- RX-157's shared it, and BL-9 passed both at once",
+         _case23, ()),
 ]
 
 
@@ -617,7 +863,9 @@ def _at(d, rel):
 
 
 def _write(d, rel, text):
-    with open(_at(d, rel), "w", encoding="utf-8") as fh:
+    # `newline=""`: what the case writes is what the file holds, byte for byte --
+    # cases 19 and 20 plant a lone CR, and a translating write would move it.
+    with open(_at(d, rel), "w", encoding="utf-8", newline="") as fh:
         fh.write(text)
 
 
@@ -689,6 +937,10 @@ def _run_case(case, keep):
         return _run_case10(case)
     if case.num == 18:
         return _run_case18(case)
+    if case.num == 22:
+        return _run_case22(case)
+    if case.num == 23:
+        return _run_case23(case)
     d = tempfile.mkdtemp(prefix=f"nregex-selfcheck-{case.num}-")
     try:
         toml = case.build_tree(d)

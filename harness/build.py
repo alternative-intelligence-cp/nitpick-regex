@@ -175,6 +175,9 @@ class Ctx:
         # per unit: did the B-2 scans apply to it? A check that silently did not
         # run is indistinguishable from one that passed, so the summary says.
         self.scanned = {}
+        # per suite: the files judged through an importer rather than on their
+        # own (`stages.imported_by_others`, RX-165) -- printed, for the same reason.
+        self.skipped = {}
 
 
 def emit(c, src, out_ll, cwd=None):
@@ -379,7 +382,16 @@ def reaches_src(root, path):
     RX-157. This walk used to take any line that STARTED `use "`: it followed a
     `use` inside a `/* */` block the compiler never imports, and missed a
     `pub use` the compiler does. The fourth cycle-0.0 audit (BL-7) found three
-    import readers in this harness disagreeing with each other; there is one."""
+    import readers in this harness disagreeing with each other; there is one.
+
+    AND EACH FILE IS OPENED THE WAY THE COMPILER OPENS IT -- `lexical.read`, as
+    bytes, since RX-165. The fifth audit (BL-9) hid this walk's answer twice: a
+    `// note<CR>/*` above a real `use` blanked it (text mode made the CR a line
+    end, so the `/*` opened a comment the compiler never saw), and a path spelled
+    `"..\\x2f..\\x2fsrc/core/zz_pid.npk"` was followed as its TEXT rather than its
+    decoded value -- either way "does not reach `src/`", so neither scan ran over a
+    `sys(39i64)` in `src/`, `213/213` GREEN. A path the compiler cannot open -- an
+    interior NUL is "not found" there (D-049) -- is not followed here either."""
     src = os.path.normpath(os.path.join(root, "src")) + os.sep
     # Absolute, always: a relative path can never start with the absolute `src`
     # prefix, so a relative argument would answer "no" for every program.
@@ -392,12 +404,27 @@ def reaches_src(root, path):
         if p.startswith(src):
             return True
         try:
-            text = open(p, encoding="utf-8", errors="replace").read()
-        except OSError:
+            text = lexical.read(p)
+        except (OSError, ValueError):
             continue
         for _, target, _ in lexical.imports(text):
             stack.append(os.path.abspath(os.path.join(os.path.dirname(p), target)))
     return False
+
+
+# --- "does this program define `main`?" -- the COMPILER's answer (RX-165) ----------
+
+# `npkc` emits a program's entry point as `define i32 @main(...)`, the one
+# unquoted global it writes; every function of the program's own is a quoted,
+# module-qualified `@"npk.<module>.<name>"`, and a module compiled as a root with
+# no `main` emits no `@main` at all -- measured at `c3bdae2` on
+# `tests/unit/vec_unit.npk` and `src/core/vec.npk`.
+_MAIN_DEFINE = re.compile(rb'^define\b[^\n]*[ \t]@(?:main|"main")\(', re.M)
+
+
+def defines_main(ir):
+    """Does this emitted IR define a program's `main`? `ir` is the `.ll`'s bytes."""
+    return _MAIN_DEFINE.search(ir) is not None
 
 
 # --- the baseline (RX-116) -----------------------------------------------------------

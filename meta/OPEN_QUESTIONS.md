@@ -165,7 +165,8 @@ registry's `O-N2`, where this repository is listed among the six that raised it.
 The registry still names our local id by its old number; correcting that is the
 author's, and it is in 0.0.1's report.
 
-### O-N9 — **the workbench registry's**: a `uint8[]` view escapes its owning frame, silently
+### ~~O-N9 — **the workbench registry's**: a `uint8[]` view escapes its owning frame, silently~~ — **DISCHARGED upstream: refused `NITPICK-BORROW-001` since `94874ce`** (the compiler's DEF-3 / D-249, 1.5.1b step 2)
+*Struck 2026-09-25 by the fifth cycle 0.0 audit's triage, citing the workbench registry (`../meta/OPEN_QUESTIONS.md` §"For the compiler"), which carries the strike with its evidence — re-measured by the workbench's registry audit (`wb-registry-sweep-1821`), each with a control at an older kept pin, and spot-checked by the orchestrator. Its evidence: `nitpick-time`'s `view_escape/` cases 3–5 are refused at `c3bdae2` (case 5 read the `0xAA` poison, 170, at `950bb1d`), case 6 — the legal view parameter — still runs 0, and seven further escape routes are refused. The text below is kept as raised. **What it means here now:** the house rule *"a view is a parameter, never a return value"* is still this library's (RX-050's offsets need no view at all), and the sites that call the escape "the one the compiler does not diagnose" are stale in the same way — listed, not rewritten, in `roadmap/0.0/0.0.5.md` §12.*
 **Not ours, not open to us, and already accepted.** D-004's escape rule is
 enforced for `@`-borrows and **not** for slice views: `string_bytes(local)`
 returns a view that outlives its owner and reading it afterwards reads freed
@@ -242,7 +243,8 @@ error channel and charges `SAFETY.md` §4's budget. That is a **cycle 0.2**
 decision with the cost on the table, not an automatic consequence of this
 discharge.
 
-### O-N11 — **the workbench registry's**: `npkc` exit 0 does not mean a program is well-formed
+### ~~O-N11 — **the workbench registry's**: `npkc` exit 0 does not mean a program is well-formed~~ — **DISCHARGED upstream: a root with `main` and no `failsafe` is refused `NITPICK-REACH-003` since `94874ce`** (the compiler's DEF-5, 1.5.1b step 1b)
+*Struck 2026-09-25 by the fifth cycle 0.0 audit's triage, citing the workbench registry (`../meta/OPEN_QUESTIONS.md` §"For the compiler"), which carries the strike with its evidence — re-measured by the workbench's registry audit (`wb-registry-sweep-1821`), each with a control at an older kept pin, and spot-checked by the orchestrator. Its evidence: `nitpick-time`'s `missing_failsafe/` cases 1 and 3 are refused at `c3bdae2` and case 2 runs 0. **The general sentence outlives the defect**: a module's object still links neither alone nor beside a program (`BUILD.md` B-0, RX-151), so "exit 0 is not well-formedness" stays true here for that reason, and the four-step recipe stands. The text below is kept as raised.*
 **Not ours.** A root file with `main` and no `failsafe` compiles at exit 0 and is
 refused only by `llc`, a long way from the cause. Accepted as the compiler's
 **DEF-5**.
@@ -253,7 +255,8 @@ a probe that was only compiled is a probe that has not been run. The transcript
 in `tests/probe/TRANSCRIPT.txt` carries every step's exit code for exactly this
 reason.
 
-### O-N12 — **PROVISIONAL, awaiting the author's number**: the compiler's references document two constructs that do not exist
+### ~~O-N12 — **PROVISIONAL, awaiting the author's number**: the compiler's references document two constructs that do not exist~~ — **DISCHARGED upstream: the documents were corrected, as recommended**, at the compiler's 1.5.1b step 2 (present in `94874ce`); the number is the registry's own
+*Struck 2026-09-25 by the fifth cycle 0.0 audit's triage, citing the workbench registry (`../meta/OPEN_QUESTIONS.md` §"For the compiler"), which carries the strike with its evidence — re-measured by the workbench's registry audit (`wb-registry-sweep-1821`), each with a control at an older kept pin, and spot-checked by the orchestrator. Its evidence: the `>>>` row is gone and `>>` is described by the operand's signedness (`TYPE_REFERENCE.md`), the "fast compiler intrinsics" sentence reads UNCLAIMED (`BUILTIN_REFERENCE.md`), and at `c3bdae2` `>>>` does not lex (`PARSE-002`) and `string_repeat` does not resolve (`RESOLVE-002`), as documented. The text below is kept as raised.*
 **Raised by cycle 0.0.0, 2026-09-03. The number is a proposal** — `O-N` ids
 belong to the workbench registry (`../meta/OPEN_QUESTIONS.md`) and O-N1…O-N11
 are taken, so this is the next free one pending confirmation.
@@ -286,7 +289,8 @@ unimplemented"*, because a reader who sees `>>` described as `ashr` and `>>>` as
 `lshr` will reach for the one that does not exist, which is exactly what
 happened here.
 
-### O-N13 — **PROVISIONAL, awaiting the author's number**: a `pub use` is silently downgraded to a plain `use` when the same path was plain-`use`d first
+### ~~O-N13 — **PROVISIONAL, awaiting the author's number**: a `pub use` is silently downgraded to a plain `use` when the same path was plain-`use`d first~~ — **DISCHARGED upstream: a `pub use` after a plain `use` re-exports since `94874ce`** (the compiler's DEF-7, 1.5.1b step 3c); the number is the registry's own
+*Struck 2026-09-25 by the fifth cycle 0.0 audit's triage, citing the workbench registry (`../meta/OPEN_QUESTIONS.md` §"For the compiler"), which carries the strike with its evidence — re-measured by the workbench's registry audit (`wb-registry-sweep-1821`), each with a control at an older kept pin, and spot-checked by the orchestrator. Its evidence: `symbols.npk` gives the earlier binding `SYM_PUB`, tested upstream in `tests/accept/reexport/`; the §E2 shape, rebuilt from the real umbrella, is refused `RESOLVE-002` at `950bb1d` and runs 0 at `94874ce` and `c3bdae2`, and the plain-`use` control stays refused. `TRANSCRIPT.txt` §E2/§E3 recorded files that were never committed, so cite `tests/accept/reexport/` as the evidence from here on. `check_layering`'s B-15a half (RX-113) stays: the umbrella is still all `pub use` by this library's rule. The text below is kept as raised.*
 **Raised by cycle 0.0.1, 2026-09-03, against pinned toolchain `950bb1d`.
 The number is a proposal** — `O-N` ids belong to the workbench registry and
 O-N1…O-N12 are taken, so this is the next free one pending confirmation.
@@ -383,7 +387,8 @@ names the missing thing, instead of failing in `llc`'s parser. The frontend
 check DEF-5 asks for is still the right diagnostic; this makes the fallback
 honest.
 
-### O-N15 — **PROVISIONAL, awaiting the author's number**: `npkg`'s expectation reader accepts an `expect-exit:` a run can never satisfy
+### ~~O-N15 — **PROVISIONAL, awaiting the author's number**: `npkg`'s expectation reader accepts an `expect-exit:` a run can never satisfy~~ — **DISCHARGED upstream: `npkg`'s `expect_read` refuses an `expect-exit:` outside 0..255 and −1..−64 by name since `94874ce`** (compiler `39e69cc`, 1.5.1b step 5); the number is the registry's own
+*Struck 2026-09-25 by the fifth cycle 0.0 audit's triage, citing the workbench registry (`../meta/OPEN_QUESTIONS.md` §"For the compiler"), which carries the strike with its evidence — re-measured by the workbench's registry audit (`wb-registry-sweep-1821`), each with a control at an older kept pin, and spot-checked by the orchestrator. Its evidence: `npkg/expect.npk` at `c3bdae2` (a source reading at the commit, not a build of `npkg`), whose self-check carries an `expect-exit: 321` that must fail; no bound existed at `950bb1d`. This harness's own refusal (RX-122) stays, and now agrees with `npkg`'s. The text below is kept as raised.*
 **Raised by cycle 0.0.2, 2026-09-04, against pinned toolchain `950bb1d`. The
 number is a proposal**, following O-N14. **The smallest thing on this list, and
 it is here because it is the same family as the ones that were not.**
@@ -422,7 +427,8 @@ value was a sum of comparison results. A measurement channel narrower than the
 thing measured, failing silently, is the shape worth naming even when today's
 instance is empty.
 
-### O-N16 — **PROVISIONAL, awaiting the author's number**: DEF-8's landing note says the workbench does not write the shape the workbench writes
+### ~~O-N16 — **PROVISIONAL, awaiting the author's number**: DEF-8's landing note says the workbench does not write the shape the workbench writes~~ — **DISCHARGED upstream: DEF-8's closing note was corrected the day it was catalogued** (compiler `8dbef43`, 2026-09-04; in every pin from `0dfddac`); the number is the registry's own
+*Struck 2026-09-25 by the fifth cycle 0.0 audit's triage, citing the workbench registry (`../meta/OPEN_QUESTIONS.md` §"For the compiler"), which carries the strike with its evidence — re-measured by the workbench's registry audit (`wb-registry-sweep-1821`), each with a control at an older kept pin, and spot-checked by the orchestrator. Its evidence: the note now says the workbench does write the shape and is untouched because its containers fall outside `decl_is_list`. The entry's own text said so, and it was never struck here. The text below is kept as raised.*
 
 *Catalogued, not raised* (the compiler session is near its usage limit and its
 fix batch is closing). **This is a defect in a NOTE, not in the compiler**, and
@@ -464,6 +470,8 @@ implied and nothing here is blocked.
 ---
 
 ### O-N17 — **PROVISIONAL, awaiting the author's number**: the borrow tracker taints a function's return by SIGNATURE, so a function that takes a container by borrow cannot return an owned `string`
+
+*⚠ 2026-09-25, found by the fifth cycle 0.0 audit's triage: **THIS NUMBER COLLIDES, and the finding has no registry number at all.** The workbench registry's `O-N17` is `nitpick-time`'s *"a generic function that moves OUT of an indexed element at an owning `T` calls a `@npk.vacant.<n>` helper the emitter never defines"* — assigned there by the orchestrator on 2026-09-05 and discharged since `aaffb87` — and nothing in the registry records this entry's finding. It is the same collision the registry's own note describes for a worker's `O-N12`, from the other side: this id was proposed here and never confirmed. A worker does not assign an `O-N` id (`../PLAYBOOK.md`), so it is raised by path for the orchestrator to number or to close, and it is kept under this heading so that the four citations in `roadmap/0.0/0.0.5.md` §8, a closed record, still resolve. Whether it still holds at `c3bdae2` is unmeasured here.*
 
 **Raised by cycle 0.0.5's audit triage, 2026-09-06, measured at `3d15ac9`.**
 This is the exact inverse of **O-N9** and the two belong together: O-N9 is a
@@ -511,8 +519,11 @@ false reject is an inconvenience.
 ### O-N21 — **the workbench registry's**: a callee writing through a LENT parameter frees or grows its caller's value
 
 **Filed in the workbench registry (`../meta/OPEN_QUESTIONS.md` §"For the
-compiler") on 2026-09-25 and sent to the compiler seat at 19:55; no DEF number
-has come back.** Found by this repository's planning of `Vec` move-only by
+compiler") on 2026-09-25 and sent to the compiler seat at 19:55; confirmed as the
+compiler's DEF-102 — refused `NITPICK-TYPE-085` from its 1.6.0 step 3g, which no pin
+of ours carries (`c3bdae2` does not).** *(This said "no DEF number has come back"
+until the fifth cycle 0.0 audit's N-29; the number had reached the board the same
+evening.)* Found by this repository's planning of `Vec` move-only by
 construction, at compiler `c3bdae2`, and reproduced by the orchestrator before
 it was sent. The registry's entry is the authority; this one restates it so that
 a citation from this tree resolves without leaving it.
@@ -535,10 +546,42 @@ refuses a COPY of a `Vec`; a loan is not a copy, and no type in this library can
 refuse it. Four units pin what a loan still reaches — `vec_alias_param_free`,
 `vec_alias_param_grow`, `sparseset_alias_param_free` and `bytes_alias_param_grow`,
 each PINNED, NOT ENDORSED, each saying what its reddening means — and nothing is
-worked around. **What it blocks (W-27):** nothing in `src/`, where every function
+worked around. *(A fifth unit since the fifth cycle 0.0 audit's N-26: a `for`
+binding over an array of containers is the same loan, `vec_alias_for_binding_free`
+— RX-167. By 3g's source it should be refused `TYPE-085` too; the re-pin measures
+it.)* **What it blocks (W-27):** nothing in `src/`, where every function
 that changes a container takes it by pointer; any consumer that writes through a
 container it was lent, the parser at cycle 0.1 first; and whether cycle 0.0's
 close waits for the fix is the author's, the board's question 10.
+
+### O-N22 — **the workbench registry's**: `NITPICK-TYPE-047` is not asked of a lent `T` inside a generic body, so a generic function hands back its lent parameter as a second owner
+
+**Raised by this repository's fifth cycle 0.0 audit (N-25), 2026-09-25, at compiler
+`c3bdae2`; reproduced by the orchestrator, filed in the workbench registry
+(`../meta/OPEN_QUESTIONS.md` §"For the compiler") and sent to the compiler seat,
+which confirmed it as its DEF-104, riding with its 1.6.0 step 3g.** The registry's
+entry is the authority; this one restates it so a citation from this tree
+resolves without leaving it.
+
+`func:id<T> = T(T:x) never fails { pass x; };` compiles, and at an owning `T` the
+result is a second owner of the argument: at `string`, both are dropped — **95**, a
+double free — and a read of the result after the argument's drop is **70**, the free
+poison; the same body written for `string` alone is refused `NITPICK-TYPE-047`,
+*"this parameter was lent, not given"*. The mechanism, read at `c3bdae2`: the check
+gates on `type_drops`, false for an unsubstituted `T`, and a generic body is
+checked once — D-264 fixed the same gate for `TYPE-046` (DEF-23); this is its
+`TYPE-047` sibling. **At a pin carrying 3g** both gates ask `type_owns_for_move`:
+the pass-out refuses `TYPE-047` at the `pass`, as its `string` twin does, and `@x`
+of a lent `T` refuses `TYPE-085`. `c3bdae2` carries neither.
+
+*What it means here:* at `T = Vec<int64>` a generic identity is a second handle on
+the block — after `vec_free(@a)` the read through the result is the free poison —
+so a move-only `Vec` (RX-161) is not a one-handle `Vec`. Pinned, not endorsed, by
+`../tests/unit/vec_alias_generic_passout.npk`, whose header says what its reddening
+means, and given `SAFETY.md` S-23b's last row (RX-167). **What it blocks (W-27):**
+nothing in `src/`, where no generic takes a lent bare `T` — `vec_push`, `vec_set`,
+`vec_insert` and `drop_element` take `move T`; and it is not a clause of cycle
+0.0's gate.
 
 
 ## O-G — the compiler's, raised from here

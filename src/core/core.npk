@@ -63,8 +63,9 @@ pub use "./vec.npk".vec_clear;
 // A `buffer` is not bounds-checked either: there is no route to a slice, so
 // every byte is `buf.ptr[i]` through a bare `uint8->`. No `.ptr[` outside
 // `bytes.npk`. There is deliberately no `bytes_view` — a slice may travel DOWN
-// the call stack and not up, and returning one is the escape the compiler does
-// not diagnose (O-N9).
+// the call stack and not up, and returning one is the escape the compiler did
+// not diagnose (O-N9) -- until `94874ce`, where it became NITPICK-BORROW-001
+// (DEF-3; measured at `c3bdae2` by the fifth cycle-0.0 audit's triage).
 //
 // **AND THAT PARAGRAPH USED TO SIT FOURTEEN LINES ABOVE A RE-EXPORT THAT BROKE
 // IT.** `bytes_take_string` returned `string_from_bytes(...)` — a view over the

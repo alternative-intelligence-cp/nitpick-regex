@@ -34,6 +34,14 @@ fourth cycle-0.0 audit this file had its own blanker, which knew `//` and `"`
 and nothing else -- so a `'"'` character literal hid the rest of its line from
 three checks (N-18's M12) -- and its own import pattern, one of three in the
 harness that disagreed.
+
+AND EVERY `.npk` FILE HERE IS OPENED BY `lexical.read`, AS BYTES -- RX-165. Each
+check opened its files in Python's text mode, which made a lone carriage return a
+line end: after `// note<CR>/*` the reader saw a block comment the compiler never
+saw, and blanked the rest of the file from every check. The fifth cycle-0.0
+audit (BL-9) hid an owning `string` field of a `src/` `Vec` element that way --
+`check_vec_elements_own_nothing` cleared it and the run was `210/210` GREEN --
+and an escaped import path hid a `core` -> `engine` edge from `check_layering`.
 """
 import os
 import re
@@ -108,9 +116,10 @@ def npk_files(root, under):
 
 
 def _read(path):
+    """A `.npk` file as the compiler reads it -- `lexical.read`, RX-165."""
     try:
-        return open(path, encoding="utf-8", errors="replace").read()
-    except OSError:
+        return lexical.read(path)
+    except (OSError, ValueError):
         return ""
 
 
@@ -215,7 +224,7 @@ def _check_umbrella(root, lib):
     fl = []
     plain, pub = {}, {}
     try:
-        text = open(lib, encoding="utf-8", errors="replace").read()
+        text = lexical.read(lib)
     except OSError as e:
         return [f"src/lib.npk: {e}"]
     for ln, target, is_pub in lexical.imports(text):
@@ -253,7 +262,7 @@ def check_error_budget(root):
     for p in files:
         rel = os.path.relpath(p, root)
         try:
-            text = open(p, encoding="utf-8", errors="replace").read()
+            text = lexical.read(p)
         except OSError:
             continue
         for ln, line in enumerate(lexical.blank(text).split("\n"), 1):
@@ -318,7 +327,7 @@ def check_constants_named(root):
     for p in files:
         rel = os.path.relpath(p, root)
         try:
-            text = open(p, encoding="utf-8", errors="replace").read()
+            text = lexical.read(p)
         except OSError:
             continue
         for ln, code in enumerate(lexical.blank(text).split("\n"), 1):
@@ -343,8 +352,14 @@ def check_constants_named(root):
                      f"only the negative half (no bound anywhere else), and it is "
                      f"running so that the day the file appears the check already did.")
     else:
-        text = open(lim, encoding="utf-8", errors="replace").read()
-        missing = [n for n in LIMIT_NAMES if n not in text]
+        # FROM CODE, AS A WHOLE WORD (the fifth cycle-0.0 audit's triage): this
+        # searched the raw text for each name, so a name surviving only in a
+        # comment -- or as the head of a longer one -- counted as declared.
+        # Measured on a copy whose ninth bound was renamed and mentioned in a
+        # comment: "9/9 ... declared" before, 8/9 and a failure after.
+        text = lexical.blank(lexical.read(lim))
+        missing = [n for n in LIMIT_NAMES
+                   if not re.search(r"(?<![A-Za-z0-9_])" + n + r"(?![A-Za-z0-9_])", text)]
         if missing:
             fl.append(f"{LIMITS_FILE} does not declare {', '.join(missing)}. "
                       f"SAFETY.md §5's table is the authority and it has nine rows "
@@ -404,7 +419,7 @@ def check_no_division(root):
     for p in files:
         rel = os.path.relpath(p, root)
         try:
-            text = open(p, encoding="utf-8", errors="replace").read()
+            text = lexical.read(p)
         except OSError:
             continue
         for ln, line in enumerate(_blank_prose(text).split("\n"), 1):
@@ -471,7 +486,7 @@ def check_accessor_confinement(root):
     for path in files:
         rel = os.path.relpath(path, root).replace(os.sep, "/")
         try:
-            text = open(path, encoding="utf-8", errors="replace").read()
+            text = lexical.read(path)
         except OSError:
             continue
         code = _blank_prose(text)
@@ -533,11 +548,18 @@ def check_accessor_confinement(root):
 # `LEXICAL_REFERENCE.md` §4's `BuiltinType`, less every kind `type_drops_recorded`
 # (`src/frontend/types.npk`) says owns, less every kind that holds or views a block
 # (a pointer, a slice) or is not a plain value (`any`, `dyn`, `func`, `Handle`,
-# `Channel`, `Future`, `atomic`, `simd`, `complex`, `Optional`, `Result`, `range`,
-# `array`, `cstring`, `NIL`). What is left IS ITS BITS -- the integers, the
-# balanced-ternary, fixed-point and floating families, `bool`, the characters, and
-# the kernel ids and flag families that function's own comment lists as plain
-# integers. Widening it is a decision, never an edit to make a red run green.
+# `Channel`, `Future`, `atomic`, `Optional`, `Result`, `range`, `array`, `cstring`,
+# `NIL`). What is left IS ITS BITS -- the integers, the balanced-ternary,
+# fixed-point and floating families, `bool`, the characters, and the kernel ids and
+# flag families that function's own comment lists as plain integers. Widening it is
+# a decision, never an edit to make a red run green.
+#
+# `simd` AND `complex` ARE LEFT OUT ON PURPOSE, AND NOT BECAUSE THEY OWN: the same
+# function says a `simd` value is "lanes of plain scalars" and a complex "two plain
+# components", nothing to drop. They are not cleared because no element under
+# `src/` is one, and clearing a kind is the widening a decision makes -- the
+# conservatism is this check's, and the reason it gave until the fifth cycle-0.0
+# audit ("not a plain value") was not the compiler's (N-24).
 _POD_SCALARS = frozenset(
     [f"int{w}" for w in (8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096)]
     + [f"uint{w}" for w in (8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096)]
@@ -547,10 +569,15 @@ _POD_SCALARS = frozenset(
     + [f"flt{w}" for w in (32, 64, 128, 256, 512)]
     + ["bool", "char8", "char16", "char32", "trit", "tryte", "nit", "nyte",
        "fd", "pid", "tid", "uid", "gid", "oflags", "prot", "mflags", "fmode"])
-# A field's qualifiers are not types: `sealed`, `hidden`, and `limit<Rules>`
-# (D-313, D-314, D-308). The memory qualifiers ARE judged -- `wild`, `wildx` and
-# `stack` qualify a pointer, and a pointer is a block.
-_FIELD_QUALS = re.compile(r"\b(?:sealed|hidden)\b|\blimit\s*<[^<>]*>")
+# A field's qualifiers are not types: `sealed`, `hidden`, `fixed`, `nodrop` and
+# `move` -- the parser's `p_qualifier_bit` at `c3bdae2` -- and `limit<Rules>`
+# (D-313, D-314, D-308). Each is stripped and the TYPE after it is judged, so
+# `fixed string` still fails on `string`. Until the fifth cycle-0.0 audit (N-24)
+# only the first two and `limit` were stripped, and `fixed int32:lo` was refused as
+# "holds `fixed`" -- a name this check could not resolve. The memory qualifiers
+# ARE judged -- `wild`, `wildx` and `stack` qualify a pointer, and a pointer is a
+# block.
+_FIELD_QUALS = re.compile(r"\b(?:sealed|hidden|fixed|nodrop|move)\b|\blimit\s*<[^<>]*>")
 _BLOCK_QUALS = frozenset(["wild", "wildx", "stack", "defer"])
 _IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _TYPE_DECL = re.compile(
@@ -601,23 +628,58 @@ def _params_of(code):
     return names
 
 
+_VARIANT = re.compile(r"\s*[A-Za-z_]\w*\s*")
+
+
 def _members(kind, body):
     """The type texts a declaration's values are made of: a struct's field types,
     an enum's payload types. An enum variant with no payload is a tag, and owns
-    nothing."""
+    nothing.
+
+    A PAYLOAD IS `Name(...)` AND NOTHING ELSE (N-24). This read every parenthesis
+    in an enum body as one, so `Lit = (1i32);` -- a discriminant -- was judged as a
+    payload holding `i32`, and a POD enum was refused. What follows `=` is a value,
+    not a type, and is not read. A member that holds a `#` -- a macro splice, or an
+    attribute -- is returned WHOLE, and `_deny_reason` refuses it."""
     out = []
     if kind == "struct":
         for field in body.split(";"):
-            if field.strip():
-                out.append(field.rpartition(":")[0] if ":" in field else field)
+            if not field.strip():
+                continue
+            if "#" in field:
+                out.append(field)
+                continue
+            out.append(field.rpartition(":")[0] if ":" in field else field)
     else:
-        for m in re.finditer(r"\(([^()]*)\)", body):
-            out += [t for t in m.group(1).split(",") if t.strip()]
+        for variant in body.split(";"):
+            if not variant.strip():
+                continue
+            if "#" in variant:
+                out.append(variant)
+                continue
+            m = _VARIANT.match(variant)
+            rest = variant[m.end():] if m else variant
+            if not rest.startswith("("):
+                continue                      # a tag, or a tag `= value`
+            depth, j = 0, 0
+            for j, ch in enumerate(rest):
+                depth += (ch == "(") - (ch == ")")
+                if depth == 0:
+                    break
+            out += [t for t in rest[1:j].split(",") if t.strip()]
     return out
 
 
 def _deny_reason(text, decls, params, seen):
     """Why a type text is NOT cleared, or None when every name in it is."""
+    if "#" in text:
+        # A MACRO SPLICE (`#Fields();` in a struct body -- live at `c3bdae2`,
+        # `p_parse_record`) is a member whose type this check cannot see until
+        # the macro is expanded, and it does not expand macros. The fifth audit's
+        # N-24 cleared an owning `string` field that way: `#ByteSet()` was read as
+        # the POD struct `ByteSet`. Refused, with an attribute beside it.
+        return (f"`{text.strip()}`, a macro splice or an attribute -- a member whose "
+                f"expansion a lexical check cannot see, so it clears none")
     t = _FIELD_QUALS.sub(" ", text)
     if "->" in t:
         return "a pointer (`->`), which holds a block"

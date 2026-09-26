@@ -193,6 +193,10 @@ reads exactly like one that passed.
 reads it — `harness/lexical.py`, the harness's one reading of source. The walk
 took any line beginning `use "` for an import, so it followed a `use` inside a
 `/* */` block and missed a `pub use`.)*
+*(And by RX-165, the fifth cycle 0.0 audit's BL-9: each file is opened as bytes
+and a path is the literal's decoded value. A `// note<CR>/*` above a real `use`,
+and a path spelled with `\x2f`, each answered "does not reach `src/`" — so
+neither scan ran over a `sys(39i64)` in `src/`, `213/213` GREEN.)*
 
 **Rule B-3.** The optimised leg runs on every program, every time: the same
 program re-emitted through `opt -O2` + `llc -O2` must produce the **same exit
@@ -286,25 +290,44 @@ whole point: `npkc` exit 0 does not mean a program is well-formed (registry
 O-N11), and B-0 is a fresh instance of exactly that — eight files that compile
 at exit 0 and are refused by the next tool in the chain.
 
-**Rule B-4d (RX-157) — a program suite judges every program, and the harness
-reads source the way the compiler does.** `npkg`'s rule stands: a file another
-file in the SAME suite imports is a helper, judged through its importer rather
-than on its own. Two things make it safe here:
+**Rule B-4d (RX-157, RX-165) — a program suite judges every program, and the
+harness reads source the way the compiler does.** `npkg`'s rule stands: a file
+another file in the SAME suite imports is a helper, judged through its importer
+rather than on its own. Two defences make it safe here, and **they share no
+reader** — a file is skipped only when both say so:
 
-- **the import is the compiler's.** Every reading of `.npk` text in the harness
-  — this skip, B-2b's reach, and every tree check — goes through
-  `harness/lexical.py`, which mirrors the compiler's lexer at `c3bdae2`:
-  comments (`/* */` does not nest), plain, raw and block strings, character
-  literals and template text are not code, a template's `&{…}` is, and a `use`
-  is the keyword followed by a plain string literal, `pub` or not;
-- **a file that declares `main` is never skipped.** It is a program, and D-248
-  already refuses a real import of one (`NITPICK-RESOLVE-013`), so the exception
-  costs nothing legitimate and holds whatever the reader gets wrong next.
+- **the import is the compiler's.** Every `.npk` file the harness reads — this
+  skip, B-2b's reach, the expectation markers and every tree check — is opened
+  by `lexical.read`, as **bytes**, so `\n` is the only line end and a carriage
+  return is whitespace, as in the compiler's lexer; and it is read through
+  `harness/lexical.py`, which mirrors that lexer at `c3bdae2`: comments (`/* */`
+  does not nest), plain, raw and block strings, character literals and template
+  text are not code, a template's `&{…}` is, and a `use` is the keyword followed
+  by a plain string literal, `pub` or not, **whose path is the literal's decoded
+  value** by the compiler's escape rules;
+- **a file the COMPILER says defines `main` is never skipped.** It is a program,
+  and D-248 already refuses a real import of one (`NITPICK-RESOLVE-013`), so the
+  exception costs nothing legitimate. The candidate is compiled by `npkc` as a
+  root and its IR asked for `@main`; one `npkc` does not compile is judged too.
+  **The answer is not the reader's**, so a reader defect that invents an import
+  cannot take a program out of the count. Self-check case 23 holds it to that
+  with the reader stubbed to invent every import and see no code.
 
-The fourth cycle 0.0 audit (BL-7) measured the gap this closes: a `use` inside a
+The run prints, per program suite, which files it judged through an importer.
+
+The fourth cycle 0.0 audit (BL-7) measured the first gap: a `use` inside a
 sibling's `/* */` took a red unit out of a GREEN run, `173/173`, exit 0 — while
 the compiler read the same line as a comment. Self-check case 15 is that shape,
-and case 18 feeds the reader every lexical form (`TESTING.md` V-20).
+and case 18 feeds the reader each lexical form that has mattered (`TESTING.md`
+V-20). *(Amended 2026-09-25 by RX-165, the fifth audit's BL-9. The first bullet
+said the reading was the compiler's, and every caller opened files in Python's
+text mode, which makes a lone CR a line end; and the path was the literal's
+text, not its value. The second bullet read "a file that declares `main`",
+asked of the SAME reader, and said the exception "holds whatever the reader gets
+wrong next" — so `// see<CR>use …` in a sibling and `// note<CR>/*` above the red
+unit's `main` defeated both at once: `209/209`, GREEN, exit 0. Case 19 is that
+plant; cases 20 and 21 are the CR and the escaped path hiding a syscall from
+B-2. Measured: either defence removed alone, the plant stays red; both, GREEN.)*
 
 **Rule B-5 — expectations live in the test file**, in the compiler's marker
 grammar, marker for marker:
@@ -371,6 +394,12 @@ O-G3) has a row for it rather than a surprise.**
   assertion can produce, rather than a shared trap code. *(Until the fourth
   cycle 0.0 audit (N-19) a pending unit was observed once, at −O0 only: no
   optimised build, no optimised B-2 scan, no `stress`.)*
+  *(The every-run and the every-leg halves had no self-check case until the
+  fifth cycle 0.0 audit's N-27 — with `range(exp.stress)` narrowed to one run,
+  the self-check stayed green. Case 22 now holds a pending unit whose exit
+  changes from run to run, and one whose legs disagree, to a red, beside a
+  control that must stay PENDING — on the instrument, with stand-in executables,
+  because no real program can promise a changing answer.)*
 
   **Every pending unit is a line in `harness/baseline/PENDING.txt`** —
   `path<TAB>commit<TAB>exit<TAB>reason` — **checked both ways**: a marker the
@@ -380,6 +409,11 @@ O-G3) has a row for it rather than a surprise.**
   *(The marker is not the only route out of the count, which RX-154 said the
   language had closed: B-4d is the other, and RX-157 closes it twice. Both
   directions of this list have a self-check case since RX-159 — 11 and 16.)*
+  *(2026-09-25, RX-165: "closes it twice" was false by construction — both of
+  RX-157's defences read source through one reader, and the fifth audit's BL-9
+  opened the route through both with two lone carriage returns, two edits in two
+  files and neither of them a reviewed line. Since RX-165 the second defence is
+  the compiler's own answer; B-4d says what each covers.)*
 
   **The marker retires itself, and that is the point of it.** If a pending unit
   starts **meeting** its expectation, the run goes **RED** and names the action —

@@ -21,7 +21,7 @@ reporting it.
 | `run.py` | the driver: build steps, then the suites in manifest order, then the summary |
 | `manifest.py` | `nitpick.toml`, in the compiler's own subset, with the compiler's schema |
 | `toolchain.py` | `llc`, `opt`, `ld.lld` asked their versions and held to the pinned LLVM 20.1.2 |
-| `lexical.py` | **the harness's one reading of `.npk` source** (RX-157): comments, strings, character literals and template text blanked, imports read the way the compiler's parser reads them. The program suites' skip, B-2's reach and every tree check stand on it; self-check case 18 tests it |
+| `lexical.py` | **the harness's one reading of `.npk` source** (RX-157, RX-165): every `.npk` file opened by `lexical.read`, as BYTES — `\n` the only line end, as in the compiler's lexer — comments, strings, character literals and template text blanked, imports read the way the compiler's parser reads them, each path the literal's decoded value. The program suites' skip, B-2's reach, the expectation markers and every tree check stand on it; self-check case 18 tests it through a file |
 | `expect.py` | the `// expect-…` grammar, marker for marker with `npkg/expect.npk`, **plus two markers of this runner's own** — `mem-cap-mib:` and `pending-until: <commit> exit <N>` (`BUILD.md` B-5b, RX-146 as amended by RX-154), each declared there so the parity stage has a row rather than a surprise |
 | `elf.py` | an ELF64 symbol table, read with `struct` — no fourth tool |
 | `irscan.py` | the emitted IR's call edges to the floor |
@@ -55,11 +55,16 @@ reporting it.
 - every unit a `pending-until:` marker took out of the denominator is a line in
   `baseline/PENDING.txt`, gave exactly the exit its marker names on every leg
   and every run, and did not meet its expectation (RX-154, RX-159); and every
-  file of a program suite that declares `main` was judged, whatever a sibling's
-  text seems to import (RX-157) — so neither a marker line nor a comment in
-  another file can move a red out of a green run *(the bullet stopped at the
-  marker until the fourth audit's BL-7 moved a red out through a sibling's
-  `/* */`)*;
+  file of a program suite that **the compiler** says defines `main` was judged,
+  whatever a sibling's text seems to import (RX-157, RX-165), and the run names
+  every file it judged through an importer instead. That closes the two routes
+  two audits measured — a marker line, and a `use` a sibling's text only seems
+  to hold (BL-7's `/* */`, BL-9's lone CR) — and nothing wider is claimed: the
+  skip has two defences that share no reader, each tested alone (self-check
+  cases 19 and 23) *(the bullet stopped at the marker until the fourth audit's
+  BL-7; it then said "neither a marker line nor a comment in another file can
+  move a red out of a green run", and the fifth audit's BL-9 moved one out with
+  two carriage returns, because both defences read through one reader)*;
 - and — the one that makes the rest mean anything — **the runner was shown able
   to fail before any of it ran** (V-21).
 
@@ -68,11 +73,11 @@ reporting it.
 `selfcheck.py` builds a throwaway tree per case, runs the **real** runner over
 it with the **real** pinned `npkc`, and requires a **failure**. Some cases are
 **PENDING** on stages that do not exist yet and print as pending rather than as
-passing, because `15 live, 4 pending` and `19 passing` are different claims and
+passing, because `20 live, 4 pending` and `24 passing` are different claims and
 only one is true — and the counts here are the day they were written
-(2026-09-25, the fourth cycle 0.0 audit's triage, which added cases 15–18): the
-runner prints them from `selfcheck.CASES` on every run, and that line is the
-authority.
+(2026-09-25, the fifth cycle 0.0 audit's triage, which added cases 19–23 to the
+fourth's 15–18): the runner prints them from `selfcheck.CASES` on every run, and
+that line is the authority.
 
 A case requires more than a non-zero exit: it requires the runner to **say the
 thing**, naming the case's own file. A non-zero exit alone would also be
@@ -84,6 +89,13 @@ B-7's equality half reddens cases 3 and 3a and nothing else; disabling the IR
 call-edge scan reddens case 8 and **not** case 9, which is RX-120's own finding
 reproduced from the other side; comparing exit codes by truthiness instead of by
 value reddens case 1. `../meta/roadmap/0.0/0.0.3.md` §4 has the transcripts.
+**And at every triage since**: the fifth (`0.0.5.md` §12) reverted each of its
+fixes in a copy and read which cases went red — the reader back in text mode
+reddens 18 and 20; the escape decoding removed, 18 and 21; `395308f`'s
+block-string close, 18; the skip's second defence deleted, or asked of the reader
+again, 23 alone; both defences removed, 18, 19, 20 and 23 — 19 is the case that
+needs both gone; `range(exp.stress)` narrowed to one run, 22; the first leg only,
+11 and 22; and all three of BL-9's fixes reverted together, 18, 19, 20, 21 and 23.
 
 ## What it does not assert yet
 

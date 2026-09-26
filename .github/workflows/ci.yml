@@ -31,9 +31,9 @@
 # EIGHT tree checks run on every invocation — seven that can fail the run and
 # `check_specs_current`, which reports. AND SINCE 0.0.3 IT IS ALSO EVIDENCE
 # THAT THE RUNNER CAN FAIL: the self-check runs FIRST and feeds it every live
-# kind of wrong expectation, requiring a red for each -- 15 live and 4 PENDING
-# on stages that do not exist until 0.3, 0.5 and 0.8, 19 cases in V-20's list at
-# the cycle 0.0 close's fourth triage, and the run prints the counts itself, so
+# kind of wrong expectation, requiring a red for each -- 20 live and 4 PENDING
+# on stages that do not exist until 0.3, 0.5 and 0.8, 24 cases in V-20's list at
+# the cycle 0.0 close's fifth triage (15 and 19 at the fourth), and the run prints the counts itself, so
 # the green says how much of the list it covers. It is still NOT evidence about this library's BEHAVIOUR: `src/core/`
 # is real and carries its own suites, but nothing matches yet.
 #

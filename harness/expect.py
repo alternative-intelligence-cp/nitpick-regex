@@ -113,6 +113,13 @@ there.
 
 import re
 
+# `npkg`'s `text_is_ws`, exactly: space, tab, LF, CR, FF, VT (`npkg/text.npk` at
+# `c3bdae2`). Python's own `strip()` also removes 0x1C-0x1F, 0x85 and 0xA0, which
+# `npkg` keeps -- and since RX-165 the text here is BYTES, one character each
+# (`lexical.read`), so a line is split at `\n` alone, as `text_lines` splits it,
+# and a lone CR inside a line is not a line end.
+_WS = " \t\n\r\x0c\x0b"
+
 EXIT_MAX = 255
 SIGNAL_MIN = -64
 # A commit's SHAPE, never its existence (RX-154): see the fourth marker above.
@@ -143,12 +150,17 @@ def _after_colon(body):
     i = body.find(":")
     if i < 0:
         return ""
-    return body[i + 1:].strip()
+    return body[i + 1:].strip(_WS)
+
+
+def _split_ws(s):
+    """`npkg`'s `text_split_ws`: words separated by `text_is_ws` runs."""
+    return [w for w in re.split("[" + re.escape(_WS) + "]+", s) if w]
 
 
 def _int(s):
     """`npkg`'s `text_int`: optional sign, then digits only, at most 18 of them."""
-    t = s.strip()
+    t = s.strip(_WS)
     if not t:
         return None
     i = 0
@@ -174,7 +186,7 @@ def _at(loc):
     l = _int(ln)
     if l is None:
         return None
-    if not cl.strip():
+    if not cl.strip(_WS):
         return (l, -1)
     c = _int(cl)
     if c is None:
@@ -185,10 +197,10 @@ def _at(loc):
 def read(text):
     e = Expect()
     for n, raw in enumerate(text.split("\n"), 1):
-        s = raw.strip()
+        s = raw.strip(_WS)
         if not s.startswith("//"):
             continue
-        body = s[2:].strip()
+        body = s[2:].strip(_WS)
 
         if body.startswith("expect-error-at:"):
             a = _at(_after_colon(body))
@@ -244,7 +256,7 @@ def read(text):
             e.mem_cap_mib = v
             continue
         if body.startswith("pending-until:"):
-            toks = _after_colon(body).split()
+            toks = _split_ws(_after_colon(body))
             if (len(toks) != 3 or toks[1] != "exit"
                     or not _COMMIT.match(toks[0]) or _int(toks[2]) is None):
                 return _bad(e, n, "a `pending-until:` that is not `pending-until: "
@@ -263,7 +275,7 @@ def read(text):
             continue
 
         if body.startswith("argv:"):
-            e.argv = _after_colon(body).split()
+            e.argv = _split_ws(_after_colon(body))
             continue
         if body.startswith("expect-no-parse-error"):
             e.no_parse_error = True

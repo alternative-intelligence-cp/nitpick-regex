@@ -3331,6 +3331,9 @@ here, at `c3bdae2`, and every audit measurement it rests on was reproduced
 before anything was changed.*
 
 ### RX-157 — the harness reads Nitpick source ONE way, the compiler's, and a file that declares `main` is never skipped
+> **SUPERSEDED IN PART by RX-165 (2026-09-25)** — its claim that the reading was the compiler's (every caller
+> opened files in text mode, a lone CR ending a line, and a path was its literal's text), and its second part's
+> "holds whatever the reader gets wrong next", which asked the same reader. The one reader and its lexer mirror stand.
 
 **2026-09-25, the fourth cycle 0.0 audit's BL-7.** It supersedes RX-154 in part
 — its sentence that the one other route by which a `program`-stage unit could
@@ -3417,6 +3420,9 @@ compiler** — `npkc` has no mode that prints a module graph (its usage line at
 keeps the compiler's tree out of this harness.
 
 ### RX-158 — `check_vec_elements_own_nothing` is DEFAULT-DENY: it clears only what it can see owns nothing
+> **SUPERSEDED IN PART by RX-166 (2026-09-25)** — three details of its mechanism: a macro splice was cleared as
+> the POD type it was named after, `fixed`, `nodrop` and `move` were not stripped as qualifiers, and every
+> parenthesis in an enum body was read as a payload. Default-deny, its scalars and its twelve shapes stand.
 
 **2026-09-25, the fourth cycle 0.0 audit's N-18.** It supersedes RX-155 in part
 — its check's mechanism (a denylist of nine words matched in the element's
@@ -3649,6 +3655,9 @@ copy in `src/`** — a house rule where the compiler can refuse, blind to every
 consumer; **accept and document** — the author declined it on question 9.
 
 ### RX-162 — a by-value parameter is a LOAN, not a copy: `vec_get` keeps its signature, and what a loan still reaches is a compiler defect, pinned and raised, not worked around
+> **SUPERSEDED IN PART by RX-167 (2026-09-25)** — its count of what pins the loan, "the four loan units and
+> probe 17": a `for` binding is a fifth loan unit, and a generic pass-out is a sixth second handle, O-N22. Its
+> decision on `vec_get` and on loans stands.
 
 **2026-09-25, cycle 0.0.4d (the plan's PD-9).** It supersedes
 RX-160 in part — its placing of `vec_alias_param_free` among the shapes that
@@ -3749,3 +3758,184 @@ identity, so RX-130 would need a successor; **B, every obligation a comment unti
 0.8, `assert_static` included** — nothing checks a comment; **C, everything live,
 `prove` included** — a plain build lowers `prove` to nothing, the silent no-op P-1
 was written against.
+
+---
+
+## The cycle 0.0 close, re-attempted a fifth time — the fifth audit's triage (cycle 0.0.5)
+
+*Appended 2026-09-25 by stream 1, working `meta/roadmap/0.0/0.0.5.md` §12 against
+[`audits/nitpick-regex-0.0-2026-09-25-fifth.md`](audits/nitpick-regex-0.0-2026-09-25-fifth.md),
+at pinned toolchain `c3bdae2` under LLVM 20.1.2. Every audit measurement these rest
+on was reproduced here before anything changed, and every number below was taken
+at `c3bdae2`, at −O0 and through `opt -O2` where a program ran.*
+
+### RX-165 — the harness opens every `.npk` as the compiler does, decodes an import path by the compiler's escape rules, and the skip's second defence is the compiler's own answer
+
+**2026-09-25, the fifth cycle 0.0 audit's BL-9, with N-28 and N-29's lexical
+lines.** It supersedes RX-157 in part — its claim that `lexical.py` was the
+compiler's reading of source, and its second part's claim that a file declaring
+`main` "holds whatever the reader gets wrong next". RX-157's one-reader rule, its
+lexer mirror and self-check cases 15 and 18 stand.
+
+**Reproduced here before anything changed**, over clones of `40074b6` with the
+committed harness: `// note<CR>use "does_not_exist.npk".*;` compiles and runs 3 at
+both levels while the committed reader reads an import of it (its LF twin is
+refused `NITPICK-RESOLVE-005`); `// note<CR>/*` above a `main` compiles and runs 4
+while the committed reader finds no `main`; the audit's count plant judged 50
+units where the baseline judges 51 and printed `209/209`, GREEN, exit 0; a
+syscalling `src/core/zz_pid.npk` reached through `"..\x2f..\x2fsrc/core/zz_pid.npk"`
+gave `213/213` GREEN with B-2 on 52 units, against `212/213` and 53 through the
+plain path; the CR-hidden owning `Frame` was cleared (six element types, `210/210`
+GREEN; its LF twin is refused `NITPICK-TYPE-026`); and an escaped `core` →
+`engine` import passed `check_layering`, which fails the plain one.
+
+**Why.** Every caller opened a `.npk` in Python's text mode (`newline=None`),
+which makes a lone carriage return a line end before `lexical.py` sees the text;
+the compiler ends a `//` comment at byte 10 only and treats byte 13 as whitespace
+(`lexer_skip_trivia`, `is_space`). And `imports()` returned a path's text, while
+`p_parse_import` takes the string literal's decoded value. RX-157's two defences
+fell together because the second — "a file that declares `main` is never
+skipped" — was `lexical.declares_main` over the same read: m15a–c had measured
+their independence against a reader that read too many imports, and a reader that
+blanks too much defeats both at once.
+
+**The decision — the audit's remedies (1) to (4).**
+
+1. **Bytes.** `lexical.read` opens a `.npk` as bytes, one character per byte:
+   every offset is the compiler's, `\n` is the only line end, and whitespace is
+   the lexer's `is_space`. It is the one way the harness opens a `.npk` — the
+   skip, B-2's reach, every tree check, and the expectation markers, whose reader
+   now splits at `\n` alone and trims as `npkg`'s `text_lines` and `text_is_ws`
+   do (a fourth text-mode reader, which the audit did not name).
+2. **A path is decoded, not refused.** `imports()` returns the literal's value by
+   `escapes.npk`'s rules — nine escapes, each a code point written as UTF-8, an
+   invalid one skipped at its backslash as the compiler does while refusing the
+   file — as a filesystem path. An interior NUL is "not found" to the compiler
+   (D-049), and to the harness.
+3. **The second defence is the compiler's.** A file of a program suite is skipped
+   only when the reader finds a sibling importing it AND `npkc`, compiling it as a
+   root, exits 0 with no `@main` in its IR (`build.defines_main`, measured on a
+   unit and on a module). A candidate `npkc` does not compile is judged. The run
+   prints, per program suite, which files it judged through an importer —
+   measured: with both defences removed, the plant's run is GREEN and that line
+   names the red unit. `lexical.declares_main` is gone.
+4. **Self-check cases 19 to 23, and case 18 through a file** (`TESTING.md` V-20):
+   19 is the count plant; 20 and 21 are a lone CR and an escaped path hiding a
+   syscall from B-2; 23 tests the second defence ALONE, with the reader stubbed to
+   invent every import and see no code, because 19 goes red while either defence
+   holds and so cannot see one deleted. Case 18 is written to a file and read back
+   through `lexical.read`, and holds three CR lines, three escaped paths and a
+   block string with `""` in its body, read the way the lexer at `c3bdae2` reads it
+   — closed at the first `""`, three bytes consumed (DEF-98; N-28). Case 22,
+   RX-159's every-run half, is N-27's and needs no decision of its own.
+
+**Measured.** The count plant over copies of this harness: as committed here,
+red — `exited 94, expected 77`, 51 units judged, in a full run with the
+self-check first; with the reader put back in text mode, red; with the second
+defence deleted, red; with both, `209/209`, GREEN, 50 judged. The escaped-path
+plant: `212/213`, B-2 on 53, naming `npk.zz_pid.zz_pid` and `npk_sys6`; the CR
+`Frame`: `check_vec_elements_own_nothing` fails it by name; the escaped layering
+plant: `check_layering` names the `core` → `engine` edge. The self-check over
+copies with each fix reverted (`roadmap/0.0/0.0.5.md` §12 has the table): the
+committed reader, undecoded paths and the reader-based `main` together fail 18,
+19, 20, 21 and 23. On the real tree nothing moved: every denominator is the
+baseline's, 0 files skipped in either program suite, and the tree holds no byte
+13 and no `\` in a `use` path.
+
+**What it still does not mirror**, stated in `lexical.py` and each confined to a
+file the compiler refuses — which the `parse` sweep, judging every `.npk` as a
+root, turns red whatever the reader makes of it: a NUL byte, an interpolation
+nested past eight, `_?`-family operators at a template part's start, `e+r"` after
+a float, an invalid escape or UTF-8 sequence, and a path beginning neither `./`,
+`../` nor `/`, which the compiler resolves against the empty dependency roots
+(`NITPICK-RESOLVE-005`, measured) and the harness joins to the importer's
+directory.
+
+*Alternatives declined:* **refusing a `\` in an import path** (the audit's other
+remedy for (b)) — every consumer would need a failure path of its own, the
+reader would disagree with the compiler by design, and the escaped plant would go
+red for the refusal rather than at the check it hid from; the decoding is the
+compiler's own nine-escape table. **Taking "declares `main`" from the parse
+sweep's IR** — the sweep runs after the program suites in manifest order, and a
+suite's skip is decided before it runs; compiling the few candidates is the same
+answer, sooner. **The object's symbol table** — an `llc` per candidate for the
+answer the IR already gives. **Counting judged plus skipped against the files
+declaring `main`** — the fourth triage's reason stands, a count that cannot
+differ checks nothing; the printed skip line shows the set instead.
+
+### RX-166 — the S-23a check refuses a macro splice, strips every field qualifier the parser has, and reads an enum payload only from `Name(…)`
+
+**2026-09-25, the fifth cycle 0.0 audit's N-24.** It supersedes RX-158 in part —
+three details of its mechanism: a member that is a macro splice was resolved as
+the type it was named after, only `sealed`, `hidden` and `limit<…>` were stripped
+as qualifiers, and every parenthesis in an enum body was read as a payload. Its
+default-deny rule, its scalars and its twelve shapes stand.
+
+**Reproduced first**, the committed check over copies of `src/`: a
+`#ByteSet();` splice holding a `string` was cleared (0 failures; the same macro
+named `name_fields` fails, 2), `struct:Span = { fixed int32:lo; int32:hi; }` was
+refused as "holds `fixed`", and `enum:Kind = { Lit = (1i32); Dot = (2i32); }` as
+"holds `i32`". The language facts, through four tools at two levels: the splice
+compiles and its field reads back (exit 3), and a copy of that `Frame` is
+`NITPICK-TYPE-046` — it owns; `Span` and `Kind` copy freely (3 / 3).
+
+**The decision.** (1) A member holding a `#` — a macro splice, live in a struct
+or enum body at `c3bdae2` (`p_parse_record`), or an attribute — fails: the check
+does not expand macros, so it cannot see what one declares. (2) `fixed`,
+`nodrop` and `move` join `sealed` and `hidden` as qualifiers — the parser's
+`p_qualifier_bit` — and are stripped; the type after them is still judged, so
+`fixed string` fails on `string`. (3) An enum payload is `Name(…)` and nothing
+else; what follows `=` is a discriminant, a value, and is not read. And the stated
+reason for leaving `simd` and `complex` uncleared is corrected: they own nothing
+(`type_drops_recorded`: "lanes of plain scalars", "two plain components") and are
+not cleared because nothing needs them — a widening is a decision.
+
+**Measured**, the new check over the same copies: the splice fails, naming
+itself; `Span` and `Kind` pass; `fixed string`, `nodrop string`, `move string`, a
+payload `string` beside a discriminant and a spliced enum variant fail; scalar
+payloads, a discriminant expression and a nested-bracket payload pass; the fourth
+triage's M1, M4, M5, M6, M9, M12 and T4 still fail and C2, C3, C4, C5 still pass.
+On the real tree it clears the same four element types and exempts the same
+fifteen.
+
+*Alternatives declined:* **stating the limits beside RX-158** (the audit's other
+remedy) — three small rules against a check that cleared an owning field;
+**expanding macros** — the check would need the compiler's macro engine, which
+W-18 keeps out of this harness.
+
+### RX-167 — two more shapes reach a move-only `Vec`'s block without a copy — a `for` binding, and a generic function passing out its lent `T` — each pinned as a unit and raised, not worked around
+
+**2026-09-25, the fifth cycle 0.0 audit's N-25 and N-26.** It supersedes RX-162 in
+part — its count of what pins the loan, "the four loan units and probe 17". Its
+decision on `vec_get` and on loans stands, and so does RX-161: a COPY of a `Vec`
+is refused.
+
+**N-26, a `for` binding over an array of containers, is the same loan.**
+`for (Vec<int64>:x in arr) { drop vec_free(@x); }` over `[move(a), move(b)]`
+compiles, and the array's first element still says `count == 1` and reads the
+free poison: `tests/unit/vec_alias_for_binding_free.npk`, exit 0 at both levels,
+where its read-only twin exits 21 — the value survives. The parser builds the
+binding as a `ParamDecl`, so by the compiler's 1.6.0 step 3g (DEF-102,
+`NITPICK-TYPE-085`) `@x` should be refused; the re-pin measures it.
+
+**N-25, a generic pass-out, is not a loan's write at all.** `func:id<T> = T(T:x)
+{ pass x; }` compiles, and at `T = Vec<int64>` its result is a second owner of the
+argument's block: after `vec_free(@a)` the read through it is the poison —
+`tests/unit/vec_alias_generic_passout.npk`, exit 0 at both levels, 21 without the
+free. Written for `Vec<int64>` alone, the same body is refused `NITPICK-TYPE-047`
+at the `pass`. TYPE-047 is not asked of a lent `T` in a generic body: the
+workbench registry's O-N22, confirmed as the compiler's DEF-104, riding with
+3g — at a pin carrying it the pass-out refuses `TYPE-047` and `@x` of a lent `T`
+refuses `TYPE-085`. `c3bdae2` carries neither.
+
+**The decision.** Both are pinned, not endorsed, each header saying what its
+reddening means; `SAFETY.md` S-23b gains two rows and says which defect each
+row is; `src/core/vec.npk`'s "a `Vec` CANNOT BE COPIED" is qualified. Nothing in
+`src/` changes: no generic there takes a lent bare `T` — `vec_push`, `vec_set`,
+`vec_insert` and `drop_element` take `move T`, swept with `git grep -n -E '[(,]
+*T:' -- src` (one hit, a comment) — and `src/` has no `for` in code.
+
+*Alternatives declined:* **a harness check refusing a generic that passes out a
+lent `T`** — a house rule where the compiler is already fixing it (W-11), blind to
+every consumer; **holding the close for N-25** — it is no clause of cycle 0.0's
+gate and `src/` has no exposure; whether it should become one is the author's.
