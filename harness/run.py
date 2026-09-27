@@ -165,6 +165,8 @@ def main(argv=None, say=print):
 
     try:
         toolchain.check(m.need("toolchain", "llvm"), say)
+        toolchain.check_target(m.need("toolchain", "triple"),
+                               m.need("toolchain", "datalayout"), say)
         npkc, npkrt = toolchain.compiler(say)
     except (toolchain.ToolchainError, manifest.ManifestError) as e:
         say(f"FAIL  toolchain: {e}")

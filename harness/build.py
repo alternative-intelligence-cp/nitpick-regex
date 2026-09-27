@@ -168,6 +168,8 @@ class Ctx:
         self.llc_opt_flags = m.need("toolchain", "llc-opt-flags")
         self.opt_flags = m.need("toolchain", "opt-flags")
         self.lld_flags = m.need("toolchain", "lld-flags")
+        self.triple = m.need("toolchain", "triple")            # RX-176
+        self.datalayout = m.need("toolchain", "datalayout")
         self.baseline_edges = set()
         self.baseline_syms = []
         self.residue_allowed = set()   # RX-131: `RESIDUE.txt`'s names
@@ -196,6 +198,30 @@ def link(c, obj, exe):
     return Run(["ld.lld"] + list(c.lld_flags) + [obj, c.npkrt, "-o", exe])
 
 
+# --- the module header: the two lines every emission states (RX-176) -----------------
+
+_TARGET_LINE = re.compile(r"^target .*$", re.M)
+
+
+def module_header(c, ir, name):
+    """Every linked program's emission states the pinned layout and triple, once
+    each, in that order -- the compiler's `check_module_header` (E-8, D-322 (5)),
+    ported at cycle 0.1.0b, RX-176. `toolchain.check_target` holds the pin to what
+    `opt` derives; this holds each emission to the pin, so the emitter's header,
+    the manifest and the toolchain cannot drift apart in silence. A `target` line
+    is one that BEGINS a line: a string constant sits on an `@` line and a comment
+    on a `;` line."""
+    want = [f'target datalayout = "{c.datalayout}"', f'target triple = "{c.triple}"']
+    got = _TARGET_LINE.findall(ir)
+    if got == want:
+        return []
+    shown = ("`" + "`, `".join(got) + "`") if got else "no `target` line"
+    return [f"{name}: the module's header is not the pinned one -- expected "
+            f"`{want[0]}` and `{want[1]}` (nitpick.toml [toolchain]), got {shown} "
+            f"(E-8, D-322 (5): every module states the layout it assumes, and the "
+            f"runner holds it to the pin)"]
+
+
 # --- a program: emit, scan, assemble, scan, link -------------------------------------
 
 def emit_and_link(c, path, name, base, scanned=True):
@@ -213,11 +239,12 @@ def emit_and_link(c, path, name, base, scanned=True):
     if not os.path.exists(ll):
         return [f"{name}: npkc exited 0 and wrote no {ll} -- exit 0 does not mean a "
                 f"program is well-formed (registry O-N11)"]
+    ir = open(ll, encoding="utf-8", errors="replace").read()
+    fl += module_header(c, ir, name)
     if scanned:
-        ir = open(ll, encoding="utf-8", errors="replace").read()
         fl += irscan.scan(ir, c.baseline_edges, name)
-        if fl:
-            return fl
+    if fl:
+        return fl
 
     obj = base + ".o"
     s = llc(c, c.llc_flags, ll, obj)

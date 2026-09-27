@@ -300,7 +300,8 @@ reader** — a file is skipped only when both say so:
   skip, B-2b's reach, the expectation markers and every tree check — is opened
   by `lexical.read`, as **bytes**, so `\n` is the only line end and a carriage
   return is whitespace, as in the compiler's lexer; and it is read through
-  `harness/lexical.py`, which mirrors that lexer at `c970483` (at `c3bdae2` until
+  `harness/lexical.py`, which mirrors that lexer at `5fbaf4a` (re-read by B-4e
+  at cycle 0.1.0b, RX-176, and unchanged since `c970483`; at `c3bdae2` until
   cycle 0.0.4e, RX-170 — the block string's close): comments (`/* */`
   does not nest), plain, raw and block strings, character literals and template
   text are not code, a template's `&{…}` is, and a `use` is the keyword followed
@@ -329,6 +330,27 @@ wrong next" — so `// see<CR>use …` in a sibling and `// note<CR>/*` above th
 unit's `main` defeated both at once: `209/209`, GREEN, exit 0. Case 19 is that
 plant; cases 20 and 21 are the CR and the escaped path hiding a syscall from
 B-2. Measured: either defence removed alone, the plant stays red; both, GREEN.)*
+
+**Rule B-4e (RX-176) — every adoption re-reads what the reader mirrors.** Before
+an adoption's first run at a new pin, `git diff --stat <old> <new>` over the
+compiler's `src/frontend/lexer.npk`, `src/frontend/escapes.npk`,
+`src/frontend/parse_decl.npk` (`p_parse_import`) and
+`meta/specs/LEXICAL_REFERENCE.md`, every hunk that touches what the reader mirrors
+read, and the verdict — `harness/lexical.py` moves, or it does not and why —
+written in the adoption's record and in the reader's docstring beside the pin.
+Self-check case 18 fixes the forms that have mattered, in Python; only a re-read
+finds the next one. *(Made a rule by the ecosystem audit of 2026-09-26, its ED1:
+`nitpick-time` had one, TM-202, and this repository — whose reader time's is a
+port of — had none. The first re-read, `c970483` to `5fbaf4a`: a character
+literal's width (DEF-145), not its span; the mirror did not move.)*
+
+**Rule B-1a (RX-176) — the manifest pins the target, and the runner holds every
+emission it links to it.** `[toolchain]` carries `triple` and `datalayout`
+(the compiler's E-8, D-322 (5), its landing 71). `harness/toolchain.py` requires
+the layout to be what the pinned `opt` derives from the triple, and
+`harness/build.py` requires each linked program's `target` lines to be exactly the
+two pinned ones, in that order — the compiler's own `check_datalayout_pin` and
+`check_module_header`, ported. Self-check cases 24 and 25 are the two reds.
 
 **Rule B-5 — expectations live in the test file**, in the compiler's marker
 grammar, marker for marker:

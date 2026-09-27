@@ -24,13 +24,20 @@ Cycle 0.0.2 picks them up as the harness's first `program`-stage entries.
 
 | Directory | Files | Declared as | Judged by |
 |---|---|---|---|
-| `tests/probe/` | **25**, each `// expect-exit: N` | `probe`, stage `program` | it compiles, links, runs, and exits with that code — at −O0 and again under `opt -O2` |
-| `tests/probe/refused/` | **7**, each `// expect-error: CODE` | `probe-refused`, stage `compile`, kind `negative` | `npkc` exits **1** and reports **exactly** that code set (B-7, D-237) |
+| `tests/probe/` | **24**, each `// expect-exit: N` | `probe`, stage `program` | it compiles, links, runs, and exits with that code — at −O0 and again under `opt -O2` |
+| `tests/probe/refused/` | **8**, each `// expect-error: CODE` | `probe-refused`, stage `compile`, kind `negative` | `npkc` exits **1** and reports **exactly** that code set (B-7, D-237) |
 
-> **The split is 25 / 7, and 32 is the count of probes in this repository.** It
-> was 16 / 7, then 17 / 6, then 19 / 6, then 22 / 5, then 22 / 6, then 24 / 7, and
+> **The split is 24 / 8, and 32 is the count of probes in this repository.** It
+> was 16 / 7, then 17 / 6, then 19 / 6, then 22 / 5, then 22 / 6, then 24 / 7, then
+> 25 / 7, and
 > every move was a probe changing directory or name because the compiler changed its
 > answer — not a probe being deleted, which P-5 forbids — or a probe ADDED.
+>
+> **2026-09-27, cycle 0.1.0b, at the re-pin to `5fbaf4a` (RX-176).**
+> `probe18_impl_adds_move.npk` moved INTO `refused/`: an impl declaring `move` on a
+> parameter its trait lends is `NITPICK-TYPE-014` since the compiler's landing 69
+> (DEF-116, the registry's O-N28), at the impl's `move`, one site. It still runs 95
+> at `c970483`, so the move is the pin's.
 >
 > **2026-09-26, cycle 0.0.4e, at the re-pin to `c970483` (RX-168, RX-169, RX-170).**
 > Two probes crossed and one was added. `probe15_block_string_close.npk` moved OUT of

@@ -30,6 +30,10 @@
 // DEF-107, NITPICK-BORROW-015, measured at `9f6f370`), and our pin does not carry
 // it. The parser holds a view PARAMETER, never the owner, so no code in `src/`
 // can do it; a test keeps its pattern's owner unwritten while a cursor lives.
+// *(Since cycle 0.1.0b, compiler `5fbaf4a` -- RX-176: the pin carries DEF-107, and
+// that write is NITPICK-BORROW-015, measured by cycle 0.1.0's owner-written control
+// re-run. The paragraph above is its history; a cursor over a LOCAL's view,
+// returned, is still NITPICK-BORROW-001.)*
 //
 // A WRONG `pos` COULD NOT READ PAST THE PATTERN ANYWAY. `src` is a slice, which
 // carries its length, so D-070's bounds guard traps an out-of-range index

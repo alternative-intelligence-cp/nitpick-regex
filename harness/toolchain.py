@@ -51,6 +51,37 @@ def check(llvm_version, out):
         out(f"ok    {tool} {got}")
 
 
+_LAYOUT = re.compile(r'^target datalayout = "([^"]*)"$', re.M)
+
+
+def check_target(triple, datalayout, out):
+    """The layout pin is what the pinned `opt` derives from the triple pin.
+
+    The compiler's `check_datalayout_pin` (its harness, since its landing 71: E-8,
+    D-322 (5)), ported at cycle 0.1.0b -- RX-176. Every module states a `target
+    datalayout`; `opt` keeps a wrong one as written and `llc` accepts one in
+    silence, so a stated layout proves nothing about itself. This holds the PIN to
+    the toolchain, and `build.module_header` holds every linked emission to the
+    pin. Raises on a mismatch, like every other check here (D-204)."""
+    try:
+        r = subprocess.run(["opt", "-S", "-"], input=f'target triple = "{triple}"\n',
+                           capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError) as e:
+        raise ToolchainError(f"`opt -S` over the triple probe failed: {e}")
+    m = _LAYOUT.search(r.stdout)
+    if r.returncode != 0 or not m:
+        raise ToolchainError("`opt -S` over a module stating only the pinned triple "
+                             "wrote no `target datalayout` line: "
+                             f"{(r.stderr or r.stdout).strip()[:160]!r}")
+    if m.group(1) != datalayout:
+        raise ToolchainError(
+            f"nitpick.toml [toolchain] pins the layout {datalayout!r}, but the pinned "
+            f"`opt` derives {m.group(1)!r} from the triple {triple!r} -- the layout "
+            "every module states must be the one the toolchain lays the binary out "
+            "under (E-8, D-322 (5)).")
+    out(f"ok    target {triple}, its layout the one the pinned opt derives")
+
+
 def compiler(out):
     """`$NPKC` and `$NPKRT`: the pinned pair the board names (W-18)."""
     got = {}

@@ -58,7 +58,9 @@ unsound case: a struct holding a view of a LOCAL, returned, is
 `NITPICK-BORROW-001` at the `pass`. So `cursor_init` returns the parser's
 `Cursor`. Open at `c970483`: writing the viewed value while the view is live —
 a `Cursor`'s pattern reassigned — reads freed memory; the compiler's DEF-107
-refuses it, `NITPICK-BORROW-015`, in no pin of ours yet.)*
+refuses it, `NITPICK-BORROW-015`, in no pin of ours yet.)* *(Closed at `5fbaf4a`,
+cycle 0.1.0b: the pin carries DEF-107, and that write is `NITPICK-BORROW-015` —
+RX-176.)*
 
 ---
 

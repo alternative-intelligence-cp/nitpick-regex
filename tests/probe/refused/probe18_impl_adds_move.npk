@@ -1,0 +1,63 @@
+// expect-error: NITPICK-TYPE-014
+// expect-error-at: 35:39
+//
+// PROBE 18 -- AN IMPL MAY NOT DECLARE `move` ON A PARAMETER ITS TRAIT LENDS:
+// REFUSED `NITPICK-TYPE-014` SINCE THE COMPILER'S LANDING 69 (DEF-116, the
+// workbench registry's O-N28), CARRIED BY THE PIN `5fbaf4a` -- cycle 0.1.0b,
+// RX-176. No library code, no `wild`, no pointer cast.
+//
+// WHAT IT PINNED UNTIL THEN. Found at compiler `c970483` by cycle 0.0.4e's
+// planning (RX-168): the compiler compared an impl with its trait without the
+// `move`, so `impl:string:Dup` compiled with `move string:self`, and `twice` --
+// checked once, against the trait -- lent `a` to a callee that took it and passed
+// it back. `a` and `b` were then two owners of one body, both dropped at `run`'s
+// end: a double free, 95 (`Unreachable`), at -O0 and through `opt -O2`, at
+// `c970483` and at `c3bdae2`. `TRAITS_REFERENCE.md` §2: "An impl's method must
+// have the signature the trait declares", and a `move` parameter takes ownership
+// where a plain one is lent (the compiler's D-065, D-183).
+//
+// WHAT IT REACHED HERE: `vec_get` took `T: Pod` (RX-168), and `Pod` refused an
+// owning type only through its declared, lent `self`, so a consumer's
+// `impl:string:Pod` written with `move string:self` defeated the bound -- 95
+// through `vec_get`. Since cycle 0.1.0b the bound is the prelude's `Copy`
+// (RX-177), a marker with no method for an impl to mis-declare.
+//
+// WHAT IT PINS NOW: the refusal, at the impl's `move`, naming the parameter and
+// the direction -- measured at `5fbaf4a`, one site. It compiles, and runs 95, at
+// `c970483`. If this file stops being refused, read the compiler's ruling before
+// editing anything: the double free comes back with it.
+mod:probe18_impl_adds_move;
+
+trait:Dup = {
+    func:dup = Self(Self:self) never fails;
+};
+
+impl:string:Dup = { func:dup = string(move string:self) never fails { pass self; }; };
+
+func:twice<T: Dup> = T(T:x) never fails {
+    pass raw x.dup();
+};
+
+func:run = int32() never fails {
+    string:a = string_concat("abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "c");
+    string:b = raw twice::<string>(a);
+    pass (string_byte_length(b) =>! int32);
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:r = raw run();
+    exit r;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest) { exit 91i32; },
+        (HeapOom)        { exit 92i32; },
+        (Unreachable)    { exit 95i32; },
+        (WildLeak)       { exit 96i32; },
+        (StackExhausted) { exit 106i32; },
+        (MachineFault)   { exit 107i32; },
+        (*)              { exit 99i32; }
+    }
+    exit 9i32;
+};

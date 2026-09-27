@@ -302,7 +302,11 @@ requires it to report every one as a failure. The list is `harness/selfcheck.py`
     fifth audit's N-27). On the instrument, with stand-in executables;
 23. the program suites' skip under a reader stubbed to invent every import and
     see no code — the compiler's `main` must still keep every program in the
-    count (RX-165). On the instrument.
+    count (RX-165). On the instrument;
+24. a manifest whose `datalayout` pin is not what the pinned `opt` derives from
+    its `triple` — the layout check must name both (RX-176);
+25. a tree pinned consistently to another target, so the layout check passes —
+    the header belt must name the emission's `target` lines (RX-176).
 
 *(Reconciled 2026-09-25 by the third cycle 0.0 audit's triage, RX-154. This list
 had eight bullets and `CASES` eleven entries, and they disagreed in BOTH

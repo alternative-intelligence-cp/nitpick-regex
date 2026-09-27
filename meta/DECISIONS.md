@@ -4296,3 +4296,39 @@ out-parameter** — the caller would build a `PatternError` to pass in, and the 
 means "none"; **a skeleton parser in `src/`** — outside its two cases it would have to trap or answer a kind
 about a pattern it did not parse, and 0.1.1 would delete it; **the length checked during the scan** — the
 cheapest refusal would come after the most expensive work.
+
+## The adoption to compiler 5fbaf4a, and the ecosystem audit's items — cycle 0.1.0b
+
+### RX-176 — the adoption to compiler `5fbaf4a`: probe 18 refused `TYPE-014`, the manifest pins the target and the runner holds every emission to it, and every adoption re-reads what the lexical mirror mirrors
+
+**2026-09-27, cycle 0.1.0b (the plan's PD-20), at compiler `5fbaf4a`, from `c970483`** — landings 67 … 82,
+one re-pin at the author's go (the board's question 12: the latest). Measured on the unchanged tree first:
+**248/250**, the two failures both probe 18 (its probe unit and its parse-sweep unit); every other verdict,
+refusal position and site count as at `c970483`; the floor's five symbols unchanged; no `cstring` beyond
+`main`'s `argv` in any file, so landing 78's move-only `cstring` refuses nothing here.
+
+- **Probe 18 moves to `tests/probe/refused/`**, `NITPICK-TYPE-014` at 35:39, one site: the compiler's DEF-116
+  (landing 69) makes a parameter's `move` part of a trait method's signature. Its header is rewritten as the
+  refusal it now pins, with the double free it pinned as history. The probe split is 24 / 8.
+- **`[toolchain]` gains `triple` and `datalayout`** (the compiler's E-8, D-322 (5), landing 71), verbatim from
+  its advance notice F15, **and the runner reads both** — a key nothing reads is the next stale document
+  (D-204): `harness/toolchain.py` holds the layout to what the pinned `opt` derives from the triple, and
+  `harness/build.py` holds every linked program's two `target` lines to the pins — the compiler's own
+  `check_datalayout_pin` and `check_module_header`, ported (`BUILD.md` B-1a). Self-check cases 24 and 25 are
+  their reds: a layout that is not `opt`'s, and a tree pinned consistently to `i686`, where only the belt sees
+  every emission state x86-64.
+- **Every adoption re-reads what `harness/lexical.py` mirrors** (`BUILD.md` B-4e) — the ecosystem audit's
+  ED1. This one: `lexer.npk` +13/−2, a character literal's width (DEF-145), not its span; `escapes.npk`,
+  `p_parse_import` and the lexical reference unchanged; the mirror does not move.
+- **The pin carries DEF-107 and DEF-143.** Cycle 0.1.0's block-3b controls, re-run: the pattern's owner
+  written under a live cursor is `NITPICK-BORROW-015` (at `c970483` it compiled and read freed memory), and a
+  cursor over a LOCAL's view, returned, is still `NITPICK-BORROW-001` — landing 72's relaxation (D-326) did not
+  reach it. `mod:error;` is `NITPICK-PARSE-001` at 1:5. The notes that said otherwise are dated, not rewritten.
+- **`harness/baseline/rx120.sh` asserts at `5fbaf4a`**: floor 5, syscaller 6, the difference `{npk_sys6}`.
+
+*Alternatives declined:* **the two rows in the manifest, read by nothing until `npkg` builds the library** —
+the harness refuses a key nothing reads, by design, and a pin nothing checks is a stated string; **the header
+belt without the layout check** — a wrong layout in the manifest would then hold every emission to itself;
+**probe 18 deleted** — P-5 forbids deleting a probe, and the refusal is the fact the double free's fix rests
+on; **the lexer re-read left to the audit** — the audit found this repository had no rule for it, and a mirror
+checked only when someone remembers is the time audit's E1 in this tree.

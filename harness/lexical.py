@@ -28,7 +28,12 @@ below, the one way a `.npk` file is opened, and `_decode()`.
 
 WHAT IT MIRRORS, READ AT COMPILER `c3bdae2` WITH `git show`, NOT FROM A SUMMARY
 -- AND AGAIN AT `c970483` (cycle 0.0.4e), where `lexer.npk` differs only in the
-block-string close below and `escapes.npk` and `p_parse_import` not at all:
+block-string close below and `escapes.npk` and `p_parse_import` not at all -- AND
+AGAIN AT `5fbaf4a` (cycle 0.1.0b, the re-read `BUILD.md` B-4e makes every adoption's,
+RX-176), where `lexer.npk` differs only in a character literal's WIDTH (the
+compiler's DEF-145: one above U+00FF, or written with the Unicode escape, is
+`char32`), not in what a literal spans, and `escapes.npk`, `p_parse_import` and the
+lexical reference not at all, so nothing below moved:
 `src/frontend/lexer.npk`, `lexer_skip_trivia` and `lexer_next`;
 `src/frontend/escapes.npk`, `escape_decode` and `decode_string`; `p_parse_import` in
 `src/frontend/parse_decl.npk`; and `LEXICAL_REFERENCE.md` §2, §6.3 and §6.4.
@@ -94,7 +99,7 @@ two defences share no reader (RX-165).
 
 ITS OWN TEST IS SELF-CHECK CASE 18, which writes one text holding every form
 above to a FILE, reads it back through `read()`, and requires exactly the
-imports and the code the compiler would see at `c970483`. Cases 19, 20 and 21
+imports and the code the compiler would see at `c970483` and at `5fbaf4a`. Cases 19, 20 and 21
 are BL-9's three routes through the whole runner.
 """
 import os

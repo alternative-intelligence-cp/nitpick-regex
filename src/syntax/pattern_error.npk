@@ -25,7 +25,9 @@
 // THE FILE IS NOT `error.npk`, AND CANNOT BE. `error` is a keyword (the
 // `error:` declaration), a file's `mod:` name must equal its basename (B-13), and
 // `mod:error;` is refused NITPICK-RESOLVE-012 at 1:1 -- measured at `c970483`. So
-// the module is named for the value it builds.
+// the module is named for the value it builds. *(At `5fbaf4a` the refusal is
+// NITPICK-PARSE-001 at 1:5, the keyword itself -- the compiler's DEF-143, the
+// second half of our O-N32; cycle 0.1.0b, RX-176.)*
 //
 // LAYERING (`BUILD.md` §6, rule B-16). `syntax` may import `unicode` and `core`;
 // this file imports `core` for one thing, its out-of-range stop `vec_oob`, so a

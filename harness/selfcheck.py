@@ -92,6 +92,8 @@ opt-level = 0
 
 [toolchain]
 llvm          = "20.1.2"
+triple        = "x86_64-unknown-linux-gnu"
+datalayout    = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
 llc-flags     = ["-O0", "-filetype=obj", "-relocation-model=static"]
 llc-opt-flags = ["-O2", "-filetype=obj", "-relocation-model=static"]
 opt-flags     = ["-O2", "-S"]
@@ -723,6 +725,27 @@ def _case23(d):
     return None                                   # handled by `_run_case23`
 
 
+def _case24(d):
+    """A manifest whose LAYOUT PIN is not what the pinned `opt` derives from its
+    triple -- one field of the layout dropped (RX-176). The compiler's
+    `check_datalayout_pin`, ported: a stated layout proves nothing about itself,
+    because `opt` keeps a wrong one as written and `llc` accepts one in silence."""
+    _write(d, "tests/case/fine.npk", _program("fine", 0, 0))
+    return (TOML % PROGRAM_ENTRY).replace("-n8:16:32:64-S128", "-n8:16:32-S128")
+
+
+def _case25(d):
+    """A tree pinned CONSISTENTLY to another target -- `i686-unknown-linux-gnu`
+    and the layout the pinned `opt` derives for it -- so the pin check passes and
+    only the header belt can see that every module this compiler emits states
+    x86-64 (RX-176). The compiler's `check_module_header`, ported."""
+    _write(d, "tests/case/fine.npk", _program("fine", 0, 0))
+    return ((TOML % PROGRAM_ENTRY)
+            .replace('"x86_64-unknown-linux-gnu"', '"i686-unknown-linux-gnu"')
+            .replace('"e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"', '"e-m:e-p:32:32-p270:32:32-p271:32:32-p272:64:64-'
+                     'i128:128-f64:32:64-f80:32-n8:16:32-S128"'))
+
+
 def _case10(d):
     """A NON-DETERMINISTIC EMISSION -- the `repro` check must report the offset.
 
@@ -848,6 +871,15 @@ CASES = [
          "RX-165: a defence 'that holds whatever the reader gets wrong' is tested with "
          "the reader wrong -- RX-157's shared it, and BL-9 passed both at once",
          _case23, ()),
+    Case(24, "a manifest whose layout pin is not what the pinned opt derives",
+         "RX-176: the compiler's pin check, ported -- a stated layout proves nothing "
+         "about itself",
+         _case24, ["pins the layout", "but the pinned `opt` derives"]),
+    Case(25, "a tree pinned consistently to another target",
+         "RX-176: the pin check passes, so only the header belt can see every "
+         "emission state x86-64",
+         _case25, ["the module's header is not the pinned one",
+                   "i686-unknown-linux-gnu"]),
 ]
 
 

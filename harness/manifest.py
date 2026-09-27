@@ -20,11 +20,14 @@ class ManifestError(Exception):
 
 
 # Every (table, key) the compiler's schema has, read out of `npkg/manifest.npk`
-# `schema_allows` at 950bb1d. `[dependencies]` takes any key by design.
+# `schema_allows` at 950bb1d -- and `[toolchain]`'s `triple` and `datalayout`, read
+# there at `5fbaf4a`, where `npkg` REQUIRES both (cycle 0.1.0b, RX-176; the runner
+# asks for them by name, `run.py`). `[dependencies]` takes any key by design.
 SCHEMA = {
     "project":   {"name", "version", "description", "authors", "target"},
     "build":     {"entry", "output", "opt-level"},
-    "toolchain": {"llvm", "llc-flags", "llc-opt-flags", "opt-flags", "lld-flags"},
+    "toolchain": {"llvm", "triple", "datalayout",
+                  "llc-flags", "llc-opt-flags", "opt-flags", "lld-flags"},
     "test":      {"name", "stage", "kind", "path", "paths", "recursive"},
     "verify":    {"z3", "z3-version", "z3-sha256", "z3-options"},
 }
