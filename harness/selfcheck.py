@@ -536,6 +536,93 @@ def _case18(d):
     return None                                   # handled by `_run_case18`
 
 
+_API_OK = "mod:api;\n\npub error:ERegexPattern;\n"
+
+
+def _plant(files):
+    d = tempfile.mkdtemp(prefix="nregex-selfcheck-plant-")
+    for rel, text in files.items():
+        _write(d, rel, text)
+    return d
+
+
+def _run_plants(case, check, plants, clean):
+    """A tree check fed planted trees, on the instrument: each plant must fail,
+    naming what was planted, and the clean tree must pass -- a check that fails
+    everything proves as little as one that fails nothing (RX-179)."""
+    import treecheck
+    wrong = []
+    for label, files, want in plants:
+        d = _plant(files)
+        try:
+            r = getattr(treecheck, check)(d)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+        said = "\n".join(r.failures)
+        if r.ok or any(w not in said for w in want):
+            wrong.append(f"{label}: {'PASSED' if r.ok else 'failed without naming ' + repr(want)}")
+    d = _plant(clean)
+    try:
+        r = getattr(treecheck, check)(d)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+    if not r.ok:
+        wrong.append("the clean control failed: " + "; ".join(r.failures)[:200])
+    if wrong:
+        return Outcome(case, False, f"`{check}` did not fail each plant by name: " + "; ".join(wrong))
+    return Outcome(case, True, f"`{check}` failed all {len(plants)} plants, each by name, "
+                               f"and passed the clean control")
+
+
+def _run_case28(case):
+    """Case 28, on the instrument: `check_error_budget` over the three extra
+    identities the ecosystem audit's EC4 planted, and its control (RX-179)."""
+    return _run_plants(case, "check_error_budget", [
+        ("a private identity with a raise site",
+         {"src/api/api.npk": _API_OK,
+          "src/core/core.npk": "mod:core;\n\nerror:EInternal;\n\n"
+                               "pub func:f = int64(int64:x) {\n"
+                               "    if (x < 0i64) { fail EInternal; }\n"
+                               "    pass x;\n};\n"},
+         ["src/core/core.npk:3", "`core.EInternal` is a PRIVATE"]),
+        ("two identities on one line",
+         {"src/api/api.npk": "mod:api;\n\npub error:ERegexPattern; pub error:EOther;\n"},
+         ["src/api/api.npk:3", "`api.EOther` is a public"]),
+        ("a declaration split across two lines",
+         {"src/api/api.npk": "mod:api;\n\npub error:ERegexPattern;\npub\nerror:EOther;\n"},
+         ["src/api/api.npk:4", "`api.EOther` is a public"]),
+        ("the control: the budgeted name in a second module",
+         {"src/api/api.npk": _API_OK, "src/core/core.npk": "mod:core;\n\npub error:ERegexPattern;\n"},
+         ["`core.ERegexPattern` is a public"]),
+    ], {"src/api/api.npk": _API_OK})
+
+
+def _case28(d):
+    return None                                   # handled by `_run_case28`
+
+
+_OWNERS = {"src/core/vec.npk": "mod:vec;\nfunc:f = int64(V->:v) { pass v.items[0i64]; };\n",
+           "src/core/bytes.npk": "mod:bytes;\nfunc:g = uint8(B->:b) { pass b.buf.ptr[0i64]; };\n"}
+
+
+def _run_case29(case):
+    """Case 29, on the instrument: `check_accessor_confinement` over the four
+    spaced forms the ecosystem audit's EC5 planted, each alone (RX-179)."""
+    plants = []
+    for label, text, at in (("`s.ptr [1i64]`", "    x = s.ptr [1i64];\n", "cursor.npk:2:10"),
+                            ("`s.ptr` then `[2i64]` on the next line", "    x = s.ptr\n    [2i64];\n", "cursor.npk:2:10"),
+                            ("`v . items [0i64]`", "    x = v . items [0i64];\n", "cursor.npk:2:11"),
+                            ("`v.` then `items[0i64]` on the next line", "    x = v.\n    items[0i64];\n", "cursor.npk:2:10")):
+        files = dict(_OWNERS)
+        files["src/syntax/cursor.npk"] = "mod:cursor;\n" + text
+        plants.append((label, files, [at]))
+    return _run_plants(case, "check_accessor_confinement", plants, dict(_OWNERS))
+
+
+def _case29(d):
+    return None                                   # handled by `_run_case29`
+
+
 def _case19(d):
     """A RED UNIT HIDDEN BY TWO LONE CARRIAGE RETURNS -- the fifth audit's BL-9 (a).
 
@@ -919,6 +1006,14 @@ CASES = [
          "RX-178: the compiler's `silent_site`, ported -- the hazard D-332 was "
          "decided for",
          _case27, ["silent_site.npk", "is reported at 1 site(s)"]),
+    Case(28, "an extra error identity: private with a raise site, two on one line, split across two",
+         "RX-179: the ecosystem audit's EC4 -- `check_error_budget` passed all three "
+         "and caught only the control",
+         _case28, ()),
+    Case(29, "an accessor reached by a spaced form: `.ptr [`, `. items [`, and across a line break",
+         "RX-179: the ecosystem audit's EC5 -- 'the only bounds check this library has' "
+         "passed all four",
+         _case29, ()),
 ]
 
 
@@ -1016,6 +1111,10 @@ def _run_case(case, keep):
         return _run_case22(case)
     if case.num == 23:
         return _run_case23(case)
+    if case.num == 28:
+        return _run_case28(case)
+    if case.num == 29:
+        return _run_case29(case)
     d = tempfile.mkdtemp(prefix=f"nregex-selfcheck-{case.num}-")
     try:
         toml = case.build_tree(d)

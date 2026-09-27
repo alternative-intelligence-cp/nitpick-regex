@@ -4379,3 +4379,24 @@ fixtures under them until `npkg` can build this library (O-G3), and the parity s
 would then disagree on the first file it read; **name one line per distinct position** — the literal's four
 sites share one position, and the compiler counts sites, not positions; **the count on notes as well** — D-332
 holds the error channel.
+
+### RX-179 — `check_error_budget` and `check_accessor_confinement` read the whole blanked text: every `error:` declaration keyed by its module, and every spaced form of an accessor
+
+**2026-09-27, cycle 0.1.0b (the plan's PD-23)** — the ecosystem audit of 2026-09-26's EC4 and EC5
+(`../meta/audits/ecosystem-2026-09-26.md` in the workbench), each a check that passed planted violations. Neither
+had an instance in the tree: `src/` declares one identity and no spaced accessor, measured at `5fbaf4a`.
+
+- **`check_error_budget`** matched one declaration per line with `re.match`, public ones by name only. It now
+  finds every declaration over the whole blanked text — `pub` and `error` on two lines, two on one — keys each
+  by its file's module, as `NITPICK-REACH-003` names them, and refuses every one but `api.ERegexPattern`,
+  public, private ones included: a private identity a reachable `fail` raises charges every importer (the
+  audit's EC3), and a check reading text cannot see reach, so it is default-deny (as RX-158 is).
+- **`check_accessor_confinement`** looked for `.items[` and `.ptr[` exactly. It now matches
+  `\\.\\s*(items|ptr)\\s*\\[` over the blanked text, across a line break.
+- **Self-check cases 28 and 29** run each check on the instrument over the audit's plants, each alone, each
+  required to fail by name, and over a clean tree required to pass.
+
+*Alternatives declined:* **count private declarations and report them** — a report is read when someone
+remembers, and the audit's plant compiles and charges every importer; **resolve reach to allow a private
+identity nothing raises** — a call-graph walk in a tree check, for a shape `src/` has no use for; **plants as
+units in `tests/`** — a tree check reads `src/`, and a planted `src/` file is a real one.

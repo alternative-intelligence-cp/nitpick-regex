@@ -78,13 +78,17 @@ LIMIT_NAMES = [
     "NREGEX_CLASS_RANGES", "NREGEX_DFA_CACHE_BYTES", "NREGEX_DFA_MIN_STATES",
 ]
 
-# `SAFETY.md` §4, rule S-8 (RX-060) -- exactly ONE public `error:` identity.
-# The NAME is checked as well as the count: "exactly one" that silently became
-# a different one would be the same major-version break as two.
-ERROR_BUDGET = ["ERegexPattern"]
+# `SAFETY.md` §4, rule S-8 (RX-060) -- exactly ONE `error:` identity, public, and
+# the compiler names an identity by the MODULE that declares it, so the budget is a
+# (module, name) pair (RX-179). The name and the module are checked as well as the
+# count: "exactly one" that silently became a different one would be the same
+# major-version break as two.
+ERROR_BUDGET = [("api", "ERegexPattern")]
 
-_PUB_ERROR = re.compile(r'^\s*pub\s+error\s*:\s*([A-Za-z_]\w*)\s*;')
-_ANY_ERROR = re.compile(r'^\s*(?:pub\s+)?error\s*:\s*([A-Za-z_]\w*)\s*;')
+# A declaration wherever it starts and however it is spaced -- `pub` and `error`
+# may stand on two lines, and a second declaration may follow the first on one --
+# matched over the whole blanked text, `nitpick-time`'s TM-200 shape (RX-179).
+_ERROR_DECL = re.compile(r"(?<![A-Za-z0-9_.])(pub\s+)?error\s*:\s*([A-Za-z_][A-Za-z0-9_]*)")
 
 
 class Result:
@@ -244,47 +248,56 @@ def _check_umbrella(root, lib):
 # --- check_error_budget ---------------------------------------------------------------
 
 def check_error_budget(root):
-    """Public `error:` declarations against `SAFETY.md` §4 -- EXACTLY ONE.
+    """Every `error:` declaration in `src/` against `SAFETY.md` §4 -- EXACTLY ONE
+    identity, `api.ERegexPattern`, public.
 
     RULE P-19: this is the one a consumer depends on. "Importing `nregex` costs
     your `failsafe` exactly one arm" is a promise no compiler will check for us
-    -- REACH-002 makes every public identity a mandatory arm in every consuming
-    program, so a second one is a compile-time break in code we do not own, and
-    a MAJOR version (RX-060, S-8). This check is what keeps the promise true."""
-    found = []
+    -- REACH-002 makes every identity a reachable `fail` raises a mandatory arm in
+    every consuming program, so a second one is a compile-time break in code we
+    do not own, and a MAJOR version (RX-060, S-8). This check is what keeps the
+    promise true.
+
+    AN IDENTITY IS THE COMPILER'S UNIT: A NAME QUALIFIED BY ITS MODULE, PUBLIC OR
+    PRIVATE (RX-179). Until cycle 0.1.0b this matched one declaration per line,
+    public ones only, from the line's start -- and the ecosystem audit of
+    2026-09-26 (its EC4) passed three planted extra identities through it: a
+    PRIVATE `error:` with a raise site, which charges every importer all the same
+    (its EC3, measured at `c970483`); two public declarations on one line; and
+    `pub` and `error:` on two lines. It reads the whole blanked text now, counts
+    every declaration, and keys each by its file's module. A private declaration
+    that nothing raises costs a consumer nothing, but this check cannot see a
+    raise site's reach, so it refuses every one: default-deny, as RX-158 is."""
+    fl, found = [], []
     files = npk_files(root, "src")
     for p in files:
         rel = os.path.relpath(p, root)
-        try:
-            text = lexical.read(p)
-        except OSError:
+        code = lexical.blank(_read(p))
+        mod = os.path.basename(p)[:-len(".npk")]
+        for m in _ERROR_DECL.finditer(code):
+            found.append((mod, m.group(2), bool(m.group(1)), rel,
+                          code.count("\n", 0, m.start()) + 1))
+    for mod, name, public, rel, ln in found:
+        if public and (mod, name) in ERROR_BUDGET:
             continue
-        for ln, line in enumerate(lexical.blank(text).split("\n"), 1):
-            m = _PUB_ERROR.match(line)
-            if m:
-                found.append((m.group(1), rel, ln))
-                continue
-            m = _ANY_ERROR.match(line)
-            if m:
-                found.append(("(private) " + m.group(1), rel, ln))
-
-    public = [f for f in found if not f[0].startswith("(private) ")]
-    fl = []
-    names = sorted(n for n, _, _ in public)
-    if names != sorted(ERROR_BUDGET):
-        shown = ", ".join(f"`{n}` ({r}:{l})" for n, r, l in sorted(public)) or "none"
-        fl.append(f"the public error budget is {len(public)} identity/identities -- "
-                  f"{shown} -- and SAFETY.md §4 (rule S-8, RX-060) says EXACTLY ONE, "
-                  f"`{ERROR_BUDGET[0]}`. Every public `error:` is a mandatory `pick` "
-                  f"arm in every consuming program's `failsafe` (REACH-002), so this "
-                  f"is a compile-time break in code this repository does not own and "
-                  f"a MAJOR version. If the change is intended, SAFETY.md §4 is "
-                  f"amended by a numbered decision in the same commit -- never this "
-                  f"list on its own.")
-    private = [f for f in found if f[0].startswith("(private) ")]
-    notes = [f"{len(public)} public and {len(private)} private `error:` declaration(s) "
-             f"over {len(files)} file(s) in src/."]
-    return Result("check_error_budget", "SAFETY.md S-8 (RX-060), P-19",
+        fl.append(f"{rel}:{ln}: `{mod}.{name}` is a {'public' if public else 'PRIVATE'} "
+                  f"`error:` identity, and SAFETY.md §4 (rule S-8, RX-060) budgets exactly "
+                  f"one, `api.ERegexPattern`, public. REACH-002 makes every identity a "
+                  f"reachable `fail` raises -- public or private, named by its module -- a "
+                  f"mandatory `pick` arm in every consuming program's `failsafe`, so this is "
+                  f"a compile-time break in code this repository does not own and a MAJOR "
+                  f"version (RX-179). If the change is intended, SAFETY.md §4 is amended by "
+                  f"a numbered decision in the same commit -- never this list on its own.")
+    public = [(mod, name) for mod, name, pub, _, _ in found if pub]
+    for mod, name in ERROR_BUDGET:
+        if public.count((mod, name)) != 1:
+            fl.append(f"`{mod}.{name}` is declared public {public.count((mod, name))} "
+                      f"time(s) in `src/{mod}/`, and SAFETY.md §4 (rule S-8) says exactly "
+                      f"once: it is the library's one identity.")
+    private = sum(1 for f in found if not f[2])
+    notes = [f"{len(found) - private} public and {private} private `error:` declaration(s) "
+             f"over {len(files)} file(s) in src/, each keyed by its module (RX-179)."]
+    return Result("check_error_budget", "SAFETY.md S-8 (RX-060, RX-179), P-19",
                   f"{len(files)} file(s)", fl, notes)
 
 
@@ -433,12 +446,15 @@ def check_no_division(root):
 
 # --- check_accessor_confinement -------------------------------------------------------
 
-# `.items[` and `.ptr[`, with the dot. Written as two patterns rather than one
-# alternation so a failure names which accessor was reached around.
+# `.items[` and `.ptr[`, WITH WHITESPACE ALLOWED ON EITHER SIDE OF THE NAME, AND
+# ACROSS A LINE BREAK (RX-179): `s.ptr [1i64]`, `v . items [0i64]` and `s.ptr` then
+# `[2i64]` on the next line all compile, and until cycle 0.1.0b each passed this
+# check (the ecosystem audit's EC5). Matched over the whole blanked text.
 _ACCESSORS = (
-    (".items[", "src/core/vec.npk",   "vec_get / vec_set"),
-    (".ptr[",   "src/core/bytes.npk", "bytes_get / bytes_set"),
+    ("items", "src/core/vec.npk",   "vec_get / vec_set"),
+    ("ptr",   "src/core/bytes.npk", "bytes_get / bytes_set"),
 )
+_ACCESSOR_RE = re.compile(r"\.\s*(items|ptr)\s*\[")
 
 
 def check_accessor_confinement(root):
@@ -484,28 +500,28 @@ def check_accessor_confinement(root):
         except OSError:
             continue
         code = _blank_prose(text)
-        for pat, owner, pair in _ACCESSORS:
-            for ln, line in enumerate(code.split("\n"), 1):
-                col = line.find(pat)
-                while col != -1:
-                    if rel == owner:
-                        owners_seen[pat] = True
-                    else:
-                        fl.append(
-                            f"{rel}:{ln}:{col + 1}: `{pat}` outside `{owner}`. "
-                            f"`Vec<T>.items` is a `wild T->` and a `buffer`'s "
-                            f"bytes are reached through a bare `uint8->`, so "
-                            f"D-070 emits NO bounds guard for either -- an "
-                            f"out-of-range index READS AND RETURNS A HEAP WORD "
-                            f"at exit 0. Go through `{pair}`, which is the only "
-                            f"bounds check this library has "
-                            f"(SAFETY.md S-23, RX-111, RX-118).")
-                    col = line.find(pat, col + 1)
+        for m in _ACCESSOR_RE.finditer(code):
+            pat = m.group(1)
+            owner, pair = [(o, p) for n, o, p in _ACCESSORS if n == pat][0]
+            ln = code.count("\n", 0, m.start()) + 1
+            col = m.start() - (code.rfind("\n", 0, m.start()) + 1)
+            if rel == owner:
+                owners_seen[pat] = True
+            else:
+                fl.append(
+                    f"{rel}:{ln}:{col + 1}: `.{pat}[` outside `{owner}`. "
+                    f"`Vec<T>.items` is a `wild T->` and a `buffer`'s "
+                    f"bytes are reached through a bare `uint8->`, so "
+                    f"D-070 emits NO bounds guard for either -- an "
+                    f"out-of-range index READS AND RETURNS A HEAP WORD "
+                    f"at exit 0. Go through `{pair}`, which is the only "
+                    f"bounds check this library has "
+                    f"(SAFETY.md S-23, RX-111, RX-118, RX-179).")
 
     for pat, owner, pair in _ACCESSORS:
         if not owners_seen[pat]:
             fl.append(
-                f"{owner}: this file is the NAMED OWNER of `{pat}` and no "
+                f"{owner}: this file is the NAMED OWNER of `.{pat}[` and no "
                 f"longer contains it. Either the accessor pair `{pair}` stopped "
                 f"reaching its storage that way -- in which case this "
                 f"confinement rule now guards nothing and S-23 needs rewriting "

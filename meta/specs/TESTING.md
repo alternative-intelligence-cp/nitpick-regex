@@ -199,7 +199,7 @@ framing that let both be wrong. The framing is the column.
 | Check | Built | Diffs |
 |---|---|---|
 | `check_layering` | **yes** | every `use` edge against `BUILD.md` §6, including the oracle's restriction |
-| `check_error_budget` | **yes** | public `error:` declarations against `SAFETY.md` §4 — **exactly one** |
+| `check_error_budget` | **yes** | every `error:` declaration, public or private, keyed by its module, against `SAFETY.md` §4 — **exactly one**, `api.ERegexPattern` (RX-179) |
 | `check_constants_named` | **yes** | no bound outside `src/core/limits.npk` |
 | `check_no_division` | **yes** | no `/` or `%` under `src/` — `SAFETY.md` S-25 (RX-132), because a division arms two `failsafe` arms in every importer |
 | `check_accessor_confinement` | **yes** | no `.items[` outside `src/core/vec.npk`, no `.ptr[` outside `src/core/bytes.npk`, **within `src/`** — `SAFETY.md` S-23, **the only bounds check this library has** (RX-136). *Since cycle 0.0.4c `Vec`'s half is the compiler's too — `items` is `hidden`, so `.items` outside `vec.npk` is `NITPICK-TYPE-080` in every module; `Bytes`' half is not, because a sealed `buf` admits a write THROUGH `.ptr` (RX-153). The check stays for both, and for the owning files' own use of their accessors. Since cycle 0.0.4d `Bytes`' half is the compiler's too: `buf` is `hidden` (RX-163)* |
@@ -309,7 +309,13 @@ requires it to report every one as a failure. The list is `harness/selfcheck.py`
     the header belt must name the emission's `target` lines (RX-176);
 26. a `check` case naming a code once where it is reported at two sites, and
 27. one naming a code at two sites where it is reported at one — the count of
-    sites per code, the compiler's D-332 (RX-178).
+    sites per code, the compiler's D-332 (RX-178);
+28. `check_error_budget` over the three extra identities the ecosystem audit's
+    EC4 planted — a private one with a raise site, two on one line, one split
+    across two lines — and its control, each failing by name, a clean tree
+    passing (RX-179). On the instrument;
+29. `check_accessor_confinement` over EC5's four spaced forms, each alone, each
+    failing by name, a clean tree passing (RX-179). On the instrument.
 
 *(Reconciled 2026-09-25 by the third cycle 0.0 audit's triage, RX-154. This list
 had eight bullets and `CASES` eleven entries, and they disagreed in BOTH
