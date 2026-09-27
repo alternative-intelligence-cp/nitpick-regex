@@ -7,7 +7,8 @@
 // arm per kind in §9's order, each answering its place in that list. So the enum
 // cannot gain a kind (the `pick` then misses one: NITPICK-PICK-001), lose one (an
 // arm then names no variant, and the file is refused -- at `c970483` by the
-// emitter, NITPICK-EMIT-002, which the frontend should have caught), or reorder
+// emitter, NITPICK-EMIT-002, which the frontend should have caught; at `5fbaf4a`
+// by the frontend, NITPICK-RESOLVE-002 -- the compiler's DEF-142, our O-N32), or reorder
 // two (tag k answers some other place: exit 20) without this file going red.
 // Every kind is then built by
 // `pattern_error` with an offset, a length and a detail of its own, and each

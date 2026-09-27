@@ -53,7 +53,7 @@ cycle 0.0.
 | Cycle | Topic | Gated on |
 |---|---|---|
 | **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **DONE 2026-09-26, archived to [`done/0.0/`](done/0.0/README.md).** The sixth W-22 audit ACCEPTED the close at compiler `c970483`, after five refusals — three on 2026-09-06, two on 2026-09-25 — and two inserted subcycles, 0.0.4d (`Vec` move-only) and 0.0.4e (the re-pin that refused the loan). The close is [`done/0.0/0.0.5.md`](done/0.0/0.0.5.md) §13 | — |
-| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **OPEN: [`0.1.0`](0.1/0.1.0.md), the cursor and the AST, done; 0.1.1, the core grammar, is next** | 0.0 |
+| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **OPEN: [`0.1.0`](0.1/0.1.0.md), the cursor and the AST, done; [`0.1.0b`](0.1/0.1.0b.md), the adoption of `5fbaf4a` and the ecosystem audit's items, done; [`0.1.1`](0.1/0.1.1.md), the core grammar, is next** | 0.0 |
 | **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction | 0.1 |
 | **0.3** | **Unicode** — generated tables, properties, scripts, simple case folding | 0.0 |
 | **0.4** | **UTF-8 automata** — codepoint ranges to byte ranges, alphabet compression | 0.3 |
@@ -175,6 +175,10 @@ RX-170.)*
 *(At the close, the same compiler: **220** units — `vec_get_pod_struct`, a consumer's
 own `Pod` for a POD struct through `core.npk`'s re-exports, the sixth audit's N-30,
 and the parse sweep's one more file — `src/core/` with **48** unit programs.)*
+*(After cycle 0.1.0b, at compiler `5fbaf4a`: **250** units — probe 18 moved into
+`refused/`, a probe split of 24 / 8; the runner holds the manifest's target pins and
+counts rejection sites, and its self-check has **30** cases, 26 live; decisions through
+RX-180.)*
 
 **Two probes refuted their own hypothesis**, which is the cycle's best return:
 `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler

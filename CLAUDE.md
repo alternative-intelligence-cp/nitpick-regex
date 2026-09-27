@@ -12,7 +12,7 @@ byte cursor, and the AST arena (RX-171 … RX-175, `meta/roadmap/0.1/0.1.0.md`).
 Cycle 0.0, foundations, CLOSED on 2026-09-26 — the sixth audit accepted it, and
 it is archived in `meta/roadmap/done/0.0/`. The
 specifications, the decisions and the roadmap are complete; `tests/probe/` holds
-**32** language probes with recorded verdicts, split **25 / 7** by kind (16 / 7,
+**32** language probes with recorded verdicts, split **24 / 8** by kind (16 / 7,
 then 17 / 6 when the `94874ce` re-pin discharged O-N10 and `probe02b` stopped
 being refused — RX-125; then 19 / 6 when the `3d15ac9` re-pin made
 `limit<Rules>` live and `probe13b` stopped being refused — RX-127; then 22 / 5
@@ -23,7 +23,9 @@ at the first `""` — found by the cycle 0.0 close's fourth triage, RX-157; then
 `Vec`'s move-only marker rests on, and probe 17, a compiler defect a lent
 parameter shows — RX-161, RX-162; then 25 / 7 when cycle 0.0.4e moved probe 15 out
 of `refused/` and probe 17 into it — the compiler's lexer and its loan rule fixed —
-and added probe 18, a compiler defect an impl's `move` shows — RX-168 … RX-170);
+and added probe 18, a compiler defect an impl's `move` shows — RX-168 … RX-170;
+then 24 / 8 when cycle 0.1.0b moved probe 18 into `refused/`, refused
+`NITPICK-TYPE-014` at `5fbaf4a` — RX-176);
 `tests/rejection/` holds twenty-four consumer-facing refusals (five of them the
 containers' seal, since 0.0.4c; one a `Bytes` copy refused `TYPE-046`, since the
 fourth triage; since 0.0.4d five `Vec` and `SparseSet` copies refused
@@ -36,18 +38,19 @@ diffs and judges them, **and proves first that it can fail**; and since 0.0.4
 `src/core/` is real — `Vec<T>`, `Bytes`, `ByteSet`, `SparseSet` and `limits.npk`,
 with 48 unit programs of their own — seven of them measuring what each `Vec` verb does at an
 owning element type, which `SAFETY.md` S-23a keeps out of `src/` (the eighth, `vec_get`'s, is a
-refusal since cycle 0.0.4e: `vec_get` takes `T: Pod`, RX-168); the swap and the moves a move-only
+refusal since cycle 0.0.4e: `vec_get` takes `T: Pod`, RX-168, the prelude's `T: Copy` since
+0.1.0b, RX-177); the swap and the moves a move-only
 `Vec` still allows (RX-161); and `loan_spellings`, the spellings the six loan and pass-out
 refusals prescribe — the six were units pinning a compiler defect until `c970483` refused them
-(RX-169); and `vec_get_pod_struct`, a consumer's own `Pod` for a POD struct, read back through
-`vec_get` with every name from `core.npk`'s re-exports — RX-168's positive half, pinned at the
-cycle 0.0 close (the sixth audit's N-30). **Since 0.1.0 `src/syntax/` holds the
+(RX-169); and `vec_get_pod_struct`, a consumer's own `Copy` for a POD struct (its own `Pod`
+until 0.1.0b), read back through `vec_get` — RX-168's positive half, pinned at the cycle 0.0
+close (the sixth audit's N-30), and RX-177's. **Since 0.1.0 `src/syntax/` holds the
 parser's pieces** — `pattern_error.npk`, `cursor.npk`, `ast.npk` and `parse.npk`
 behind its layer entry, with ten unit programs and three refusals of their own —
 and parses no construct yet. **No matching happens yet**: `src/hir/`,
 `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are still one
-placeholder module each. A full green run at compiler `c970483` is
-**250 units** (after cycle 0.1.0; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus eight tree checks; take those numbers from the runner's
+placeholder module each. A full green run at compiler `5fbaf4a` is
+**250 units** (after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus eight tree checks; take those numbers from the runner's
 summary rather than from here. **Nothing is PENDING any more**:
 `tests/unit/bytes_copy_string_empty.npk` was committed red under
 `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
@@ -135,6 +138,8 @@ Full statement in `meta/specs/SAFETY.md` §1. The ones that bite hardest:
   declared — so `vec_get` at `Vec<string>` is `NITPICK-TYPE-017`, not a move (RX-168). An impl
   that declares `move` on its `self` defeats that: a compiler defect,
   `tests/probe/probe18_impl_adds_move.npk`.)*
+  *(Since cycle 0.1.0b, compiler `5fbaf4a`: the bound is the prelude's `Copy`, a marker
+  with no method, and that impl is `NITPICK-TYPE-014` — RX-176, RX-177.)*
   **And since cycle 0.0.4d a `Vec` IS itself an owner** — a hidden zero-length array of
   `string` makes it one — so a `Vec`, a `SparseSet` and any struct holding one are
   move-only: copy one and it is `TYPE-046`; transfer it with `move(...)`; lend it BY VALUE
@@ -333,6 +338,17 @@ evidence.
   impl that declares `move` on a parameter its trait lends compiles, and a call
   through the trait then double-frees — `tests/probe/probe18_impl_adds_move.npk`,
   the workbench registry's O-N28.
+- **At compiler `5fbaf4a` (cycle 0.1.0b) that one is refused too, and three things
+  the harness holds changed.** Probe 18's impl is `NITPICK-TYPE-014` (DEF-116), and it
+  lives in `tests/probe/refused/`; the owner of a live view written is
+  `NITPICK-BORROW-015` (DEF-107) — `cursor.npk`'s old hazard; `Pod` retired into the
+  prelude's `Copy` (D-327): `vec_get<T: Copy>`, and `AstNode` and `AstKind` each
+  `#[derive(Copy)]` — a user enum is not `Copy` until it says so (RX-176, RX-177). The
+  manifest pins `triple` and `datalayout`, and the runner holds every linked emission's
+  two `target` lines to them (`BUILD.md` B-1a); a rejection file names a code once per
+  reported SITE, not once per code (D-332, B-7b, RX-178); and CI asserts the emission's
+  digest (RX-180). Landing 78's move-only `cstring` refuses nothing here: every
+  `cstring` in the tree is `main`'s `argv`.
 - **A sealed field is read anywhere and written only by its own module; a
   hidden one is not even read outside it** (the compiler's D-313 and D-314,
   measured here at `c3bdae2`, cycle 0.0.4c, RX-153). `Vec.items` is hidden and

@@ -159,7 +159,7 @@ W-18). LLVM must be exactly 20.1.2.
 |---|---|
 | `// expect-exit: 0` | compiles, links, runs, exits 0 |
 | `// expect-exit: 94` | runs and traps — 94 is `failsafe`'s `OutOfBounds` arm |
-| `// expect-error: NITPICK-…` | **refused**, and that code is the whole set reported (D-237) |
+| `// expect-error: NITPICK-…` | **refused**, and that code is the whole set reported (D-237) — one line per site it is reported at (`BUILD.md` B-7b, RX-178) |
 
 - **Exit 0 on success; a distinct positive code per assertion.** A failure names
   itself, so `exit 33` sends a reader to one line.

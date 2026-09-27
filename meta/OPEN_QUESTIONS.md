@@ -609,6 +609,21 @@ nothing in `src/`, where no generic takes a lent bare `T` — `vec_push`, `vec_s
 0.0's gate.
 
 
+### ~~O-N32 — **the workbench registry's**: a `pick` arm naming a variant its enum lacks was accepted by the frontend and refused by the emitter, `NITPICK-EMIT-002`~~ — **DISCHARGED upstream: the compiler's DEF-142 and DEF-143, its landing 79 (`44ec7e9`), carried by the pin `5fbaf4a`**
+
+**Raised by this repository's cycle 0.1.0 planning** (`roadmap/0.1/0.1.0.md` §6, from
+step 2's controls) and filed in the workbench registry (`../meta/OPEN_QUESTIONS.md`
+§"For the compiler") on 2026-09-26; **restated here 2026-09-27 by cycle 0.1.0b**, because
+this tree recorded the finding and never its id — the ecosystem audit's ES4.
+`enum:K = { A; B; };` with the arms `(K.A)`, `(K.B)` and `(K.C)` was `NITPICK-EMIT-002`,
+*"a defect in the compiler rather than in this program"*, at `c970483`, `c3bdae2` and
+`9f6f370`; and `NITPICK-RESOLVE-012`'s message for `mod:error;` lost the keyword.
+**Measured at `5fbaf4a`:** the arm is `NITPICK-RESOLVE-002` at the variant, *"enum `K` has
+no variant `C`; its variants are A, B"*, and `mod:error;` is `NITPICK-PARSE-001` at 1:5,
+the keyword itself. *What it meant here:* no test asserted either code;
+`../tests/unit/pattern_error_unit.npk` names the shape in a comment. **What it blocked
+(W-27):** nothing.
+
 ### O-N28 — **the workbench registry's**: an impl may declare `move` on a parameter its trait lends, and a call through the trait then hands the callee a value the caller still owns
 
 **Raised by this repository's cycle 0.0.4e planning at compiler `c970483` and
@@ -628,7 +643,10 @@ mismatch, a trait's `move Self:self` implemented lent, also compiles.
 declares". *What it means here:* `vec_get`'s `T: Pod` (RX-168) refuses an owning
 type only through `Pod`'s declared, lent `self`; a consumer's `move`-self impl
 defeats it (95 through `vec_get`, measured). **What it blocks (W-27):** nothing in
-`src/`, which writes no such impl; O-R3 waits for it.
+`src/`, which writes no such impl; O-R3 waits for it. *(2026-09-27, cycle 0.1.0b:
+neither holds at `5fbaf4a` — the bound is the prelude's `Copy`, a marker with no
+method to mis-declare (RX-177), and the `move`-self impl is `NITPICK-TYPE-014`
+(RX-176) — so O-R3's gate is met.)*
 
 **Confirmed by the compiler seat as its DEF-116** (the registry's entry), to be
 fixed as its landing 69, after landings 67 and 68 and an advance notice, F14: a
@@ -878,6 +896,12 @@ movemask intrinsic, which is a better request than a speculative one.
   `move`-self impl defeats a bound on the type exactly as it defeats `vec_get`'s,
   and the tree check stays the only guarantee over `src/`. **Open by design until
   then**: it is gated on a compiler fix, not on a decision here.
+  *(2026-09-27, cycle 0.1.0b: **the gate is met.** The pin `5fbaf4a` refuses that impl,
+  `NITPICK-TYPE-014` (RX-176), and `vec_get`'s bound is the prelude's `Copy` (RX-177),
+  so the shape would now be `struct:Vec<T: Copy>`. Not taken in 0.1.0b, which adopts a
+  pin, and a bound on the type is the redesign RX-168 kept out of an adoption; the
+  opening subcycle this recommendation named has passed, so its subcycle is the
+  orchestrator's to schedule.)*
 
 ### The pattern language
 

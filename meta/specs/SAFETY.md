@@ -63,6 +63,15 @@ refuses it, `NITPICK-BORROW-015`, in no pin of ours yet.)* *(Closed at `5fbaf4a`
 cycle 0.1.0b: the pin carries DEF-107, and that write is `NITPICK-BORROW-015` —
 RX-176.)*
 
+*(2026-09-27, cycle 0.1.0b — RX-179: the REACH-002 row is narrower than it reads,
+and wider. Measured at `5fbaf4a`, as the ecosystem audit's EC3 measured at
+`c970483`, each with `NITPICK-REACH-003` on a consumer that imports one module and
+has no `failsafe`: an identity a reachable `fail` raises is owed even when it is
+PRIVATE, named by its module (`m.EPriv`, seven identities where the floor is six),
+and a declaration nothing raises is owed by nobody (two public ones, never raised:
+the floor of six). So S-10's check refuses every declaration but
+`api.ERegexPattern`, public or private.)*
+
 ---
 
 ## 2. The linear-time guarantee, and what it costs
@@ -204,6 +213,9 @@ guarantee in its message rather than saying "unsupported".
 
 **Rule S-10 — a harness check enforces the budget.** The count and names of
 public `error:` declarations are diffed against this section on every full run.
+*(Since cycle 0.1.0b the check reads every `error:` declaration in `src/`,
+public or private, keyed by its module as the compiler names an identity, and
+passes only `api.ERegexPattern`, public — RX-179.)*
 A second identity is a **major version** (RX-005), because it is a
 compiler-enforced source break in every consumer.
 
@@ -677,7 +689,7 @@ owner is move-only (TYPE-046). A struct holding a `Vec` owns by containment:
 | `Vec<T>:w = move(v);`; a struct built by moving a `Vec` in, then moved | compiles and runs; `v` is invalid after (D-065) — `../../tests/unit/vec_moves.npk` |
 | two `SparseSet`s swapped: three `move`s, of locals or of fields through a pointer | compiles and runs — `../../tests/unit/sparseset_alias_swap.npk`; `ENGINES.md` R-5 |
 | a `Vec`'s content copied | element by element into a fresh `Vec`, which shares no block — `vec_moves.npk`; `ENGINES.md` R-8 |
-| `f(v)`, where `f` takes `Vec<T>` by value | compiles WITHOUT `move`: the parameter is a LOAN (D-065, D-183), and `move` of it is `NITPICK-TYPE-047`. `vec_get` is one; since 0.0.4e it keeps that parameter and takes `T: Pod` (RX-168), and the loan is read-only |
+| `f(v)`, where `f` takes `Vec<T>` by value | compiles WITHOUT `move`: the parameter is a LOAN (D-065, D-183), and `move` of it is `NITPICK-TYPE-047`. `vec_get` is one; since 0.0.4e it keeps that parameter and takes `T: Pod` (RX-168; the prelude's `T: Copy` since 0.1.0b, RX-177), and the loan is read-only |
 | a callee freeing or growing through its loan's address, `vec_free(@v)`, `vec_push(@v, x)` | **refused `NITPICK-TYPE-085` at `c970483`**, at the `@` (DEF-102). Through `c3bdae2` it compiled, and the caller's header named a released block — `vec_alias_param_free`, `vec_alias_param_grow`, `sparseset_alias_param_free`, rejection fixtures since 0.0.4e |
 | a callee overwriting an owning field of a loan | **refused `NITPICK-TYPE-085` at `c970483`**, at the write (DEF-102). Through `c3bdae2` it compiled and dropped the caller's value — a double free with no `wild` block: `../../tests/probe/refused/probe17_lent_field_drop.npk`, `bytes_alias_param_grow` |
 | a `for` binding over an array of containers freed through, `for (Vec<int64>:x in arr) { drop vec_free(@x); }` | **refused `NITPICK-TYPE-085` at `c970483`**, at `@x` — the binding is a loan like a parameter (DEF-102). Through `c3bdae2` it compiled, and the array's element read the free poison — `../../tests/rejection/vec_alias_for_binding_free.npk` |

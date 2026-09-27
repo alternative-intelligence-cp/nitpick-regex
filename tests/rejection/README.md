@@ -189,7 +189,10 @@ every run and requires the harness to catch it.
 
 - **Name every code you expect**, and only those. A `check` test that names no
   code asserts nothing (B-7a): exit 1 alone cannot tell "refused for the reason
-  this test is about" from "the file was not there".
+  this test is about" from "the file was not there". **And name a code once per
+  site it is reported at** — one `expect-error` line, each with its
+  `expect-error-at`, per site (B-7b, RX-178, the compiler's D-332):
+  `pattern_error_literal.npk` names `NITPICK-TYPE-079` four times.
 - **`// expect-error-at: L:C` is worth pinning** — it separates "refused with
   this code" from "refused with this code *at the failsafe*". It is also
   brittle: adding a line above the span moves it, and the first two fixtures

@@ -20,7 +20,7 @@ reporting it.
 |---|---|
 | `run.py` | the driver: build steps, then the suites in manifest order, then the summary |
 | `manifest.py` | `nitpick.toml`, in the compiler's own subset, with the compiler's schema |
-| `toolchain.py` | `llc`, `opt`, `ld.lld` asked their versions and held to the pinned LLVM 20.1.2 |
+| `toolchain.py` | `llc`, `opt`, `ld.lld` asked their versions and held to the pinned LLVM 20.1.2; and the manifest's `datalayout` held to what the pinned `opt` derives from its `triple` (`BUILD.md` B-1a, RX-176) |
 | `lexical.py` | **the harness's one reading of `.npk` source** (RX-157, RX-165): every `.npk` file opened by `lexical.read`, as BYTES — `\n` the only line end, as in the compiler's lexer — comments, strings, character literals and template text blanked, imports read the way the compiler's parser reads them, each path the literal's decoded value. The program suites' skip, B-2's reach, the expectation markers and every tree check stand on it; self-check case 18 tests it through a file |
 | `expect.py` | the `// expect-…` grammar, marker for marker with `npkg/expect.npk`, **plus two markers of this runner's own** — `mem-cap-mib:` and `pending-until: <commit> exit <N>` (`BUILD.md` B-5b, RX-146 as amended by RX-154), each declared there so the parity stage has a row rather than a surprise |
 | `elf.py` | an ELF64 symbol table, read with `struct` — no fourth tool |
@@ -44,7 +44,10 @@ reporting it.
 - every `program`-stage file gave the **same exit code** at −O0 and again
   through `opt -O2` + `llc -O2` (B-3);
 - every rejection fixture was refused with **exactly** the codes it names
-  (B-7, D-237);
+  (B-7, D-237), each at as many sites as it names it (B-7b, RX-178);
+- every linked program's emission stated the manifest's `target datalayout` and
+  `target triple`, and that layout is the one the pinned `opt` derives from the
+  triple (B-1a, RX-176);
 - no object gained an undefined symbol the baseline lacks, and no function
   outside the baseline called a floor symbol this library may not (B-2, B-2a);
 - the same tree built from two different working directories produced

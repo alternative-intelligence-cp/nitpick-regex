@@ -12,7 +12,8 @@ makes the guarantee below possible.
 > foundations, closed on 2026-09-26 — the language probes, the test harness and
 > the storage primitives in `src/core/` are built and audited — and cycle 0.1.0
 > laid the parser's pieces in `src/syntax/`: the closed list of pattern errors,
-> the byte cursor and the AST arena. Nothing parses or matches a pattern yet.
+> the byte cursor and the AST arena. Cycle 0.1.0b moved the pinned compiler to
+> `5fbaf4a`. Nothing parses or matches a pattern yet.
 > The specification set is in [`meta/specs/`](meta/specs/) and the plan in
 > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
 > discipline the compiler used — specs first, then a cycle map, then
