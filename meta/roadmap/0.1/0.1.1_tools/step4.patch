@@ -1,5 +1,5 @@
 diff --git a/CLAUDE.md b/CLAUDE.md
-index ee233870ea9adf92b26112d691b2441f25937df7..ae51dd58c0dab1f10c59fd5ec04c30fca238581d 100644
+index aa3f0c28a92f3472cc2e22e5c96d4f1f23cde680..3a04b7e7c6a22c7574a36520fac7c85a63b479ad 100644
 --- a/CLAUDE.md
 +++ b/CLAUDE.md
 @@ -6,9 +6,12 @@ Guidance for Claude Code sessions working in this repository.
@@ -50,7 +50,7 @@ index 79b62a2bc663557368a6421e9ae653aa7e04ae72..9a4a54130fb611f1ea5b80e6679cc86f
  > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
  > discipline the compiler used — specs first, then a cycle map, then
 diff --git a/meta/roadmap/ROADMAP.md b/meta/roadmap/ROADMAP.md
-index 4be8aee27907777141aafe35fd5575774709187f..f9255cda93d71b6c199fc7b95962c3e26946a0e4 100644
+index 4be8aee27907777141aafe35fd5575774709187f..700ab8a56012644ed6878a0201072f956e336117 100644
 --- a/meta/roadmap/ROADMAP.md
 +++ b/meta/roadmap/ROADMAP.md
 @@ -53,7 +53,7 @@ cycle 0.0.
@@ -58,7 +58,7 @@ index 4be8aee27907777141aafe35fd5575774709187f..f9255cda93d71b6c199fc7b95962c3e2
  |---|---|---|
  | **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **DONE 2026-09-26, archived to [`done/0.0/`](done/0.0/README.md).** The sixth W-22 audit ACCEPTED the close at compiler `c970483`, after five refusals — three on 2026-09-06, two on 2026-09-25 — and two inserted subcycles, 0.0.4d (`Vec` move-only) and 0.0.4e (the re-pin that refused the loan). The close is [`done/0.0/0.0.5.md`](done/0.0/0.0.5.md) §13 | — |
 -| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **OPEN: [`0.1.0`](0.1/0.1.0.md), the cursor and the AST, done; [`0.1.0b`](0.1/0.1.0b.md), the adoption of `5fbaf4a` and the ecosystem audit's items, done; [`0.1.1`](0.1/0.1.1.md), the core grammar, is next** | 0.0 |
-+| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **OPEN: [`0.1.0`](0.1/0.1.0.md), the cursor and the AST, done; [`0.1.0b`](0.1/0.1.0b.md), the adoption of `5fbaf4a` and the ecosystem audit's items, done; [`0.1.1`](0.1/0.1.1.md), the core grammar, done; 0.1.2, the explicit stack's bound, is next** | 0.0 |
++| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **OPEN: [`0.1.0`](0.1/0.1.0.md), the cursor and the AST, done; [`0.1.0b`](0.1/0.1.0b.md), the adoption of `5fbaf4a` and the ecosystem audit's items, done; [`0.1.1`](0.1/0.1.1.md), the core grammar, done; next, open question O-R3 — `struct:Vec<T: Copy>` — as a subcycle of its own, then 0.1.2, the explicit stack's bound** | 0.0 |
  | **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction | 0.1 |
  | **0.3** | **Unicode** — generated tables, properties, scripts, simple case folding | 0.0 |
  | **0.4** | **UTF-8 automata** — codepoint ranges to byte ranges, alphabet compression | 0.3 |
@@ -72,3 +72,32 @@ index 4be8aee27907777141aafe35fd5575774709187f..f9255cda93d71b6c199fc7b95962c3e2
  
  **Two probes refuted their own hypothesis**, which is the cycle's best return:
  `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler
+diff --git a/src/syntax/README.md b/src/syntax/README.md
+index 08dc960b7461bea0ea199bb8e0a34b08857c5881..29fe4f33947d5290e79c8efb2ef62b19ca8290ab 100644
+--- a/src/syntax/README.md
++++ b/src/syntax/README.md
+@@ -6,14 +6,20 @@ offset into the pattern. Governed by `meta/specs/SYNTAX.md`. Built in cycle
+ 0.1.
+ 
+ Since cycle 0.1.0 it holds the pieces every later subcycle is written in, and
+-parses no construct yet:
++since cycle 0.1.1 it parses the core grammar — literals, `.`, `^`, `$`, groups,
++alternation and quantifiers (`SYNTAX.md` Y-28 … Y-33) — and says what each
++refusal means (Y-34). A class, an escape other than punctuation, and a flag are
++refused provisionally until cycles 0.1.3 and 0.1.4 (Y-31):
+ 
+ | File | What |
+ |---|---|
+ | `syntax.npk` | the layer entry: every name the layer offers, `pub use`, one per line |
+-| `pattern_error.npk` | `PatternErrorKind` (`SYNTAX.md` §9), `PatternError` (`SAFETY.md` S-9), and `pattern_error`, the only way to build one — RX-172 |
++| `pattern_error.npk` | `PatternErrorKind` (`SYNTAX.md` §9), `PatternError` (`SAFETY.md` S-9), and `pattern_error`, the only way to build one — RX-172; and `pattern_error_text`, what is wrong, at which byte, and what to write instead — RX-187 |
+ | `cursor.npk` | the byte cursor: one byte of lookahead, moved by nothing outside it — RX-173 |
+ | `ast.npk` | the AST arena: sixteen kinds of 56-byte node that own nothing (`SYNTAX.md` Y-26, Y-27) — RX-174 |
+-| `parse.npk` | the parser's entry: at 0.1.0 only its first refusal, `parse_check_length` — RX-175 |
++| `parse.npk` | the parser: `parse_check_length`, the first refusal — RX-175; `parse_check_encoding`, the pattern checked whole as UTF-8 — RX-183; and `parse_pattern`, one explicit-stack walk that builds the AST — RX-182, RX-184 … RX-186 |
+ 
+-`tests/unit/syntax_skeleton.npk` composes them through `syntax.npk` alone.
++`tests/unit/syntax_skeleton.npk` composes the pieces through `syntax.npk` alone,
++and `parse_grammar`, `parse_refusals`, `parse_encoding`, `parse_limits` and
++`pattern_error_text` hold the parse and its text to the specification the same
++way.

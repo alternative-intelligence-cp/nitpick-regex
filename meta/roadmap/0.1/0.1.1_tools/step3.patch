@@ -1,8 +1,8 @@
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index 5c41329183c1a5cc9421893c149cfb857bae348c..5b8c54e9eb2f0e7578d03f89be45c95b8efdbdc1 100644
+index 65da472035e2afa79f5baa0fdc496854dec36270..dbc6010de4fb590270fc5b5fdfdc705babc66bb1 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
-@@ -4520,3 +4520,25 @@ knows none. No test pins one; `parse_pattern` is not public until cycle 0.10, so
+@@ -4528,3 +4528,25 @@ cannot change, since `P` is no flag (`parse_refusals.npk` case 64); `parse_patte
  *Alternatives declined:* **the constructs read as literals** — a silent wrong acceptance, and Y-2 forbids `\q` as
  `q`; **a temporary kind** — a thirty-seventh kind to retire at 0.1.5, and a closed list that changes twice;
  **tests pinning them** — 0.1.3 and 0.1.4 would delete the tests they inherit.
@@ -58,10 +58,10 @@ index f2be670cb32dd1f565497f13b4bd983b7d14d079..527c6770ff0d2085cc7ec5319ad3f113
  `SAFETY.md` S-4: a compiled `Regex` cannot fail to search. `Match?` is the
  absence of a match, not an error.
 diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
-index 7d0286127c8ffe0e10aded495b826bb37f0850d9..f19c68b3ce49876eabf6213c4b8d828b941a6ae2 100644
+index 29d63d3bebcd3f689fddbfdb3699e13e54426d89..0601655053df5d89ded241d382aff37012be43b1 100644
 --- a/meta/specs/SYNTAX.md
 +++ b/meta/specs/SYNTAX.md
-@@ -419,6 +419,19 @@ provoke the kind, and Y-25 forbids a kind nothing produces.*
+@@ -424,6 +424,19 @@ provoke the kind, and Y-25 forbids a kind nothing produces.*
  **Limits and encoding**: `PatternTooLong`, `ProgramTooLarge`,
  `InvalidPatternEncoding`, `ByteModeNonAscii`.
  
@@ -82,10 +82,21 @@ index 7d0286127c8ffe0e10aded495b826bb37f0850d9..f19c68b3ce49876eabf6213c4b8d828b
  diffs the enum against the tests, so a kind nothing can produce is caught. This
  is the compiler's `check_codes_tested` in this library's terms.
 diff --git a/src/syntax/pattern_error.npk b/src/syntax/pattern_error.npk
-index 048e33635e047c70ebe622c83aafc2a505ba62a6..deea9d5ea7fa8e1b098516d7fb26397cd3b9b3d0 100644
+index 048e33635e047c70ebe622c83aafc2a505ba62a6..f2f66099ffcf24699616d91f9c265ebe2048f21b 100644
 --- a/src/syntax/pattern_error.npk
 +++ b/src/syntax/pattern_error.npk
-@@ -115,3 +115,221 @@ pub func:pattern_error = PatternError(PatternErrorKind:kind, int64:offset, int64
+@@ -31,7 +31,9 @@
+ //
+ // LAYERING (`BUILD.md` §6, rule B-16). `syntax` may import `unicode` and `core`;
+ // this file imports `core` for one thing, its out-of-range stop `vec_oob`, so a
+-// program importing it owes `core`'s eleven arms.
++// program importing it owes `core`'s eleven arms. *(For two since cycle 0.1.1:
++// `pattern_error_text` builds its sentence in `core`'s `Bytes` -- RX-187. The
++// bill is the same eleven.)*
+ mod:pattern_error;
+ 
+ use "../core/core.npk".*;
+@@ -115,3 +117,221 @@ pub func:pattern_error = PatternError(PatternErrorKind:kind, int64:offset, int64
      if (span_len < 0i64) { drop vec_oob(span_len); }
      pass PatternError{ kind: kind, offset: offset, span_len: span_len, detail: detail };
  };
@@ -308,10 +319,15 @@ index 048e33635e047c70ebe622c83aafc2a505ba62a6..deea9d5ea7fa8e1b098516d7fb26397c
 +    pass raw bytes_copy_string(@b);
 +};
 diff --git a/src/syntax/syntax.npk b/src/syntax/syntax.npk
-index 4fb01ef111253deaa0eab1e5aeaf592beb56c4bc..165f514c6fbd7c6fda59b416f228de19dd7d8ff7 100644
+index a05456230778a9e653d517b1ab4fa36f25a06e83..d8372797a240c1574428552c01fbd55d7f26242d 100644
 --- a/src/syntax/syntax.npk
 +++ b/src/syntax/syntax.npk
-@@ -31,6 +31,7 @@ mod:syntax;
+@@ -27,10 +27,11 @@
+ // `pattern_error.npk` imports `core`.
+ mod:syntax;
+ 
+-// ---- what a pattern can get wrong (RX-172) ---------------------------------
++// ---- what a pattern can get wrong (RX-172), and what it says (RX-187) --------
  pub use "./pattern_error.npk".PatternErrorKind;
  pub use "./pattern_error.npk".PatternError;
  pub use "./pattern_error.npk".pattern_error;

@@ -1,8 +1,8 @@
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index 04dddd12b073ee758cfa0173ca20a87e1cd713b4..5c41329183c1a5cc9421893c149cfb857bae348c 100644
+index a04d9702f69580cf2a6822df26a99e25814f1671..35be9035af90616f0f2e7b4f6e07c36677e9b5af 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
-@@ -4444,3 +4444,79 @@ list — before a parser exists to leave it dormant (Y-25: every kind has a test
+@@ -4450,3 +4450,81 @@ list — before a parser exists to leave it dormant (Y-25: every kind has a test
  `(a|)` is a common spelling of an optional group, and Y-27 would need amending too; **keep the kind for a later
  trigger** — none is in §1's grammar, and a kind held for a construct nobody has named is the dormant-rule pattern;
  **leave it to cycle 0.1.6** — the decision is the grammar's, and 0.1.1 is where the grammar is written.
@@ -77,16 +77,47 @@ index 04dddd12b073ee758cfa0173ca20a87e1cd713b4..5c41329183c1a5cc9421893c149cfb85
 +**@@DATE@@, cycle 0.1.1 (the plan's PD-30)** — `SYNTAX.md` Y-31. `[` is `UnclosedClass` until 0.1.3; `\` before
 +anything but ASCII punctuation is `UnknownEscape` until 0.1.4; `(?` before a flag, or anything Y-29 and Y-30 do not
 +name, is `UnknownFlag` until 0.1.4. Each is what that parser answers for a member it does not know, and 0.1.1's
-+knows none. No test pins one; `parse_pattern` is not public until cycle 0.10, so no consumer meets one.
++knows none. No test pins one but `(?P` before a byte no head names — `UnknownFlag` at the `P`, which 0.1.4
++cannot change, since `P` is no flag (`parse_refusals.npk` case 64); `parse_pattern` is not public until cycle
++0.10, so no consumer meets one.
 +
 +*Alternatives declined:* **the constructs read as literals** — a silent wrong acceptance, and Y-2 forbids `\q` as
 +`q`; **a temporary kind** — a thirty-seventh kind to retire at 0.1.5, and a closed list that changes twice;
 +**tests pinning them** — 0.1.3 and 0.1.4 would delete the tests they inherit.
+diff --git a/meta/specs/SAFETY.md b/meta/specs/SAFETY.md
+index ece039ccd63994b547baea7d76cbc0d253892616..97faf0747f9e25f3a606ece87ab37633adb6070b 100644
+--- a/meta/specs/SAFETY.md
++++ b/meta/specs/SAFETY.md
+@@ -666,6 +666,14 @@ names — offsets into a `Bytes`. So the rule costs the design nothing it had
+ decided, and constrains three types it had not. It is enforced because
+ it is the only thing standing between a later cycle's `Vec<string>` and a
+ `vec_get` that silently empties its container.
++*(@@DATE@@, cycle 0.1.1 — RX-182: the parser's `Frame` is shaped, and owns
++nothing — twelve `int64`s and its flags — and so does the `GroupName` it keeps
++for Y-8, an offset, a length and a group number. Each refers to a group's name
++by its place in the pattern, which the caller keeps, as `SYNTAX.md` Y-26 holds
++an AST node's (RX-174) — the same rule as an offset into a `Bytes`, nothing
++owned — and `check_vec_elements_own_nothing` clears `Vec<Frame>` and
++`Vec<GroupName>`, as it has cleared `Vec<AstNode>` since cycle 0.1.0. Two types
++are left to shape, `Literal` and `GroupInfo`, at cycle 0.2.)*
+ 
+ *A cycle that needs an owning element lifts S-23a by a decision*, and the
+ compiler's own `List<T>` at `c3bdae2` is the shape it would take: removals that
 diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
-index 1364b316bb41f31885a1ac9d7d42a66c2a5353db..7d0286127c8ffe0e10aded495b826bb37f0850d9 100644
+index 027cd4536fa126a7029cfa4218c4ea9088fd0e2d..56ac118f7e5db25b94a0d9cf8955f2c11ed8b4f4 100644
 --- a/meta/specs/SYNTAX.md
 +++ b/meta/specs/SYNTAX.md
-@@ -111,7 +111,9 @@ group at byte 14", not "invalid pattern".
+@@ -102,6 +102,9 @@ of the parenthesis that did it.
+ *(2026-09-25, cycle 0.0.4d — RX-161: the state that holds that `Vec<Frame>` is
+ move-only by containment — moved, lent by value to a reader, and passed by
+ pointer to anything that pushes or pops (`SAFETY.md` S-23b).)*
++*(@@DATE@@, cycle 0.1.1 — RX-182: the parser holds it — `src/syntax/parse.npk`'s
++`Parser`, freed by `parse_pattern` on every path (Y-33) — and cycle 0.1.2 adds
++the bound; until then the pattern's length bounds the stack.)*
+ 
+ **Rule Y-10 — every error carries a byte offset into the pattern**, and a
+ length where the construct spans more than a point. A user gets "unclosed
+@@ -111,7 +114,9 @@ group at byte 14", not "invalid pattern".
  or a class**, where a multi-byte UTF-8 sequence is decoded to a codepoint. A
  pattern that is not valid UTF-8 is `InvalidPatternEncoding`. The **haystack**
  has no such requirement (`SAFETY.md` S-20); the **pattern** does, because a
@@ -97,7 +128,7 @@ index 1364b316bb41f31885a1ac9d7d42a66c2a5353db..7d0286127c8ffe0e10aded495b826bb3
  
  **Rule Y-26 (RX-174) — the AST is a flat arena of nodes that own nothing, and
  every operand is an `int64`.** `src/syntax/ast.npk`:
-@@ -167,6 +169,85 @@ A list's members — a `Concat`'s pieces, an `Alternate`'s alternatives, a
+@@ -167,6 +172,87 @@ A list's members — a `Concat`'s pieces, an `Alternate`'s alternatives, a
  written. The subcycle that parses a construct produces its kind; the operands
  are this table's until a decision says otherwise.
  
@@ -148,7 +179,9 @@ index 1364b316bb41f31885a1ac9d7d42a66c2a5353db..7d0286127c8ffe0e10aded495b826bb3
 +character's codepoint (cycle 0.1.4); `(?` before anything Y-29 and Y-30 do not name
 +— a flag included — is `UnknownFlag` at that character, detail its codepoint (cycle
 +0.1.4). No test pins a provisional refusal; the subcycle that parses the construct
-+replaces it.
++replaces it. One answer among them is final, and a test pins it: `(?P` before a
++byte Y-29 and Y-30 do not name is `UnknownFlag` at the `P`, detail `P` (80), in
++every cycle, since `P` is no flag (`parse_refusals.npk` case 64).
 +
 +**Rule Y-32 (RX-184) — quantifiers.** `*`, `+`, `?`, `{n}`, `{n,}` and `{n,m}`, each
 +followed by `?` to be lazy, wrap the atom before them in a `Repeat` — `a` the atom,
@@ -183,7 +216,7 @@ index 1364b316bb41f31885a1ac9d7d42a66c2a5353db..7d0286127c8ffe0e10aded495b826bb3
  ---
  
  ## 4. Flags
-@@ -342,6 +423,27 @@ provoke the kind, and Y-25 forbids a kind nothing produces.*
+@@ -342,6 +428,27 @@ provoke the kind, and Y-25 forbids a kind nothing produces.*
  diffs the enum against the tests, so a kind nothing can produce is caught. This
  is the compiler's `check_codes_tested` in this library's terms.
  
@@ -208,11 +241,26 @@ index 1364b316bb41f31885a1ac9d7d42a66c2a5353db..7d0286127c8ffe0e10aded495b826bb3
 +| `InvalidPatternEncoding` | ill-formed UTF-8 | the sequence's first byte | through the byte that broke it | that byte; 0 when cut short |
 +| `PatternTooLong` (cycle 0.1.0) | over `NREGEX_PATTERN_BYTES` | the first byte past the bound | the bytes over it | the bound |
 +
- *(@@DATE@@, cycle 0.1.1 — RX-181: thirty-six, `EmptyAlternate` retired.)*
+ *(2026-09-27, cycle 0.1.1 — RX-181: thirty-six, `EmptyAlternate` retired.)*
  *(2026-09-26, cycle 0.1.0 — RX-172: `src/syntax/pattern_error.npk`'s
  `PatternErrorKind` is this list, all thirty-seven, in this order, declared
+diff --git a/src/core/vec.npk b/src/core/vec.npk
+index 917f8a1e6e468e22257e790a77930f7ad9fe3510..483cc5b7755c932a8a563a867ce0b3ca00689e77 100644
+--- a/src/core/vec.npk
++++ b/src/core/vec.npk
+@@ -303,6 +303,10 @@
+ // (`tests/rejection/vec_owning_get_moves_out.npk`). The other rows are unchanged,
+ // and S-23a and its check stand for them.)* *(The bound is `T: Copy` since cycle
+ // 0.1.0b, RX-177.)*
++// *(@@DATE@@, cycle 0.1.1 -- RX-182: the parser's `Frame` is shaped, integers only,
++// and so is its `GroupName`; each refers to a group's name by its place in the
++// PATTERN, as the AST does (RX-174), rather than by an offset into a `Bytes`, and
++// the check clears both. `Literal` and `GroupInfo` are the two left, at cycle 0.2.)*
+ //
+ // LAYERING (`BUILD.md` §6, B-16). `core` imports nothing outside `core`. This
+ // file imports nothing at all.
 diff --git a/src/syntax/parse.npk b/src/syntax/parse.npk
-index 8ca1384f868e7b13004feb0561ce16dfb621f322..04ec1fbf352380454d3b4b405c606da3ed47399f 100644
+index 8ca1384f868e7b13004feb0561ce16dfb621f322..387446d313d25f202a3d3e4ff09a1c1ada5968bf 100644
 --- a/src/syntax/parse.npk
 +++ b/src/syntax/parse.npk
 @@ -1,24 +1,229 @@
@@ -677,7 +725,7 @@ index 8ca1384f868e7b13004feb0561ce16dfb621f322..04ec1fbf352380454d3b4b405c606da3
 +        int32:d = raw cursor_peek(@p.c);
 +        if (raw is_digit(d)) {
 +            discard(raw cursor_bump(@p.c));
-+            pass raw head_refused(p, PatternErrorKind.RecursionUnsupported, open, CH_MINUS);
++            pass raw head_refused(p, PatternErrorKind.RecursionUnsupported, open, d);
 +        }
 +        // `(?-` and a flag: cycle 0.1.4's (Y-31). Until then, provisional.
 +        pass raw pattern_error(PatternErrorKind.UnknownFlag, open + 2i64, 1i64, CH_MINUS =>! uint32);
@@ -863,7 +911,7 @@ index 8ca1384f868e7b13004feb0561ce16dfb621f322..04ec1fbf352380454d3b4b405c606da3
 +    pass e;
 +};
 diff --git a/src/syntax/syntax.npk b/src/syntax/syntax.npk
-index d71faf27562b3ecf1b0e009d0cc6243aa8884ae1..4fb01ef111253deaa0eab1e5aeaf592beb56c4bc 100644
+index d71faf27562b3ecf1b0e009d0cc6243aa8884ae1..a05456230778a9e653d517b1ab4fa36f25a06e83 100644
 --- a/src/syntax/syntax.npk
 +++ b/src/syntax/syntax.npk
 @@ -9,11 +9,13 @@
@@ -885,9 +933,12 @@ index d71faf27562b3ecf1b0e009d0cc6243aa8884ae1..4fb01ef111253deaa0eab1e5aeaf592b
  //
  // EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1
  // and 3): `use` is not transitive, a plain `use` re-exports nothing, and one
-@@ -63,3 +65,5 @@ pub use "./ast.npk".ast_free;
+@@ -61,5 +63,7 @@ pub use "./ast.npk".ast_set;
+ pub use "./ast.npk".ast_set_root;
+ pub use "./ast.npk".ast_free;
  
- // ---- the parser's entry (RX-175) ----------------------------------------------
+-// ---- the parser's entry (RX-175) ----------------------------------------------
++// ---- the parser's entry (RX-175) and the parse (RX-182, RX-183) ---------------
  pub use "./parse.npk".parse_check_length;
 +pub use "./parse.npk".parse_check_encoding;
 +pub use "./parse.npk".parse_pattern;
@@ -1349,10 +1400,10 @@ index 0000000000000000000000000000000000000000..f614fd7334a2da3a2f23aff2a40bffb9
 +};
 diff --git a/tests/unit/parse_refusals.npk b/tests/unit/parse_refusals.npk
 new file mode 100644
-index 0000000000000000000000000000000000000000..f5df245a96929f12df59ddae433fea90306055ce
+index 0000000000000000000000000000000000000000..a781c039a7843680f929868f32283a5a9b29fdf0
 --- /dev/null
 +++ b/tests/unit/parse_refusals.npk
-@@ -0,0 +1,122 @@
+@@ -0,0 +1,124 @@
 +// expect-exit: 0
 +//
 +// THE CORE GRAMMAR, REFUSED: EVERY REFUSAL CYCLE 0.1.1 MAKES, WITH ITS OFFSET,
@@ -1363,7 +1414,9 @@ index 0000000000000000000000000000000000000000..f5df245a96929f12df59ddae433fea90
 +// with this detail -- the four fields a message is built from (Y-10, Y-34). A
 +// case that differs exits with its number. The PROVISIONAL refusals -- a class,
 +// an escape other than punctuation, a flag, each a later subcycle's (Y-31, RX-186) --
-+// are not pinned here: cycles 0.1.3 and 0.1.4 change them.
++// are not pinned here: cycles 0.1.3 and 0.1.4 change them. Case 64 is not one of
++// them: `(?P` before a byte no head names is `UnknownFlag` at the `P` in every
++// cycle, since `P` is no flag (Y-31).
 +mod:parse_refusals;
 +
 +use "../../src/core/core.npk".*;
@@ -1443,7 +1496,7 @@ index 0000000000000000000000000000000000000000..f5df245a96929f12df59ddae433fea90
 +    if (!(raw refused("(?1)", PatternErrorKind.RecursionUnsupported, 0i64, 3i64, 49u32)))    { pass 58i32; }
 +    if (!(raw refused("(?&n)", PatternErrorKind.RecursionUnsupported, 0i64, 3i64, 38u32)))   { pass 59i32; }
 +    if (!(raw refused("(?+1)", PatternErrorKind.RecursionUnsupported, 0i64, 3i64, 43u32)))   { pass 60i32; }
-+    if (!(raw refused("(?-1)", PatternErrorKind.RecursionUnsupported, 0i64, 4i64, 45u32)))   { pass 61i32; }
++    if (!(raw refused("(?-1)", PatternErrorKind.RecursionUnsupported, 0i64, 4i64, 49u32)))   { pass 61i32; }
 +    if (!(raw refused("(?P>n)", PatternErrorKind.RecursionUnsupported, 0i64, 4i64, 62u32)))  { pass 62i32; }
 +    if (!(raw refused("(?P=n)", PatternErrorKind.BackreferenceUnsupported, 0i64, 4i64, 61u32))) { pass 63i32; }
 +    if (!(raw refused("(?Px)", PatternErrorKind.UnknownFlag, 2i64, 1i64, 80u32)))           { pass 64i32; }

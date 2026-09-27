@@ -6,8 +6,11 @@ byte offset on every error.**
 > **OPEN. [`0.1.0`](0.1.0.md) is DONE (2026-09-26)** — RX-171 … RX-175 in six work
 > commits, `64a5ca9` … `0d26478`, 250/250 at `c970483` and in CI — **and [`0.1.0b`](0.1.0b.md), the
 > adoption of compiler `5fbaf4a` with the ecosystem audit's items, is DONE (2026-09-27)** — RX-176 … RX-180 in
-> seven work commits, `2c748d4` … `186db2c`, 250/250 at `5fbaf4a` and in CI run 36338559696. **[`0.1.1`](0.1.1.md),
-> the core grammar, is next**, planned and rehearsed at `5fbaf4a`. *(Until 0.1.0b's record this banner said
+> seven work commits, `2c748d4` … `186db2c`, 250/250 at `5fbaf4a` and in CI run 36338559696 — **and [`0.1.1`](0.1.1.md),
+> the core grammar, is DONE (2026-09-27)** — RX-181 … RX-187 in four work commits, `34b2801` … `1953d72`, 260/260 at
+> `5fbaf4a` and in CI run 36347047570. **Next, open question O-R3 as a subcycle of its own, then 0.1.2** (the board,
+> 2026-09-27). *(Until 0.1.1's record this banner said 0.1.1 "is next, planned and rehearsed at `5fbaf4a`".)*
+> *(Until 0.1.0b's record this banner said
 > 0.1.0b and 0.1.1 "are PLANNED (2026-09-27, one planner dispatch, both rehearsed at `5fbaf4a`) and run in that
 > order".)* *(Until
 > then this banner said 0.1.1 was next and its file its planner's to write — `0.1.0.md` §8.)* *(Until
@@ -75,18 +78,18 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
 - [x] EC11's two cycles corrected; the registry's entry for 0.1.0's `EMIT-002` finding recorded and struck (ES4); the Node-24 bump homed with the workbench (EK2) — **`186db2c`**, its patch amended for ten more statements steps 1–6 had made stale (`0.1.0b.md`'s record): the table takes the roadmap's 0.6.1 and 0.4.3; O-N32 struck as discharged by DEF-142 and DEF-143; the Node-24 bump the orchestrator's, one research request for both CIs
 
 ### 0.1.1 — the core grammar
-- [ ] `EmptyAlternate` retired — Y-27's `Empty` accepts every empty alternative (PD-25)
-- [ ] the pattern checked whole as UTF-8 first, per RFC 3629 — `InvalidPatternEncoding` at the first ill-formed sequence (PD-27)
-- [ ] alternation, concatenation, groups (capturing, non-capturing, named), quantifiers (`*`, `+`, `?`, `{n}`, `{n,}`, `{n,m}`, each with a lazy `?`)
-- [ ] capture numbering by opening parenthesis, left to right, from 1 (Y-6)
-- [ ] `(?<name>…)` only; `(?P<name>…)` and `(?'name'…)` refused as `WrongNamedGroupSpelling` **naming the right spelling** (RX-017)
-- [ ] `DuplicateGroupName` (Y-8)
-- [ ] `NothingToRepeat`, `DoubleRepeat`, `BadRepeatBounds` (`{3,1}`), `RepeatTooLarge`
-- [ ] `NREGEX_CAPTURE_GROUPS` enforced
-- [ ] one explicit-stack walk, no function calling itself; the tree's spans and flags as Y-33 (PD-26)
-- [ ] §8's group heads — lookaround, atomic, recursion, `(?P=`, the comment group — and a possessive quantifier refused where they are read (PD-29)
-- [ ] `[`, an escape other than punctuation, and a flag refused provisionally, pinned by no test (PD-30)
-- [ ] `pattern_error_text`: every kind a sentence — what is wrong, at which byte, what to write instead — 0.1.1's held to the letter (PD-31)
+- [x] `EmptyAlternate` retired — Y-27's `Empty` accepts every empty alternative (PD-25) — **RX-181, `34b2801`**: thirty-six kinds, `pattern_error_unit` 0 at both legs; `a|`, `|a`, `|`, `()`, `(|a)+` and `a(|)` parse (`parse_grammar` cases 5–7, 10, 49, 68); 250/250
+- [x] the pattern checked whole as UTF-8 first, per RFC 3629 — `InvalidPatternEncoding` at the first ill-formed sequence (PD-27) — **RX-183, `6feaa54`**: `parse_check_encoding`, RFC 3629's table case for case (`meta/research/utf8-rfc3629.md`); `parse_encoding` holds seventeen ill-formed sequences and nine boundaries decoded, `(` then 0xFF refused at the byte; 258/258
+- [x] alternation, concatenation, groups (capturing, non-capturing, named), quantifiers (`*`, `+`, `?`, `{n}`, `{n,}`, `{n,m}`, each with a lazy `?`) — **RX-182, RX-184, `6feaa54`**: `parse_grammar`'s fifty-nine shapes, each tree dumped and compared whole, 0 at −O0 and through `opt -O2`, and 3 with one expectation wrong; 258/258
+- [x] capture numbering by opening parenthesis, left to right, from 1 (Y-6) — **RX-185, `6feaa54`**: `parse_grammar` cases 13–16, 46, 47, named groups numbered too
+- [x] `(?<name>…)` only; `(?P<name>…)` and `(?'name'…)` refused as `WrongNamedGroupSpelling` **naming the right spelling** (RX-017) — **RX-185, `6feaa54`; the sentence RX-187, `09f000e`**: `parse_refusals` cases 49, 50; `pattern_error_text` cases 14, 15 write `(?<name>...)`
+- [x] `DuplicateGroupName` (Y-8) — **RX-185, `6feaa54`**: `parse_refusals` cases 46–48, at the second name, detail the first group's number
+- [x] `NothingToRepeat`, `DoubleRepeat`, `BadRepeatBounds` (`{3,1}`), `RepeatTooLarge` — **RX-184, `6feaa54`**: `parse_refusals` cases 12–36, each decided at the quantifier's first byte; `a{1000}` parses and `a{1001}` is refused
+- [x] `NREGEX_CAPTURE_GROUPS` enforced — **RX-185, `6feaa54`**: `parse_limits` — 250 groups parse, the 251st is `TooManyCaptureGroups` at its `(`, byte 500, named groups counted too
+- [x] one explicit-stack walk, no function calling itself; the tree's spans and flags as Y-33 (PD-26) — **RX-182, `6feaa54`**: one `while` in `parse_run`; of `parse.npk`'s twenty-seven functions none calls itself and none is on a call cycle (read by script, `0.1.1.md`'s record); 250 nested groups parse (`parse_limits`); spans and flags by `parse_grammar` cases 60–68 and its `!flags` check
+- [x] §8's group heads — lookaround, atomic, recursion, `(?P=`, the comment group — and a possessive quantifier refused where they are read (PD-29) — **RX-185, `6feaa54`**: `parse_refusals` cases 51–63 and 21–23; `(?-1`'s detail the digit, the head's last byte, as Y-30 says (the patch amended, `0.1.1.md`'s record)
+- [x] `[`, an escape other than punctuation, and a flag refused provisionally, pinned by no test (PD-30) — **RX-186, `6feaa54`**: none pinned but `(?Px)`, `UnknownFlag` at the `P` — final, since `P` is no flag, and so stated in Y-31 and RX-186 (`parse_refusals` case 64; the patch amended, `0.1.1.md`'s record)
+- [x] `pattern_error_text`: every kind a sentence — what is wrong, at which byte, what to write instead — 0.1.1's held to the letter (PD-31) — **RX-187, `09f000e`**: twenty-two sentences held to the letter and every kind naming its byte (`pattern_error_text.npk`), 5 with one sentence changed; no new symbol, and the bill `core`'s eleven before and after; 260/260 — one sentence reads the wrong reason for one input, a NUL inside a group name (`0.1.1.md`'s record, for the author)
 
 ### 0.1.2 — the explicit stack
 - [ ] a `Vec<Frame>` bounded by `NREGEX_NEST_DEPTH`, **no native recursion anywhere** (RX-032)
