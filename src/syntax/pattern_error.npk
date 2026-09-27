@@ -31,7 +31,9 @@
 //
 // LAYERING (`BUILD.md` §6, rule B-16). `syntax` may import `unicode` and `core`;
 // this file imports `core` for one thing, its out-of-range stop `vec_oob`, so a
-// program importing it owes `core`'s eleven arms.
+// program importing it owes `core`'s eleven arms. *(For two since cycle 0.1.1:
+// `pattern_error_text` builds its sentence in `core`'s `Bytes` -- RX-187. The
+// bill is the same eleven.)*
 mod:pattern_error;
 
 use "../core/core.npk".*;
@@ -114,4 +116,222 @@ pub func:pattern_error = PatternError(PatternErrorKind:kind, int64:offset, int64
     if (offset < 0i64)   { drop vec_oob(offset); }
     if (span_len < 0i64) { drop vec_oob(span_len); }
     pass PatternError{ kind: kind, offset: offset, span_len: span_len, detail: detail };
+};
+
+// ---- the text a person reads (RX-187; `SYNTAX.md` Y-34) -------------------------
+
+func:put = NIL(Bytes->:b, string:s) never fails {
+    drop bytes_extend_str(b, s);
+    pass NIL;
+};
+
+func:num = NIL(Bytes->:b, int64:n) never fails {
+    drop bytes_put_uint(b, n =>! uint64);
+    pass NIL;
+};
+
+// The byte a refusal names, as the character it is (`detail` holds it).
+func:ch = NIL(Bytes->:b, uint32:d) never fails {
+    drop bytes_push(b, d =>! uint8);
+    pass NIL;
+};
+
+// obligation: never fails
+//
+// WHAT IS WRONG, WHERE, AND WHAT TO WRITE INSTEAD (Y-34). One sentence naming the
+// kind and the byte offset, then the reason, then the fix wherever the library
+// can tell what the author meant -- `\(` for a literal parenthesis, `(?<name>…)`
+// for Python's spelling, `(?:…)` for a group that need not capture. A refusal of
+// a construct nregex declines (`SYNTAX.md` §8) names the guarantee it would break
+// or the alternative, never "unsupported" alone (`COMPAT.md` K-1). Built in a
+// `Bytes`, so no number costs an allocation or a division (`bytes_put_uint`,
+// S-25), and a program that never calls it pays nothing for it.
+pub func:pattern_error_text = string(PatternError:e) never fails {
+    Bytes:b = raw bytes_init(160i64);
+    pick (e.kind) {
+        (PatternErrorKind.UnclosedGroup) {
+            drop put(@b, "unclosed group at byte "); drop num(@b, e.offset);
+            drop put(@b, ": this `(` has no matching `)`");
+            if (e.detail > 1u32) {
+                drop put(@b, "; "); drop num(@b, e.detail => int64);
+                drop put(@b, " groups are still open at the end of the pattern, and this is the innermost");
+            }
+            drop put(@b, ". Add a `)`, or write `\\(` to match a parenthesis.");
+        },
+        (PatternErrorKind.UnopenedGroup) {
+            drop put(@b, "unopened group at byte "); drop num(@b, e.offset);
+            drop put(@b, ": this `)` closes no group. Remove it, or write `\\)` to match a parenthesis.");
+        },
+        (PatternErrorKind.UnclosedClass) {
+            drop put(@b, "unclosed class at byte "); drop num(@b, e.offset);
+            drop put(@b, ": this `[` has no matching `]`. Add a `]`, or write `\\[` to match a bracket.");
+        },
+        (PatternErrorKind.EmptyClass) {
+            drop put(@b, "empty class at byte "); drop num(@b, e.offset);
+            drop put(@b, ": a class matches one of its items, and this one has none.");
+        },
+        (PatternErrorKind.NestTooDeep) {
+            drop put(@b, "nesting too deep at byte "); drop num(@b, e.offset);
+            drop put(@b, ": groups may nest at most "); drop num(@b, e.detail => int64);
+            drop put(@b, " deep (NREGEX_NEST_DEPTH).");
+        },
+        (PatternErrorKind.TrailingBackslash) {
+            drop put(@b, "trailing backslash at byte "); drop num(@b, e.offset);
+            drop put(@b, ": the pattern ends inside an escape. Write `\\\\` to match a backslash.");
+        },
+        (PatternErrorKind.NothingToRepeat) {
+            drop put(@b, "nothing to repeat at byte "); drop num(@b, e.offset);
+            drop put(@b, ": the `"); drop ch(@b, e.detail);
+            drop put(@b, "` follows no expression -- it opens the pattern, a group or an alternative. Write `\\");
+            drop ch(@b, e.detail); drop put(@b, "` to match it.");
+        },
+        (PatternErrorKind.DoubleRepeat) {
+            drop put(@b, "double repetition at byte "); drop num(@b, e.offset);
+            drop put(@b, ": this `"); drop ch(@b, e.detail);
+            drop put(@b, "` repeats a repetition. Group what it repeats, as in `(?:a+)*`, or remove one of the two.");
+        },
+        (PatternErrorKind.BadRepeatBounds) {
+            drop put(@b, "bad repetition bounds at byte "); drop num(@b, e.offset);
+            if (e.detail == 1u32) {
+                drop put(@b, ": the minimum is greater than the maximum. Write the smaller bound first.");
+            }
+            else {
+                drop put(@b, ": a `{` must begin `{n}`, `{n,}` or `{n,m}`, in decimal digits. Write `\\{` to match a brace.");
+            }
+        },
+        (PatternErrorKind.RepeatTooLarge) {
+            drop put(@b, "repetition too large at byte "); drop num(@b, e.offset);
+            drop put(@b, ": a bound may be at most "); drop num(@b, e.detail => int64);
+            drop put(@b, " (NREGEX_REPEAT_MAX). Repeat a group instead, as in `(?:a{1000}){2}`.");
+        },
+        (PatternErrorKind.RepeatProductTooLarge) {
+            drop put(@b, "repetition too large at byte "); drop num(@b, e.offset);
+            drop put(@b, ": nested repetitions multiply, and this one takes the product past ");
+            drop num(@b, e.detail => int64); drop put(@b, " (NREGEX_REPEAT_PRODUCT).");
+        },
+        (PatternErrorKind.BadClassRange) {
+            drop put(@b, "bad class range at byte "); drop num(@b, e.offset);
+            drop put(@b, ": a range must not end before it starts. Write the lower bound first.");
+        },
+        (PatternErrorKind.UnknownPosixClass) {
+            drop put(@b, "unknown POSIX class at byte "); drop num(@b, e.offset);
+            drop put(@b, ": the names are alpha, digit, alnum, space, upper, lower, punct, print, graph, cntrl, xdigit, blank, word and ascii.");
+        },
+        (PatternErrorKind.UnknownUnicodeProperty) {
+            drop put(@b, "unknown Unicode property at byte "); drop num(@b, e.offset);
+            drop put(@b, ": nregex does not know this property.");
+        },
+        (PatternErrorKind.ClassOpMismatch) {
+            drop put(@b, "class operator at byte "); drop num(@b, e.offset);
+            drop put(@b, " is missing an operand: `&&`, `--` and `~~` each need a class on both sides.");
+        },
+        (PatternErrorKind.ClassTooLarge) {
+            drop put(@b, "class too large at byte "); drop num(@b, e.offset);
+            drop put(@b, ": after case folding it has more than "); drop num(@b, e.detail => int64);
+            drop put(@b, " ranges (NREGEX_CLASS_RANGES).");
+        },
+        (PatternErrorKind.UnknownEscape) {
+            drop put(@b, "unknown escape at byte "); drop num(@b, e.offset);
+            drop put(@b, ": a `\\` before a letter, a digit or a non-ASCII character must be an escape nregex defines. Write `\\\\` to match a backslash.");
+        },
+        (PatternErrorKind.BadHexEscape) {
+            drop put(@b, "bad hex escape at byte "); drop num(@b, e.offset);
+            drop put(@b, ": `\\x` takes two hex digits, or hex digits in braces, `\\x{...}`.");
+        },
+        (PatternErrorKind.BadUnicodeEscape) {
+            drop put(@b, "bad Unicode escape at byte "); drop num(@b, e.offset);
+            drop put(@b, ": `\\u` takes four hex digits and `\\U` eight.");
+        },
+        (PatternErrorKind.InvalidCodepoint) {
+            drop put(@b, "invalid codepoint at byte "); drop num(@b, e.offset);
+            drop put(@b, ": "); drop num(@b, e.detail => int64);
+            drop put(@b, " is a surrogate or above U+10FFFF, and names no character.");
+        },
+        (PatternErrorKind.DuplicateGroupName) {
+            drop put(@b, "duplicate group name at byte "); drop num(@b, e.offset);
+            drop put(@b, ": this name already names group "); drop num(@b, e.detail => int64);
+            drop put(@b, ". Rename one of the two.");
+        },
+        (PatternErrorKind.BadGroupName) {
+            drop put(@b, "bad group name at byte "); drop num(@b, e.offset);
+            if (e.detail == 0u32) {
+                drop put(@b, ": the name has no closing `>`. End it with `>`, as in `(?<name>...)`.");
+            }
+            else if (e.detail == 62u32) {
+                drop put(@b, ": the name is empty. Write one between `<` and `>`, as in `(?<name>...)`.");
+            }
+            else {
+                drop put(@b, ": a name is ASCII letters, digits and `_`, and does not begin with a digit.");
+            }
+        },
+        (PatternErrorKind.UnknownFlag) {
+            drop put(@b, "unknown flag at byte "); drop num(@b, e.offset);
+            drop put(@b, ": a flag is one of `i`, `m`, `s`, `x` and `u`.");
+        },
+        (PatternErrorKind.TooManyCaptureGroups) {
+            drop put(@b, "too many capture groups at byte "); drop num(@b, e.offset);
+            drop put(@b, ": this group would be number "); drop num(@b, (e.detail => int64) + 1i64);
+            drop put(@b, ", and a pattern may have "); drop num(@b, e.detail => int64);
+            drop put(@b, " (NREGEX_CAPTURE_GROUPS). Make the groups you do not read non-capturing, `(?:...)`.");
+        },
+        (PatternErrorKind.WrongNamedGroupSpelling) {
+            drop put(@b, "wrong named-group spelling at byte "); drop num(@b, e.offset);
+            if (e.detail == 39u32) { drop put(@b, ": `(?'name'...)` is the .NET spelling. Write `(?<name>...)`."); }
+            else { drop put(@b, ": `(?P<name>...)` is Python's spelling. Write `(?<name>...)`."); }
+        },
+        (PatternErrorKind.BackreferenceUnsupported) {
+            drop put(@b, "backreference at byte "); drop num(@b, e.offset);
+            drop put(@b, " is not supported: matching one is NP-hard in general, and every nregex search takes linear time. Capture both parts and compare them yourself.");
+        },
+        (PatternErrorKind.LookaroundUnsupported) {
+            drop put(@b, "lookaround at byte "); drop num(@b, e.offset);
+            drop put(@b, " is not supported: it cannot be matched in linear time, which every nregex search guarantees. Match the larger text and inspect its captures instead.");
+        },
+        (PatternErrorKind.AtomicGroupUnsupported) {
+            if (e.detail == 43u32) {
+                drop put(@b, "possessive repetition at byte "); drop num(@b, e.offset);
+                drop put(@b, " is not supported: it steers backtracking, and nregex never backtracks -- every search takes linear time. Remove the `+` for an ordinary repetition.");
+            }
+            else {
+                drop put(@b, "atomic group at byte "); drop num(@b, e.offset);
+                drop put(@b, " is not supported: it steers backtracking, and nregex never backtracks -- every search takes linear time. Write a plain group, `(?:...)`.");
+            }
+        },
+        (PatternErrorKind.RecursionUnsupported) {
+            drop put(@b, "recursion at byte "); drop num(@b, e.offset);
+            drop put(@b, " is not supported: a recursive pattern is not a regular expression and cannot be matched in linear time. Parse nested structure with a parser instead.");
+        },
+        (PatternErrorKind.UnsupportedAnchor) {
+            drop put(@b, "unsupported anchor at byte "); drop num(@b, e.offset);
+            if (e.detail == 90u32) { drop put(@b, ": there is no `\\Z`. Write `\\n?\\z` to match at the end or before a final newline."); }
+            else { drop put(@b, ": there is no `\\G`. Search from an offset with regex_find_at instead."); }
+        },
+        (PatternErrorKind.UnsupportedGroup) {
+            drop put(@b, "comment group at byte "); drop num(@b, e.offset);
+            drop put(@b, " is not supported: in `x` mode, `#` starts a comment that runs to the end of the line.");
+        },
+        (PatternErrorKind.UnsupportedQuoting) {
+            drop put(@b, "quoting at byte "); drop num(@b, e.offset);
+            drop put(@b, " is not supported: build a pattern that matches a literal string with regex_escape() instead of `\\Q...\\E`.");
+        },
+        (PatternErrorKind.PatternTooLong) {
+            drop put(@b, "pattern too long at byte "); drop num(@b, e.offset);
+            drop put(@b, ": a pattern may be at most "); drop num(@b, e.detail => int64);
+            drop put(@b, " bytes (NREGEX_PATTERN_BYTES).");
+        },
+        (PatternErrorKind.ProgramTooLarge) {
+            drop put(@b, "pattern too large at byte "); drop num(@b, e.offset);
+            drop put(@b, ": its compiled program would exceed "); drop num(@b, e.detail => int64);
+            drop put(@b, " instructions (NREGEX_PROGRAM_INSTRUCTIONS).");
+        },
+        (PatternErrorKind.InvalidPatternEncoding) {
+            drop put(@b, "invalid UTF-8 at byte "); drop num(@b, e.offset);
+            drop put(@b, ": a pattern is UTF-8 text, and this sequence is not well-formed.");
+        },
+        (PatternErrorKind.ByteModeNonAscii) {
+            drop put(@b, "non-ASCII literal at byte "); drop num(@b, e.offset);
+            drop put(@b, " under `(?-u)`: in byte mode a literal is one byte. Write the bytes as `\\xHH` escapes, or leave `u` on.");
+        }
+    }
+    pass raw bytes_copy_string(@b);
 };

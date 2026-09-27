@@ -50,6 +50,11 @@ pattern_error_offset(PatternError) -> int64
 pattern_error_text(PatternError) -> string
 ```
 
+*(2026-09-27, cycle 0.1.1 — RX-187: `pattern_error_text` is written in
+`src/syntax/pattern_error.npk`, beside the kinds it describes, and re-exported by
+`syntax.npk`; `src/lib.npk` re-exports it at cycle 0.10.5 with the rest of this list.
+What it says is `SYNTAX.md` Y-34.)*
+
 **Rule A-1 — everything on the search path returns a value, not a `Result`.**
 `SAFETY.md` S-4: a compiled `Regex` cannot fail to search. `Match?` is the
 absence of a match, not an error.

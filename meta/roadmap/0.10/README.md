@@ -61,7 +61,7 @@ a `comptime` parameter — recommendation: a value).
 
 ### 0.10.5 — inspection and `lib.npk`
 - [ ] `regex_group_count`, `regex_group_name`, `regex_group_index`, `regex_pattern`, `regex_last_engine`, `regex_program_size`
-- [ ] `pattern_error_kind`, `pattern_error_offset`, `pattern_error_text`
+- [ ] `pattern_error_kind`, `pattern_error_offset`, `pattern_error_text` — the last written at cycle 0.1.1 in `src/syntax/` (RX-187); here it is re-exported and touched
 - [ ] `src/lib.npk` lists every public name from `API.md` §1, one per line
 - [ ] a conformance test touching **every** name, so a removal breaks a test rather than a user
 

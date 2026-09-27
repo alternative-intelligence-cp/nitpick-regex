@@ -4528,3 +4528,25 @@ cannot change, since `P` is no flag (`parse_refusals.npk` case 64); `parse_patte
 *Alternatives declined:* **the constructs read as literals** — a silent wrong acceptance, and Y-2 forbids `\q` as
 `q`; **a temporary kind** — a thirty-seventh kind to retire at 0.1.5, and a closed list that changes twice;
 **tests pinning them** — 0.1.3 and 0.1.4 would delete the tests they inherit.
+
+### RX-187 — `pattern_error_text` says what is wrong, at which byte, and what to write instead; written with the kinds, in `src/syntax/`, from cycle 0.1.1
+
+**2026-09-27, cycle 0.1.1 (the plan's PD-31)** — `SYNTAX.md` Y-34; the author's standing bar for a library's errors
+(the dispatch of 2026-09-27: what is wrong, where, and the likely fix where the library can tell). `API.md` §1's
+`pattern_error_text(PatternError) -> string` is written in `pattern_error.npk`, one `pick` arm per kind, each a
+sentence naming the kind and `at byte` the offset, then the reason, then the fix: an unclosed group says add a `)`
+or write `\(`; `(?P<name>…)` says it is Python's spelling and gives `(?<name>…)`; the 251st group says to make the
+groups not read non-capturing; a possessive or atomic construct says nregex never backtracks and every search
+takes linear time. It reads only the four fields — `detail` carries the quantifier's byte, the bound, the first
+group's number — and builds in a `Bytes`, so no division and no new undefined symbol (measured: a program calling
+it references `npk_string_concat` and `npk_string_from_bytes`, both on B-2's reviewed list, and owes no new arm).
+`tests/unit/pattern_error_text.npk` holds twenty-two of 0.1.1's sentences to the letter and every kind to a
+sentence naming its byte; `src/lib.npk` re-exports it at 0.10.5.
+
+*Alternatives declined:* **the text at cycle 0.10.5, as the roadmap had it** — a message written nine cycles after
+its kind is written by someone who no longer knows what the author meant; **the pattern as an argument, to quote
+the construct** — `API.md` fixes the signature, and a caller holding the pattern can slice it at `offset` and
+`span_len`; **a template with `&{…}`** — it references `npk_int_to_string`, a symbol B-2's reviewed list does not
+hold, where `bytes_put_uint` already exists for this; **one generic sentence for the kinds later subcycles
+produce** — every kind renders a real sentence now, and each subcycle holds its own to the letter when it
+produces them.

@@ -27,10 +27,11 @@
 // `pattern_error.npk` imports `core`.
 mod:syntax;
 
-// ---- what a pattern can get wrong (RX-172) ---------------------------------
+// ---- what a pattern can get wrong (RX-172), and what it says (RX-187) --------
 pub use "./pattern_error.npk".PatternErrorKind;
 pub use "./pattern_error.npk".PatternError;
 pub use "./pattern_error.npk".pattern_error;
+pub use "./pattern_error.npk".pattern_error_text;
 
 // ---- the byte cursor (RX-173) ----------------------------------------------
 pub use "./cursor.npk".CURSOR_END;

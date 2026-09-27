@@ -424,6 +424,19 @@ provoke the kind, and Y-25 forbids a kind nothing produces.*
 **Limits and encoding**: `PatternTooLong`, `ProgramTooLarge`,
 `InvalidPatternEncoding`, `ByteModeNonAscii`.
 
+**Rule Y-34 (RX-187) — every refusal reads as what is wrong, where, and what to
+write instead.** `pattern_error_text(PatternError) -> string` (`API.md` §1) renders one
+sentence per kind: the kind in words and `at byte` the offset, then the reason, then
+the fix wherever the library can tell what the author meant — `\(` for a literal
+parenthesis, `(?<name>…)` for Python's and .NET's spellings, `(?:…)` for a group that
+need not capture, `\{` for a brace. A refusal of a construct §8 declines names the
+guarantee it would break, or the alternative, never "unsupported" alone (`COMPAT.md`
+K-1). The text is built from the four fields alone — the pattern is not an argument
+— and in a `Bytes`, so a number costs no allocation and no division
+(`bytes_put_uint`, `SAFETY.md` S-25). Every kind has a sentence from cycle 0.1.1;
+each later subcycle holds its kinds' sentences to the letter when it produces them,
+as `tests/unit/pattern_error_text.npk` holds 0.1.1's.
+
 **Rule Y-25 — every kind has a test that provokes it**, and a harness check
 diffs the enum against the tests, so a kind nothing can produce is caught. This
 is the compiler's `check_codes_tested` in this library's terms.
