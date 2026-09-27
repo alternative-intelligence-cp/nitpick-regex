@@ -1,0 +1,442 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 5c41329183c1a5cc9421893c149cfb857bae348c..5b8c54e9eb2f0e7578d03f89be45c95b8efdbdc1 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -4520,3 +4520,25 @@ knows none. No test pins one; `parse_pattern` is not public until cycle 0.10, so
+ *Alternatives declined:* **the constructs read as literals** — a silent wrong acceptance, and Y-2 forbids `\q` as
+ `q`; **a temporary kind** — a thirty-seventh kind to retire at 0.1.5, and a closed list that changes twice;
+ **tests pinning them** — 0.1.3 and 0.1.4 would delete the tests they inherit.
++
++### RX-187 — `pattern_error_text` says what is wrong, at which byte, and what to write instead; written with the kinds, in `src/syntax/`, from cycle 0.1.1
++
++**@@DATE@@, cycle 0.1.1 (the plan's PD-31)** — `SYNTAX.md` Y-34; the author's standing bar for a library's errors
++(the dispatch of 2026-09-27: what is wrong, where, and the likely fix where the library can tell). `API.md` §1's
++`pattern_error_text(PatternError) -> string` is written in `pattern_error.npk`, one `pick` arm per kind, each a
++sentence naming the kind and `at byte` the offset, then the reason, then the fix: an unclosed group says add a `)`
++or write `\(`; `(?P<name>…)` says it is Python's spelling and gives `(?<name>…)`; the 251st group says to make the
++groups not read non-capturing; a possessive or atomic construct says nregex never backtracks and every search
++takes linear time. It reads only the four fields — `detail` carries the quantifier's byte, the bound, the first
++group's number — and builds in a `Bytes`, so no division and no new undefined symbol (measured: a program calling
++it references `npk_string_concat` and `npk_string_from_bytes`, both on B-2's reviewed list, and owes no new arm).
++`tests/unit/pattern_error_text.npk` holds twenty-two of 0.1.1's sentences to the letter and every kind to a
++sentence naming its byte; `src/lib.npk` re-exports it at 0.10.5.
++
++*Alternatives declined:* **the text at cycle 0.10.5, as the roadmap had it** — a message written nine cycles after
++its kind is written by someone who no longer knows what the author meant; **the pattern as an argument, to quote
++the construct** — `API.md` fixes the signature, and a caller holding the pattern can slice it at `offset` and
++`span_len`; **a template with `&{…}`** — it references `npk_int_to_string`, a symbol B-2's reviewed list does not
++hold, where `bytes_put_uint` already exists for this; **one generic sentence for the kinds later subcycles
++produce** — every kind renders a real sentence now, and each subcycle holds its own to the letter when it
++produces them.
+diff --git a/meta/roadmap/0.10/README.md b/meta/roadmap/0.10/README.md
+index 5bd75f456fb2423d8897c514f4b067afbb161f36..cc520801b3fad1e2eef7d903ab37212f70068054 100644
+--- a/meta/roadmap/0.10/README.md
++++ b/meta/roadmap/0.10/README.md
+@@ -61,7 +61,7 @@ a `comptime` parameter — recommendation: a value).
+ 
+ ### 0.10.5 — inspection and `lib.npk`
+ - [ ] `regex_group_count`, `regex_group_name`, `regex_group_index`, `regex_pattern`, `regex_last_engine`, `regex_program_size`
+-- [ ] `pattern_error_kind`, `pattern_error_offset`, `pattern_error_text`
++- [ ] `pattern_error_kind`, `pattern_error_offset`, `pattern_error_text` — the last written at cycle 0.1.1 in `src/syntax/` (RX-187); here it is re-exported and touched
+ - [ ] `src/lib.npk` lists every public name from `API.md` §1, one per line
+ - [ ] a conformance test touching **every** name, so a removal breaks a test rather than a user
+ 
+diff --git a/meta/specs/API.md b/meta/specs/API.md
+index f2be670cb32dd1f565497f13b4bd983b7d14d079..527c6770ff0d2085cc7ec5319ad3f113edccf1c2 100644
+--- a/meta/specs/API.md
++++ b/meta/specs/API.md
+@@ -50,6 +50,11 @@ pattern_error_offset(PatternError) -> int64
+ pattern_error_text(PatternError) -> string
+ ```
+ 
++*(@@DATE@@, cycle 0.1.1 — RX-187: `pattern_error_text` is written in
++`src/syntax/pattern_error.npk`, beside the kinds it describes, and re-exported by
++`syntax.npk`; `src/lib.npk` re-exports it at cycle 0.10.5 with the rest of this list.
++What it says is `SYNTAX.md` Y-34.)*
++
+ **Rule A-1 — everything on the search path returns a value, not a `Result`.**
+ `SAFETY.md` S-4: a compiled `Regex` cannot fail to search. `Match?` is the
+ absence of a match, not an error.
+diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
+index 7d0286127c8ffe0e10aded495b826bb37f0850d9..f19c68b3ce49876eabf6213c4b8d828b941a6ae2 100644
+--- a/meta/specs/SYNTAX.md
++++ b/meta/specs/SYNTAX.md
+@@ -419,6 +419,19 @@ provoke the kind, and Y-25 forbids a kind nothing produces.*
+ **Limits and encoding**: `PatternTooLong`, `ProgramTooLarge`,
+ `InvalidPatternEncoding`, `ByteModeNonAscii`.
+ 
++**Rule Y-34 (RX-187) — every refusal reads as what is wrong, where, and what to
++write instead.** `pattern_error_text(PatternError) -> string` (`API.md` §1) renders one
++sentence per kind: the kind in words and `at byte` the offset, then the reason, then
++the fix wherever the library can tell what the author meant — `\(` for a literal
++parenthesis, `(?<name>…)` for Python's and .NET's spellings, `(?:…)` for a group that
++need not capture, `\{` for a brace. A refusal of a construct §8 declines names the
++guarantee it would break, or the alternative, never "unsupported" alone (`COMPAT.md`
++K-1). The text is built from the four fields alone — the pattern is not an argument
++— and in a `Bytes`, so a number costs no allocation and no division
++(`bytes_put_uint`, `SAFETY.md` S-25). Every kind has a sentence from cycle 0.1.1;
++each later subcycle holds its kinds' sentences to the letter when it produces them,
++as `tests/unit/pattern_error_text.npk` holds 0.1.1's.
++
+ **Rule Y-25 — every kind has a test that provokes it**, and a harness check
+ diffs the enum against the tests, so a kind nothing can produce is caught. This
+ is the compiler's `check_codes_tested` in this library's terms.
+diff --git a/src/syntax/pattern_error.npk b/src/syntax/pattern_error.npk
+index 048e33635e047c70ebe622c83aafc2a505ba62a6..deea9d5ea7fa8e1b098516d7fb26397cd3b9b3d0 100644
+--- a/src/syntax/pattern_error.npk
++++ b/src/syntax/pattern_error.npk
+@@ -115,3 +115,221 @@ pub func:pattern_error = PatternError(PatternErrorKind:kind, int64:offset, int64
+     if (span_len < 0i64) { drop vec_oob(span_len); }
+     pass PatternError{ kind: kind, offset: offset, span_len: span_len, detail: detail };
+ };
++
++// ---- the text a person reads (RX-187; `SYNTAX.md` Y-34) -------------------------
++
++func:put = NIL(Bytes->:b, string:s) never fails {
++    drop bytes_extend_str(b, s);
++    pass NIL;
++};
++
++func:num = NIL(Bytes->:b, int64:n) never fails {
++    drop bytes_put_uint(b, n =>! uint64);
++    pass NIL;
++};
++
++// The byte a refusal names, as the character it is (`detail` holds it).
++func:ch = NIL(Bytes->:b, uint32:d) never fails {
++    drop bytes_push(b, d =>! uint8);
++    pass NIL;
++};
++
++// obligation: never fails
++//
++// WHAT IS WRONG, WHERE, AND WHAT TO WRITE INSTEAD (Y-34). One sentence naming the
++// kind and the byte offset, then the reason, then the fix wherever the library
++// can tell what the author meant -- `\(` for a literal parenthesis, `(?<name>…)`
++// for Python's spelling, `(?:…)` for a group that need not capture. A refusal of
++// a construct nregex declines (`SYNTAX.md` §8) names the guarantee it would break
++// or the alternative, never "unsupported" alone (`COMPAT.md` K-1). Built in a
++// `Bytes`, so no number costs an allocation or a division (`bytes_put_uint`,
++// S-25), and a program that never calls it pays nothing for it.
++pub func:pattern_error_text = string(PatternError:e) never fails {
++    Bytes:b = raw bytes_init(160i64);
++    pick (e.kind) {
++        (PatternErrorKind.UnclosedGroup) {
++            drop put(@b, "unclosed group at byte "); drop num(@b, e.offset);
++            drop put(@b, ": this `(` has no matching `)`");
++            if (e.detail > 1u32) {
++                drop put(@b, "; "); drop num(@b, e.detail => int64);
++                drop put(@b, " groups are still open at the end of the pattern, and this is the innermost");
++            }
++            drop put(@b, ". Add a `)`, or write `\\(` to match a parenthesis.");
++        },
++        (PatternErrorKind.UnopenedGroup) {
++            drop put(@b, "unopened group at byte "); drop num(@b, e.offset);
++            drop put(@b, ": this `)` closes no group. Remove it, or write `\\)` to match a parenthesis.");
++        },
++        (PatternErrorKind.UnclosedClass) {
++            drop put(@b, "unclosed class at byte "); drop num(@b, e.offset);
++            drop put(@b, ": this `[` has no matching `]`. Add a `]`, or write `\\[` to match a bracket.");
++        },
++        (PatternErrorKind.EmptyClass) {
++            drop put(@b, "empty class at byte "); drop num(@b, e.offset);
++            drop put(@b, ": a class matches one of its items, and this one has none.");
++        },
++        (PatternErrorKind.NestTooDeep) {
++            drop put(@b, "nesting too deep at byte "); drop num(@b, e.offset);
++            drop put(@b, ": groups may nest at most "); drop num(@b, e.detail => int64);
++            drop put(@b, " deep (NREGEX_NEST_DEPTH).");
++        },
++        (PatternErrorKind.TrailingBackslash) {
++            drop put(@b, "trailing backslash at byte "); drop num(@b, e.offset);
++            drop put(@b, ": the pattern ends inside an escape. Write `\\\\` to match a backslash.");
++        },
++        (PatternErrorKind.NothingToRepeat) {
++            drop put(@b, "nothing to repeat at byte "); drop num(@b, e.offset);
++            drop put(@b, ": the `"); drop ch(@b, e.detail);
++            drop put(@b, "` follows no expression -- it opens the pattern, a group or an alternative. Write `\\");
++            drop ch(@b, e.detail); drop put(@b, "` to match it.");
++        },
++        (PatternErrorKind.DoubleRepeat) {
++            drop put(@b, "double repetition at byte "); drop num(@b, e.offset);
++            drop put(@b, ": this `"); drop ch(@b, e.detail);
++            drop put(@b, "` repeats a repetition. Group what it repeats, as in `(?:a+)*`, or remove one of the two.");
++        },
++        (PatternErrorKind.BadRepeatBounds) {
++            drop put(@b, "bad repetition bounds at byte "); drop num(@b, e.offset);
++            if (e.detail == 1u32) {
++                drop put(@b, ": the minimum is greater than the maximum. Write the smaller bound first.");
++            }
++            else {
++                drop put(@b, ": a `{` must begin `{n}`, `{n,}` or `{n,m}`, in decimal digits. Write `\\{` to match a brace.");
++            }
++        },
++        (PatternErrorKind.RepeatTooLarge) {
++            drop put(@b, "repetition too large at byte "); drop num(@b, e.offset);
++            drop put(@b, ": a bound may be at most "); drop num(@b, e.detail => int64);
++            drop put(@b, " (NREGEX_REPEAT_MAX). Repeat a group instead, as in `(?:a{1000}){2}`.");
++        },
++        (PatternErrorKind.RepeatProductTooLarge) {
++            drop put(@b, "repetition too large at byte "); drop num(@b, e.offset);
++            drop put(@b, ": nested repetitions multiply, and this one takes the product past ");
++            drop num(@b, e.detail => int64); drop put(@b, " (NREGEX_REPEAT_PRODUCT).");
++        },
++        (PatternErrorKind.BadClassRange) {
++            drop put(@b, "bad class range at byte "); drop num(@b, e.offset);
++            drop put(@b, ": a range must not end before it starts. Write the lower bound first.");
++        },
++        (PatternErrorKind.UnknownPosixClass) {
++            drop put(@b, "unknown POSIX class at byte "); drop num(@b, e.offset);
++            drop put(@b, ": the names are alpha, digit, alnum, space, upper, lower, punct, print, graph, cntrl, xdigit, blank, word and ascii.");
++        },
++        (PatternErrorKind.UnknownUnicodeProperty) {
++            drop put(@b, "unknown Unicode property at byte "); drop num(@b, e.offset);
++            drop put(@b, ": nregex does not know this property.");
++        },
++        (PatternErrorKind.ClassOpMismatch) {
++            drop put(@b, "class operator at byte "); drop num(@b, e.offset);
++            drop put(@b, " is missing an operand: `&&`, `--` and `~~` each need a class on both sides.");
++        },
++        (PatternErrorKind.ClassTooLarge) {
++            drop put(@b, "class too large at byte "); drop num(@b, e.offset);
++            drop put(@b, ": after case folding it has more than "); drop num(@b, e.detail => int64);
++            drop put(@b, " ranges (NREGEX_CLASS_RANGES).");
++        },
++        (PatternErrorKind.UnknownEscape) {
++            drop put(@b, "unknown escape at byte "); drop num(@b, e.offset);
++            drop put(@b, ": a `\\` before a letter, a digit or a non-ASCII character must be an escape nregex defines. Write `\\\\` to match a backslash.");
++        },
++        (PatternErrorKind.BadHexEscape) {
++            drop put(@b, "bad hex escape at byte "); drop num(@b, e.offset);
++            drop put(@b, ": `\\x` takes two hex digits, or hex digits in braces, `\\x{...}`.");
++        },
++        (PatternErrorKind.BadUnicodeEscape) {
++            drop put(@b, "bad Unicode escape at byte "); drop num(@b, e.offset);
++            drop put(@b, ": `\\u` takes four hex digits and `\\U` eight.");
++        },
++        (PatternErrorKind.InvalidCodepoint) {
++            drop put(@b, "invalid codepoint at byte "); drop num(@b, e.offset);
++            drop put(@b, ": "); drop num(@b, e.detail => int64);
++            drop put(@b, " is a surrogate or above U+10FFFF, and names no character.");
++        },
++        (PatternErrorKind.DuplicateGroupName) {
++            drop put(@b, "duplicate group name at byte "); drop num(@b, e.offset);
++            drop put(@b, ": this name already names group "); drop num(@b, e.detail => int64);
++            drop put(@b, ". Rename one of the two.");
++        },
++        (PatternErrorKind.BadGroupName) {
++            drop put(@b, "bad group name at byte "); drop num(@b, e.offset);
++            if (e.detail == 0u32) {
++                drop put(@b, ": the name has no closing `>`. End it with `>`, as in `(?<name>...)`.");
++            }
++            else if (e.detail == 62u32) {
++                drop put(@b, ": the name is empty. Write one between `<` and `>`, as in `(?<name>...)`.");
++            }
++            else {
++                drop put(@b, ": a name is ASCII letters, digits and `_`, and does not begin with a digit.");
++            }
++        },
++        (PatternErrorKind.UnknownFlag) {
++            drop put(@b, "unknown flag at byte "); drop num(@b, e.offset);
++            drop put(@b, ": a flag is one of `i`, `m`, `s`, `x` and `u`.");
++        },
++        (PatternErrorKind.TooManyCaptureGroups) {
++            drop put(@b, "too many capture groups at byte "); drop num(@b, e.offset);
++            drop put(@b, ": this group would be number "); drop num(@b, (e.detail => int64) + 1i64);
++            drop put(@b, ", and a pattern may have "); drop num(@b, e.detail => int64);
++            drop put(@b, " (NREGEX_CAPTURE_GROUPS). Make the groups you do not read non-capturing, `(?:...)`.");
++        },
++        (PatternErrorKind.WrongNamedGroupSpelling) {
++            drop put(@b, "wrong named-group spelling at byte "); drop num(@b, e.offset);
++            if (e.detail == 39u32) { drop put(@b, ": `(?'name'...)` is the .NET spelling. Write `(?<name>...)`."); }
++            else { drop put(@b, ": `(?P<name>...)` is Python's spelling. Write `(?<name>...)`."); }
++        },
++        (PatternErrorKind.BackreferenceUnsupported) {
++            drop put(@b, "backreference at byte "); drop num(@b, e.offset);
++            drop put(@b, " is not supported: matching one is NP-hard in general, and every nregex search takes linear time. Capture both parts and compare them yourself.");
++        },
++        (PatternErrorKind.LookaroundUnsupported) {
++            drop put(@b, "lookaround at byte "); drop num(@b, e.offset);
++            drop put(@b, " is not supported: it cannot be matched in linear time, which every nregex search guarantees. Match the larger text and inspect its captures instead.");
++        },
++        (PatternErrorKind.AtomicGroupUnsupported) {
++            if (e.detail == 43u32) {
++                drop put(@b, "possessive repetition at byte "); drop num(@b, e.offset);
++                drop put(@b, " is not supported: it steers backtracking, and nregex never backtracks -- every search takes linear time. Remove the `+` for an ordinary repetition.");
++            }
++            else {
++                drop put(@b, "atomic group at byte "); drop num(@b, e.offset);
++                drop put(@b, " is not supported: it steers backtracking, and nregex never backtracks -- every search takes linear time. Write a plain group, `(?:...)`.");
++            }
++        },
++        (PatternErrorKind.RecursionUnsupported) {
++            drop put(@b, "recursion at byte "); drop num(@b, e.offset);
++            drop put(@b, " is not supported: a recursive pattern is not a regular expression and cannot be matched in linear time. Parse nested structure with a parser instead.");
++        },
++        (PatternErrorKind.UnsupportedAnchor) {
++            drop put(@b, "unsupported anchor at byte "); drop num(@b, e.offset);
++            if (e.detail == 90u32) { drop put(@b, ": there is no `\\Z`. Write `\\n?\\z` to match at the end or before a final newline."); }
++            else { drop put(@b, ": there is no `\\G`. Search from an offset with regex_find_at instead."); }
++        },
++        (PatternErrorKind.UnsupportedGroup) {
++            drop put(@b, "comment group at byte "); drop num(@b, e.offset);
++            drop put(@b, " is not supported: in `x` mode, `#` starts a comment that runs to the end of the line.");
++        },
++        (PatternErrorKind.UnsupportedQuoting) {
++            drop put(@b, "quoting at byte "); drop num(@b, e.offset);
++            drop put(@b, " is not supported: build a pattern that matches a literal string with regex_escape() instead of `\\Q...\\E`.");
++        },
++        (PatternErrorKind.PatternTooLong) {
++            drop put(@b, "pattern too long at byte "); drop num(@b, e.offset);
++            drop put(@b, ": a pattern may be at most "); drop num(@b, e.detail => int64);
++            drop put(@b, " bytes (NREGEX_PATTERN_BYTES).");
++        },
++        (PatternErrorKind.ProgramTooLarge) {
++            drop put(@b, "pattern too large at byte "); drop num(@b, e.offset);
++            drop put(@b, ": its compiled program would exceed "); drop num(@b, e.detail => int64);
++            drop put(@b, " instructions (NREGEX_PROGRAM_INSTRUCTIONS).");
++        },
++        (PatternErrorKind.InvalidPatternEncoding) {
++            drop put(@b, "invalid UTF-8 at byte "); drop num(@b, e.offset);
++            drop put(@b, ": a pattern is UTF-8 text, and this sequence is not well-formed.");
++        },
++        (PatternErrorKind.ByteModeNonAscii) {
++            drop put(@b, "non-ASCII literal at byte "); drop num(@b, e.offset);
++            drop put(@b, " under `(?-u)`: in byte mode a literal is one byte. Write the bytes as `\\xHH` escapes, or leave `u` on.");
++        }
++    }
++    pass raw bytes_copy_string(@b);
++};
+diff --git a/src/syntax/syntax.npk b/src/syntax/syntax.npk
+index 4fb01ef111253deaa0eab1e5aeaf592beb56c4bc..165f514c6fbd7c6fda59b416f228de19dd7d8ff7 100644
+--- a/src/syntax/syntax.npk
++++ b/src/syntax/syntax.npk
+@@ -31,6 +31,7 @@ mod:syntax;
+ pub use "./pattern_error.npk".PatternErrorKind;
+ pub use "./pattern_error.npk".PatternError;
+ pub use "./pattern_error.npk".pattern_error;
++pub use "./pattern_error.npk".pattern_error_text;
+ 
+ // ---- the byte cursor (RX-173) ----------------------------------------------
+ pub use "./cursor.npk".CURSOR_END;
+diff --git a/tests/unit/pattern_error_text.npk b/tests/unit/pattern_error_text.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..aa6d33f3d3c1ce27a3243a3e6fece74e34033b7a
+--- /dev/null
++++ b/tests/unit/pattern_error_text.npk
+@@ -0,0 +1,115 @@
++// expect-exit: 0
++//
++// WHAT A PERSON READS (`SYNTAX.md` Y-34; RX-187): `pattern_error_text` says what
++// is wrong, at which byte, and what to write instead, for every refusal cycle
++// 0.1.1 makes -- each case parses a pattern and holds the text to the letter,
++// so a message changed by accident is a red run. Then every kind, built by
++// `pattern_error` at byte 7, renders a text that names byte 7 (40), so no kind
++// is left without a sentence.
++mod:pattern_error_text;
++
++use "../../src/core/core.npk".*;
++use "../../src/syntax/syntax.npk".*;
++
++func:same = bool(string:got, string:want) never fails {
++    uint8[]:g = string_bytes(got);
++    uint8[]:w = string_bytes(want);
++    if (g.len != w.len) { pass false; }
++    int64:i = 0i64;
++    while (i < w.len) decreases w.len - i {
++        if (g[i] != w[i]) { pass false; }
++        i = i + 1i64;
++    }
++    pass true;
++};
++
++func:says = bool(string:pattern, string:want) never fails {
++    Ast:t = raw ast_init(4i64);
++    PatternError?:r = raw parse_pattern(string_bytes(pattern), @t);
++    drop ast_free(@t);
++    if (r == NIL) { pass false; }
++    PatternError:e = r ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
++    string:got = raw pattern_error_text(e);
++    pass raw same(got, want);
++};
++
++// Does `text` contain `part`?
++func:has = bool(string:text, string:part) never fails {
++    uint8[]:t = string_bytes(text);
++    uint8[]:p = string_bytes(part);
++    int64:i = 0i64;
++    while ((i + p.len) <= t.len) decreases t.len - i {
++        int64:k = 0i64;
++        bool:hit = true;
++        while (k < p.len) decreases p.len - k {
++            if (t[i + k] != p[k]) { hit = false; }
++            k = k + 1i64;
++        }
++        if (hit) { pass true; }
++        i = i + 1i64;
++    }
++    pass false;
++};
++
++func:run = int32() never fails {
++    if (!(raw says("(a", "unclosed group at byte 0: this `(` has no matching `)`. Add a `)`, or write `\\(` to match a parenthesis."))) { pass 1i32; }
++    if (!(raw says("(a(b", "unclosed group at byte 2: this `(` has no matching `)`; 2 groups are still open at the end of the pattern, and this is the innermost. Add a `)`, or write `\\(` to match a parenthesis."))) { pass 2i32; }
++    if (!(raw says("a)", "unopened group at byte 1: this `)` closes no group. Remove it, or write `\\)` to match a parenthesis."))) { pass 3i32; }
++    if (!(raw says("\\", "trailing backslash at byte 0: the pattern ends inside an escape. Write `\\\\` to match a backslash."))) { pass 4i32; }
++    if (!(raw says("*", "nothing to repeat at byte 0: the `*` follows no expression -- it opens the pattern, a group or an alternative. Write `\\*` to match it."))) { pass 5i32; }
++    if (!(raw says("a**", "double repetition at byte 2: this `*` repeats a repetition. Group what it repeats, as in `(?:a+)*`, or remove one of the two."))) { pass 6i32; }
++    if (!(raw says("a{3,1}", "bad repetition bounds at byte 1: the minimum is greater than the maximum. Write the smaller bound first."))) { pass 7i32; }
++    if (!(raw says("a{x", "bad repetition bounds at byte 1: a `{` must begin `{n}`, `{n,}` or `{n,m}`, in decimal digits. Write `\\{` to match a brace."))) { pass 8i32; }
++    if (!(raw says("a{1001}", "repetition too large at byte 2: a bound may be at most 1000 (NREGEX_REPEAT_MAX). Repeat a group instead, as in `(?:a{1000}){2}`."))) { pass 9i32; }
++    if (!(raw says("(?<n>a)(?<n>b)", "duplicate group name at byte 10: this name already names group 1. Rename one of the two."))) { pass 10i32; }
++    if (!(raw says("(?<1>x)", "bad group name at byte 3: a name is ASCII letters, digits and `_`, and does not begin with a digit."))) { pass 11i32; }
++    if (!(raw says("(?<>x)", "bad group name at byte 3: the name is empty. Write one between `<` and `>`, as in `(?<name>...)`."))) { pass 12i32; }
++    if (!(raw says("(?<ab", "bad group name at byte 3: the name has no closing `>`. End it with `>`, as in `(?<name>...)`."))) { pass 13i32; }
++    if (!(raw says("(?P<n>a)", "wrong named-group spelling at byte 0: `(?P<name>...)` is Python's spelling. Write `(?<name>...)`."))) { pass 14i32; }
++    if (!(raw says("(?'n'a)", "wrong named-group spelling at byte 0: `(?'name'...)` is the .NET spelling. Write `(?<name>...)`."))) { pass 15i32; }
++    if (!(raw says("(?=a)", "lookaround at byte 0 is not supported: it cannot be matched in linear time, which every nregex search guarantees. Match the larger text and inspect its captures instead."))) { pass 16i32; }
++    if (!(raw says("a*+", "possessive repetition at byte 1 is not supported: it steers backtracking, and nregex never backtracks -- every search takes linear time. Remove the `+` for an ordinary repetition."))) { pass 17i32; }
++    if (!(raw says("(?>a)", "atomic group at byte 0 is not supported: it steers backtracking, and nregex never backtracks -- every search takes linear time. Write a plain group, `(?:...)`."))) { pass 18i32; }
++    if (!(raw says("(?R)", "recursion at byte 0 is not supported: a recursive pattern is not a regular expression and cannot be matched in linear time. Parse nested structure with a parser instead."))) { pass 19i32; }
++    if (!(raw says("(?P=n)", "backreference at byte 0 is not supported: matching one is NP-hard in general, and every nregex search takes linear time. Capture both parts and compare them yourself."))) { pass 20i32; }
++    if (!(raw says("(?#c)", "comment group at byte 0 is not supported: in `x` mode, `#` starts a comment that runs to the end of the line."))) { pass 21i32; }
++    uint8[1]:ff = [255u8];
++    Ast:t = raw ast_init(4i64);
++    PatternError?:r = raw parse_pattern(ff[0i64...1i64], @t);
++    drop ast_free(@t);
++    PatternError:e = r ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
++    string:enc = raw pattern_error_text(e);
++    if (!(raw same(enc, "invalid UTF-8 at byte 0: a pattern is UTF-8 text, and this sequence is not well-formed."))) { pass 22i32; }
++    // every kind renders a sentence naming its byte
++    int64:k = 0i64;
++    while (k < 36i64) decreases 36i64 - k {
++        PatternErrorKind:kind = (k =>! int32) =>! PatternErrorKind;
++        string:s = raw pattern_error_text(raw pattern_error(kind, 7i64, 1i64, 0u32));
++        if (!(raw has(s, " at byte 7"))) { pass 40i32; }
++        k = k + 1i64;
++    }
++    pass 0i32;
++};
++
++func:main = int32(cstring[]:_~argv) {
++    int32:r = raw run();
++    exit r;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};

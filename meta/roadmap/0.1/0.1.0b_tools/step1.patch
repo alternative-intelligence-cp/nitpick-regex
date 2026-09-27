@@ -1,0 +1,622 @@
+diff --git a/harness/README.md b/harness/README.md
+index f636775b667f431c26a99d94bf956dc47a5c2497..1166653a1171625b8e9f8b33e280bb018a94a71b 100644
+--- a/harness/README.md
++++ b/harness/README.md
+@@ -30,7 +30,7 @@ reporting it.
+ | `treecheck.py` | the live tree checks — the library diffed against its own documents; every one but `check_specs_current` can fail the run, and the runner prints each with what it examined |
+ | `selfcheck.py` | **the harness fed wrong expectations and required to fail**; runs FIRST |
+ | `baseline/` | the empty program the two scans are differences against, `rx120.sh`, and the two REVIEWED LISTS — `RESIDUE.txt` (what `nregex` needs from the runtime, RX-131) and `PENDING.txt` (every unit a `pending-until:` marker takes out of the denominator, RX-154), each checked both ways |
+-| `baseline/rx120.sh` | **executable**: builds the floor and a syscaller at the pinned compiler and ASSERTS floor == 5, syscaller == 6, difference == `{npk_sys6}` (at `c3bdae2` and `c970483`; 2 and 3 at `3d15ac9`); with `950bb1d` present it also asserts 29/29/identical, compiling the two programs without the two arms that compiler does not have (RX-148). A harness **build step** and its own CI step. It replaced a hand-copied transcript that recorded a command which could not have produced the output beside it (RX-142's neighbourhood; cycle 0.0 audit, adjudication (a)) |
++| `baseline/rx120.sh` | **executable**: builds the floor and a syscaller at the pinned compiler and ASSERTS floor == 5, syscaller == 6, difference == `{npk_sys6}` (at `c3bdae2`, `c970483` and `5fbaf4a`; 2 and 3 at `3d15ac9`); with `950bb1d` present it also asserts 29/29/identical, compiling the two programs without the two arms that compiler does not have (RX-148). A harness **build step** and its own CI step. It replaced a hand-copied transcript that recorded a command which could not have produced the output beside it (RX-142's neighbourhood; cycle 0.0 audit, adjudication (a)) |
+ | `selfcheck/` | fixtures that must **fail**; `selfcheck.py` drives them |
+ 
+ ## What a green run asserts
+diff --git a/harness/baseline/README.md b/harness/baseline/README.md
+index 077223b56fb90f063979f0d6b929e9286131a834..bb09083d480d787156d65755d473e66d8f1f0cba 100644
+--- a/harness/baseline/README.md
++++ b/harness/baseline/README.md
+@@ -65,8 +65,10 @@ exactly `{npk_sys6}`, which is the claim that matters. What moved, and why:
+     That is the list working -- an entry added by reasoning rather than by
+     measurement is exactly what it exists to catch."*
+ 
+-`rx120.sh` asserts 5 / 6 / `{npk_sys6}` at `c3bdae2` and at `c970483` (the
+-floor unchanged by the compiler's 1.6.0 chain, cycle 0.0.4e), and its `950bb1d` leg
++`rx120.sh` asserts 5 / 6 / `{npk_sys6}` at `c3bdae2`, at `c970483` (the
++floor unchanged by the compiler's 1.6.0 chain, cycle 0.0.4e) and at `5fbaf4a` (the
++same five symbols through landings 67 … 82, the anchor's move at 78 included --
++cycle 0.1.0b, RX-176), and its `950bb1d` leg
+ still reproduces RX-120 as first measured — 29 / 29, identical, `npk_sys6` in
+ the floor — by compiling both programs with the two arms that compiler does not
+ have removed (RX-148).
+diff --git a/harness/baseline/rx120.sh b/harness/baseline/rx120.sh
+index 5d5948104c2007513b386194338fc95538312901..d2c6490233c0ad38efd5c071ed24b862fce9c9ce 100755
+--- a/harness/baseline/rx120.sh
++++ b/harness/baseline/rx120.sh
+@@ -49,7 +49,7 @@
+ # which is where the workbench keeps them.
+ set -u
+ 
+-PIN=c970483
++PIN=5fbaf4a
+ OLD_PIN=950bb1d
+ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ root="$(cd "$here/../.." && pwd)"
+diff --git a/harness/build.py b/harness/build.py
+index 87c90b3200af94243c4eb067b925b64ab33063d0..2333ead0ac9d413ba9a5edad907dc3dd2b9db608 100644
+--- a/harness/build.py
++++ b/harness/build.py
+@@ -168,6 +168,8 @@ class Ctx:
+         self.llc_opt_flags = m.need("toolchain", "llc-opt-flags")
+         self.opt_flags = m.need("toolchain", "opt-flags")
+         self.lld_flags = m.need("toolchain", "lld-flags")
++        self.triple = m.need("toolchain", "triple")            # RX-176
++        self.datalayout = m.need("toolchain", "datalayout")
+         self.baseline_edges = set()
+         self.baseline_syms = []
+         self.residue_allowed = set()   # RX-131: `RESIDUE.txt`'s names
+@@ -196,6 +198,30 @@ def link(c, obj, exe):
+     return Run(["ld.lld"] + list(c.lld_flags) + [obj, c.npkrt, "-o", exe])
+ 
+ 
++# --- the module header: the two lines every emission states (RX-176) -----------------
++
++_TARGET_LINE = re.compile(r"^target .*$", re.M)
++
++
++def module_header(c, ir, name):
++    """Every linked program's emission states the pinned layout and triple, once
++    each, in that order -- the compiler's `check_module_header` (E-8, D-322 (5)),
++    ported at cycle 0.1.0b, RX-176. `toolchain.check_target` holds the pin to what
++    `opt` derives; this holds each emission to the pin, so the emitter's header,
++    the manifest and the toolchain cannot drift apart in silence. A `target` line
++    is one that BEGINS a line: a string constant sits on an `@` line and a comment
++    on a `;` line."""
++    want = [f'target datalayout = "{c.datalayout}"', f'target triple = "{c.triple}"']
++    got = _TARGET_LINE.findall(ir)
++    if got == want:
++        return []
++    shown = ("`" + "`, `".join(got) + "`") if got else "no `target` line"
++    return [f"{name}: the module's header is not the pinned one -- expected "
++            f"`{want[0]}` and `{want[1]}` (nitpick.toml [toolchain]), got {shown} "
++            f"(E-8, D-322 (5): every module states the layout it assumes, and the "
++            f"runner holds it to the pin)"]
++
++
+ # --- a program: emit, scan, assemble, scan, link -------------------------------------
+ 
+ def emit_and_link(c, path, name, base, scanned=True):
+@@ -213,11 +239,12 @@ def emit_and_link(c, path, name, base, scanned=True):
+     if not os.path.exists(ll):
+         return [f"{name}: npkc exited 0 and wrote no {ll} -- exit 0 does not mean a "
+                 f"program is well-formed (registry O-N11)"]
++    ir = open(ll, encoding="utf-8", errors="replace").read()
++    fl += module_header(c, ir, name)
+     if scanned:
+-        ir = open(ll, encoding="utf-8", errors="replace").read()
+         fl += irscan.scan(ir, c.baseline_edges, name)
+-        if fl:
+-            return fl
++    if fl:
++        return fl
+ 
+     obj = base + ".o"
+     s = llc(c, c.llc_flags, ll, obj)
+diff --git a/harness/lexical.py b/harness/lexical.py
+index e8186ca52b2c2799db1bf8362c3dc6210ebe3813..413eac04461834f825bb51a55b182701d300b51c 100644
+--- a/harness/lexical.py
++++ b/harness/lexical.py
+@@ -28,7 +28,12 @@ below, the one way a `.npk` file is opened, and `_decode()`.
+ 
+ WHAT IT MIRRORS, READ AT COMPILER `c3bdae2` WITH `git show`, NOT FROM A SUMMARY
+ -- AND AGAIN AT `c970483` (cycle 0.0.4e), where `lexer.npk` differs only in the
+-block-string close below and `escapes.npk` and `p_parse_import` not at all:
++block-string close below and `escapes.npk` and `p_parse_import` not at all -- AND
++AGAIN AT `5fbaf4a` (cycle 0.1.0b, the re-read `BUILD.md` B-4e makes every adoption's,
++RX-176), where `lexer.npk` differs only in a character literal's WIDTH (the
++compiler's DEF-145: one above U+00FF, or written with the Unicode escape, is
++`char32`), not in what a literal spans, and `escapes.npk`, `p_parse_import` and the
++lexical reference not at all, so nothing below moved:
+ `src/frontend/lexer.npk`, `lexer_skip_trivia` and `lexer_next`;
+ `src/frontend/escapes.npk`, `escape_decode` and `decode_string`; `p_parse_import` in
+ `src/frontend/parse_decl.npk`; and `LEXICAL_REFERENCE.md` §2, §6.3 and §6.4.
+@@ -94,7 +99,7 @@ two defences share no reader (RX-165).
+ 
+ ITS OWN TEST IS SELF-CHECK CASE 18, which writes one text holding every form
+ above to a FILE, reads it back through `read()`, and requires exactly the
+-imports and the code the compiler would see at `c970483`. Cases 19, 20 and 21
++imports and the code the compiler would see at `c970483` and at `5fbaf4a`. Cases 19, 20 and 21
+ are BL-9's three routes through the whole runner.
+ """
+ import os
+diff --git a/harness/manifest.py b/harness/manifest.py
+index d840986c71d177dcb1d8a3b4b6d801f0b9db8911..c84921ee2507fafc7013c1ff3be2c0107499db6e 100644
+--- a/harness/manifest.py
++++ b/harness/manifest.py
+@@ -20,11 +20,14 @@ class ManifestError(Exception):
+ 
+ 
+ # Every (table, key) the compiler's schema has, read out of `npkg/manifest.npk`
+-# `schema_allows` at 950bb1d. `[dependencies]` takes any key by design.
++# `schema_allows` at 950bb1d -- and `[toolchain]`'s `triple` and `datalayout`, read
++# there at `5fbaf4a`, where `npkg` REQUIRES both (cycle 0.1.0b, RX-176; the runner
++# asks for them by name, `run.py`). `[dependencies]` takes any key by design.
+ SCHEMA = {
+     "project":   {"name", "version", "description", "authors", "target"},
+     "build":     {"entry", "output", "opt-level"},
+-    "toolchain": {"llvm", "llc-flags", "llc-opt-flags", "opt-flags", "lld-flags"},
++    "toolchain": {"llvm", "triple", "datalayout",
++                  "llc-flags", "llc-opt-flags", "opt-flags", "lld-flags"},
+     "test":      {"name", "stage", "kind", "path", "paths", "recursive"},
+     "verify":    {"z3", "z3-version", "z3-sha256", "z3-options"},
+ }
+diff --git a/harness/run.py b/harness/run.py
+index 7e762bdd3a4a075d4415fdbd1114cde855487846..8e7ff2982ce36423cdd6ed995b09e6849770867e 100755
+--- a/harness/run.py
++++ b/harness/run.py
+@@ -165,6 +165,8 @@ def main(argv=None, say=print):
+ 
+     try:
+         toolchain.check(m.need("toolchain", "llvm"), say)
++        toolchain.check_target(m.need("toolchain", "triple"),
++                               m.need("toolchain", "datalayout"), say)
+         npkc, npkrt = toolchain.compiler(say)
+     except (toolchain.ToolchainError, manifest.ManifestError) as e:
+         say(f"FAIL  toolchain: {e}")
+diff --git a/harness/selfcheck.py b/harness/selfcheck.py
+index b0c3e573e728d71c0dc5db4fa2d96e0c551c373d..fc909806c86eab89d57cfbb5a985a3d4fe3ac50f 100644
+--- a/harness/selfcheck.py
++++ b/harness/selfcheck.py
+@@ -92,6 +92,8 @@ opt-level = 0
+ 
+ [toolchain]
+ llvm          = "20.1.2"
++triple        = "x86_64-unknown-linux-gnu"
++datalayout    = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
+ llc-flags     = ["-O0", "-filetype=obj", "-relocation-model=static"]
+ llc-opt-flags = ["-O2", "-filetype=obj", "-relocation-model=static"]
+ opt-flags     = ["-O2", "-S"]
+@@ -723,6 +725,27 @@ def _case23(d):
+     return None                                   # handled by `_run_case23`
+ 
+ 
++def _case24(d):
++    """A manifest whose LAYOUT PIN is not what the pinned `opt` derives from its
++    triple -- one field of the layout dropped (RX-176). The compiler's
++    `check_datalayout_pin`, ported: a stated layout proves nothing about itself,
++    because `opt` keeps a wrong one as written and `llc` accepts one in silence."""
++    _write(d, "tests/case/fine.npk", _program("fine", 0, 0))
++    return (TOML % PROGRAM_ENTRY).replace("-n8:16:32:64-S128", "-n8:16:32-S128")
++
++
++def _case25(d):
++    """A tree pinned CONSISTENTLY to another target -- `i686-unknown-linux-gnu`
++    and the layout the pinned `opt` derives for it -- so the pin check passes and
++    only the header belt can see that every module this compiler emits states
++    x86-64 (RX-176). The compiler's `check_module_header`, ported."""
++    _write(d, "tests/case/fine.npk", _program("fine", 0, 0))
++    return ((TOML % PROGRAM_ENTRY)
++            .replace('"x86_64-unknown-linux-gnu"', '"i686-unknown-linux-gnu"')
++            .replace('"e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"', '"e-m:e-p:32:32-p270:32:32-p271:32:32-p272:64:64-'
++                     'i128:128-f64:32:64-f80:32-n8:16:32-S128"'))
++
++
+ def _case10(d):
+     """A NON-DETERMINISTIC EMISSION -- the `repro` check must report the offset.
+ 
+@@ -848,6 +871,15 @@ CASES = [
+          "RX-165: a defence 'that holds whatever the reader gets wrong' is tested with "
+          "the reader wrong -- RX-157's shared it, and BL-9 passed both at once",
+          _case23, ()),
++    Case(24, "a manifest whose layout pin is not what the pinned opt derives",
++         "RX-176: the compiler's pin check, ported -- a stated layout proves nothing "
++         "about itself",
++         _case24, ["pins the layout", "but the pinned `opt` derives"]),
++    Case(25, "a tree pinned consistently to another target",
++         "RX-176: the pin check passes, so only the header belt can see every "
++         "emission state x86-64",
++         _case25, ["the module's header is not the pinned one",
++                   "i686-unknown-linux-gnu"]),
+ ]
+ 
+ 
+diff --git a/harness/toolchain.py b/harness/toolchain.py
+index 066b60d3a5b46cb19a0a7f5be734fa1e97312785..978e286f6a4a7e60678ec856cbe8e0d3df515107 100644
+--- a/harness/toolchain.py
++++ b/harness/toolchain.py
+@@ -51,6 +51,37 @@ def check(llvm_version, out):
+         out(f"ok    {tool} {got}")
+ 
+ 
++_LAYOUT = re.compile(r'^target datalayout = "([^"]*)"$', re.M)
++
++
++def check_target(triple, datalayout, out):
++    """The layout pin is what the pinned `opt` derives from the triple pin.
++
++    The compiler's `check_datalayout_pin` (its harness, since its landing 71: E-8,
++    D-322 (5)), ported at cycle 0.1.0b -- RX-176. Every module states a `target
++    datalayout`; `opt` keeps a wrong one as written and `llc` accepts one in
++    silence, so a stated layout proves nothing about itself. This holds the PIN to
++    the toolchain, and `build.module_header` holds every linked emission to the
++    pin. Raises on a mismatch, like every other check here (D-204)."""
++    try:
++        r = subprocess.run(["opt", "-S", "-"], input=f'target triple = "{triple}"\n',
++                           capture_output=True, text=True, timeout=30)
++    except (OSError, subprocess.SubprocessError) as e:
++        raise ToolchainError(f"`opt -S` over the triple probe failed: {e}")
++    m = _LAYOUT.search(r.stdout)
++    if r.returncode != 0 or not m:
++        raise ToolchainError("`opt -S` over a module stating only the pinned triple "
++                             "wrote no `target datalayout` line: "
++                             f"{(r.stderr or r.stdout).strip()[:160]!r}")
++    if m.group(1) != datalayout:
++        raise ToolchainError(
++            f"nitpick.toml [toolchain] pins the layout {datalayout!r}, but the pinned "
++            f"`opt` derives {m.group(1)!r} from the triple {triple!r} -- the layout "
++            "every module states must be the one the toolchain lays the binary out "
++            "under (E-8, D-322 (5)).")
++    out(f"ok    target {triple}, its layout the one the pinned opt derives")
++
++
+ def compiler(out):
+     """`$NPKC` and `$NPKRT`: the pinned pair the board names (W-18)."""
+     got = {}
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index af2f2d2b176f6f2fef158d0bd4e7bb66589084f2..648e953c16418d14478567a4b9414fc51992ea19 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -4296,3 +4296,39 @@ out-parameter** — the caller would build a `PatternError` to pass in, and the
+ means "none"; **a skeleton parser in `src/`** — outside its two cases it would have to trap or answer a kind
+ about a pattern it did not parse, and 0.1.1 would delete it; **the length checked during the scan** — the
+ cheapest refusal would come after the most expensive work.
++
++## The adoption to compiler 5fbaf4a, and the ecosystem audit's items — cycle 0.1.0b
++
++### RX-176 — the adoption to compiler `5fbaf4a`: probe 18 refused `TYPE-014`, the manifest pins the target and the runner holds every emission to it, and every adoption re-reads what the lexical mirror mirrors
++
++**@@DATE@@, cycle 0.1.0b (the plan's PD-20), at compiler `5fbaf4a`, from `c970483`** — landings 67 … 82,
++one re-pin at the author's go (the board's question 12: the latest). Measured on the unchanged tree first:
++**248/250**, the two failures both probe 18 (its probe unit and its parse-sweep unit); every other verdict,
++refusal position and site count as at `c970483`; the floor's five symbols unchanged; no `cstring` beyond
++`main`'s `argv` in any file, so landing 78's move-only `cstring` refuses nothing here.
++
++- **Probe 18 moves to `tests/probe/refused/`**, `NITPICK-TYPE-014` at 35:39, one site: the compiler's DEF-116
++  (landing 69) makes a parameter's `move` part of a trait method's signature. Its header is rewritten as the
++  refusal it now pins, with the double free it pinned as history. The probe split is 24 / 8.
++- **`[toolchain]` gains `triple` and `datalayout`** (the compiler's E-8, D-322 (5), landing 71), verbatim from
++  its advance notice F15, **and the runner reads both** — a key nothing reads is the next stale document
++  (D-204): `harness/toolchain.py` holds the layout to what the pinned `opt` derives from the triple, and
++  `harness/build.py` holds every linked program's two `target` lines to the pins — the compiler's own
++  `check_datalayout_pin` and `check_module_header`, ported (`BUILD.md` B-1a). Self-check cases 24 and 25 are
++  their reds: a layout that is not `opt`'s, and a tree pinned consistently to `i686`, where only the belt sees
++  every emission state x86-64.
++- **Every adoption re-reads what `harness/lexical.py` mirrors** (`BUILD.md` B-4e) — the ecosystem audit's
++  ED1. This one: `lexer.npk` +13/−2, a character literal's width (DEF-145), not its span; `escapes.npk`,
++  `p_parse_import` and the lexical reference unchanged; the mirror does not move.
++- **The pin carries DEF-107 and DEF-143.** Cycle 0.1.0's block-3b controls, re-run: the pattern's owner
++  written under a live cursor is `NITPICK-BORROW-015` (at `c970483` it compiled and read freed memory), and a
++  cursor over a LOCAL's view, returned, is still `NITPICK-BORROW-001` — landing 72's relaxation (D-326) did not
++  reach it. `mod:error;` is `NITPICK-PARSE-001` at 1:5. The notes that said otherwise are dated, not rewritten.
++- **`harness/baseline/rx120.sh` asserts at `5fbaf4a`**: floor 5, syscaller 6, the difference `{npk_sys6}`.
++
++*Alternatives declined:* **the two rows in the manifest, read by nothing until `npkg` builds the library** —
++the harness refuses a key nothing reads, by design, and a pin nothing checks is a stated string; **the header
++belt without the layout check** — a wrong layout in the manifest would then hold every emission to itself;
++**probe 18 deleted** — P-5 forbids deleting a probe, and the refusal is the fact the double free's fix rests
++on; **the lexer re-read left to the audit** — the audit found this repository had no rule for it, and a mirror
++checked only when someone remembers is the time audit's E1 in this tree.
+diff --git a/meta/OPEN_QUESTIONS.md b/meta/OPEN_QUESTIONS.md
+index 6ac0450086c0306ae26ee0b72832af5ad8b316a3..50b06aebf65f9e379d4965ae6c6bf3ff63722d7a 100644
+--- a/meta/OPEN_QUESTIONS.md
++++ b/meta/OPEN_QUESTIONS.md
+@@ -640,7 +640,9 @@ with the landing's checker, as exactly one file: probe 18, refused `TYPE-014` at
+ answer (b) to the board's question 11, 2026-09-26, the sixth cycle 0.0 audit
+ concurring on the ground that nothing in the close or in `src/` depends on it. The
+ re-pin that carries landing 69 moves probe 18 to `../tests/probe/refused/` with
+-`NITPICK-TYPE-014` and names DEF-116 at O-N28's other sites.
++`NITPICK-TYPE-014` and names DEF-116 at O-N28's other sites. *(Done at cycle
++0.1.0b, compiler `5fbaf4a` — RX-176: `../tests/probe/refused/probe18_impl_adds_move.npk`,
++`NITPICK-TYPE-014` at 35:39, one site.)*
+ 
+ ### O-N27 — **the workbench registry's**: the borrow tracker taints a call's result by SIGNATURE, so an owned string built by `f(Container->)` cannot be returned from the frame that owns the container
+ 
+diff --git a/meta/specs/BUILD.md b/meta/specs/BUILD.md
+index 1e9b31715e664b79b53775d5f3d58e5f8ce7bb6f..ac058845072351e599c48c52821687b46aed6383 100644
+--- a/meta/specs/BUILD.md
++++ b/meta/specs/BUILD.md
+@@ -300,7 +300,8 @@ reader** — a file is skipped only when both say so:
+   skip, B-2b's reach, the expectation markers and every tree check — is opened
+   by `lexical.read`, as **bytes**, so `\n` is the only line end and a carriage
+   return is whitespace, as in the compiler's lexer; and it is read through
+-  `harness/lexical.py`, which mirrors that lexer at `c970483` (at `c3bdae2` until
++  `harness/lexical.py`, which mirrors that lexer at `5fbaf4a` (re-read by B-4e
++  at cycle 0.1.0b, RX-176, and unchanged since `c970483`; at `c3bdae2` until
+   cycle 0.0.4e, RX-170 — the block string's close): comments (`/* */`
+   does not nest), plain, raw and block strings, character literals and template
+   text are not code, a template's `&{…}` is, and a `use` is the keyword followed
+@@ -330,6 +331,27 @@ unit's `main` defeated both at once: `209/209`, GREEN, exit 0. Case 19 is that
+ plant; cases 20 and 21 are the CR and the escaped path hiding a syscall from
+ B-2. Measured: either defence removed alone, the plant stays red; both, GREEN.)*
+ 
++**Rule B-4e (RX-176) — every adoption re-reads what the reader mirrors.** Before
++an adoption's first run at a new pin, `git diff --stat <old> <new>` over the
++compiler's `src/frontend/lexer.npk`, `src/frontend/escapes.npk`,
++`src/frontend/parse_decl.npk` (`p_parse_import`) and
++`meta/specs/LEXICAL_REFERENCE.md`, every hunk that touches what the reader mirrors
++read, and the verdict — `harness/lexical.py` moves, or it does not and why —
++written in the adoption's record and in the reader's docstring beside the pin.
++Self-check case 18 fixes the forms that have mattered, in Python; only a re-read
++finds the next one. *(Made a rule by the ecosystem audit of 2026-09-26, its ED1:
++`nitpick-time` had one, TM-202, and this repository — whose reader time's is a
++port of — had none. The first re-read, `c970483` to `5fbaf4a`: a character
++literal's width (DEF-145), not its span; the mirror did not move.)*
++
++**Rule B-1a (RX-176) — the manifest pins the target, and the runner holds every
++emission it links to it.** `[toolchain]` carries `triple` and `datalayout`
++(the compiler's E-8, D-322 (5), its landing 71). `harness/toolchain.py` requires
++the layout to be what the pinned `opt` derives from the triple, and
++`harness/build.py` requires each linked program's `target` lines to be exactly the
++two pinned ones, in that order — the compiler's own `check_datalayout_pin` and
++`check_module_header`, ported. Self-check cases 24 and 25 are the two reds.
++
+ **Rule B-5 — expectations live in the test file**, in the compiler's marker
+ grammar, marker for marker:
+ 
+diff --git a/meta/specs/SAFETY.md b/meta/specs/SAFETY.md
+index 976fb75ab10e25ab5e4b2dc37d3250c09d1dc466..a6f141002c41abe9afd961d35a4daf9afb9990c1 100644
+--- a/meta/specs/SAFETY.md
++++ b/meta/specs/SAFETY.md
+@@ -58,7 +58,9 @@ unsound case: a struct holding a view of a LOCAL, returned, is
+ `NITPICK-BORROW-001` at the `pass`. So `cursor_init` returns the parser's
+ `Cursor`. Open at `c970483`: writing the viewed value while the view is live —
+ a `Cursor`'s pattern reassigned — reads freed memory; the compiler's DEF-107
+-refuses it, `NITPICK-BORROW-015`, in no pin of ours yet.)*
++refuses it, `NITPICK-BORROW-015`, in no pin of ours yet.)* *(Closed at `5fbaf4a`,
++cycle 0.1.0b: the pin carries DEF-107, and that write is `NITPICK-BORROW-015` —
++RX-176.)*
+ 
+ ---
+ 
+diff --git a/meta/specs/TESTING.md b/meta/specs/TESTING.md
+index 101711702c80eb506ca44e1d68c20ddeb56b2ad8..22fc3cdaf8aca5477f33259424dad2d359b99701 100644
+--- a/meta/specs/TESTING.md
++++ b/meta/specs/TESTING.md
+@@ -302,7 +302,11 @@ requires it to report every one as a failure. The list is `harness/selfcheck.py`
+     fifth audit's N-27). On the instrument, with stand-in executables;
+ 23. the program suites' skip under a reader stubbed to invent every import and
+     see no code — the compiler's `main` must still keep every program in the
+-    count (RX-165). On the instrument.
++    count (RX-165). On the instrument;
++24. a manifest whose `datalayout` pin is not what the pinned `opt` derives from
++    its `triple` — the layout check must name both (RX-176);
++25. a tree pinned consistently to another target, so the layout check passes —
++    the header belt must name the emission's `target` lines (RX-176).
+ 
+ *(Reconciled 2026-09-25 by the third cycle 0.0 audit's triage, RX-154. This list
+ had eight bullets and `CASES` eleven entries, and they disagreed in BOTH
+diff --git a/nitpick.toml b/nitpick.toml
+index f0ae7a093e5261e25c0ca5a95b3d488af7ef33ea..6211f43d4d0a58b3ff9609ebc20d0828096c1109 100644
+--- a/nitpick.toml
++++ b/nitpick.toml
+@@ -38,6 +38,16 @@ opt-level = 0
+ # makes; a stated flag nothing consumes is the next stale document.
+ [toolchain]
+ llvm          = "20.1.2"
++# THE TARGET EVERY MODULE STATES (the compiler's E-8, D-322 (5), its landing 71;
++# carried since cycle 0.1.0b, RX-176). Every emission opens with a `target
++# datalayout` and a `target triple` line, and these two rows are what the runner
++# holds them to: `datalayout` to what the pinned `opt` derives from `triple`
++# (`harness/toolchain.py`), and every linked program's two lines to both
++# (`harness/build.py`). Pins, not settings -- `npkg` refuses a manifest without
++# either, by name -- and the layout is the FULL string: `llvm-as` completes a
++# partial one, which then fails the belt.
++triple        = "x86_64-unknown-linux-gnu"
++datalayout    = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
+ llc-flags     = ["-O0", "-filetype=obj", "-relocation-model=static"]
+ llc-opt-flags = ["-O2", "-filetype=obj", "-relocation-model=static"]
+ opt-flags     = ["-O2", "-S"]
+diff --git a/src/syntax/cursor.npk b/src/syntax/cursor.npk
+index 03d96c75d67df65c3ea7aabc186efbfe9f983fb2..eecbd962b82a24f688a64b2f277ab6c8b9f2d10f 100644
+--- a/src/syntax/cursor.npk
++++ b/src/syntax/cursor.npk
+@@ -30,6 +30,10 @@
+ // DEF-107, NITPICK-BORROW-015, measured at `9f6f370`), and our pin does not carry
+ // it. The parser holds a view PARAMETER, never the owner, so no code in `src/`
+ // can do it; a test keeps its pattern's owner unwritten while a cursor lives.
++// *(Since cycle 0.1.0b, compiler `5fbaf4a` -- RX-176: the pin carries DEF-107, and
++// that write is NITPICK-BORROW-015, measured by cycle 0.1.0's owner-written control
++// re-run. The paragraph above is its history; a cursor over a LOCAL's view,
++// returned, is still NITPICK-BORROW-001.)*
+ //
+ // A WRONG `pos` COULD NOT READ PAST THE PATTERN ANYWAY. `src` is a slice, which
+ // carries its length, so D-070's bounds guard traps an out-of-range index
+diff --git a/src/syntax/pattern_error.npk b/src/syntax/pattern_error.npk
+index bf24243f0dd80246b66f7612a16b02909ef654c2..1f59d85f159cfce2abd877e98b4a98ed3dca023f 100644
+--- a/src/syntax/pattern_error.npk
++++ b/src/syntax/pattern_error.npk
+@@ -25,7 +25,9 @@
+ // THE FILE IS NOT `error.npk`, AND CANNOT BE. `error` is a keyword (the
+ // `error:` declaration), a file's `mod:` name must equal its basename (B-13), and
+ // `mod:error;` is refused NITPICK-RESOLVE-012 at 1:1 -- measured at `c970483`. So
+-// the module is named for the value it builds.
++// the module is named for the value it builds. *(At `5fbaf4a` the refusal is
++// NITPICK-PARSE-001 at 1:5, the keyword itself -- the compiler's DEF-143, the
++// second half of our O-N32; cycle 0.1.0b, RX-176.)*
+ //
+ // LAYERING (`BUILD.md` §6, rule B-16). `syntax` may import `unicode` and `core`;
+ // this file imports `core` for one thing, its out-of-range stop `vec_oob`, so a
+diff --git a/tests/probe/README.md b/tests/probe/README.md
+index 49c20f2012f235dcf99e6d74cfbf80e8f4027cd4..becfb48dc639f22ad3392cf5d45dffa08a7d9e01 100644
+--- a/tests/probe/README.md
++++ b/tests/probe/README.md
+@@ -24,14 +24,21 @@ Cycle 0.0.2 picks them up as the harness's first `program`-stage entries.
+ 
+ | Directory | Files | Declared as | Judged by |
+ |---|---|---|---|
+-| `tests/probe/` | **25**, each `// expect-exit: N` | `probe`, stage `program` | it compiles, links, runs, and exits with that code — at −O0 and again under `opt -O2` |
+-| `tests/probe/refused/` | **7**, each `// expect-error: CODE` | `probe-refused`, stage `compile`, kind `negative` | `npkc` exits **1** and reports **exactly** that code set (B-7, D-237) |
++| `tests/probe/` | **24**, each `// expect-exit: N` | `probe`, stage `program` | it compiles, links, runs, and exits with that code — at −O0 and again under `opt -O2` |
++| `tests/probe/refused/` | **8**, each `// expect-error: CODE` | `probe-refused`, stage `compile`, kind `negative` | `npkc` exits **1** and reports **exactly** that code set (B-7, D-237) |
+ 
+-> **The split is 25 / 7, and 32 is the count of probes in this repository.** It
+-> was 16 / 7, then 17 / 6, then 19 / 6, then 22 / 5, then 22 / 6, then 24 / 7, and
++> **The split is 24 / 8, and 32 is the count of probes in this repository.** It
++> was 16 / 7, then 17 / 6, then 19 / 6, then 22 / 5, then 22 / 6, then 24 / 7, then
++> 25 / 7, and
+ > every move was a probe changing directory or name because the compiler changed its
+ > answer — not a probe being deleted, which P-5 forbids — or a probe ADDED.
+ >
++> **@@DATE@@, cycle 0.1.0b, at the re-pin to `5fbaf4a` (RX-176).**
++> `probe18_impl_adds_move.npk` moved INTO `refused/`: an impl declaring `move` on a
++> parameter its trait lends is `NITPICK-TYPE-014` since the compiler's landing 69
++> (DEF-116, the registry's O-N28), at the impl's `move`, one site. It still runs 95
++> at `c970483`, so the move is the pin's.
++>
+ > **2026-09-26, cycle 0.0.4e, at the re-pin to `c970483` (RX-168, RX-169, RX-170).**
+ > Two probes crossed and one was added. `probe15_block_string_close.npk` moved OUT of
+ > `refused/`: the compiler's lexer closes a block string at `"""` since its 1.6.0
+diff --git a/tests/probe/probe18_impl_adds_move.npk b/tests/probe/probe18_impl_adds_move.npk
+deleted file mode 100644
+index 44425de87bbddfc53f0511ad1522204442d82296..0000000000000000000000000000000000000000
+--- a/tests/probe/probe18_impl_adds_move.npk
++++ /dev/null
+@@ -1,70 +0,0 @@
+-// expect-exit: 95
+-//
+-// PROBE 18 -- AN IMPL MAY DECLARE `move` ON A PARAMETER ITS TRAIT LENDS, AND A
+-// CALL THROUGH THE TRAIT THEN GIVES THE CALLEE A VALUE THE CALLER STILL OWNS. A
+-// compiler defect, found at compiler `c970483` by cycle 0.0.4e's planning --
+-// the workbench registry's O-N28 (RX-168). No library code, no `wild`, no pointer cast.
+-//
+-// WHAT THE LANGUAGE SAYS. `TRAITS_REFERENCE.md` §2: "An impl's method must have
+-// the signature the trait declares", and a `move` parameter takes ownership
+-// where a plain one is lent (the compiler's D-065, D-183). A call checked against
+-// `Dup` below lends `x`; a plain function with a `move` parameter, called
+-// without `move(...)`, is NITPICK-TYPE-046 (measured).
+-//
+-// WHAT THE COMPILER DOES. It compares the impl with the trait without the
+-// `move`, so `impl:string:Dup` compiles with `move string:self`, and `twice` --
+-// checked once, against the trait -- lends `a` to a callee that takes it and
+-// passes it back. `a` and `b` are then two owners of one body, both dropped at
+-// `run`'s end: a double free, 95 (`Unreachable`), at -O0 and through `opt -O2`,
+-// measured at `c970483` and at `c3bdae2` -- not a regression. The same impl
+-// written as the trait declares it, `string(string:self)`, is NITPICK-TYPE-047.
+-// A prelude trait is no different: `impl:Named:Eq` with `move Named:self`, over a
+-// struct holding a `string`, double-frees at `a.eq(b)`, 95.
+-//
+-// WHAT IT REACHES HERE: `vec_get` takes `T: Pod` (RX-168), and `Pod` is refused
+-// to an owning type only through its declared, lent `self`. A consumer's
+-// `impl:string:Pod` written with `move string:self` compiles, and `vec_get` at
+-// `Vec<string>` then hands back a second owner of the element -- 95, measured at
+-// planning (`meta/roadmap/done/0.0/0.0.4e.md` §1.4). No impl in this repository does
+-// it, and `check_vec_elements_own_nothing` still refuses an owning element in
+-// `src/`.
+-//
+-// WHEN THIS REDDENS: a refusal at the impl is the fix -- move this file to
+-// `refused/` with that code, and state `Pod` without its hole (`SAFETY.md` S-23a,
+-// `src/core/vec.npk`). Exit 46, the string's length, would mean the call site
+-// moved `a` instead: read the compiler's ruling before editing anything.
+-mod:probe18_impl_adds_move;
+-
+-trait:Dup = {
+-    func:dup = Self(Self:self) never fails;
+-};
+-
+-impl:string:Dup = { func:dup = string(move string:self) never fails { pass self; }; };
+-
+-func:twice<T: Dup> = T(T:x) never fails {
+-    pass raw x.dup();
+-};
+-
+-func:run = int32() never fails {
+-    string:a = string_concat("abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "c");
+-    string:b = raw twice::<string>(a);
+-    pass (string_byte_length(b) =>! int32);
+-};
+-
+-func:main = int32(cstring[]:_~argv) {
+-    int32:r = raw run();
+-    exit r;
+-};
+-
+-func:failsafe = int32(Error:e) {
+-    pick (e) {
+-        (HeapBadRequest) { exit 91i32; },
+-        (HeapOom)        { exit 92i32; },
+-        (Unreachable)    { exit 95i32; },
+-        (WildLeak)       { exit 96i32; },
+-        (StackExhausted) { exit 106i32; },
+-        (MachineFault)   { exit 107i32; },
+-        (*)              { exit 99i32; }
+-    }
+-    exit 9i32;
+-};
+diff --git a/tests/probe/refused/probe18_impl_adds_move.npk b/tests/probe/refused/probe18_impl_adds_move.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..8a08ed6841e6c4041159e30536475a0cdb9dd660
+--- /dev/null
++++ b/tests/probe/refused/probe18_impl_adds_move.npk
+@@ -0,0 +1,63 @@
++// expect-error: NITPICK-TYPE-014
++// expect-error-at: 35:39
++//
++// PROBE 18 -- AN IMPL MAY NOT DECLARE `move` ON A PARAMETER ITS TRAIT LENDS:
++// REFUSED `NITPICK-TYPE-014` SINCE THE COMPILER'S LANDING 69 (DEF-116, the
++// workbench registry's O-N28), CARRIED BY THE PIN `5fbaf4a` -- cycle 0.1.0b,
++// RX-176. No library code, no `wild`, no pointer cast.
++//
++// WHAT IT PINNED UNTIL THEN. Found at compiler `c970483` by cycle 0.0.4e's
++// planning (RX-168): the compiler compared an impl with its trait without the
++// `move`, so `impl:string:Dup` compiled with `move string:self`, and `twice` --
++// checked once, against the trait -- lent `a` to a callee that took it and passed
++// it back. `a` and `b` were then two owners of one body, both dropped at `run`'s
++// end: a double free, 95 (`Unreachable`), at -O0 and through `opt -O2`, at
++// `c970483` and at `c3bdae2`. `TRAITS_REFERENCE.md` §2: "An impl's method must
++// have the signature the trait declares", and a `move` parameter takes ownership
++// where a plain one is lent (the compiler's D-065, D-183).
++//
++// WHAT IT REACHED HERE: `vec_get` took `T: Pod` (RX-168), and `Pod` refused an
++// owning type only through its declared, lent `self`, so a consumer's
++// `impl:string:Pod` written with `move string:self` defeated the bound -- 95
++// through `vec_get`. Since cycle 0.1.0b the bound is the prelude's `Copy`
++// (RX-177), a marker with no method for an impl to mis-declare.
++//
++// WHAT IT PINS NOW: the refusal, at the impl's `move`, naming the parameter and
++// the direction -- measured at `5fbaf4a`, one site. It compiles, and runs 95, at
++// `c970483`. If this file stops being refused, read the compiler's ruling before
++// editing anything: the double free comes back with it.
++mod:probe18_impl_adds_move;
++
++trait:Dup = {
++    func:dup = Self(Self:self) never fails;
++};
++
++impl:string:Dup = { func:dup = string(move string:self) never fails { pass self; }; };
++
++func:twice<T: Dup> = T(T:x) never fails {
++    pass raw x.dup();
++};
++
++func:run = int32() never fails {
++    string:a = string_concat("abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "c");
++    string:b = raw twice::<string>(a);
++    pass (string_byte_length(b) =>! int32);
++};
++
++func:main = int32(cstring[]:_~argv) {
++    int32:r = raw run();
++    exit r;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest) { exit 91i32; },
++        (HeapOom)        { exit 92i32; },
++        (Unreachable)    { exit 95i32; },
++        (WildLeak)       { exit 96i32; },
++        (StackExhausted) { exit 106i32; },
++        (MachineFault)   { exit 107i32; },
++        (*)              { exit 99i32; }
++    }
++    exit 9i32;
++};

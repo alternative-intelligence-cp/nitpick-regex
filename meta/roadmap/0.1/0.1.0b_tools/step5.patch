@@ -1,0 +1,38 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index ba359f6f1c5109196d9651030de2c1385f05fc8c..7f2241aa53df7a295db8a21b466a19b478037d49 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -82,7 +82,7 @@ permissions:
+   contents: read
+ 
+ env:
+-  # ../BOARD.md's pinned toolchain, by FULL sha. `c970483` is the short form
++  # ../BOARD.md's pinned toolchain, by FULL sha. `5fbaf4a` is the short form
+   # used in the roadmap and the transcripts.
+   #
+   # BUMPED 2026-09-06 FROM `950bb1d`, WHICH WAS 57 COMMITS AND TWO RE-PINS
+@@ -106,7 +106,14 @@ env:
+   # old tree does not compile at the new pin (`vec.npk`, NITPICK-TYPE-047) and
+   # the new tree's refusals do not refuse at the old one, so neither commit
+   # could be green alone.
+-  NITPICK_COMMIT: c9704830ea9c738f523bf6646a355f52679b3aee
++  #
++  # AND BUMPED @@DATE@@ FROM `c970483` TO `5fbaf4a`, the compiler's last landing
++  # before its pause -- landings 67 … 82, taken at the author's go -- IN A COMMIT OF
++  # ITS OWN, after the adoption's commits (`meta/roadmap/0.1/0.1.0b.md`) and pushed
++  # with them, so CI runs once, on the adopted tree: at `5fbaf4a` the old tree is
++  # 248/250 (probe 18 refused), and the adopted one does not build at `c970483`
++  # (`#[derive(Copy)]`, `NITPICK-DERIVE-001`).
++  NITPICK_COMMIT: 5fbaf4a40a2f6b213754cd71b6c69700f8aa2c87
+   # nitpick.toml [toolchain] llvm. Exact patch release: a patch may change
+   # instruction selection, which is why the manifest names three digits.
+   LLVM_VERSION: 20.1.2
+@@ -279,7 +286,7 @@ jobs:
+       # compiler lives in the workbench's gitignored toolchain directory and is
+       # not on a runner. The working-pin assertions are the ones that guard a
+       # re-pin, and they all run.
+-      - name: RX-120's floor, syscaller and difference, asserted at `c970483`
++      - name: RX-120's floor, syscaller and difference, asserted at `5fbaf4a`
+         run: harness/baseline/rx120.sh
+ 
+       - name: Run the harness

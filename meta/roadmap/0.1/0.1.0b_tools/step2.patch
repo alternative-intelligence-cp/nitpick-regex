@@ -1,0 +1,398 @@
+diff --git a/harness/treecheck.py b/harness/treecheck.py
+index f14c860e8cbd730dea62665aa27f60462dd91f24..fc67e0adc503646d136a40e3cc22eda15ebd46f3 100644
+--- a/harness/treecheck.py
++++ b/harness/treecheck.py
+@@ -725,6 +725,8 @@ def check_vec_elements_own_nothing(root):
+     owning `T` is refused at compile time, NITPICK-TYPE-017 (RX-168). The six
+     orphaning verbs are as stated, and this check is still the rule for them and
+     the belt for `vec_get`, whose bound an impl declaring `move` defeats.)*
++    *(Since cycle 0.1.0b, compiler `5fbaf4a`: the bound is the prelude's `Copy`
++    (RX-177), a marker no impl can mis-declare -- the belt stays for the six.)*
+ 
+     So the restriction is this library's, and this is what makes it a rule
+     rather than a request: `src/` is the code that ships, and a `Vec` whose
+@@ -788,7 +790,7 @@ def check_vec_elements_own_nothing(root):
+                     f"`Vec<T>` is for a NON-OWNING `T` (SAFETY.md S-23a, RX-155), and "
+                     f"this check clears only what it can see owns nothing (RX-158): at "
+                     f"an owning `T` six verbs orphan what they discard, invisibly to "
+-                    f"`exit 0`, and `vec_get` is refused only by its `Pod` bound (RX-168). Keep "
++                    f"`exit 0`, and `vec_get` is refused only by its `Copy` bound (RX-177). Keep "
+                     f"the element POD -- an offset into a `Bytes`, as HIR.md H-2 does "
+                     f"for group names -- or widen the check by a decision.")
+     ndecl = sum(len(v) for v in decls.values())
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 648e953c16418d14478567a4b9414fc51992ea19..62c728865215ca7968c3f4ea5e7423273ebe6c36 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -3959,6 +3959,9 @@ every consumer; **holding the close for N-25** — it is no clause of cycle 0.0'
+ gate and `src/` has no exposure; whether it should become one is the author's.
+ 
+ ### RX-168 — `vec_get` takes `T: Pod`, a trait an owning type cannot implement as it is declared, and `vec_pop` spells its move: DEF-104's gate reaches `src/`
++> **SUPERSEDED IN PART by RX-177 (@@DATE@@)** — its trait: `vec_get`'s bound is the prelude's `Copy` (the
++> compiler's D-327) since cycle 0.1.0b, and `Pod`, `pod_copy` and `core.npk`'s re-export are gone. The bound's
++> reason, and `vec_pop`'s spelled move, stand.
+ 
+ **2026-09-26, cycle 0.0.4e (the plan's PD-12), at compiler `c970483`.** It supersedes
+ RX-155 in part — its declined alternative *"a marker-trait bound (`vec_get<T:
+@@ -4332,3 +4335,24 @@ belt without the layout check** — a wrong layout in the manifest would then ho
+ **probe 18 deleted** — P-5 forbids deleting a probe, and the refusal is the fact the double free's fix rests
+ on; **the lexer re-read left to the audit** — the audit found this repository had no rule for it, and a mirror
+ checked only when someone remembers is the time audit's E1 in this tree.
++
++### RX-177 — `Pod` retires into the prelude's `Copy`: `vec_get` takes `T: Copy`, a node derives it, and a consumer implements it in one line
++
++**@@DATE@@, cycle 0.1.0b (the plan's PD-21), at compiler `5fbaf4a`** — the replacement RX-168 was shaped for and
++`nitpick-time`'s PD-49 planned for both libraries, now that the compiler's D-327 (landing 73) is in the pin.
++
++- **`vec.npk`'s `Pod` block goes** — the trait and its nine scalar impls — and **`vec_get` takes `T: Copy`**, its
++  read `pass v.items[i]`: in a generic body a `T: Copy` is copied plainly (D-327), where D-264 asks a move of
++  every other `T`. At `Vec<string>` it is still `NITPICK-TYPE-017`, at the same position
++  (`tests/rejection/vec_owning_get_moves_out.npk`). `core.npk` drops its `Pod` re-export; the prelude's name
++  needs none.
++- **`AstNode` and `AstKind` each `#[derive(Copy)]`.** Measured: `impl:AstNode:Copy = { };` alone is
++  `NITPICK-TYPE-087`, *"the field `kind` of `AstNode` is a `AstKind` that does not implement `Copy`"* — a user
++  enum is not `Copy` until it says so — and both the derived and the explicit forms compile once the kind is.
++- **`tests/unit/vec_get_pod_struct.npk` pins the explicit form**, `impl:Pt:Copy = { };`, beside the AST's
++  derived one; the name stays, since "POD" still says what the struct is.
++
++*Alternatives declined:* **keep `Pod` beside `Copy`** — two names for one rule, and D-327 was decided so that
++this one retires into the prelude's; **`T:x = v.items[i]; pass x;`** — the same copy with a binding for no
++reason; **`impl:AstNode:Copy`** — the derive states it where the fields are, and a member that later owns is
++refused at the declaration; **renaming the unit** — its subject is a plain-old-data struct, which it still is.
+diff --git a/meta/specs/SAFETY.md b/meta/specs/SAFETY.md
+index a6f141002c41abe9afd961d35a4daf9afb9990c1..7ae7791a8428ea7d3d24ae37e52039dd4c963968 100644
+--- a/meta/specs/SAFETY.md
++++ b/meta/specs/SAFETY.md
+@@ -48,7 +48,8 @@ parameter is a loan, not a copy, and S-23b says what it still reaches.)*
+ through one is `NITPICK-TYPE-085`, and a generic body's pass-out of a lent `T` is
+ `NITPICK-TYPE-047` (S-23b, RX-169) — and `vec_get` takes `T: Pod`, so a by-value read
+ of an owning element out of a `Vec` is refused rather than a move (S-23a,
+-RX-168).)*
++RX-168).)* *(Since cycle 0.1.0b, compiler `5fbaf4a`, the bound is the prelude's
++`Copy` — RX-177.)*
+ 
+ *(2026-09-26, cycle 0.1.0 — RX-173: the second row is narrower than it reads.
+ D-004 keeps a BORROW of a local, `@x`, out of `pass`. A struct holding a view of
+@@ -615,6 +616,11 @@ cannot implement as declared (`pass self` of a lent owner is `NITPICK-TYPE-047`)
+ other verbs are unchanged, and the rule and its check stand for them — and for
+ `vec_get` too, as the belt: an impl that declares `move` on its `self` defeats the
+ bound, a compiler defect pinned by `tests/probe/probe18_impl_adds_move.npk`.)*
++*(Amended @@DATE@@ by RX-177, cycle 0.1.0b: at `5fbaf4a` the bound is the prelude's
++`Copy` (the compiler's D-327), a marker with no method, which an owning type cannot
++implement (`NITPICK-TYPE-087`) — and the hole above is refused `NITPICK-TYPE-014`
++since the compiler's landing 69 (`tests/probe/refused/probe18_impl_adds_move.npk`).
++The rule's check stays the belt for the other verbs.)*
+ 
+ The language accepts `Vec<string>`. `TYPE-046` asks for `move` when an owning
+ place is copied, `pass` moves implicitly, and D-264 checks each generic body in
+@@ -625,7 +631,7 @@ audit (BL-5, at `3d15ac9`) and again at `c3bdae2`, one unit per verb:
+ | verb | at an owning `T` | unit |
+ |---|---|---|
+ | `vec_push`, `vec_insert`, `vec_pop`, `vec_free_owning` | ownership-correct | `vec_owning_freed`, `vec_owning_insert_moves`, `vec_owning_pop_moves_out` |
+-| `vec_get` | **refused, `NITPICK-TYPE-017`, since cycle 0.0.4e**: it takes `T: Pod` (RX-168). Through `c3bdae2` it MOVED the element out — the slot emptied and still counted, so a second read was empty | `vec_owning_get_moves_out`, a rejection fixture since 0.0.4e |
++| `vec_get` | **refused, `NITPICK-TYPE-017`, since cycle 0.0.4e**: it takes `T: Pod` (RX-168), `T: Copy` since cycle 0.1.0b (RX-177). Through `c3bdae2` it MOVED the element out — the slot emptied and still counted, so a second read was empty | `vec_owning_get_moves_out`, a rejection fixture since 0.0.4e |
+ | `vec_set` | orphans what it overwrites | `vec_owning_set_orphans` |
+ | `vec_remove`, `vec_swap_remove` | orphan what they remove | `vec_owning_remove_orphans`, `vec_owning_swap_remove_orphans` |
+ | `vec_truncate`, `vec_clear`, `vec_free` | orphan what they discard | `vec_owning_truncate_orphans`, `vec_owning_clear_orphans`, `vec_owning_leak` |
+diff --git a/meta/specs/VERIFICATION.md b/meta/specs/VERIFICATION.md
+index e37bd97f0e9fbe0a45cf62fdcbabacda799853d2..e858aab57939b72c633a34590adecfda147db88b 100644
+--- a/meta/specs/VERIFICATION.md
++++ b/meta/specs/VERIFICATION.md
+@@ -137,7 +137,7 @@ Most of the list, which is why the residue is small:
+   `SAFETY.md` S-23b.)*
+   *(2026-09-26, cycle 0.0.4e — RX-168, RX-169. At `c970483` the loan is inside a rule
+   too, the compiler's: a write through one is `NITPICK-TYPE-085`. And `vec_get` at an
+-  owning `T` is refused (`T: Pod`) rather than a move out of the slot.)*
++  owning `T` is refused (`T: Pod`; `T: Copy` since RX-177) rather than a move out of the slot.)*
+ - **`Result<T>` everywhere** with no unchecked unwrap outside a `never fails`
+   callee (D-163), so no error is dropped.
+ 
+diff --git a/src/core/core.npk b/src/core/core.npk
+index 5abcbf229e167403f8e15eabf7e4aaf30359eeac..c5146a4d60d939dd2c0f6dfc04e889443a29314b 100644
+--- a/src/core/core.npk
++++ b/src/core/core.npk
+@@ -51,7 +51,6 @@ pub use "./vec.npk".vec_free;
+ pub use "./vec.npk".vec_free_owning;
+ pub use "./vec.npk".vec_reserve;
+ pub use "./vec.npk".vec_get;
+-pub use "./vec.npk".Pod;
+ pub use "./vec.npk".vec_set;
+ pub use "./vec.npk".vec_push;
+ pub use "./vec.npk".vec_pop;
+diff --git a/src/core/vec.npk b/src/core/vec.npk
+index 0a9417e506fe39a2c8ac4392adbca3bb51560977..c105521e61fc05375f825c7de3d2fd79e49fcddd 100644
+--- a/src/core/vec.npk
++++ b/src/core/vec.npk
+@@ -57,6 +57,8 @@
+ //      *(Since cycle 0.0.4e THE COMPILER SAYS SO FOR `vec_get`, the one verb
+ //      that hands an element back: it takes `T: Pod`, and an owning type
+ //      cannot implement `Pod` as it is declared -- RX-168.)*
++//      *(Since cycle 0.1.0b the bound is the prelude's `Copy`, the compiler's
++//      D-327, which an owning type cannot implement at all -- RX-177.)*
+ //   5. **A `Vec` IS MOVE-ONLY, AND THE COMPILER SAYS SO** (`SAFETY.md` S-23b,
+ //      RX-161, since cycle 0.0.4d). A copy of one -- or of any struct holding
+ //      one -- is NITPICK-TYPE-046. A BY-VALUE PARAMETER IS NOT A COPY, IT IS A
+@@ -299,7 +301,8 @@
+ // since DEF-104 that is asked of a `T` place passed out of a loan too -- so
+ // `vec_get` takes `T: Pod`, and at `Vec<string>` it is NITPICK-TYPE-017
+ // (`tests/rejection/vec_owning_get_moves_out.npk`). The other rows are unchanged,
+-// and S-23a and its check stand for them.)*
++// and S-23a and its check stand for them.)* *(The bound is `T: Copy` since cycle
++// 0.1.0b, RX-177.)*
+ //
+ // LAYERING (`BUILD.md` §6, B-16). `core` imports nothing outside `core`. This
+ // file imports nothing at all.
+@@ -348,7 +351,8 @@ mod:vec;
+ // *(Dated 2026-09-26, cycle 0.0.4e, compiler `c970483` -- RX-168, RX-169.
+ // `vec_get` keeps its by-value `Vec<T>:v` and gains a bound, `T: Pod`, because
+ // the pin refuses its old body; and a loan IS closed now -- by the compiler,
+-// which refuses every write through one, NITPICK-TYPE-085.)*
++// which refuses every write through one, NITPICK-TYPE-085.)* *(`T: Copy` since
++// cycle 0.1.0b, RX-177.)*
+ pub struct:Vec<T> = {
+     hidden wild T->:items;                 // WILD, DELIBERATELY. See the header.
+     sealed limit<ListLen> int64:count;     // elements in use
+@@ -486,42 +490,22 @@ pub func:vec_reserve<T> = NIL(Vec<T>->:v, int64:need) never fails {
+     pass NIL;
+ };
+ 
+-// ---- `Pod`: what `vec_get` may hand back by value (S-23a; RX-168) -----------
+-//
+-// ONE METHOD, AND THE LANGUAGE DECIDES WHO MAY IMPLEMENT IT. `pod_copy` takes
+-// its `self` LENT and returns a `Self`, never failing. For a type that owns
+-// nothing, `pass self` is its copy; for an owning type the same body is
+-// NITPICK-TYPE-047 -- a lent owner cannot be passed on -- so an impl the
+-// compiler admits for one would have to build an independent value. That is what
+-// makes `T: Pod` on `vec_get` S-23a's rule stated TO THE COMPILER, at every
+-// consumer's instantiation, and not only by `check_vec_elements_own_nothing` over
+-// `src/`. Measured at `c970483`: `impl:string:Pod`, `impl:Bytes:Pod`,
+-// `impl:SparseSet:Pod` and `impl:Vec<int64>:Pod`, each written `pass self`, are
+-// each NITPICK-TYPE-047.
+-//
+-// THE SCALARS ARE HERE -- the integers to 64 bits and `bool`, every scalar this
+-// library's specifications store in a `Vec`. A struct that owns nothing
+-// implements it where it is declared, in one line like these; `core.npk`
+-// re-exports the name so a consumer can. A wider scalar is one line here.
+-//
+-// THE HOLE, stated where a reader meets it: the compiler also accepts an impl
+-// that declares its `self` `move` where the trait lends it, and a call through
+-// the trait then hands the callee a value the caller still owns -- a double
+-// free (95). The workbench registry's O-N28; `tests/probe/probe18_impl_adds_move.npk` pins it with no
+-// library code. No impl here does it, and the harness's S-23a check still
+-// refuses an owning element anywhere in `src/`.
+-pub trait:Pod = {
+-    func:pod_copy = Self(Self:self) never fails;
+-};
+-impl:int8:Pod = { func:pod_copy = int8(int8:self) never fails { pass self; }; };
+-impl:int16:Pod = { func:pod_copy = int16(int16:self) never fails { pass self; }; };
+-impl:int32:Pod = { func:pod_copy = int32(int32:self) never fails { pass self; }; };
+-impl:int64:Pod = { func:pod_copy = int64(int64:self) never fails { pass self; }; };
+-impl:uint8:Pod = { func:pod_copy = uint8(uint8:self) never fails { pass self; }; };
+-impl:uint16:Pod = { func:pod_copy = uint16(uint16:self) never fails { pass self; }; };
+-impl:uint32:Pod = { func:pod_copy = uint32(uint32:self) never fails { pass self; }; };
+-impl:uint64:Pod = { func:pod_copy = uint64(uint64:self) never fails { pass self; }; };
+-impl:bool:Pod = { func:pod_copy = bool(bool:self) never fails { pass self; }; };
++// ---- `Copy`: what `vec_get` may hand back by value (S-23a; RX-177) ------------
++//
++// THE PRELUDE'S MARKER, SINCE CYCLE 0.1.0b (the compiler's D-327, its landing 73).
++// `vec_get` takes `T: Copy`, and in a generic body a `T: Copy` is copied plainly,
++// so `pass v.items[i]` is a copy and not a move -- D-264 asks a move of every
++// other `T`. The prelude implements `Copy` for every scalar; a struct or an enum
++// takes it by `#[derive(Copy)]` where it is declared, or by `impl:T:Copy = { };`,
++// and either is refused -- `NITPICK-TYPE-087`, or `NITPICK-DERIVE-006` -- for a
++// type that owns or has a member that is not `Copy`. So an owning `T` cannot meet
++// the bound, and `vec_get` at `Vec<string>` is `NITPICK-TYPE-017`.
++//
++// IT REPLACES THIS LIBRARY'S OWN `Pod` (RX-168): one method returning its lent
++// `self`, which an impl could declare `move` -- a double free through the trait,
++// the registry's O-N28, refused `NITPICK-TYPE-014` since the compiler's landing 69
++// (`tests/probe/refused/probe18_impl_adds_move.npk`). A marker has no method to
++// mis-declare.
+ 
+ // ---- the checked accessor pair ---------------------------------------------
+ //
+@@ -564,10 +548,13 @@ impl:bool:Pod = { func:pod_copy = bool(bool:self) never fails { pass self; }; };
+ // cannot be written any more. Its `Vec` is still a loan, read-only now
+ // (NITPICK-TYPE-085); a consumer still reads a sealed field by value,
+ // `vec_get(s.sparse, k)`.)*
+-pub func:vec_get<T: Pod> = T(Vec<T>:v, int64:i) never fails {
++// *(@@DATE@@, cycle 0.1.0b, compiler `5fbaf4a` -- RX-177: the bound is the prelude's
++// `Copy`, and the read is `pass v.items[i]` -- a copy under the bound; `pod_copy`
++// went with `Pod`. At an owning `T` it is still NITPICK-TYPE-017.)*
++pub func:vec_get<T: Copy> = T(Vec<T>:v, int64:i) never fails {
+     if (i < 0i64)        { drop vec_oob(i); }
+     if (i >= v.count)    { drop vec_oob(i); }
+-    pass raw v.items[i].pod_copy();
++    pass v.items[i];
+ };
+ 
+ // obligation: never fails requires i >= 0i64 && i < v.count
+diff --git a/src/syntax/ast.npk b/src/syntax/ast.npk
+index 8233ece40ddd161d1e922c7f1ca6ef86a9ef6804..a802c4b0882565342163b05c8a032f2380b53a0a 100644
+--- a/src/syntax/ast.npk
++++ b/src/syntax/ast.npk
+@@ -7,7 +7,7 @@
+ // (H-3). A node owns nothing -- no `string`, no `Vec`, no pointer -- which is
+ // what lets a `Vec` hold it (`SAFETY.md` S-23a, RX-155; the harness's
+ // `check_vec_elements_own_nothing` clears it by reading this file) and what lets
+-// `vec_get` hand it back by value (`AstNode: Pod`, below). A group's name and a
++// `vec_get` hand it back by value (it derives `Copy`, below). A group's name and a
+ // property's text are not copied: the node holds their offset and length in the
+ // pattern, which the caller keeps for the whole life of the AST.
+ //
+@@ -55,6 +55,7 @@ pub fixed uint32:AST_FLAG_BYTE = 1024u32;    // a `Literal` that is a byte, unde
+ // `SYNTAX.md` Y-27's closed list, in its order; what each kind's operands hold is
+ // that rule's table. `tests/unit/ast_unit.npk` holds this list to the order with
+ // an exhaustive `pick`.
++#[derive(Copy)]
+ pub enum:AstKind = {
+     Empty;
+     Literal;
+@@ -74,6 +75,10 @@ pub enum:AstKind = {
+     ClassOp;
+ };
+ 
++// `vec_get` hands back a `T: Copy` by value (RX-177), and a node owns nothing, so it
++// derives `Copy` -- and so does its kind, because a struct is `Copy` only when every
++// member is (the compiler's D-327; `NITPICK-TYPE-087` names the member otherwise).
++#[derive(Copy)]
+ pub struct:AstNode = {
+     AstKind:kind;      // Y-27
+     uint32:flags;      // the AST_FLAG_ bits
+@@ -85,14 +90,6 @@ pub struct:AstNode = {
+     int64:len;         // its length in bytes
+ };
+ 
+-// `vec_get` hands back a `T: Pod` by value (RX-168), and a node owns nothing, so
+-// its copy is itself. `self` is LENT, exactly as the trait declares it: an impl
+-// declaring `move` on it compiles at `c970483` and is a double free through the
+-// trait -- the workbench registry's O-N28, the compiler's DEF-116, refused
+-// NITPICK-TYPE-014 from the compiler's landing 69
+-// (`tests/probe/probe18_impl_adds_move.npk`).
+-impl:AstNode:Pod = { func:pod_copy = AstNode(AstNode:self) never fails { pass self; }; };
+-
+ // MOVE-ONLY, because it holds a `Vec` (`SAFETY.md` S-23b, RX-161): transfer it
+ // with `move(...)`, lend it by value to a reader, hand it by pointer to anything
+ // that changes it.
+diff --git a/tests/rejection/README.md b/tests/rejection/README.md
+index b470a3ea1985bd10732aea2ea56cbc5e85bcc155..d4b4be502ea3b0572d1c47d7340d04fa37efb580 100644
+--- a/tests/rejection/README.md
++++ b/tests/rejection/README.md
+@@ -135,7 +135,7 @@ compiler adds `NITPICK-TYPE-022` at the same call: a code about the cascade, whi
+ B-7's equality would make part of what the file asserts. Their language twin,
+ `../probe/refused/probe17_lent_field_drop.npk`, moved with them.
+ 
+-And `vec_get` takes `T: Pod` (RX-168):
++And `vec_get` takes `T: Copy` (RX-177; `T: Pod` from RX-168):
+ 
+ - **`vec_owning_get_moves_out.npk`** — `vec_get` at `Vec<string>`: `NITPICK-TYPE-017`.
+   Through `c3bdae2` it moved the element out of its slot; the name is kept so RX-155
+diff --git a/tests/rejection/vec_alias_generic_passout.npk b/tests/rejection/vec_alias_generic_passout.npk
+index 8acf11d79de9bbe6121f05cf8a563ab6276b396d..e4fd22ceaa42e534ec28232d346830d4a4398ec3 100644
+--- a/tests/rejection/vec_alias_generic_passout.npk
++++ b/tests/rejection/vec_alias_generic_passout.npk
+@@ -18,7 +18,7 @@
+ // (`meta/roadmap/done/0.0/0.0.4e.md` step 6). A generic that passes its argument on
+ // takes it as `move T:x` -- `../unit/loan_spellings.npk`. The same gate reached
+ // `vec_get` and `vec_pop` in `src/core/vec.npk`: that is why `vec_get` takes
+-// `T: Pod` and `vec_pop` spells its move (RX-168).
++// `T: Pod` (`T: Copy` since RX-177) and `vec_pop` spells its move (RX-168).
+ mod:vec_alias_generic_passout;
+ 
+ use "../../src/core/vec.npk".*;
+diff --git a/tests/rejection/vec_owning_get_moves_out.npk b/tests/rejection/vec_owning_get_moves_out.npk
+index 53c0bfb57abf276b758663ddf263e43e927adce2..0f8a82171e3ed2a580f2459c16d28c8ef9b0eeaa 100644
+--- a/tests/rejection/vec_owning_get_moves_out.npk
++++ b/tests/rejection/vec_owning_get_moves_out.npk
+@@ -1,9 +1,9 @@
+ // expect-error: NITPICK-TYPE-017
+ // expect-error-at: 32:31
+ //
+-// `vec_get` AT AN OWNING `T` IS REFUSED: IT TAKES `T: Pod` SINCE CYCLE 0.0.4e
+-// (RX-168), AND AN OWNING TYPE CANNOT IMPLEMENT `Pod` AS IT IS DECLARED. The name
+-// is kept so RX-155's citations still find the file.
++// `vec_get` AT AN OWNING `T` IS REFUSED: IT TAKES `T: Copy` SINCE CYCLE 0.1.0b
++// (RX-177; `T: Pod` from 0.0.4e, RX-168), AND AN OWNING TYPE CANNOT IMPLEMENT
++// `Copy`. The name is kept so RX-155's citations still find the file.
+ //
+ // WHAT IT PINS. Through `c3bdae2` `vec_get` returned its `T` by value from
+ // `pass v.items[i]`, an implicit MOVE, so at `T = string` the first read TOOK the
+@@ -12,9 +12,9 @@
+ // `opt -O2`, when this file was `tests/unit/vec_owning_get_moves_out.npk` and read
+ // twice (RX-155; `SAFETY.md` S-23a's table). At `c970483` that body is refused at
+ // EVERY `T`, NITPICK-TYPE-047 -- DEF-104's gate treats `T` as owning -- and
+-// `vec_get` reads through `pod_copy`, whose `pass self` is NITPICK-TYPE-047 for an
+-// owning type. So `vec_get` at `Vec<string>` is NITPICK-TYPE-017 here, "`string`
+-// does not implement `Pod`". One call, so one diagnostic.
++// `vec_get` read through `pod_copy`, whose `pass self` was NITPICK-TYPE-047 for an
++// owning type; since RX-177 its bound is the prelude's `Copy`. Either way, `vec_get`
++// at `Vec<string>` is NITPICK-TYPE-017 here. One call, so one diagnostic.
+ //
+ // A TEST OF THE BOUND, NOT OF THIS FILE: against the tree before cycle 0.0.4e
+ // this file compiles and runs, exit 0, at `c3bdae2` (`meta/roadmap/done/0.0/0.0.4e.md`
+diff --git a/tests/unit/vec_get_pod_struct.npk b/tests/unit/vec_get_pod_struct.npk
+index 38222c5e5fb9eb917f22b8859f627a4ada869687..3c146ddaad71dab1e94a6e9d0f98f5f4d57e5e79 100644
+--- a/tests/unit/vec_get_pod_struct.npk
++++ b/tests/unit/vec_get_pod_struct.npk
+@@ -1,20 +1,16 @@
+ // expect-exit: 0
+ //
+-// A CONSUMER'S OWN `Pod`, FOR A STRUCT THAT OWNS NOTHING, READ BACK THROUGH
+-// `vec_get` -- AND EVERY NAME THIS FILE USES REACHES IT THROUGH `core.npk`'S
+-// RE-EXPORTS. RX-168's positive half, which the sixth cycle 0.0 audit (N-30,
+-// 2026-09-26) found pinned by nothing: the committed suite called `vec_get` at
+-// `int32` and `int64` only, and no file implemented `Pod` for a struct.
+-//
+-// WHAT IT PINS. Since cycle 0.0.4e `vec_get` takes `T: Pod` (RX-168; `SAFETY.md`
+-// S-23a), and `src/core/core.npk` re-exports `Pod` so a struct declared OUTSIDE
+-// `src/core/` can implement it where it is declared, in one line -- the line
+-// cycle 0.1 writes for its `AstNode` (`meta/roadmap/0.1/0.1.0.md` §5, D6's
+-// `ast_get`). This file imports `core.npk` and nothing else, so it goes red if
+-// that re-export is lost -- deleted, or made a plain `use`, it is NITPICK-TYPE-001
+-// "there is no type named `Pod`" at the `impl` line here while `src/` compiles --
+-// if the bound stops admitting a struct that owns nothing, or if `vec_get` hands
+-// back the wrong slot (reading slot 0 whatever the index, it exits 23).
++// A CONSUMER'S OWN `Copy`, FOR A STRUCT THAT OWNS NOTHING, READ BACK THROUGH
++// `vec_get` -- RX-177's positive half, and RX-168's before it (the sixth cycle 0.0
++// audit's N-30: until then the committed suite called `vec_get` at `int32` and
++// `int64` only). `vec_get` takes `T: Copy`, the prelude's marker (the compiler's
++// D-327), so a struct declared OUTSIDE `src/core/` meets the bound where it is
++// declared, in one line: here `impl:Pt:Copy = { };`, the explicit form, while
++// `src/syntax/ast.npk`'s `AstNode` pins the derived one. It goes red if the bound
++// stops admitting a struct that owns nothing, or if `vec_get` hands back the wrong
++// slot (reading slot 0 whatever the index, it exits 23). *(Until cycle 0.1.0b the
++// bound was this library's own `Pod`, re-exported by `core.npk` so a consumer
++// could implement it; the prelude's `Copy` needs no re-export.)*
+ //
+ // Three elements pushed from capacity 1, so the block grows twice under them;
+ // every field distinct from the others, from the vacant 0 and from the `0xAA`
+@@ -24,14 +20,14 @@
+ // (S-23a's table); a POD struct's read is a copy, and the slot still holds it.
+ // `count` is read after the reads (29). The block is freed BEFORE any value is checked,
+ // so each checked value is the caller's own copy, not a view into the block.
+-// Measured 0 at -O0 and through `opt -O2` at `c970483`; with the `impl` line
++// Measured 0 at -O0 and through `opt -O2` at `5fbaf4a`; with the `impl` line
+ // deleted, each of the four calls is NITPICK-TYPE-017 there.
+ mod:vec_get_pod_struct;
+ 
+ use "../../src/core/core.npk".*;
+ 
+ struct:Pt = { int32:x; int32:y; };
+-impl:Pt:Pod = { func:pod_copy = Pt(Pt:self) never fails { pass self; }; };
++impl:Pt:Copy = { };
+ 
+ func:run = int32() never fails {
+     Vec<Pt>:v = raw vec_init::<Pt>(1i64);
+diff --git a/tests/unit/vec_unit.npk b/tests/unit/vec_unit.npk
+index ef9a34ad88bd6e0ae141fc6a4f55a61490fd332b..68e8f3563892fcb06d9bd6ab58e3ffdb8f031fef 100644
+--- a/tests/unit/vec_unit.npk
++++ b/tests/unit/vec_unit.npk
+@@ -199,7 +199,7 @@ func:main = int32(cstring[]:_~argv) {
+     // cycle-0.0 audit (BL-5) that such a copy "is TYPE-046" -- refused -- and
+     // declined to read for that reason; nothing refuses it (RX-155).
+     // (Since cycle 0.0.4e, compiler `c970483`, something does: `vec_get` takes
+-    // `T: Pod`, so the read this comment declines is NITPICK-TYPE-017 here --
++    // `T: Pod` -- `T: Copy` since RX-177 -- so the read this comment declines is NITPICK-TYPE-017 here --
+     // `../rejection/vec_owning_get_moves_out.npk`, RX-168.)
+     if (s.cap < 3i64)                                   { exit 131i32; }
+     // DROPS EVERY ELEMENT, then the block. `vec_free` would release the block

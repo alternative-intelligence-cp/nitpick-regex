@@ -1,0 +1,74 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+index ee233870ea9adf92b26112d691b2441f25937df7..ae51dd58c0dab1f10c59fd5ec04c30fca238581d 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -6,9 +6,12 @@ Guidance for Claude Code sessions working in this repository.
+ 
+ `nregex` — a regular-expression library for **Nitpick**, the safety-critical
+ systems language at `../../nitpick`. **Status: cycle 0.1, the pattern parser, is
+-open, and its 0.1.0 is done** — the pieces the parser is written in, in
+-`src/syntax/`: the closed list of pattern errors and their one constructor, the
+-byte cursor, and the AST arena (RX-171 … RX-175, `meta/roadmap/0.1/0.1.0.md`).
++open, and its 0.1.0, 0.1.0b and 0.1.1 are done** — the pieces the parser is written
++in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/0.1/0.1.0.md`); the adoption of
++compiler `5fbaf4a` (RX-176 … RX-180, `0.1.0b.md`); and the core grammar —
++`parse_pattern` builds the AST for literals, `.`, `^`, `$`, groups, alternation and
++quantifiers, refuses what is wrong with the byte it is at, and
++`pattern_error_text` says what to write instead (RX-181 … RX-187, `0.1.1.md`).
+ Cycle 0.0, foundations, CLOSED on 2026-09-26 — the sixth audit accepted it, and
+ it is archived in `meta/roadmap/done/0.0/`. The
+ specifications, the decisions and the roadmap are complete; `tests/probe/` holds
+@@ -47,10 +50,13 @@ until 0.1.0b), read back through `vec_get` — RX-168's positive half, pinned at
+ close (the sixth audit's N-30), and RX-177's. **Since 0.1.0 `src/syntax/` holds the
+ parser's pieces** — `pattern_error.npk`, `cursor.npk`, `ast.npk` and `parse.npk`
+ behind its layer entry, with ten unit programs and three refusals of their own —
+-and parses no construct yet. **No matching happens yet**: `src/hir/`,
++**and since 0.1.1 it parses the core grammar**, with five unit programs more:
++`parse_grammar`, `parse_refusals`, `parse_encoding`, `parse_limits` and
++`pattern_error_text`. A class, an escape other than punctuation, and a flag are
++refused provisionally until 0.1.3 and 0.1.4 (`SYNTAX.md` Y-31). **No matching happens yet**: `src/hir/`,
+ `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are still one
+ placeholder module each. A full green run at compiler `5fbaf4a` is
+-**250 units** (after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus eight tree checks; take those numbers from the runner's
++**260 units** (after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus eight tree checks; take those numbers from the runner's
+ summary rather than from here. **Nothing is PENDING any more**:
+ `tests/unit/bytes_copy_string_empty.npk` was committed red under
+ `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
+diff --git a/README.md b/README.md
+index 79b62a2bc663557368a6421e9ae653aa7e04ae72..9a4a54130fb611f1ea5b80e6679cc86f34a38e56 100644
+--- a/README.md
++++ b/README.md
+@@ -13,7 +13,9 @@ makes the guarantee below possible.
+ > the storage primitives in `src/core/` are built and audited — and cycle 0.1.0
+ > laid the parser's pieces in `src/syntax/`: the closed list of pattern errors,
+ > the byte cursor and the AST arena. Cycle 0.1.0b moved the pinned compiler to
+-> `5fbaf4a`. Nothing parses or matches a pattern yet.
++> `5fbaf4a`, and cycle 0.1.1 parses the core grammar — literals, groups,
++> alternation and quantifiers — into an AST, refusing a bad pattern with the byte
++> it is at and a sentence saying what to write instead. Nothing matches a pattern yet.
+ > The specification set is in [`meta/specs/`](meta/specs/) and the plan in
+ > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
+ > discipline the compiler used — specs first, then a cycle map, then
+diff --git a/meta/roadmap/ROADMAP.md b/meta/roadmap/ROADMAP.md
+index 4be8aee27907777141aafe35fd5575774709187f..f9255cda93d71b6c199fc7b95962c3e26946a0e4 100644
+--- a/meta/roadmap/ROADMAP.md
++++ b/meta/roadmap/ROADMAP.md
+@@ -53,7 +53,7 @@ cycle 0.0.
+ | Cycle | Topic | Gated on |
+ |---|---|---|
+ | **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **DONE 2026-09-26, archived to [`done/0.0/`](done/0.0/README.md).** The sixth W-22 audit ACCEPTED the close at compiler `c970483`, after five refusals — three on 2026-09-06, two on 2026-09-25 — and two inserted subcycles, 0.0.4d (`Vec` move-only) and 0.0.4e (the re-pin that refused the loan). The close is [`done/0.0/0.0.5.md`](done/0.0/0.0.5.md) §13 | — |
+-| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **OPEN: [`0.1.0`](0.1/0.1.0.md), the cursor and the AST, done; [`0.1.0b`](0.1/0.1.0b.md), the adoption of `5fbaf4a` and the ecosystem audit's items, done; [`0.1.1`](0.1/0.1.1.md), the core grammar, is next** | 0.0 |
++| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **OPEN: [`0.1.0`](0.1/0.1.0.md), the cursor and the AST, done; [`0.1.0b`](0.1/0.1.0b.md), the adoption of `5fbaf4a` and the ecosystem audit's items, done; [`0.1.1`](0.1/0.1.1.md), the core grammar, done; 0.1.2, the explicit stack's bound, is next** | 0.0 |
+ | **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction | 0.1 |
+ | **0.3** | **Unicode** — generated tables, properties, scripts, simple case folding | 0.0 |
+ | **0.4** | **UTF-8 automata** — codepoint ranges to byte ranges, alphabet compression | 0.3 |
+@@ -179,6 +179,9 @@ and the parse sweep's one more file — `src/core/` with **48** unit programs.)*
+ `refused/`, a probe split of 24 / 8; the runner holds the manifest's target pins and
+ counts rejection sites, and its self-check has **30** cases, 26 live; decisions through
+ RX-180.)*
++*(After cycle 0.1.1, the same compiler: **260** units — five unit programs for the core
++grammar and its error text, and the parse sweep's five more files; `PatternErrorKind` at
++thirty-six; decisions through RX-187.)*
+ 
+ **Two probes refuted their own hypothesis**, which is the cycle's best return:
+ `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler

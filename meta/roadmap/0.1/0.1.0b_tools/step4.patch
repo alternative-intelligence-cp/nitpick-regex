@@ -1,0 +1,367 @@
+diff --git a/harness/selfcheck.py b/harness/selfcheck.py
+index 04e275e4cc854a4c128fa857124977fd4e01c389..81469875486e59ffb9a54722387b77ac85539144 100644
+--- a/harness/selfcheck.py
++++ b/harness/selfcheck.py
+@@ -536,6 +536,93 @@ def _case18(d):
+     return None                                   # handled by `_run_case18`
+ 
+ 
++_API_OK = "mod:api;\n\npub error:ERegexPattern;\n"
++
++
++def _plant(files):
++    d = tempfile.mkdtemp(prefix="nregex-selfcheck-plant-")
++    for rel, text in files.items():
++        _write(d, rel, text)
++    return d
++
++
++def _run_plants(case, check, plants, clean):
++    """A tree check fed planted trees, on the instrument: each plant must fail,
++    naming what was planted, and the clean tree must pass -- a check that fails
++    everything proves as little as one that fails nothing (RX-179)."""
++    import treecheck
++    wrong = []
++    for label, files, want in plants:
++        d = _plant(files)
++        try:
++            r = getattr(treecheck, check)(d)
++        finally:
++            shutil.rmtree(d, ignore_errors=True)
++        said = "\n".join(r.failures)
++        if r.ok or any(w not in said for w in want):
++            wrong.append(f"{label}: {'PASSED' if r.ok else 'failed without naming ' + repr(want)}")
++    d = _plant(clean)
++    try:
++        r = getattr(treecheck, check)(d)
++    finally:
++        shutil.rmtree(d, ignore_errors=True)
++    if not r.ok:
++        wrong.append("the clean control failed: " + "; ".join(r.failures)[:200])
++    if wrong:
++        return Outcome(case, False, f"`{check}` did not fail each plant by name: " + "; ".join(wrong))
++    return Outcome(case, True, f"`{check}` failed all {len(plants)} plants, each by name, "
++                               f"and passed the clean control")
++
++
++def _run_case28(case):
++    """Case 28, on the instrument: `check_error_budget` over the three extra
++    identities the ecosystem audit's EC4 planted, and its control (RX-179)."""
++    return _run_plants(case, "check_error_budget", [
++        ("a private identity with a raise site",
++         {"src/api/api.npk": _API_OK,
++          "src/core/core.npk": "mod:core;\n\nerror:EInternal;\n\n"
++                               "pub func:f = int64(int64:x) {\n"
++                               "    if (x < 0i64) { fail EInternal; }\n"
++                               "    pass x;\n};\n"},
++         ["src/core/core.npk:3", "`core.EInternal` is a PRIVATE"]),
++        ("two identities on one line",
++         {"src/api/api.npk": "mod:api;\n\npub error:ERegexPattern; pub error:EOther;\n"},
++         ["src/api/api.npk:3", "`api.EOther` is a public"]),
++        ("a declaration split across two lines",
++         {"src/api/api.npk": "mod:api;\n\npub error:ERegexPattern;\npub\nerror:EOther;\n"},
++         ["src/api/api.npk:4", "`api.EOther` is a public"]),
++        ("the control: the budgeted name in a second module",
++         {"src/api/api.npk": _API_OK, "src/core/core.npk": "mod:core;\n\npub error:ERegexPattern;\n"},
++         ["`core.ERegexPattern` is a public"]),
++    ], {"src/api/api.npk": _API_OK})
++
++
++def _case28(d):
++    return None                                   # handled by `_run_case28`
++
++
++_OWNERS = {"src/core/vec.npk": "mod:vec;\nfunc:f = int64(V->:v) { pass v.items[0i64]; };\n",
++           "src/core/bytes.npk": "mod:bytes;\nfunc:g = uint8(B->:b) { pass b.buf.ptr[0i64]; };\n"}
++
++
++def _run_case29(case):
++    """Case 29, on the instrument: `check_accessor_confinement` over the four
++    spaced forms the ecosystem audit's EC5 planted, each alone (RX-179)."""
++    plants = []
++    for label, text, at in (("`s.ptr [1i64]`", "    x = s.ptr [1i64];\n", "cursor.npk:2:10"),
++                            ("`s.ptr` then `[2i64]` on the next line", "    x = s.ptr\n    [2i64];\n", "cursor.npk:2:10"),
++                            ("`v . items [0i64]`", "    x = v . items [0i64];\n", "cursor.npk:2:11"),
++                            ("`v.` then `items[0i64]` on the next line", "    x = v.\n    items[0i64];\n", "cursor.npk:2:10")):
++        files = dict(_OWNERS)
++        files["src/syntax/cursor.npk"] = "mod:cursor;\n" + text
++        plants.append((label, files, [at]))
++    return _run_plants(case, "check_accessor_confinement", plants, dict(_OWNERS))
++
++
++def _case29(d):
++    return None                                   # handled by `_run_case29`
++
++
+ def _case19(d):
+     """A RED UNIT HIDDEN BY TWO LONE CARRIAGE RETURNS -- the fifth audit's BL-9 (a).
+ 
+@@ -919,6 +1006,14 @@ CASES = [
+          "RX-178: the compiler's `silent_site`, ported -- the hazard D-332 was "
+          "decided for",
+          _case27, ["silent_site.npk", "is reported at 1 site(s)"]),
++    Case(28, "an extra error identity: private with a raise site, two on one line, split across two",
++         "RX-179: the ecosystem audit's EC4 -- `check_error_budget` passed all three "
++         "and caught only the control",
++         _case28, ()),
++    Case(29, "an accessor reached by a spaced form: `.ptr [`, `. items [`, and across a line break",
++         "RX-179: the ecosystem audit's EC5 -- 'the only bounds check this library has' "
++         "passed all four",
++         _case29, ()),
+ ]
+ 
+ 
+@@ -1016,6 +1111,10 @@ def _run_case(case, keep):
+         return _run_case22(case)
+     if case.num == 23:
+         return _run_case23(case)
++    if case.num == 28:
++        return _run_case28(case)
++    if case.num == 29:
++        return _run_case29(case)
+     d = tempfile.mkdtemp(prefix=f"nregex-selfcheck-{case.num}-")
+     try:
+         toml = case.build_tree(d)
+diff --git a/harness/treecheck.py b/harness/treecheck.py
+index fc67e0adc503646d136a40e3cc22eda15ebd46f3..b214280429e7bbfdc1b94e0585b794c49ebf5904 100644
+--- a/harness/treecheck.py
++++ b/harness/treecheck.py
+@@ -78,13 +78,17 @@ LIMIT_NAMES = [
+     "NREGEX_CLASS_RANGES", "NREGEX_DFA_CACHE_BYTES", "NREGEX_DFA_MIN_STATES",
+ ]
+ 
+-# `SAFETY.md` §4, rule S-8 (RX-060) -- exactly ONE public `error:` identity.
+-# The NAME is checked as well as the count: "exactly one" that silently became
+-# a different one would be the same major-version break as two.
+-ERROR_BUDGET = ["ERegexPattern"]
++# `SAFETY.md` §4, rule S-8 (RX-060) -- exactly ONE `error:` identity, public, and
++# the compiler names an identity by the MODULE that declares it, so the budget is a
++# (module, name) pair (RX-179). The name and the module are checked as well as the
++# count: "exactly one" that silently became a different one would be the same
++# major-version break as two.
++ERROR_BUDGET = [("api", "ERegexPattern")]
+ 
+-_PUB_ERROR = re.compile(r'^\s*pub\s+error\s*:\s*([A-Za-z_]\w*)\s*;')
+-_ANY_ERROR = re.compile(r'^\s*(?:pub\s+)?error\s*:\s*([A-Za-z_]\w*)\s*;')
++# A declaration wherever it starts and however it is spaced -- `pub` and `error`
++# may stand on two lines, and a second declaration may follow the first on one --
++# matched over the whole blanked text, `nitpick-time`'s TM-200 shape (RX-179).
++_ERROR_DECL = re.compile(r"(?<![A-Za-z0-9_.])(pub\s+)?error\s*:\s*([A-Za-z_][A-Za-z0-9_]*)")
+ 
+ 
+ class Result:
+@@ -244,47 +248,56 @@ def _check_umbrella(root, lib):
+ # --- check_error_budget ---------------------------------------------------------------
+ 
+ def check_error_budget(root):
+-    """Public `error:` declarations against `SAFETY.md` §4 -- EXACTLY ONE.
++    """Every `error:` declaration in `src/` against `SAFETY.md` §4 -- EXACTLY ONE
++    identity, `api.ERegexPattern`, public.
+ 
+     RULE P-19: this is the one a consumer depends on. "Importing `nregex` costs
+     your `failsafe` exactly one arm" is a promise no compiler will check for us
+-    -- REACH-002 makes every public identity a mandatory arm in every consuming
+-    program, so a second one is a compile-time break in code we do not own, and
+-    a MAJOR version (RX-060, S-8). This check is what keeps the promise true."""
+-    found = []
++    -- REACH-002 makes every identity a reachable `fail` raises a mandatory arm in
++    every consuming program, so a second one is a compile-time break in code we
++    do not own, and a MAJOR version (RX-060, S-8). This check is what keeps the
++    promise true.
++
++    AN IDENTITY IS THE COMPILER'S UNIT: A NAME QUALIFIED BY ITS MODULE, PUBLIC OR
++    PRIVATE (RX-179). Until cycle 0.1.0b this matched one declaration per line,
++    public ones only, from the line's start -- and the ecosystem audit of
++    2026-09-26 (its EC4) passed three planted extra identities through it: a
++    PRIVATE `error:` with a raise site, which charges every importer all the same
++    (its EC3, measured at `c970483`); two public declarations on one line; and
++    `pub` and `error:` on two lines. It reads the whole blanked text now, counts
++    every declaration, and keys each by its file's module. A private declaration
++    that nothing raises costs a consumer nothing, but this check cannot see a
++    raise site's reach, so it refuses every one: default-deny, as RX-158 is."""
++    fl, found = [], []
+     files = npk_files(root, "src")
+     for p in files:
+         rel = os.path.relpath(p, root)
+-        try:
+-            text = lexical.read(p)
+-        except OSError:
++        code = lexical.blank(_read(p))
++        mod = os.path.basename(p)[:-len(".npk")]
++        for m in _ERROR_DECL.finditer(code):
++            found.append((mod, m.group(2), bool(m.group(1)), rel,
++                          code.count("\n", 0, m.start()) + 1))
++    for mod, name, public, rel, ln in found:
++        if public and (mod, name) in ERROR_BUDGET:
+             continue
+-        for ln, line in enumerate(lexical.blank(text).split("\n"), 1):
+-            m = _PUB_ERROR.match(line)
+-            if m:
+-                found.append((m.group(1), rel, ln))
+-                continue
+-            m = _ANY_ERROR.match(line)
+-            if m:
+-                found.append(("(private) " + m.group(1), rel, ln))
+-
+-    public = [f for f in found if not f[0].startswith("(private) ")]
+-    fl = []
+-    names = sorted(n for n, _, _ in public)
+-    if names != sorted(ERROR_BUDGET):
+-        shown = ", ".join(f"`{n}` ({r}:{l})" for n, r, l in sorted(public)) or "none"
+-        fl.append(f"the public error budget is {len(public)} identity/identities -- "
+-                  f"{shown} -- and SAFETY.md §4 (rule S-8, RX-060) says EXACTLY ONE, "
+-                  f"`{ERROR_BUDGET[0]}`. Every public `error:` is a mandatory `pick` "
+-                  f"arm in every consuming program's `failsafe` (REACH-002), so this "
+-                  f"is a compile-time break in code this repository does not own and "
+-                  f"a MAJOR version. If the change is intended, SAFETY.md §4 is "
+-                  f"amended by a numbered decision in the same commit -- never this "
+-                  f"list on its own.")
+-    private = [f for f in found if f[0].startswith("(private) ")]
+-    notes = [f"{len(public)} public and {len(private)} private `error:` declaration(s) "
+-             f"over {len(files)} file(s) in src/."]
+-    return Result("check_error_budget", "SAFETY.md S-8 (RX-060), P-19",
++        fl.append(f"{rel}:{ln}: `{mod}.{name}` is a {'public' if public else 'PRIVATE'} "
++                  f"`error:` identity, and SAFETY.md §4 (rule S-8, RX-060) budgets exactly "
++                  f"one, `api.ERegexPattern`, public. REACH-002 makes every identity a "
++                  f"reachable `fail` raises -- public or private, named by its module -- a "
++                  f"mandatory `pick` arm in every consuming program's `failsafe`, so this is "
++                  f"a compile-time break in code this repository does not own and a MAJOR "
++                  f"version (RX-179). If the change is intended, SAFETY.md §4 is amended by "
++                  f"a numbered decision in the same commit -- never this list on its own.")
++    public = [(mod, name) for mod, name, pub, _, _ in found if pub]
++    for mod, name in ERROR_BUDGET:
++        if public.count((mod, name)) != 1:
++            fl.append(f"`{mod}.{name}` is declared public {public.count((mod, name))} "
++                      f"time(s) in `src/{mod}/`, and SAFETY.md §4 (rule S-8) says exactly "
++                      f"once: it is the library's one identity.")
++    private = sum(1 for f in found if not f[2])
++    notes = [f"{len(found) - private} public and {private} private `error:` declaration(s) "
++             f"over {len(files)} file(s) in src/, each keyed by its module (RX-179)."]
++    return Result("check_error_budget", "SAFETY.md S-8 (RX-060, RX-179), P-19",
+                   f"{len(files)} file(s)", fl, notes)
+ 
+ 
+@@ -433,12 +446,15 @@ def check_no_division(root):
+ 
+ # --- check_accessor_confinement -------------------------------------------------------
+ 
+-# `.items[` and `.ptr[`, with the dot. Written as two patterns rather than one
+-# alternation so a failure names which accessor was reached around.
++# `.items[` and `.ptr[`, WITH WHITESPACE ALLOWED ON EITHER SIDE OF THE NAME, AND
++# ACROSS A LINE BREAK (RX-179): `s.ptr [1i64]`, `v . items [0i64]` and `s.ptr` then
++# `[2i64]` on the next line all compile, and until cycle 0.1.0b each passed this
++# check (the ecosystem audit's EC5). Matched over the whole blanked text.
+ _ACCESSORS = (
+-    (".items[", "src/core/vec.npk",   "vec_get / vec_set"),
+-    (".ptr[",   "src/core/bytes.npk", "bytes_get / bytes_set"),
++    ("items", "src/core/vec.npk",   "vec_get / vec_set"),
++    ("ptr",   "src/core/bytes.npk", "bytes_get / bytes_set"),
+ )
++_ACCESSOR_RE = re.compile(r"\.\s*(items|ptr)\s*\[")
+ 
+ 
+ def check_accessor_confinement(root):
+@@ -484,28 +500,28 @@ def check_accessor_confinement(root):
+         except OSError:
+             continue
+         code = _blank_prose(text)
+-        for pat, owner, pair in _ACCESSORS:
+-            for ln, line in enumerate(code.split("\n"), 1):
+-                col = line.find(pat)
+-                while col != -1:
+-                    if rel == owner:
+-                        owners_seen[pat] = True
+-                    else:
+-                        fl.append(
+-                            f"{rel}:{ln}:{col + 1}: `{pat}` outside `{owner}`. "
+-                            f"`Vec<T>.items` is a `wild T->` and a `buffer`'s "
+-                            f"bytes are reached through a bare `uint8->`, so "
+-                            f"D-070 emits NO bounds guard for either -- an "
+-                            f"out-of-range index READS AND RETURNS A HEAP WORD "
+-                            f"at exit 0. Go through `{pair}`, which is the only "
+-                            f"bounds check this library has "
+-                            f"(SAFETY.md S-23, RX-111, RX-118).")
+-                    col = line.find(pat, col + 1)
++        for m in _ACCESSOR_RE.finditer(code):
++            pat = m.group(1)
++            owner, pair = [(o, p) for n, o, p in _ACCESSORS if n == pat][0]
++            ln = code.count("\n", 0, m.start()) + 1
++            col = m.start() - (code.rfind("\n", 0, m.start()) + 1)
++            if rel == owner:
++                owners_seen[pat] = True
++            else:
++                fl.append(
++                    f"{rel}:{ln}:{col + 1}: `.{pat}[` outside `{owner}`. "
++                    f"`Vec<T>.items` is a `wild T->` and a `buffer`'s "
++                    f"bytes are reached through a bare `uint8->`, so "
++                    f"D-070 emits NO bounds guard for either -- an "
++                    f"out-of-range index READS AND RETURNS A HEAP WORD "
++                    f"at exit 0. Go through `{pair}`, which is the only "
++                    f"bounds check this library has "
++                    f"(SAFETY.md S-23, RX-111, RX-118, RX-179).")
+ 
+     for pat, owner, pair in _ACCESSORS:
+         if not owners_seen[pat]:
+             fl.append(
+-                f"{owner}: this file is the NAMED OWNER of `{pat}` and no "
++                f"{owner}: this file is the NAMED OWNER of `.{pat}[` and no "
+                 f"longer contains it. Either the accessor pair `{pair}` stopped "
+                 f"reaching its storage that way -- in which case this "
+                 f"confinement rule now guards nothing and S-23 needs rewriting "
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 3ab97a655ffb9d66605cebcec5e001456cc13096..98712f1eb27d53e8fa4eb2750e85ed11fd8d99cf 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -4379,3 +4379,24 @@ fixtures under them until `npkg` can build this library (O-G3), and the parity s
+ would then disagree on the first file it read; **name one line per distinct position** — the literal's four
+ sites share one position, and the compiler counts sites, not positions; **the count on notes as well** — D-332
+ holds the error channel.
++
++### RX-179 — `check_error_budget` and `check_accessor_confinement` read the whole blanked text: every `error:` declaration keyed by its module, and every spaced form of an accessor
++
++**@@DATE@@, cycle 0.1.0b (the plan's PD-23)** — the ecosystem audit of 2026-09-26's EC4 and EC5
++(`../meta/audits/ecosystem-2026-09-26.md` in the workbench), each a check that passed planted violations. Neither
++had an instance in the tree: `src/` declares one identity and no spaced accessor, measured at `5fbaf4a`.
++
++- **`check_error_budget`** matched one declaration per line with `re.match`, public ones by name only. It now
++  finds every declaration over the whole blanked text — `pub` and `error` on two lines, two on one — keys each
++  by its file's module, as `NITPICK-REACH-003` names them, and refuses every one but `api.ERegexPattern`,
++  public, private ones included: a private identity a reachable `fail` raises charges every importer (the
++  audit's EC3), and a check reading text cannot see reach, so it is default-deny (as RX-158 is).
++- **`check_accessor_confinement`** looked for `.items[` and `.ptr[` exactly. It now matches
++  `\\.\\s*(items|ptr)\\s*\\[` over the blanked text, across a line break.
++- **Self-check cases 28 and 29** run each check on the instrument over the audit's plants, each alone, each
++  required to fail by name, and over a clean tree required to pass.
++
++*Alternatives declined:* **count private declarations and report them** — a report is read when someone
++remembers, and the audit's plant compiles and charges every importer; **resolve reach to allow a private
++identity nothing raises** — a call-graph walk in a tree check, for a shape `src/` has no use for; **plants as
++units in `tests/`** — a tree check reads `src/`, and a planted `src/` file is a real one.
+diff --git a/meta/specs/TESTING.md b/meta/specs/TESTING.md
+index 98da8fc5c504d32c22e63535968763e2c1571bda..9fc79ee20f442fab8d04e9b22ecb7025a1292577 100644
+--- a/meta/specs/TESTING.md
++++ b/meta/specs/TESTING.md
+@@ -199,7 +199,7 @@ framing that let both be wrong. The framing is the column.
+ | Check | Built | Diffs |
+ |---|---|---|
+ | `check_layering` | **yes** | every `use` edge against `BUILD.md` §6, including the oracle's restriction |
+-| `check_error_budget` | **yes** | public `error:` declarations against `SAFETY.md` §4 — **exactly one** |
++| `check_error_budget` | **yes** | every `error:` declaration, public or private, keyed by its module, against `SAFETY.md` §4 — **exactly one**, `api.ERegexPattern` (RX-179) |
+ | `check_constants_named` | **yes** | no bound outside `src/core/limits.npk` |
+ | `check_no_division` | **yes** | no `/` or `%` under `src/` — `SAFETY.md` S-25 (RX-132), because a division arms two `failsafe` arms in every importer |
+ | `check_accessor_confinement` | **yes** | no `.items[` outside `src/core/vec.npk`, no `.ptr[` outside `src/core/bytes.npk`, **within `src/`** — `SAFETY.md` S-23, **the only bounds check this library has** (RX-136). *Since cycle 0.0.4c `Vec`'s half is the compiler's too — `items` is `hidden`, so `.items` outside `vec.npk` is `NITPICK-TYPE-080` in every module; `Bytes`' half is not, because a sealed `buf` admits a write THROUGH `.ptr` (RX-153). The check stays for both, and for the owning files' own use of their accessors. Since cycle 0.0.4d `Bytes`' half is the compiler's too: `buf` is `hidden` (RX-163)* |
+@@ -309,7 +309,13 @@ requires it to report every one as a failure. The list is `harness/selfcheck.py`
+     the header belt must name the emission's `target` lines (RX-176);
+ 26. a `check` case naming a code once where it is reported at two sites, and
+ 27. one naming a code at two sites where it is reported at one — the count of
+-    sites per code, the compiler's D-332 (RX-178).
++    sites per code, the compiler's D-332 (RX-178);
++28. `check_error_budget` over the three extra identities the ecosystem audit's
++    EC4 planted — a private one with a raise site, two on one line, one split
++    across two lines — and its control, each failing by name, a clean tree
++    passing (RX-179). On the instrument;
++29. `check_accessor_confinement` over EC5's four spaced forms, each alone, each
++    failing by name, a clean tree passing (RX-179). On the instrument.
+ 
+ *(Reconciled 2026-09-25 by the third cycle 0.0 audit's triage, RX-154. This list
+ had eight bullets and `CASES` eleven entries, and they disagreed in BOTH

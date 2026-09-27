@@ -1,0 +1,213 @@
+diff --git a/harness/run.py b/harness/run.py
+index 8e7ff2982ce36423cdd6ed995b09e6849770867e..d6fcbdba0bdf67b95780c5b221a630932c4a7a34 100755
+--- a/harness/run.py
++++ b/harness/run.py
+@@ -485,7 +485,7 @@ def _summary(c, rep, a, say, secs, sc_counts=None, listed=0):
+         return 1
+     say("GREEN. Every program built, linked, ran and was judged by its exit code, "
+         "and agreed with itself under opt -O2; every rejection reported exactly the "
+-        "codes it names; every .npk in the tree was swept as a root by npkc, which "
++        "codes it names, each at as many sites as it names it; every .npk in the tree was swept as a root by npkc, which "
+         "neither links nor runs it; and the tree checks agreed with the "
+         "specifications.")
+     if sc_counts is not None:
+diff --git a/harness/selfcheck.py b/harness/selfcheck.py
+index fc909806c86eab89d57cfbb5a985a3d4fe3ac50f..04e275e4cc854a4c128fa857124977fd4e01c389 100644
+--- a/harness/selfcheck.py
++++ b/harness/selfcheck.py
+@@ -725,6 +725,38 @@ def _case23(d):
+     return None                                   # handled by `_run_case23`
+ 
+ 
++def _case26(d):
++    """A `check` case naming a code ONCE where it is reported at TWO sites -- the
++    compiler's D-332, ported (RX-178). Under B-7's set equality this passes: the
++    code is named and reported. `tests/rejection/pattern_error_literal.npk` named
++    its `NITPICK-TYPE-079` once for four sites until cycle 0.1.0b."""
++    _write(d, "tests/case/two_sites.npk",
++           "// expect-error: NITPICK-TYPE-007\n"
++           "mod:two_sites;\n\n"
++           "func:main = int32(cstring[]:_~argv) {\n"
++           "    int32:a = true;\n"
++           "    int32:b = true;\n"
++           "    exit 0i32;\n"
++           "};\n" + FAILSAFE)
++    return TOML % CHECK_ENTRY
++
++
++def _case27(d):
++    """A `check` case naming a code at TWO sites where it is reported at ONE --
++    the compiler's own `silent_site` self-check case (D-332), ported (RX-178). Its
++    lines carry no position, so only the count can see the missing site."""
++    _write(d, "tests/case/silent_site.npk",
++           "// expect-error: NITPICK-TYPE-007\n"
++           "// expect-error: NITPICK-TYPE-007\n"
++           "mod:silent_site;\n\n"
++           "func:main = int32(cstring[]:_~argv) {\n"
++           "    int32:a = true;\n"
++           "    int32:b = 1i32;\n"
++           "    exit 0i32;\n"
++           "};\n" + FAILSAFE)
++    return TOML % CHECK_ENTRY
++
++
+ def _case24(d):
+     """A manifest whose LAYOUT PIN is not what the pinned `opt` derives from its
+     triple -- one field of the layout dropped (RX-176). The compiler's
+@@ -880,6 +912,13 @@ CASES = [
+          "emission state x86-64",
+          _case25, ["the module's header is not the pinned one",
+                    "i686-unknown-linux-gnu"]),
++    Case(26, "a `check` case naming a code once where it is reported at two sites",
++         "RX-178: the compiler's D-332 -- a set of codes cannot see a count",
++         _case26, ["two_sites.npk", "is reported at 2 site(s)"]),
++    Case(27, "a `check` case naming a code at two sites where it is reported at one",
++         "RX-178: the compiler's `silent_site`, ported -- the hazard D-332 was "
++         "decided for",
++         _case27, ["silent_site.npk", "is reported at 1 site(s)"]),
+ ]
+ 
+ 
+diff --git a/harness/stages.py b/harness/stages.py
+index 3d99b5dc87251bcabaa9ebb2c172e0595478697c..1bf6fa6fe06e1c1800eb0bf92d16eab6e0805617 100644
+--- a/harness/stages.py
++++ b/harness/stages.py
+@@ -467,6 +467,7 @@ def check_rejection(c, path, name, exp):
+     fl += _match_channel(name, exp.errors, got, notes=False)
+     fl += _match_channel(name, exp.notes, got, notes=True)
+     fl += _unexpected_codes(name, exp.errors, got)
++    fl += _count_sites(name, exp.errors, got)
+     return fl
+ 
+ 
+@@ -491,6 +492,32 @@ def _match_channel(name, want, got, notes):
+     return fl
+ 
+ 
++def _count_sites(name, want, got):
++    """The NUMBER of sites a code is reported at equals the number of `expect-error`
++    lines naming it -- the compiler's D-332 (its landing 82), held by both of its
++    runners since `5fbaf4a`, and by this one since cycle 0.1.0b (RX-178, `BUILD.md`
++    B-7b). Rule B-7 compares SETS, and a set cannot see a silent site: a code
++    expected at two places and reported at one passes it, and so does a code
++    reported at four places and named once. Asked of codes both named and reported;
++    a code on only one side is the two checks above. The error channel only."""
++    named, sites = {}, {}
++    for w in want:
++        named[w["code"]] = named.get(w["code"], 0) + 1
++    for f in got:
++        if not f["is_note"]:
++            sites.setdefault(f["code"], []).append(f"{f['line']}:{f['col']}")
++    fl = []
++    for code in sorted(named):
++        at = sites.get(code, [])
++        if at and len(at) != named[code]:
++            fl.append(f"{name}: {code} is reported at {len(at)} site(s) -- "
++                      f"{', '.join(at)} -- and {named[code]} `expect-error` line(s) "
++                      f"name it. One line per site (the compiler's D-332, BUILD.md "
++                      f"B-7b): a set of codes cannot see a silent site, so the count "
++                      f"is asserted too.")
++    return fl
++
++
+ def _unexpected_codes(name, want, got):
+     """The converse, and the half that closes the RESOLVE-005 hole (D-237, B-7)."""
+     named = {w["code"] for w in want}
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 62c728865215ca7968c3f4ea5e7423273ebe6c36..3ab97a655ffb9d66605cebcec5e001456cc13096 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -4356,3 +4356,26 @@ checked only when someone remembers is the time audit's E1 in this tree.
+ this one retires into the prelude's; **`T:x = v.items[i]; pass x;`** — the same copy with a binding for no
+ reason; **`impl:AstNode:Copy`** — the derive states it where the fields are, and a member that later owns is
+ refused at the declaration; **renaming the unit** — its subject is a plain-old-data struct, which it still is.
++
++### RX-178 — a rejection file's sites are counted per code: one `expect-error` line per reported site, as the compiler's runners hold since its landing 82
++
++**@@DATE@@, cycle 0.1.0b (the plan's PD-22), at compiler `5fbaf4a`** — the compiler's D-332 (its S-113, the
++author's decision), announced to the libraries as advance notice F24.
++
++- **`harness/stages.py` adds the count to B-7's set equality** (`BUILD.md` B-7b): for every code both named and
++  reported on the error channel, the number of reported sites equals the number of `expect-error` lines naming
++  it, and a mismatch fails the file by name, with every site. Notes are outside it, as they are in the
++  compiler's rule.
++- **Measured before the rule was written**, over the thirty-one files here carrying `expect-error` — the
++  twenty-four rejection fixtures, the eight refused probes but probe 18, which moved in at this subcycle — at
++  `5fbaf4a` and at `c970483`: thirty agree, and `tests/rejection/pattern_error_literal.npk` names
++  `NITPICK-TYPE-079` once where it is reported four times at 22:22, once per sealed field it writes. It names
++  it four times now, at 31:22, the header nine lines longer. Probe 18's `TYPE-014` is one site.
++- **Self-check cases 26 and 27** are the two directions: a code named once and reported twice, and the
++  compiler's own `silent_site` shape — named twice, reported once, the lines carrying no position.
++
++*Alternatives declined:* **keep B-7's sets and let the compiler's runners hold the count** — nothing runs our
++fixtures under them until `npkg` can build this library (O-G3), and the parity stage that retires this runner
++would then disagree on the first file it read; **name one line per distinct position** — the literal's four
++sites share one position, and the compiler counts sites, not positions; **the count on notes as well** — D-332
++holds the error channel.
+diff --git a/meta/specs/BUILD.md b/meta/specs/BUILD.md
+index ac058845072351e599c48c52821687b46aed6383..ec2007d2152ea004e8a668fdaee6c91de8464d30 100644
+--- a/meta/specs/BUILD.md
++++ b/meta/specs/BUILD.md
+@@ -481,6 +481,17 @@ is the single thing that makes the hole unreachable, and the harness names
+ was not there", so a rejection fixture without an `// expect-error:` asserts
+ nothing at all.
+ 
++**Rule B-7b (RX-178) — and the COUNT of sites per code is asserted too.** A code
++reported at N sites is named by exactly N `expect-error` lines, each with its
++`expect-error-at` where the site is measured — the compiler's D-332, held by both
++of its runners since its landing 82 and by this one since cycle 0.1.0b. A set
++cannot see a silent site: a code expected at two places and reported at one
++passes B-7, and so does one reported at four and named once
++(`tests/rejection/pattern_error_literal.npk`, until 0.1.0b). Measured at
++`5fbaf4a` over all thirty-one files carrying `expect-error`: that one was the
++only file whose count differed. Self-check cases 26 and 27 are the two
++directions.
++
+ **Rule B-8 — the harness is itself tested.** A self-check feeds it wrong
+ expectations and requires it to report every one as a failure, and it runs
+ first.
+diff --git a/meta/specs/TESTING.md b/meta/specs/TESTING.md
+index 22fc3cdaf8aca5477f33259424dad2d359b99701..98da8fc5c504d32c22e63535968763e2c1571bda 100644
+--- a/meta/specs/TESTING.md
++++ b/meta/specs/TESTING.md
+@@ -306,7 +306,10 @@ requires it to report every one as a failure. The list is `harness/selfcheck.py`
+ 24. a manifest whose `datalayout` pin is not what the pinned `opt` derives from
+     its `triple` — the layout check must name both (RX-176);
+ 25. a tree pinned consistently to another target, so the layout check passes —
+-    the header belt must name the emission's `target` lines (RX-176).
++    the header belt must name the emission's `target` lines (RX-176);
++26. a `check` case naming a code once where it is reported at two sites, and
++27. one naming a code at two sites where it is reported at one — the count of
++    sites per code, the compiler's D-332 (RX-178).
+ 
+ *(Reconciled 2026-09-25 by the third cycle 0.0 audit's triage, RX-154. This list
+ had eight bullets and `CASES` eleven entries, and they disagreed in BOTH
+diff --git a/tests/rejection/pattern_error_literal.npk b/tests/rejection/pattern_error_literal.npk
+index 090d6b9e4f3cbcb2f8b5a9d7abb17a83a3713322..f448b35da04d71c13efa33fca5f5ea5e42e41051 100644
+--- a/tests/rejection/pattern_error_literal.npk
++++ b/tests/rejection/pattern_error_literal.npk
+@@ -1,5 +1,11 @@
+ // expect-error: NITPICK-TYPE-079
+-// expect-error-at: 22:22
++// expect-error-at: 31:22
++// expect-error: NITPICK-TYPE-079
++// expect-error-at: 31:22
++// expect-error: NITPICK-TYPE-079
++// expect-error-at: 31:22
++// expect-error: NITPICK-TYPE-079
++// expect-error-at: 31:22
+ //
+ // A `PatternError` IS BUILT BY `pattern_error` AND BY NOTHING ELSE. Cycle 0.1.0,
+ // RX-172; `SYNTAX.md` Y-10, `SAFETY.md` S-9.
+@@ -7,7 +13,10 @@
+ // WHAT IT PINS. Every field of `PatternError` is `sealed` (the compiler's D-313):
+ // written only by `src/syntax/pattern_error.npk`. So this struct literal, outside
+ // that file, is NITPICK-TYPE-079 -- once for each field it writes, all four at
+-// the literal -- and the one way left to build an error is the constructor,
++// the literal, so four `expect-error` lines, one per site (the compiler's D-332;
++// `BUILD.md` B-7b, RX-178; one line named all four until cycle 0.1.0b, and the
++// registry's DEF-165 asks whether they are one mistake or four facts -- its
++// landing would move this count) -- and the one way left to build an error is the constructor,
+ // which takes an offset and refuses a negative one. The rule "every error
+ // carries a byte offset" is the compiler's to hold, not a tree check's or a
+ // reviewed grep's.
