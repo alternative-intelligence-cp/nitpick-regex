@@ -41,7 +41,10 @@ never for concluding; nothing is committed on the strength of a filtered run.
    in every consuming program's `failsafe`.** The language enforces it and
    forgetting one is a compile error. The budget is **one**. If a failure needs
    a distinction the caller cares about, it rides as a field on the
-   `PatternError` value.
+   `PatternError` value. *(Sharper, measured at `5fbaf4a` by cycle 0.1.0b — the
+   ecosystem audit's EC3, RX-179: the arm is owed for every identity a reachable
+   `fail` raises, a PRIVATE one included, and for no declaration nothing raises;
+   `check_error_budget` refuses every `error:` in `src/` but `api.ERegexPattern`.)*
 
 3. **Every engine must produce the same answer, and the suite proves it.** A
    change to any engine runs the whole corpus through all of them, and again

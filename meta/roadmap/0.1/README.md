@@ -4,9 +4,12 @@
 byte offset on every error.**
 
 > **OPEN. [`0.1.0`](0.1.0.md) is DONE (2026-09-26)** — RX-171 … RX-175 in six work
-> commits, `64a5ca9` … `0d26478`, 250/250 at `c970483` and in CI — and **[`0.1.0b`](0.1.0b.md), the
-> adoption of compiler `5fbaf4a` with the ecosystem audit's items, and [`0.1.1`](0.1.1.md), the core grammar,
-> are PLANNED** (2026-09-27, one planner dispatch, both rehearsed at `5fbaf4a`) and run in that order. *(Until
+> commits, `64a5ca9` … `0d26478`, 250/250 at `c970483` and in CI — **and [`0.1.0b`](0.1.0b.md), the
+> adoption of compiler `5fbaf4a` with the ecosystem audit's items, is DONE (2026-09-27)** — RX-176 … RX-180 in
+> seven work commits, `2c748d4` … `186db2c`, 250/250 at `5fbaf4a` and in CI run 36338559696. **[`0.1.1`](0.1.1.md),
+> the core grammar, is next**, planned and rehearsed at `5fbaf4a`. *(Until 0.1.0b's record this banner said
+> 0.1.0b and 0.1.1 "are PLANNED (2026-09-27, one planner dispatch, both rehearsed at `5fbaf4a`) and run in that
+> order".)* *(Until
 > then this banner said 0.1.1 was next and its file its planner's to write — `0.1.0.md` §8.)* *(Until
 > 0.1.0's record this banner opened "OPENS NEXT":)* Cycle 0.0 closed on 2026-09-26 — the sixth audit accepted it, and it
 > is archived in [`../done/0.0/`](../done/0.0/README.md). [`0.1.0.md`](0.1.0.md) is the
@@ -59,17 +62,17 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
 - [x] a skeleton that accepts `a` and reports offset 0 for `(`, composed from the layer entry alone (PD-19) — **RX-175, `1224dce`**: `tests/unit/syntax_skeleton.npk`, through `syntax.npk`'s re-exports alone (one deleted: `NITPICK-RESOLVE-002`); 250/250 locally, and in CI run 36252533730 on `0d26478`
 
 ### 0.1.0b — the adoption of `5fbaf4a`, and the ecosystem audit's items
-- [ ] the unchanged tree measured at `5fbaf4a` — `248/250`, only probe 18 moving — and D-332's count over every file carrying `expect-error` (`0.1.0b.md` §1)
-- [ ] probe 18 in `tests/probe/refused/`, `NITPICK-TYPE-014`, one site (PD-20)
-- [ ] the manifest's `triple` and `datalayout`, READ: the layout held to `opt`'s derivation and every linked emission to both; self-check cases 24, 25 (PD-20)
-- [ ] every adoption re-reads what `lexical.py` mirrors — `BUILD.md` B-4e — and this one's re-read recorded (PD-20; the audit's ED1)
-- [ ] 0.1.0's block-3b controls re-run: `BORROW-015` for the owner written, `BORROW-001` for a local's view returned
-- [ ] `Pod` retired into the prelude's `Copy`: `vec_get<T: Copy>`, the AST types derive it (PD-21)
-- [ ] a rejection's sites counted per code; the literal fixture names its code four times; cases 26, 27 (PD-22)
-- [ ] `check_error_budget` and `check_accessor_confinement` read blanked text whole; cases 28, 29 (PD-23; EC4, EC5)
-- [ ] CI pinned to `5fbaf4a` in a commit of its own
-- [ ] CI asserts the compiler's commit, the emission against the pin's row, and the unqualified `GREEN.` (PD-24; ED3, EK2)
-- [ ] EC11's two cycles corrected; the registry's entry for 0.1.0's `EMIT-002` finding recorded and struck (ES4); the Node-24 bump homed with the workbench (EK2)
+- [x] the unchanged tree measured at `5fbaf4a` — `248/250`, only probe 18 moving — and D-332's count over every file carrying `expect-error` (`0.1.0b.md` §1) — **block 0b `SAME`**: `248/250`, both failures probe 18 (`NITPICK-TYPE-014` at 42:39); thirty-one files, the literal's `TYPE-079` the one count that differs (×4 at 22:22), at both pins
+- [x] probe 18 in `tests/probe/refused/`, `NITPICK-TYPE-014`, one site (PD-20) — **RX-176, `2c748d4`**: at 35:39, and still compiling at `c970483`; the split 24 / 8
+- [x] the manifest's `triple` and `datalayout`, READ: the layout held to `opt`'s derivation and every linked emission to both; self-check cases 24, 25 (PD-20) — **RX-176, `2c748d4`**: `ok    target x86_64-unknown-linux-gnu, its layout the one the pinned opt derives` on every run; cases 24 and 25 red, each naming its fault; `250/250`
+- [x] every adoption re-reads what `lexical.py` mirrors — `BUILD.md` B-4e — and this one's re-read recorded (PD-20; the audit's ED1) — **RX-176, `2c748d4`**: `lexer.npk` +13/−2, a character literal's width (DEF-145), not its span; `p_parse_import` hashing the same at both pins; no `\u{…}` character literal in the tree; the mirror does not move
+- [x] 0.1.0's block-3b controls re-run: `BORROW-015` for the owner written, `BORROW-001` for a local's view returned — **block 0b**: `NITPICK-BORROW-015` at 6:5 and `NITPICK-BORROW-001` at 5:10 at `5fbaf4a`; the owner written compiling at `c970483` — judged by `npkc` alone, never built or run
+- [x] `Pod` retired into the prelude's `Copy`: `vec_get<T: Copy>`, the AST types derive it (PD-21) — **RX-177, `855c5b6`**: no `Pod` in `src/` code; `vec_owning_get_moves_out` `NITPICK-TYPE-017` at 32:31; `AstKind`'s derive removed in a copy, `NITPICK-TYPE-087` at 80:1; `250/250`
+- [x] a rejection's sites counted per code; the literal fixture names its code four times; cases 26, 27 (PD-22) — **RX-178, `7d837e3`**: thirty-two files, no count differing; the literal ×4 at 31:22; cases 26 and 27 red; `250/250`
+- [x] `check_error_budget` and `check_accessor_confinement` read blanked text whole; cases 28, 29 (PD-23; EC4, EC5) — **RX-179, `1445ff6`**: against the previous checks every plant passes (block 4's control, EC4 and EC5 reproduced); against the new, each fails by name and the clean trees pass; `250/250`
+- [x] CI pinned to `5fbaf4a` in a commit of its own — **`6a08a22`**
+- [x] CI asserts the compiler's commit, the emission against the pin's row, and the unqualified `GREEN.` (PD-24; ED3, EK2) — **RX-180, `a536546`**, its patch amended for BUILD.md B-4c and §8a and RX-133's marker (`0.1.0b.md`'s record); CI run 36338559696 on `186db2c`: `compiler HEAD == 5fbaf4a… (clean)`, `npkc.ll == the pin's emission, 30232291 B / 5630c2b4…`, `GREEN.` and `250/250`
+- [x] EC11's two cycles corrected; the registry's entry for 0.1.0's `EMIT-002` finding recorded and struck (ES4); the Node-24 bump homed with the workbench (EK2) — **`186db2c`**, its patch amended for ten more statements steps 1–6 had made stale (`0.1.0b.md`'s record): the table takes the roadmap's 0.6.1 and 0.4.3; O-N32 struck as discharged by DEF-142 and DEF-143; the Node-24 bump the orchestrator's, one research request for both CIs
 
 ### 0.1.1 — the core grammar
 - [ ] `EmptyAlternate` retired — Y-27's `Empty` accepts every empty alternative (PD-25)

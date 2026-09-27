@@ -1,5 +1,5 @@
 diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
-index 7f2241aa53df7a295db8a21b466a19b478037d49..91df2a846e9e2829521040221e07fe772afb3202 100644
+index 064d5c777df7eb32104c0ce907390fbe9da98348..fe942cefdf6f4c6d98f5a36f008691974963f483 100644
 --- a/.github/workflows/ci.yml
 +++ b/.github/workflows/ci.yml
 @@ -71,6 +71,9 @@
@@ -111,10 +111,21 @@ index 7f2241aa53df7a295db8a21b466a19b478037d49..91df2a846e9e2829521040221e07fe77
        # Not part of the harness yet — 0.0.2 owns the stages. Until then this is
        # the one thing 0.0.1 established, run explicitly so that CI is not green
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index 98712f1eb27d53e8fa4eb2750e85ed11fd8d99cf..7ff1bd0c451de557d8019ee2080869bee205f961 100644
+index 3836f26143a7123b2954a0146f607d7f2ebf9f72..3ac23e8c18f677688fd3ba4a71e64b84d76d29ea 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
-@@ -2318,6 +2318,9 @@ storage layer every later cycle builds on).
+@@ -1814,6 +1814,10 @@ the arms are gone today).
+ ---
+ 
+ ### RX-133 — the compiler's emission is INVOCATION-independent and TREE-POSITION-dependent, so CI records its digest and the cross-machine comparison is legitimate
++> **SUPERSEDED IN PART by RX-180 (@@DATE@@)** — its *"CI prints it, and asserts nothing"*: the value it had
++> never been told was held at `c970483`, and the step asserts the pin's `npkc.ll` row since cycle 0.1.0b. Its
++> measurement — the emission invocation-independent and tree-position-dependent — stands, and is what makes the
++> assertion legitimate.
+ 
+ **2026-09-06, cycle 0.0.5.** The compiler side asked this workbench for one
+ measurement it cannot make itself: its own emission, `npkc.ll`, digested on a
+@@ -2318,6 +2322,9 @@ storage layer every later cycle builds on).
  ---
  
  ### RX-141 — the CI emission digest stays a PRINT; a same-machine comparison licenses the substitution and not the assertion
@@ -124,14 +135,16 @@ index 98712f1eb27d53e8fa4eb2750e85ed11fd8d99cf..7ff1bd0c451de557d8019ee2080869be
  
  **2026-09-06, cycle 0.0.5 audit triage.** `.github/workflows/ci.yml` digests
  `.internal/quickemit/npkc.ll` and prints it, for the compiler's S-42
-@@ -4400,3 +4403,24 @@ had an instance in the tree: `src/` declares one identity and no spaced accessor
+@@ -4400,3 +4407,26 @@ had an instance in the tree: `src/` declares one identity and no spaced accessor
  remembers, and the audit's plant compiles and charges every importer; **resolve reach to allow a private
  identity nothing raises** — a call-graph walk in a tree check, for a shape `src/` has no use for; **plants as
  units in `tests/`** — a tree check reads `src/`, and a planted `src/` file is a real one.
 +
 +### RX-180 — CI asserts what it printed: the compiler's commit, its emission against the pin's row, and the harness's unqualified summary
 +
-+**@@DATE@@, cycle 0.1.0b (the plan's PD-24)** — the ecosystem audit of 2026-09-26's ED3 and EK2.
++**@@DATE@@, cycle 0.1.0b (the plan's PD-24)** — the ecosystem audit of 2026-09-26's ED3 and EK2. It
++supersedes RX-141 in part, and RX-133 in part: the print each kept. RX-133's measurement and RX-141's reasoning
++about the substitution stand.
 +
 +- **The emission is asserted** (ED3). RX-141 kept the `npkc.ll` digest a print until somebody held both sides
 +  and wrote down that they matched. At `c970483` CI run 36253106675 printed `d36a7e23…` / 28 188 736 B, the
@@ -149,3 +162,34 @@ index 98712f1eb27d53e8fa4eb2750e85ed11fd8d99cf..7ff1bd0c451de557d8019ee2080869be
 +S-42 measured them differing; **keep the print** — ED3's point: the condition was met and nothing scheduled the
 +promotion; **bump the actions now, unverified** — a version this plan has not checked is a currency row nobody
 +dated.
+diff --git a/meta/specs/BUILD.md b/meta/specs/BUILD.md
+index ec2007d2152ea004e8a668fdaee6c91de8464d30..cf42f489773bfdc5a6e5396def2a2b4d64cf152f 100644
+--- a/meta/specs/BUILD.md
++++ b/meta/specs/BUILD.md
+@@ -232,7 +232,9 @@ position relative to its own manifest on every checkout — so CI prints
+ `sha256sum` and the byte count for every artefact the pinned compiler's build
+ leaves, `npkc.ll` first. It **prints and asserts nothing**: this repository has
+ not been given an expected value it could honestly check against, and the
+-comparison belongs to whoever holds both numbers.
++comparison belongs to whoever holds both numbers. *(Since @@DATE@@, cycle 0.1.0b,
++it asserts `npkc.ll` against the pinned commit's row and prints the rest — both
++numbers were held at `c970483`: RX-180, §8a.)*
+ 
+ ---
+ 
+@@ -698,6 +700,15 @@ parse.
+ 
+ ## 8a. The emission digest CI prints, and why it is not an assertion
+ 
++*(Since @@DATE@@, cycle 0.1.0b, it IS an assertion — RX-180, the ecosystem audit's
++ED3. The condition this section ends on was met at `c970483`: CI run 36253106675
++printed `npkc.ll` `d36a7e23…` / 28 188 736 B, the workbench's pin record held the
++same row, and cycle 0.1.0's verifier wrote down that they matched. So the workflow
++carries the pinned commit's `npkc.ll` row — notice 82's, `5630c2b4…` /
++30 232 291 B at `5fbaf4a`, moved with every pin — and a runner whose emission
++differs fails the run, as the compiler defect it would be; the binary rows stay
++prints. What follows is RX-141's reasoning, kept as the record of why it waited.)*
++
+ **RX-141.** `.github/workflows/ci.yml` digests the compiler's emission
+ (`.internal/quickemit/npkc.ll`) on every run and **prints** it, for the
+ compiler's own cross-machine question (its S-42). It does not assert, and the

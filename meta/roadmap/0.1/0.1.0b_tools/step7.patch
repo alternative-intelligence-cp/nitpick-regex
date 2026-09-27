@@ -1,5 +1,5 @@
 diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
-index 91df2a846e9e2829521040221e07fe772afb3202..d8b9356e340fb02c1884ec334b2a91865c70cc2b 100644
+index 8b561b1092b62e0515f2a2104214d4f9683c7137..2de30d7cefd8c762b3a585bb26ad4a53fc4a6e91 100644
 --- a/.github/workflows/ci.yml
 +++ b/.github/workflows/ci.yml
 @@ -31,9 +31,10 @@
@@ -107,8 +107,33 @@ index 7172cb7b3c62d33657f1735a1798c685d68e5962..79b62a2bc663557368a6421e9ae653aa
  > The specification set is in [`meta/specs/`](meta/specs/) and the plan in
  > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
  > discipline the compiler used — specs first, then a cycle map, then
+diff --git a/harness/README.md b/harness/README.md
+index 1166653a1171625b8e9f8b33e280bb018a94a71b..ceb8226e85e3e6f822fcdf102d054d979613ce41 100644
+--- a/harness/README.md
++++ b/harness/README.md
+@@ -20,7 +20,7 @@ reporting it.
+ |---|---|
+ | `run.py` | the driver: build steps, then the suites in manifest order, then the summary |
+ | `manifest.py` | `nitpick.toml`, in the compiler's own subset, with the compiler's schema |
+-| `toolchain.py` | `llc`, `opt`, `ld.lld` asked their versions and held to the pinned LLVM 20.1.2 |
++| `toolchain.py` | `llc`, `opt`, `ld.lld` asked their versions and held to the pinned LLVM 20.1.2; and the manifest's `datalayout` held to what the pinned `opt` derives from its `triple` (`BUILD.md` B-1a, RX-176) |
+ | `lexical.py` | **the harness's one reading of `.npk` source** (RX-157, RX-165): every `.npk` file opened by `lexical.read`, as BYTES — `\n` the only line end, as in the compiler's lexer — comments, strings, character literals and template text blanked, imports read the way the compiler's parser reads them, each path the literal's decoded value. The program suites' skip, B-2's reach, the expectation markers and every tree check stand on it; self-check case 18 tests it through a file |
+ | `expect.py` | the `// expect-…` grammar, marker for marker with `npkg/expect.npk`, **plus two markers of this runner's own** — `mem-cap-mib:` and `pending-until: <commit> exit <N>` (`BUILD.md` B-5b, RX-146 as amended by RX-154), each declared there so the parity stage has a row rather than a surprise |
+ | `elf.py` | an ELF64 symbol table, read with `struct` — no fourth tool |
+@@ -44,7 +44,10 @@ reporting it.
+ - every `program`-stage file gave the **same exit code** at −O0 and again
+   through `opt -O2` + `llc -O2` (B-3);
+ - every rejection fixture was refused with **exactly** the codes it names
+-  (B-7, D-237);
++  (B-7, D-237), each at as many sites as it names it (B-7b, RX-178);
++- every linked program's emission stated the manifest's `target datalayout` and
++  `target triple`, and that layout is the one the pinned `opt` derives from the
++  triple (B-1a, RX-176);
+ - no object gained an undefined symbol the baseline lacks, and no function
+   outside the baseline called a floor symbol this library may not (B-2, B-2a);
+ - the same tree built from two different working directories produced
 diff --git a/meta/OPEN_QUESTIONS.md b/meta/OPEN_QUESTIONS.md
-index 50b06aebf65f9e379d4965ae6c6bf3ff63722d7a..7abebcfa66d40a483c460d1de52c44cbc02cfa7c 100644
+index 50b06aebf65f9e379d4965ae6c6bf3ff63722d7a..a9ac8c0a1206666373eda48cea895cd5647d7d81 100644
 --- a/meta/OPEN_QUESTIONS.md
 +++ b/meta/OPEN_QUESTIONS.md
 @@ -609,6 +609,21 @@ nothing in `src/`, where no generic takes a lent bare `T` — `vec_push`, `vec_s
@@ -133,6 +158,31 @@ index 50b06aebf65f9e379d4965ae6c6bf3ff63722d7a..7abebcfa66d40a483c460d1de52c44cb
  ### O-N28 — **the workbench registry's**: an impl may declare `move` on a parameter its trait lends, and a call through the trait then hands the callee a value the caller still owns
  
  **Raised by this repository's cycle 0.0.4e planning at compiler `c970483` and
+@@ -628,7 +643,10 @@ mismatch, a trait's `move Self:self` implemented lent, also compiles.
+ declares". *What it means here:* `vec_get`'s `T: Pod` (RX-168) refuses an owning
+ type only through `Pod`'s declared, lent `self`; a consumer's `move`-self impl
+ defeats it (95 through `vec_get`, measured). **What it blocks (W-27):** nothing in
+-`src/`, which writes no such impl; O-R3 waits for it.
++`src/`, which writes no such impl; O-R3 waits for it. *(@@DATE@@, cycle 0.1.0b:
++neither holds at `5fbaf4a` — the bound is the prelude's `Copy`, a marker with no
++method to mis-declare (RX-177), and the `move`-self impl is `NITPICK-TYPE-014`
++(RX-176) — so O-R3's gate is met.)*
+ 
+ **Confirmed by the compiler seat as its DEF-116** (the registry's entry), to be
+ fixed as its landing 69, after landings 67 and 68 and an advance notice, F14: a
+@@ -878,6 +896,12 @@ movemask intrinsic, which is a better request than a speculative one.
+   `move`-self impl defeats a bound on the type exactly as it defeats `vec_get`'s,
+   and the tree check stays the only guarantee over `src/`. **Open by design until
+   then**: it is gated on a compiler fix, not on a decision here.
++  *(@@DATE@@, cycle 0.1.0b: **the gate is met.** The pin `5fbaf4a` refuses that impl,
++  `NITPICK-TYPE-014` (RX-176), and `vec_get`'s bound is the prelude's `Copy` (RX-177),
++  so the shape would now be `struct:Vec<T: Copy>`. Not taken in 0.1.0b, which adopts a
++  pin, and a bound on the type is the redesign RX-168 kept out of an adoption; the
++  opening subcycle this recommendation named has passed, so its subcycle is the
++  orchestrator's to schedule.)*
+ 
+ ### The pattern language
+ 
 diff --git a/meta/roadmap/ROADMAP.md b/meta/roadmap/ROADMAP.md
 index 1edf07f1d11830c5c9c9e2e4738fde0ba9848e73..4be8aee27907777141aafe35fd5575774709187f 100644
 --- a/meta/roadmap/ROADMAP.md
@@ -157,10 +207,58 @@ index 1edf07f1d11830c5c9c9e2e4738fde0ba9848e73..4be8aee27907777141aafe35fd557577
  
  **Two probes refuted their own hypothesis**, which is the cycle's best return:
  `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler
+diff --git a/meta/specs/SAFETY.md b/meta/specs/SAFETY.md
+index ce2c9e02fa3d6502a94d9b6923cd669abf3505d3..e1d358039be3ff66f1828d5fe49498eb7c1d8e96 100644
+--- a/meta/specs/SAFETY.md
++++ b/meta/specs/SAFETY.md
+@@ -63,6 +63,15 @@ refuses it, `NITPICK-BORROW-015`, in no pin of ours yet.)* *(Closed at `5fbaf4a`
+ cycle 0.1.0b: the pin carries DEF-107, and that write is `NITPICK-BORROW-015` —
+ RX-176.)*
+ 
++*(@@DATE@@, cycle 0.1.0b — RX-179: the REACH-002 row is narrower than it reads,
++and wider. Measured at `5fbaf4a`, as the ecosystem audit's EC3 measured at
++`c970483`, each with `NITPICK-REACH-003` on a consumer that imports one module and
++has no `failsafe`: an identity a reachable `fail` raises is owed even when it is
++PRIVATE, named by its module (`m.EPriv`, seven identities where the floor is six),
++and a declaration nothing raises is owed by nobody (two public ones, never raised:
++the floor of six). So S-10's check refuses every declaration but
++`api.ERegexPattern`, public or private.)*
++
+ ---
+ 
+ ## 2. The linear-time guarantee, and what it costs
+@@ -204,6 +213,9 @@ guarantee in its message rather than saying "unsupported".
+ 
+ **Rule S-10 — a harness check enforces the budget.** The count and names of
+ public `error:` declarations are diffed against this section on every full run.
++*(Since cycle 0.1.0b the check reads every `error:` declaration in `src/`,
++public or private, keyed by its module as the compiler names an identity, and
++passes only `api.ERegexPattern`, public — RX-179.)*
+ A second identity is a **major version** (RX-005), because it is a
+ compiler-enforced source break in every consumer.
+ 
+@@ -677,7 +689,7 @@ owner is move-only (TYPE-046). A struct holding a `Vec` owns by containment:
+ | `Vec<T>:w = move(v);`; a struct built by moving a `Vec` in, then moved | compiles and runs; `v` is invalid after (D-065) — `../../tests/unit/vec_moves.npk` |
+ | two `SparseSet`s swapped: three `move`s, of locals or of fields through a pointer | compiles and runs — `../../tests/unit/sparseset_alias_swap.npk`; `ENGINES.md` R-5 |
+ | a `Vec`'s content copied | element by element into a fresh `Vec`, which shares no block — `vec_moves.npk`; `ENGINES.md` R-8 |
+-| `f(v)`, where `f` takes `Vec<T>` by value | compiles WITHOUT `move`: the parameter is a LOAN (D-065, D-183), and `move` of it is `NITPICK-TYPE-047`. `vec_get` is one; since 0.0.4e it keeps that parameter and takes `T: Pod` (RX-168), and the loan is read-only |
++| `f(v)`, where `f` takes `Vec<T>` by value | compiles WITHOUT `move`: the parameter is a LOAN (D-065, D-183), and `move` of it is `NITPICK-TYPE-047`. `vec_get` is one; since 0.0.4e it keeps that parameter and takes `T: Pod` (RX-168; the prelude's `T: Copy` since 0.1.0b, RX-177), and the loan is read-only |
+ | a callee freeing or growing through its loan's address, `vec_free(@v)`, `vec_push(@v, x)` | **refused `NITPICK-TYPE-085` at `c970483`**, at the `@` (DEF-102). Through `c3bdae2` it compiled, and the caller's header named a released block — `vec_alias_param_free`, `vec_alias_param_grow`, `sparseset_alias_param_free`, rejection fixtures since 0.0.4e |
+ | a callee overwriting an owning field of a loan | **refused `NITPICK-TYPE-085` at `c970483`**, at the write (DEF-102). Through `c3bdae2` it compiled and dropped the caller's value — a double free with no `wild` block: `../../tests/probe/refused/probe17_lent_field_drop.npk`, `bytes_alias_param_grow` |
+ | a `for` binding over an array of containers freed through, `for (Vec<int64>:x in arr) { drop vec_free(@x); }` | **refused `NITPICK-TYPE-085` at `c970483`**, at `@x` — the binding is a loan like a parameter (DEF-102). Through `c3bdae2` it compiled, and the array's element read the free poison — `../../tests/rejection/vec_alias_for_binding_free.npk` |
 diff --git a/meta/specs/TESTING.md b/meta/specs/TESTING.md
-index 9fc79ee20f442fab8d04e9b22ecb7025a1292577..062997a9b1ad0734a87b58e5a76ce7dd8f154cfa 100644
+index 9fc79ee20f442fab8d04e9b22ecb7025a1292577..13c80a02f660f6b8506240f0d93d47813929cccc 100644
 --- a/meta/specs/TESTING.md
 +++ b/meta/specs/TESTING.md
+@@ -202,7 +202,7 @@ framing that let both be wrong. The framing is the column.
+ | `check_error_budget` | **yes** | every `error:` declaration, public or private, keyed by its module, against `SAFETY.md` §4 — **exactly one**, `api.ERegexPattern` (RX-179) |
+ | `check_constants_named` | **yes** | no bound outside `src/core/limits.npk` |
+ | `check_no_division` | **yes** | no `/` or `%` under `src/` — `SAFETY.md` S-25 (RX-132), because a division arms two `failsafe` arms in every importer |
+-| `check_accessor_confinement` | **yes** | no `.items[` outside `src/core/vec.npk`, no `.ptr[` outside `src/core/bytes.npk`, **within `src/`** — `SAFETY.md` S-23, **the only bounds check this library has** (RX-136). *Since cycle 0.0.4c `Vec`'s half is the compiler's too — `items` is `hidden`, so `.items` outside `vec.npk` is `NITPICK-TYPE-080` in every module; `Bytes`' half is not, because a sealed `buf` admits a write THROUGH `.ptr` (RX-153). The check stays for both, and for the owning files' own use of their accessors. Since cycle 0.0.4d `Bytes`' half is the compiler's too: `buf` is `hidden` (RX-163)* |
++| `check_accessor_confinement` | **yes** | no `.items[` outside `src/core/vec.npk`, no `.ptr[` outside `src/core/bytes.npk`, **within `src/`** — `SAFETY.md` S-23, **the only bounds check this library has** (RX-136). *Since cycle 0.0.4c `Vec`'s half is the compiler's too — `items` is `hidden`, so `.items` outside `vec.npk` is `NITPICK-TYPE-080` in every module; `Bytes`' half is not, because a sealed `buf` admits a write THROUGH `.ptr` (RX-153). The check stays for both, and for the owning files' own use of their accessors. Since cycle 0.0.4d `Bytes`' half is the compiler's too: `buf` is `hidden` (RX-163). Since cycle 0.1.0b the spaced forms too — `. items [`, and either split across a line break (RX-179)* |
+ | `check_vec_elements_own_nothing` | **yes** | every `Vec` element named under `src/` — in a `Vec<…>`, with or without a space, and in a `vec_…::<…>` turbofish — is CLEARED as owning nothing, **default-deny** (RX-158): each name in it is one of the language's non-owning scalars or a struct or enum declared under `src/` whose fields and payloads clear the same way, every declaration of that name judged; a pointer, a slice, `wild` storage, a prelude type, a bare type parameter or an unresolved name fails — `SAFETY.md` S-23a (RX-155). The language accepts an owning element and `vec_get` then MOVES it out; this is what makes the restriction a rule. Only `vec.npk`'s own `Vec<T>` over its type parameter is exempt, and `tests/` is out of scope because the owning units measure the verbs there. *It was a denylist of nine words until the fourth cycle 0.0 audit walked twelve shapes past it (N-18)* |
+ | `check_dated_measurements` | **yes** | any live document dating a measurement to "the pin" rather than to a commit — RX-142, built by the cycle 0.0 audit triage after a phrase-level sweep left a class thirteen times its size. **It declared `.yml` and could not reach the one `.yml` in the tree**, because it pruned directories by leading dot and the workflow lives in `.github/`: it now prunes by NAME and reports its denominator PER EXTENSION, so a declared class the walk never opens shows a zero instead of vanishing into a healthy total — RX-145. **And it never walks into another repository**: a directory holding a `.git` entry, or named `.nitpick` (where CI checks the compiler out, inside the workspace), is pruned and named in the check's first note, because CI was red from `ab93eae` on the compiler's own roadmap — RX-147 |
+ | `check_specs_current` | **yes**, reports rather than fails | spec citations that no longer resolve |
 @@ -210,9 +210,13 @@ framing that let both be wrong. The framing is the column.
  | `check_tables_regenerate` | no — **cycle 0.3** | the committed Unicode tables against a fresh generator run |
  | `check_table_invariants` | no — **cycle 0.3** | every range table sorted, disjoint, `lo <= hi`, within `U+10FFFF` |
@@ -177,6 +275,35 @@ index 9fc79ee20f442fab8d04e9b22ecb7025a1292577..062997a9b1ad0734a87b58e5a76ce7dd
  
  **Eight run on every full invocation** — the eight registered in
  `harness/treecheck.py`'s `ALL`, seven of which can fail the run (the eighth,
+diff --git a/tests/probe/README.md b/tests/probe/README.md
+index 0facbf63ecbab1aa4c1b1e0ac50f4bf7c1ca01d4..e91093372788c92d7f8cb92e8c5c197a9c620f8c 100644
+--- a/tests/probe/README.md
++++ b/tests/probe/README.md
+@@ -159,7 +159,7 @@ W-18). LLVM must be exactly 20.1.2.
+ |---|---|
+ | `// expect-exit: 0` | compiles, links, runs, exits 0 |
+ | `// expect-exit: 94` | runs and traps — 94 is `failsafe`'s `OutOfBounds` arm |
+-| `// expect-error: NITPICK-…` | **refused**, and that code is the whole set reported (D-237) |
++| `// expect-error: NITPICK-…` | **refused**, and that code is the whole set reported (D-237) — one line per site it is reported at (`BUILD.md` B-7b, RX-178) |
+ 
+ - **Exit 0 on success; a distinct positive code per assertion.** A failure names
+   itself, so `exit 33` sends a reader to one line.
+diff --git a/tests/rejection/README.md b/tests/rejection/README.md
+index d4b4be502ea3b0572d1c47d7340d04fa37efb580..c34bfcb8bf20f395624d61feff47f187f43d1599 100644
+--- a/tests/rejection/README.md
++++ b/tests/rejection/README.md
+@@ -189,7 +189,10 @@ every run and requires the harness to catch it.
+ 
+ - **Name every code you expect**, and only those. A `check` test that names no
+   code asserts nothing (B-7a): exit 1 alone cannot tell "refused for the reason
+-  this test is about" from "the file was not there".
++  this test is about" from "the file was not there". **And name a code once per
++  site it is reported at** — one `expect-error` line, each with its
++  `expect-error-at`, per site (B-7b, RX-178, the compiler's D-332):
++  `pattern_error_literal.npk` names `NITPICK-TYPE-079` four times.
+ - **`// expect-error-at: L:C` is worth pinning** — it separates "refused with
+   this code" from "refused with this code *at the failsafe*". It is also
+   brittle: adding a line above the span moves it, and the first two fixtures
 diff --git a/tests/unit/pattern_error_unit.npk b/tests/unit/pattern_error_unit.npk
 index a26fcab9430340d1d77b4e4599aad7edc2ee9b49..118582561686d0afa473705bf6f9d252c41b289d 100644
 --- a/tests/unit/pattern_error_unit.npk

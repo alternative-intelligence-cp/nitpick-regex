@@ -98,6 +98,11 @@ what to do when a cross-stream gate is not ready yet.
   mandatory `pick` arm in every consuming program's `failsafe`. A second is a
   **major version**. Detail rides in a `PatternError` value with a closed kind
   enum — thirty ways to be malformed, one identity.
+  *(Sharper, measured at `5fbaf4a` by cycle 0.1.0b — the ecosystem audit's EC3,
+  RX-179: the arm is owed for every identity a reachable `fail` raises, a PRIVATE
+  one included, named by its module, and for no declaration nothing raises. So
+  `check_error_budget` refuses every `error:` in `src/` but `api.ERegexPattern`,
+  public or private.)*
 - **Matching cannot fail, cannot trap, and cannot allocate** (RX-061). Every
   way a pattern can be wrong is found at compile time. `regex_find` returns
   `Match?`, not `Result<Match?>`. Anything that would put an error channel on
