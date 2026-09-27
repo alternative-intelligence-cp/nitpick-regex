@@ -6,9 +6,12 @@ Guidance for Claude Code sessions working in this repository.
 
 `nregex` — a regular-expression library for **Nitpick**, the safety-critical
 systems language at `../../nitpick`. **Status: cycle 0.1, the pattern parser, is
-open, and its 0.1.0 is done** — the pieces the parser is written in, in
-`src/syntax/`: the closed list of pattern errors and their one constructor, the
-byte cursor, and the AST arena (RX-171 … RX-175, `meta/roadmap/0.1/0.1.0.md`).
+open, and its 0.1.0, 0.1.0b and 0.1.1 are done** — the pieces the parser is written
+in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/0.1/0.1.0.md`); the adoption of
+compiler `5fbaf4a` (RX-176 … RX-180, `0.1.0b.md`); and the core grammar —
+`parse_pattern` builds the AST for literals, `.`, `^`, `$`, groups, alternation and
+quantifiers, refuses what is wrong with the byte it is at, and
+`pattern_error_text` says what to write instead (RX-181 … RX-187, `0.1.1.md`).
 Cycle 0.0, foundations, CLOSED on 2026-09-26 — the sixth audit accepted it, and
 it is archived in `meta/roadmap/done/0.0/`. The
 specifications, the decisions and the roadmap are complete; `tests/probe/` holds
@@ -47,10 +50,13 @@ until 0.1.0b), read back through `vec_get` — RX-168's positive half, pinned at
 close (the sixth audit's N-30), and RX-177's. **Since 0.1.0 `src/syntax/` holds the
 parser's pieces** — `pattern_error.npk`, `cursor.npk`, `ast.npk` and `parse.npk`
 behind its layer entry, with ten unit programs and three refusals of their own —
-and parses no construct yet. **No matching happens yet**: `src/hir/`,
+**and since 0.1.1 it parses the core grammar**, with five unit programs more:
+`parse_grammar`, `parse_refusals`, `parse_encoding`, `parse_limits` and
+`pattern_error_text`. A class, an escape other than punctuation, and a flag are
+refused provisionally until 0.1.3 and 0.1.4 (`SYNTAX.md` Y-31). **No matching happens yet**: `src/hir/`,
 `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are still one
 placeholder module each. A full green run at compiler `5fbaf4a` is
-**250 units** (after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus eight tree checks; take those numbers from the runner's
+**260 units** (after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus eight tree checks; take those numbers from the runner's
 summary rather than from here. **Nothing is PENDING any more**:
 `tests/unit/bytes_copy_string_empty.npk` was committed red under
 `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
