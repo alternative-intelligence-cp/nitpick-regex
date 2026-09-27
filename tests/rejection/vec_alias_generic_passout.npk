@@ -18,7 +18,7 @@
 // (`meta/roadmap/done/0.0/0.0.4e.md` step 6). A generic that passes its argument on
 // takes it as `move T:x` -- `../unit/loan_spellings.npk`. The same gate reached
 // `vec_get` and `vec_pop` in `src/core/vec.npk`: that is why `vec_get` takes
-// `T: Pod` and `vec_pop` spells its move (RX-168).
+// `T: Pod` (`T: Copy` since RX-177) and `vec_pop` spells its move (RX-168).
 mod:vec_alias_generic_passout;
 
 use "../../src/core/vec.npk".*;

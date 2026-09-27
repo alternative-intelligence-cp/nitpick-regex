@@ -135,7 +135,7 @@ compiler adds `NITPICK-TYPE-022` at the same call: a code about the cascade, whi
 B-7's equality would make part of what the file asserts. Their language twin,
 `../probe/refused/probe17_lent_field_drop.npk`, moved with them.
 
-And `vec_get` takes `T: Pod` (RX-168):
+And `vec_get` takes `T: Copy` (RX-177; `T: Pod` from RX-168):
 
 - **`vec_owning_get_moves_out.npk`** — `vec_get` at `Vec<string>`: `NITPICK-TYPE-017`.
   Through `c3bdae2` it moved the element out of its slot; the name is kept so RX-155

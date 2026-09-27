@@ -3959,6 +3959,9 @@ every consumer; **holding the close for N-25** — it is no clause of cycle 0.0'
 gate and `src/` has no exposure; whether it should become one is the author's.
 
 ### RX-168 — `vec_get` takes `T: Pod`, a trait an owning type cannot implement as it is declared, and `vec_pop` spells its move: DEF-104's gate reaches `src/`
+> **SUPERSEDED IN PART by RX-177 (2026-09-27)** — its trait: `vec_get`'s bound is the prelude's `Copy` (the
+> compiler's D-327) since cycle 0.1.0b, and `Pod`, `pod_copy` and `core.npk`'s re-export are gone. The bound's
+> reason, and `vec_pop`'s spelled move, stand.
 
 **2026-09-26, cycle 0.0.4e (the plan's PD-12), at compiler `c970483`.** It supersedes
 RX-155 in part — its declined alternative *"a marker-trait bound (`vec_get<T:
@@ -4332,3 +4335,24 @@ belt without the layout check** — a wrong layout in the manifest would then ho
 **probe 18 deleted** — P-5 forbids deleting a probe, and the refusal is the fact the double free's fix rests
 on; **the lexer re-read left to the audit** — the audit found this repository had no rule for it, and a mirror
 checked only when someone remembers is the time audit's E1 in this tree.
+
+### RX-177 — `Pod` retires into the prelude's `Copy`: `vec_get` takes `T: Copy`, a node derives it, and a consumer implements it in one line
+
+**2026-09-27, cycle 0.1.0b (the plan's PD-21), at compiler `5fbaf4a`** — the replacement RX-168 was shaped for and
+`nitpick-time`'s PD-49 planned for both libraries, now that the compiler's D-327 (landing 73) is in the pin.
+
+- **`vec.npk`'s `Pod` block goes** — the trait and its nine scalar impls — and **`vec_get` takes `T: Copy`**, its
+  read `pass v.items[i]`: in a generic body a `T: Copy` is copied plainly (D-327), where D-264 asks a move of
+  every other `T`. At `Vec<string>` it is still `NITPICK-TYPE-017`, at the same position
+  (`tests/rejection/vec_owning_get_moves_out.npk`). `core.npk` drops its `Pod` re-export; the prelude's name
+  needs none.
+- **`AstNode` and `AstKind` each `#[derive(Copy)]`.** Measured: `impl:AstNode:Copy = { };` alone is
+  `NITPICK-TYPE-087`, *"the field `kind` of `AstNode` is a `AstKind` that does not implement `Copy`"* — a user
+  enum is not `Copy` until it says so — and both the derived and the explicit forms compile once the kind is.
+- **`tests/unit/vec_get_pod_struct.npk` pins the explicit form**, `impl:Pt:Copy = { };`, beside the AST's
+  derived one; the name stays, since "POD" still says what the struct is.
+
+*Alternatives declined:* **keep `Pod` beside `Copy`** — two names for one rule, and D-327 was decided so that
+this one retires into the prelude's; **`T:x = v.items[i]; pass x;`** — the same copy with a binding for no
+reason; **`impl:AstNode:Copy`** — the derive states it where the fields are, and a member that later owns is
+refused at the declaration; **renaming the unit** — its subject is a plain-old-data struct, which it still is.

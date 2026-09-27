@@ -725,6 +725,8 @@ def check_vec_elements_own_nothing(root):
     owning `T` is refused at compile time, NITPICK-TYPE-017 (RX-168). The six
     orphaning verbs are as stated, and this check is still the rule for them and
     the belt for `vec_get`, whose bound an impl declaring `move` defeats.)*
+    *(Since cycle 0.1.0b, compiler `5fbaf4a`: the bound is the prelude's `Copy`
+    (RX-177), a marker no impl can mis-declare -- the belt stays for the six.)*
 
     So the restriction is this library's, and this is what makes it a rule
     rather than a request: `src/` is the code that ships, and a `Vec` whose
@@ -788,7 +790,7 @@ def check_vec_elements_own_nothing(root):
                     f"`Vec<T>` is for a NON-OWNING `T` (SAFETY.md S-23a, RX-155), and "
                     f"this check clears only what it can see owns nothing (RX-158): at "
                     f"an owning `T` six verbs orphan what they discard, invisibly to "
-                    f"`exit 0`, and `vec_get` is refused only by its `Pod` bound (RX-168). Keep "
+                    f"`exit 0`, and `vec_get` is refused only by its `Copy` bound (RX-177). Keep "
                     f"the element POD -- an offset into a `Bytes`, as HIR.md H-2 does "
                     f"for group names -- or widen the check by a decision.")
     ndecl = sum(len(v) for v in decls.values())

@@ -1,20 +1,16 @@
 // expect-exit: 0
 //
-// A CONSUMER'S OWN `Pod`, FOR A STRUCT THAT OWNS NOTHING, READ BACK THROUGH
-// `vec_get` -- AND EVERY NAME THIS FILE USES REACHES IT THROUGH `core.npk`'S
-// RE-EXPORTS. RX-168's positive half, which the sixth cycle 0.0 audit (N-30,
-// 2026-09-26) found pinned by nothing: the committed suite called `vec_get` at
-// `int32` and `int64` only, and no file implemented `Pod` for a struct.
-//
-// WHAT IT PINS. Since cycle 0.0.4e `vec_get` takes `T: Pod` (RX-168; `SAFETY.md`
-// S-23a), and `src/core/core.npk` re-exports `Pod` so a struct declared OUTSIDE
-// `src/core/` can implement it where it is declared, in one line -- the line
-// cycle 0.1 writes for its `AstNode` (`meta/roadmap/0.1/0.1.0.md` §5, D6's
-// `ast_get`). This file imports `core.npk` and nothing else, so it goes red if
-// that re-export is lost -- deleted, or made a plain `use`, it is NITPICK-TYPE-001
-// "there is no type named `Pod`" at the `impl` line here while `src/` compiles --
-// if the bound stops admitting a struct that owns nothing, or if `vec_get` hands
-// back the wrong slot (reading slot 0 whatever the index, it exits 23).
+// A CONSUMER'S OWN `Copy`, FOR A STRUCT THAT OWNS NOTHING, READ BACK THROUGH
+// `vec_get` -- RX-177's positive half, and RX-168's before it (the sixth cycle 0.0
+// audit's N-30: until then the committed suite called `vec_get` at `int32` and
+// `int64` only). `vec_get` takes `T: Copy`, the prelude's marker (the compiler's
+// D-327), so a struct declared OUTSIDE `src/core/` meets the bound where it is
+// declared, in one line: here `impl:Pt:Copy = { };`, the explicit form, while
+// `src/syntax/ast.npk`'s `AstNode` pins the derived one. It goes red if the bound
+// stops admitting a struct that owns nothing, or if `vec_get` hands back the wrong
+// slot (reading slot 0 whatever the index, it exits 23). *(Until cycle 0.1.0b the
+// bound was this library's own `Pod`, re-exported by `core.npk` so a consumer
+// could implement it; the prelude's `Copy` needs no re-export.)*
 //
 // Three elements pushed from capacity 1, so the block grows twice under them;
 // every field distinct from the others, from the vacant 0 and from the `0xAA`
@@ -24,14 +20,14 @@
 // (S-23a's table); a POD struct's read is a copy, and the slot still holds it.
 // `count` is read after the reads (29). The block is freed BEFORE any value is checked,
 // so each checked value is the caller's own copy, not a view into the block.
-// Measured 0 at -O0 and through `opt -O2` at `c970483`; with the `impl` line
+// Measured 0 at -O0 and through `opt -O2` at `5fbaf4a`; with the `impl` line
 // deleted, each of the four calls is NITPICK-TYPE-017 there.
 mod:vec_get_pod_struct;
 
 use "../../src/core/core.npk".*;
 
 struct:Pt = { int32:x; int32:y; };
-impl:Pt:Pod = { func:pod_copy = Pt(Pt:self) never fails { pass self; }; };
+impl:Pt:Copy = { };
 
 func:run = int32() never fails {
     Vec<Pt>:v = raw vec_init::<Pt>(1i64);

@@ -57,6 +57,8 @@
 //      *(Since cycle 0.0.4e THE COMPILER SAYS SO FOR `vec_get`, the one verb
 //      that hands an element back: it takes `T: Pod`, and an owning type
 //      cannot implement `Pod` as it is declared -- RX-168.)*
+//      *(Since cycle 0.1.0b the bound is the prelude's `Copy`, the compiler's
+//      D-327, which an owning type cannot implement at all -- RX-177.)*
 //   5. **A `Vec` IS MOVE-ONLY, AND THE COMPILER SAYS SO** (`SAFETY.md` S-23b,
 //      RX-161, since cycle 0.0.4d). A copy of one -- or of any struct holding
 //      one -- is NITPICK-TYPE-046. A BY-VALUE PARAMETER IS NOT A COPY, IT IS A
@@ -299,7 +301,8 @@
 // since DEF-104 that is asked of a `T` place passed out of a loan too -- so
 // `vec_get` takes `T: Pod`, and at `Vec<string>` it is NITPICK-TYPE-017
 // (`tests/rejection/vec_owning_get_moves_out.npk`). The other rows are unchanged,
-// and S-23a and its check stand for them.)*
+// and S-23a and its check stand for them.)* *(The bound is `T: Copy` since cycle
+// 0.1.0b, RX-177.)*
 //
 // LAYERING (`BUILD.md` §6, B-16). `core` imports nothing outside `core`. This
 // file imports nothing at all.
@@ -348,7 +351,8 @@ mod:vec;
 // *(Dated 2026-09-26, cycle 0.0.4e, compiler `c970483` -- RX-168, RX-169.
 // `vec_get` keeps its by-value `Vec<T>:v` and gains a bound, `T: Pod`, because
 // the pin refuses its old body; and a loan IS closed now -- by the compiler,
-// which refuses every write through one, NITPICK-TYPE-085.)*
+// which refuses every write through one, NITPICK-TYPE-085.)* *(`T: Copy` since
+// cycle 0.1.0b, RX-177.)*
 pub struct:Vec<T> = {
     hidden wild T->:items;                 // WILD, DELIBERATELY. See the header.
     sealed limit<ListLen> int64:count;     // elements in use
@@ -486,42 +490,22 @@ pub func:vec_reserve<T> = NIL(Vec<T>->:v, int64:need) never fails {
     pass NIL;
 };
 
-// ---- `Pod`: what `vec_get` may hand back by value (S-23a; RX-168) -----------
+// ---- `Copy`: what `vec_get` may hand back by value (S-23a; RX-177) ------------
 //
-// ONE METHOD, AND THE LANGUAGE DECIDES WHO MAY IMPLEMENT IT. `pod_copy` takes
-// its `self` LENT and returns a `Self`, never failing. For a type that owns
-// nothing, `pass self` is its copy; for an owning type the same body is
-// NITPICK-TYPE-047 -- a lent owner cannot be passed on -- so an impl the
-// compiler admits for one would have to build an independent value. That is what
-// makes `T: Pod` on `vec_get` S-23a's rule stated TO THE COMPILER, at every
-// consumer's instantiation, and not only by `check_vec_elements_own_nothing` over
-// `src/`. Measured at `c970483`: `impl:string:Pod`, `impl:Bytes:Pod`,
-// `impl:SparseSet:Pod` and `impl:Vec<int64>:Pod`, each written `pass self`, are
-// each NITPICK-TYPE-047.
+// THE PRELUDE'S MARKER, SINCE CYCLE 0.1.0b (the compiler's D-327, its landing 73).
+// `vec_get` takes `T: Copy`, and in a generic body a `T: Copy` is copied plainly,
+// so `pass v.items[i]` is a copy and not a move -- D-264 asks a move of every
+// other `T`. The prelude implements `Copy` for every scalar; a struct or an enum
+// takes it by `#[derive(Copy)]` where it is declared, or by `impl:T:Copy = { };`,
+// and either is refused -- `NITPICK-TYPE-087`, or `NITPICK-DERIVE-006` -- for a
+// type that owns or has a member that is not `Copy`. So an owning `T` cannot meet
+// the bound, and `vec_get` at `Vec<string>` is `NITPICK-TYPE-017`.
 //
-// THE SCALARS ARE HERE -- the integers to 64 bits and `bool`, every scalar this
-// library's specifications store in a `Vec`. A struct that owns nothing
-// implements it where it is declared, in one line like these; `core.npk`
-// re-exports the name so a consumer can. A wider scalar is one line here.
-//
-// THE HOLE, stated where a reader meets it: the compiler also accepts an impl
-// that declares its `self` `move` where the trait lends it, and a call through
-// the trait then hands the callee a value the caller still owns -- a double
-// free (95). The workbench registry's O-N28; `tests/probe/probe18_impl_adds_move.npk` pins it with no
-// library code. No impl here does it, and the harness's S-23a check still
-// refuses an owning element anywhere in `src/`.
-pub trait:Pod = {
-    func:pod_copy = Self(Self:self) never fails;
-};
-impl:int8:Pod = { func:pod_copy = int8(int8:self) never fails { pass self; }; };
-impl:int16:Pod = { func:pod_copy = int16(int16:self) never fails { pass self; }; };
-impl:int32:Pod = { func:pod_copy = int32(int32:self) never fails { pass self; }; };
-impl:int64:Pod = { func:pod_copy = int64(int64:self) never fails { pass self; }; };
-impl:uint8:Pod = { func:pod_copy = uint8(uint8:self) never fails { pass self; }; };
-impl:uint16:Pod = { func:pod_copy = uint16(uint16:self) never fails { pass self; }; };
-impl:uint32:Pod = { func:pod_copy = uint32(uint32:self) never fails { pass self; }; };
-impl:uint64:Pod = { func:pod_copy = uint64(uint64:self) never fails { pass self; }; };
-impl:bool:Pod = { func:pod_copy = bool(bool:self) never fails { pass self; }; };
+// IT REPLACES THIS LIBRARY'S OWN `Pod` (RX-168): one method returning its lent
+// `self`, which an impl could declare `move` -- a double free through the trait,
+// the registry's O-N28, refused `NITPICK-TYPE-014` since the compiler's landing 69
+// (`tests/probe/refused/probe18_impl_adds_move.npk`). A marker has no method to
+// mis-declare.
 
 // ---- the checked accessor pair ---------------------------------------------
 //
@@ -564,10 +548,13 @@ impl:bool:Pod = { func:pod_copy = bool(bool:self) never fails { pass self; }; };
 // cannot be written any more. Its `Vec` is still a loan, read-only now
 // (NITPICK-TYPE-085); a consumer still reads a sealed field by value,
 // `vec_get(s.sparse, k)`.)*
-pub func:vec_get<T: Pod> = T(Vec<T>:v, int64:i) never fails {
+// *(2026-09-27, cycle 0.1.0b, compiler `5fbaf4a` -- RX-177: the bound is the prelude's
+// `Copy`, and the read is `pass v.items[i]` -- a copy under the bound; `pod_copy`
+// went with `Pod`. At an owning `T` it is still NITPICK-TYPE-017.)*
+pub func:vec_get<T: Copy> = T(Vec<T>:v, int64:i) never fails {
     if (i < 0i64)        { drop vec_oob(i); }
     if (i >= v.count)    { drop vec_oob(i); }
-    pass raw v.items[i].pod_copy();
+    pass v.items[i];
 };
 
 // obligation: never fails requires i >= 0i64 && i < v.count

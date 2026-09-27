@@ -48,7 +48,8 @@ parameter is a loan, not a copy, and S-23b says what it still reaches.)*
 through one is `NITPICK-TYPE-085`, and a generic body's pass-out of a lent `T` is
 `NITPICK-TYPE-047` (S-23b, RX-169) — and `vec_get` takes `T: Pod`, so a by-value read
 of an owning element out of a `Vec` is refused rather than a move (S-23a,
-RX-168).)*
+RX-168).)* *(Since cycle 0.1.0b, compiler `5fbaf4a`, the bound is the prelude's
+`Copy` — RX-177.)*
 
 *(2026-09-26, cycle 0.1.0 — RX-173: the second row is narrower than it reads.
 D-004 keeps a BORROW of a local, `@x`, out of `pass`. A struct holding a view of
@@ -615,6 +616,11 @@ cannot implement as declared (`pass self` of a lent owner is `NITPICK-TYPE-047`)
 other verbs are unchanged, and the rule and its check stand for them — and for
 `vec_get` too, as the belt: an impl that declares `move` on its `self` defeats the
 bound, a compiler defect pinned by `tests/probe/probe18_impl_adds_move.npk`.)*
+*(Amended 2026-09-27 by RX-177, cycle 0.1.0b: at `5fbaf4a` the bound is the prelude's
+`Copy` (the compiler's D-327), a marker with no method, which an owning type cannot
+implement (`NITPICK-TYPE-087`) — and the hole above is refused `NITPICK-TYPE-014`
+since the compiler's landing 69 (`tests/probe/refused/probe18_impl_adds_move.npk`).
+The rule's check stays the belt for the other verbs.)*
 
 The language accepts `Vec<string>`. `TYPE-046` asks for `move` when an owning
 place is copied, `pass` moves implicitly, and D-264 checks each generic body in
@@ -625,7 +631,7 @@ audit (BL-5, at `3d15ac9`) and again at `c3bdae2`, one unit per verb:
 | verb | at an owning `T` | unit |
 |---|---|---|
 | `vec_push`, `vec_insert`, `vec_pop`, `vec_free_owning` | ownership-correct | `vec_owning_freed`, `vec_owning_insert_moves`, `vec_owning_pop_moves_out` |
-| `vec_get` | **refused, `NITPICK-TYPE-017`, since cycle 0.0.4e**: it takes `T: Pod` (RX-168). Through `c3bdae2` it MOVED the element out — the slot emptied and still counted, so a second read was empty | `vec_owning_get_moves_out`, a rejection fixture since 0.0.4e |
+| `vec_get` | **refused, `NITPICK-TYPE-017`, since cycle 0.0.4e**: it takes `T: Pod` (RX-168), `T: Copy` since cycle 0.1.0b (RX-177). Through `c3bdae2` it MOVED the element out — the slot emptied and still counted, so a second read was empty | `vec_owning_get_moves_out`, a rejection fixture since 0.0.4e |
 | `vec_set` | orphans what it overwrites | `vec_owning_set_orphans` |
 | `vec_remove`, `vec_swap_remove` | orphan what they remove | `vec_owning_remove_orphans`, `vec_owning_swap_remove_orphans` |
 | `vec_truncate`, `vec_clear`, `vec_free` | orphan what they discard | `vec_owning_truncate_orphans`, `vec_owning_clear_orphans`, `vec_owning_leak` |
