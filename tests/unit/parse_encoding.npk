@@ -1,0 +1,95 @@
+// expect-exit: 0
+//
+// A PATTERN IS UTF-8 TEXT (`SYNTAX.md` Y-11, Y-28; RX-183): checked whole against
+// RFC 3629 before any grammar, and each literal decoded to its codepoint.
+//
+// The refused half is one case per way a sequence can be ill-formed -- a
+// continuation byte where a character starts, the overlong leads 0xC0 and 0xC1,
+// a lead above 0xF4, a sequence cut short by the end, a bad continuation, the
+// overlong three- and four-byte forms, a surrogate, a codepoint above U+10FFFF
+// -- each at its offset, spanning the bytes read up to and including the one
+// that broke it, with that byte as the detail (0 when the pattern ended). The
+// accepted half is every boundary of the table, decoded. The encoding is judged
+// before the grammar, so `(` then 0xFF is the byte, not the group (case 16).
+mod:parse_encoding;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+
+func:bad = bool(uint8[]:pat, int64:off, int64:len, uint32:detail) never fails {
+    Ast:t = raw ast_init(4i64);
+    PatternError?:r = raw parse_pattern(pat, @t);
+    drop ast_free(@t);
+    if (r == NIL) { pass false; }
+    PatternError:e = r ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
+    if (e.kind != PatternErrorKind.InvalidPatternEncoding) { pass false; }
+    if (e.offset != off)   { pass false; }
+    if (e.span_len != len) { pass false; }
+    pass e.detail == detail;
+};
+
+// One literal, the whole pattern, decoded to `cp`.
+func:good = bool(uint8[]:pat, int64:cp) never fails {
+    Ast:t = raw ast_init(4i64);
+    PatternError?:r = raw parse_pattern(pat, @t);
+    bool:ok = false;
+    if (r == NIL) {
+        AstNode:n = raw ast_get(t, t.root);
+        ok = (n.kind == AstKind.Literal) && (n.a == cp) && (n.pos == 0i64) && (n.len == pat.len);
+    }
+    drop ast_free(@t);
+    pass ok;
+};
+
+func:run = int32() never fails {
+    uint8[1]:a1 = [128u8];                        if (!(raw bad(a1[0i64...1i64], 0i64, 1i64, 128u32))) { pass 1i32; }
+    uint8[1]:a2 = [191u8];                        if (!(raw bad(a2[0i64...1i64], 0i64, 1i64, 191u32))) { pass 2i32; }
+    uint8[2]:a3 = [192u8, 128u8];                 if (!(raw bad(a3[0i64...2i64], 0i64, 1i64, 192u32))) { pass 3i32; }
+    uint8[2]:a4 = [193u8, 191u8];                 if (!(raw bad(a4[0i64...2i64], 0i64, 1i64, 193u32))) { pass 4i32; }
+    uint8[4]:a5 = [245u8, 128u8, 128u8, 128u8];   if (!(raw bad(a5[0i64...4i64], 0i64, 1i64, 245u32))) { pass 5i32; }
+    uint8[1]:a6 = [255u8];                        if (!(raw bad(a6[0i64...1i64], 0i64, 1i64, 255u32))) { pass 6i32; }
+    uint8[1]:a7 = [195u8];                        if (!(raw bad(a7[0i64...1i64], 0i64, 1i64, 0u32)))   { pass 7i32; }
+    uint8[2]:a8 = [195u8, 40u8];                  if (!(raw bad(a8[0i64...2i64], 0i64, 2i64, 40u32)))  { pass 8i32; }
+    uint8[3]:a9 = [224u8, 128u8, 128u8];          if (!(raw bad(a9[0i64...3i64], 0i64, 2i64, 128u32))) { pass 9i32; }
+    uint8[3]:b0 = [224u8, 159u8, 191u8];          if (!(raw bad(b0[0i64...3i64], 0i64, 2i64, 159u32))) { pass 10i32; }
+    uint8[3]:b1 = [237u8, 160u8, 128u8];          if (!(raw bad(b1[0i64...3i64], 0i64, 2i64, 160u32))) { pass 11i32; }
+    uint8[4]:b2 = [240u8, 143u8, 191u8, 191u8];   if (!(raw bad(b2[0i64...4i64], 0i64, 2i64, 143u32))) { pass 12i32; }
+    uint8[4]:b3 = [244u8, 144u8, 128u8, 128u8];   if (!(raw bad(b3[0i64...4i64], 0i64, 2i64, 144u32))) { pass 13i32; }
+    uint8[2]:b4 = [226u8, 130u8];                 if (!(raw bad(b4[0i64...2i64], 0i64, 2i64, 0u32)))   { pass 14i32; }
+    uint8[4]:b5 = [97u8, 226u8, 130u8, 65u8];     if (!(raw bad(b5[0i64...4i64], 1i64, 3i64, 65u32)))  { pass 15i32; }
+    uint8[2]:b6 = [40u8, 255u8];                  if (!(raw bad(b6[0i64...2i64], 1i64, 1i64, 255u32))) { pass 16i32; }
+    uint8[3]:b7 = [240u8, 159u8, 152u8];          if (!(raw bad(b7[0i64...3i64], 0i64, 3i64, 0u32)))   { pass 17i32; }
+    uint8[1]:g0 = [127u8];                        if (!(raw good(g0[0i64...1i64], 127i64)))     { pass 20i32; }
+    uint8[2]:g1 = [194u8, 128u8];                 if (!(raw good(g1[0i64...2i64], 128i64)))     { pass 21i32; }
+    uint8[2]:g2 = [223u8, 191u8];                 if (!(raw good(g2[0i64...2i64], 2047i64)))    { pass 22i32; }
+    uint8[3]:g3 = [224u8, 160u8, 128u8];          if (!(raw good(g3[0i64...3i64], 2048i64)))    { pass 23i32; }
+    uint8[3]:g4 = [237u8, 159u8, 191u8];          if (!(raw good(g4[0i64...3i64], 55295i64)))   { pass 24i32; }
+    uint8[3]:g5 = [238u8, 128u8, 128u8];          if (!(raw good(g5[0i64...3i64], 57344i64)))   { pass 25i32; }
+    uint8[3]:g6 = [239u8, 191u8, 191u8];          if (!(raw good(g6[0i64...3i64], 65535i64)))   { pass 26i32; }
+    uint8[4]:g7 = [240u8, 144u8, 128u8, 128u8];   if (!(raw good(g7[0i64...4i64], 65536i64)))   { pass 27i32; }
+    uint8[4]:g8 = [244u8, 143u8, 191u8, 191u8];   if (!(raw good(g8[0i64...4i64], 1114111i64))) { pass 28i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:r = raw run();
+    exit r;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

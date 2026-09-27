@@ -1,0 +1,225 @@
+// expect-exit: 0
+//
+// THE CORE GRAMMAR, ACCEPTED: EVERY SHAPE CYCLE 0.1.1 PARSES, AS THE TREE IT
+// BUILDS (`SYNTAX.md` §1, Y-27, Y-28 … Y-33; RX-181 … RX-185).
+//
+// Each case parses one pattern through `syntax.npk`'s re-exports and writes the
+// tree back as text -- `E` empty, `'a'` a printable ASCII literal and `#233` any
+// other codepoint, `.` a dot, `^` and `$` the anchors, `(cat …)`, `(alt …)`,
+// `(rep MIN MAX X)` with `-` for no maximum and `rep?` when lazy, and `(grp …)`
+// with the capture index when it captures and `<name>` when it is named. The
+// span form adds `@pos+len` after each head. The dump also checks what the text
+// cannot show: a list holds exactly `b` members and its last one's `next` is
+// `AST_NONE` (`!short`, `!long`); a node a `Repeat` or a `Group` wraps is in no
+// list (`!next`); and every node's flags are `AST_FLAG_U`, plus `AST_FLAG_LAZY`
+// on a lazy `Repeat` (`!flags`). A case that differs exits with its number.
+//
+// THE DUMP RECURSES. The parser may not (RX-032, `SAFETY.md` S-18) and does not;
+// a test's patterns are a few levels deep, and cycle 0.1.2's check reads
+// `src/syntax/` only. Every loop is a `while` over an `int64`.
+mod:parse_grammar;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+
+func:put = NIL(Bytes->:b, string:s) never fails {
+    drop bytes_extend_str(b, s);
+    pass NIL;
+};
+
+func:num = NIL(Bytes->:b, int64:n) never fails {
+    drop bytes_put_uint(b, n =>! uint64);
+    pass NIL;
+};
+
+func:span = NIL(Bytes->:b, AstNode:n, bool:spans) never fails {
+    if (!spans) { pass NIL; }
+    drop put(b, "@"); drop num(b, n.pos); drop put(b, "+"); drop num(b, n.len);
+    pass NIL;
+};
+
+func:dump = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
+    AstNode:n = raw ast_get(t, i);
+    uint32:want = AST_FLAG_U;
+    if ((n.kind == AstKind.Repeat) && (n.flags == AST_FLAG_U + AST_FLAG_LAZY)) { want = n.flags; }
+    if (n.flags != want) { drop put(b, "!flags"); }
+    if (n.kind == AstKind.Empty) { drop put(b, "E"); drop span(b, n, spans); }
+    else if (n.kind == AstKind.Literal) {
+        if ((n.a > 32i64) && (n.a < 127i64)) {
+            drop put(b, "'"); drop bytes_push(b, n.a =>! uint8); drop put(b, "'");
+        }
+        else { drop put(b, "#"); drop num(b, n.a); }
+        drop span(b, n, spans);
+    }
+    else if (n.kind == AstKind.Dot) { drop put(b, "."); drop span(b, n, spans); }
+    else if (n.kind == AstKind.Anchor) {
+        if (n.a == 0i64) { drop put(b, "^"); } else { drop put(b, "$"); }
+        drop span(b, n, spans);
+    }
+    else if ((n.kind == AstKind.Concat) || (n.kind == AstKind.Alternate)) {
+        if (n.kind == AstKind.Concat) { drop put(b, "(cat"); } else { drop put(b, "(alt"); }
+        drop span(b, n, spans);
+        int64:k = 0i64;
+        int64:m = n.a;
+        while (k < n.b) decreases n.b - k {
+            drop put(b, " ");
+            if (m == AST_NONE) { drop put(b, "!short"); k = n.b; }
+            else {
+                drop dump(pat, t, m, b, spans);
+                AstNode:x = raw ast_get(t, m);
+                m = x.next;
+                k = k + 1i64;
+            }
+        }
+        if (m != AST_NONE) { drop put(b, " !long"); }
+        drop put(b, ")");
+    }
+    else if (n.kind == AstKind.Repeat) {
+        if (n.flags == want) {
+            if (want == AST_FLAG_U) { drop put(b, "(rep"); } else { drop put(b, "(rep?"); }
+        }
+        drop span(b, n, spans);
+        drop put(b, " "); drop num(b, n.b); drop put(b, " ");
+        if (n.c == AST_NONE) { drop put(b, "-"); } else { drop num(b, n.c); }
+        drop put(b, " ");
+        AstNode:x = raw ast_get(t, n.a);
+        if (x.next != AST_NONE) { drop put(b, "!next"); }
+        drop dump(pat, t, n.a, b, spans);
+        drop put(b, ")");
+    }
+    else if (n.kind == AstKind.Group) {
+        drop put(b, "(grp");
+        drop span(b, n, spans);
+        if (n.b > 0i64) { drop put(b, " "); drop num(b, n.b); }
+        if (n.c > 0i64) {
+            drop put(b, " <");
+            int64:k = 0i64;
+            while (k < n.c) decreases n.c - k {
+                drop bytes_push(b, pat[n.pos + 3i64 + k]);
+                k = k + 1i64;
+            }
+            drop put(b, ">");
+        }
+        drop put(b, " ");
+        AstNode:x = raw ast_get(t, n.a);
+        if (x.next != AST_NONE) { drop put(b, "!next"); }
+        drop dump(pat, t, n.a, b, spans);
+        drop put(b, ")");
+    }
+    else { drop put(b, "?"); }
+    pass NIL;
+};
+
+func:same = bool(Bytes->:b, string:want) never fails {
+    uint8[]:w = string_bytes(want);
+    if ((raw bytes_len(b)) != w.len) { pass false; }
+    int64:i = 0i64;
+    while (i < w.len) decreases w.len - i {
+        if ((raw bytes_get(b, i)) != w[i]) { pass false; }
+        i = i + 1i64;
+    }
+    pass true;
+};
+
+// Parses `pattern`, dumps its tree, and compares the text with `want`.
+func:tree = bool(string:pattern, string:want, bool:spans) never fails {
+    uint8[]:pat = string_bytes(pattern);
+    Ast:t = raw ast_init(8i64);
+    PatternError?:e = raw parse_pattern(pat, @t);
+    Bytes:b = raw bytes_init(64i64);
+    if (e != NIL) { drop put(@b, "!refused"); }
+    else {
+        AstNode:r = raw ast_get(t, t.root);
+        if (r.next != AST_NONE) { drop put(@b, "!next"); }
+        drop dump(pat, t, t.root, @b, spans);
+    }
+    drop ast_free(@t);
+    pass raw same(@b, want);
+};
+
+func:run = int32() never fails {
+    if (!(raw tree("", "E", false)))                          { pass 1i32; }
+    if (!(raw tree("a", "'a'", false)))                       { pass 2i32; }
+    if (!(raw tree("ab", "(cat 'a' 'b')", false)))            { pass 3i32; }
+    if (!(raw tree("a|b", "(alt 'a' 'b')", false)))           { pass 4i32; }
+    if (!(raw tree("a|", "(alt 'a' E)", false)))              { pass 5i32; }
+    if (!(raw tree("|a", "(alt E 'a')", false)))              { pass 6i32; }
+    if (!(raw tree("|", "(alt E E)", false)))                 { pass 7i32; }
+    if (!(raw tree("ab|cd|e", "(alt (cat 'a' 'b') (cat 'c' 'd') 'e')", false))) { pass 8i32; }
+    if (!(raw tree("(a)", "(grp 1 'a')", false)))             { pass 9i32; }
+    if (!(raw tree("()", "(grp 1 E)", false)))                { pass 10i32; }
+    if (!(raw tree("(?:a)", "(grp 'a')", false)))             { pass 11i32; }
+    if (!(raw tree("(?<n>a)", "(grp 1 <n> 'a')", false)))     { pass 12i32; }
+    if (!(raw tree("(a)(b)", "(cat (grp 1 'a') (grp 2 'b'))", false))) { pass 13i32; }
+    if (!(raw tree("(a(b)c)", "(grp 1 (cat 'a' (grp 2 'b') 'c'))", false))) { pass 14i32; }
+    if (!(raw tree("((a)|b)", "(grp 1 (alt (grp 2 'a') 'b'))", false))) { pass 15i32; }
+    if (!(raw tree("(?:(a))(b)", "(cat (grp (grp 1 'a')) (grp 2 'b'))", false))) { pass 16i32; }
+    if (!(raw tree("a*", "(rep 0 - 'a')", false)))            { pass 17i32; }
+    if (!(raw tree("a+", "(rep 1 - 'a')", false)))            { pass 18i32; }
+    if (!(raw tree("a?", "(rep 0 1 'a')", false)))            { pass 19i32; }
+    if (!(raw tree("a{3}", "(rep 3 3 'a')", false)))          { pass 20i32; }
+    if (!(raw tree("a{3,}", "(rep 3 - 'a')", false)))         { pass 21i32; }
+    if (!(raw tree("a{3,5}", "(rep 3 5 'a')", false)))        { pass 22i32; }
+    if (!(raw tree("a*?", "(rep? 0 - 'a')", false)))          { pass 23i32; }
+    if (!(raw tree("a+?", "(rep? 1 - 'a')", false)))          { pass 24i32; }
+    if (!(raw tree("a??", "(rep? 0 1 'a')", false)))          { pass 25i32; }
+    if (!(raw tree("a{2,4}?", "(rep? 2 4 'a')", false)))      { pass 26i32; }
+    if (!(raw tree("ab*", "(cat 'a' (rep 0 - 'b'))", false))) { pass 27i32; }
+    if (!(raw tree("(ab)*", "(rep 0 - (grp 1 (cat 'a' 'b')))", false))) { pass 28i32; }
+    if (!(raw tree("(a*)*", "(rep 0 - (grp 1 (rep 0 - 'a')))", false))) { pass 29i32; }
+    if (!(raw tree("a{0}", "(rep 0 0 'a')", false)))          { pass 30i32; }
+    if (!(raw tree("a{1000}", "(rep 1000 1000 'a')", false))) { pass 31i32; }
+    if (!(raw tree("a{0,1000}", "(rep 0 1000 'a')", false)))  { pass 32i32; }
+    if (!(raw tree("a{007}", "(rep 7 7 'a')", false)))        { pass 33i32; }
+    if (!(raw tree(".", ".", false)))                         { pass 34i32; }
+    if (!(raw tree("^a$", "(cat ^ 'a' $)", false)))           { pass 35i32; }
+    if (!(raw tree("^*", "(rep 0 - ^)", false)))              { pass 36i32; }
+    if (!(raw tree("\\(", "'('", false)))                     { pass 37i32; }
+    if (!(raw tree("\\\\", "'\\'", false)))                   { pass 38i32; }
+    if (!(raw tree("a\\*", "(cat 'a' '*')", false)))          { pass 39i32; }
+    if (!(raw tree("]", "']'", false)))                       { pass 40i32; }
+    if (!(raw tree("a}", "(cat 'a' '}')", false)))            { pass 41i32; }
+    if (!(raw tree("é", "#233", false)))                      { pass 42i32; }
+    if (!(raw tree("€", "#8364", false)))                     { pass 43i32; }
+    if (!(raw tree("😀", "#128512", false)))                  { pass 44i32; }
+    if (!(raw tree("aé*", "(cat 'a' (rep 0 - #233))", false))) { pass 45i32; }
+    if (!(raw tree("(?<a1_>x)(?<b>y)", "(cat (grp 1 <a1_> 'x') (grp 2 <b> 'y'))", false))) { pass 46i32; }
+    if (!(raw tree("(?<n>a)|(b)", "(alt (grp 1 <n> 'a') (grp 2 'b'))", false))) { pass 47i32; }
+    if (!(raw tree("a b", "(cat 'a' #32 'b')", false)))       { pass 48i32; }
+    if (!(raw tree("(|a)+", "(rep 1 - (grp 1 (alt E 'a')))", false))) { pass 49i32; }
+    if (!(raw tree("x(?:)y", "(cat 'x' (grp E) 'y')", false))) { pass 50i32; }
+    // the spans (Y-27's `pos` and `len`)
+    if (!(raw tree("", "E@0+0", true)))                       { pass 60i32; }
+    if (!(raw tree("ab", "(cat@0+2 'a'@0+1 'b'@1+1)", true))) { pass 61i32; }
+    if (!(raw tree("a|bc", "(alt@0+4 'a'@0+1 (cat@2+2 'b'@2+1 'c'@3+1))", true))) { pass 62i32; }
+    if (!(raw tree("(a)*?", "(rep?@0+5 0 - (grp@0+3 1 'a'@1+1))", true))) { pass 63i32; }
+    if (!(raw tree("x{2,3}", "(rep@0+6 2 3 'x'@0+1)", true))) { pass 64i32; }
+    if (!(raw tree("(?<nm>a|)", "(grp@0+9 1 <nm> (alt@6+2 'a'@6+1 E@8+0))", true))) { pass 65i32; }
+    if (!(raw tree("é+", "(rep@0+3 1 - #233@0+2)", true)))   { pass 66i32; }
+    if (!(raw tree("\\*a", "(cat@0+3 '*'@0+2 'a'@2+1)", true))) { pass 67i32; }
+    if (!(raw tree("a(|)", "(cat@0+4 'a'@0+1 (grp@1+3 1 (alt@2+1 E@2+0 E@3+0)))", true))) { pass 68i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:r = raw run();
+    exit r;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

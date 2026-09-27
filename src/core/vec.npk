@@ -303,6 +303,10 @@
 // (`tests/rejection/vec_owning_get_moves_out.npk`). The other rows are unchanged,
 // and S-23a and its check stand for them.)* *(The bound is `T: Copy` since cycle
 // 0.1.0b, RX-177.)*
+// *(2026-09-27, cycle 0.1.1 -- RX-182: the parser's `Frame` is shaped, integers only,
+// and so is its `GroupName`; each refers to a group's name by its place in the
+// PATTERN, as the AST does (RX-174), rather than by an offset into a `Bytes`, and
+// the check clears both. `Literal` and `GroupInfo` are the two left, at cycle 0.2.)*
 //
 // LAYERING (`BUILD.md` §6, B-16). `core` imports nothing outside `core`. This
 // file imports nothing at all.

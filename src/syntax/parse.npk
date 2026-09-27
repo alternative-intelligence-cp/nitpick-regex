@@ -1,24 +1,229 @@
-// `src/syntax/parse.npk` — THE PARSER'S ENTRY. Cycle 0.1.0 writes its first
-// refusal and nothing else; cycle 0.1.1 writes the parse (RX-175).
+// `src/syntax/parse.npk` — THE PARSER: PATTERN TEXT TO AN AST. Cycle 0.1.0 wrote
+// its entry's first refusal (RX-175); cycle 0.1.1 writes the core grammar
+// (RX-182 … RX-186; `meta/specs/SYNTAX.md` §1 and Y-28 … Y-33).
 //
 // HOW `syntax` SAYS A PATTERN IS WRONG: WITH A VALUE. The library's one `error:`
 // identity, `ERegexPattern`, is `api`'s (`SAFETY.md` S-8), and `syntax` sits
 // below `api` (`BUILD.md` B-16), so the parser answers a `PatternError` as a
 // value -- `PatternError?`, `NIL` when nothing is wrong -- and `api` turns the
-// first one into the identity. The parse (0.1.1) takes the pattern as a view and
-// the tree by pointer, `parse_pattern(uint8[]:pat, Ast->:out)`, and answers
-// `PatternError?`.
+// first one into the identity. A parse stops at its first error.
 //
-// THE LENGTH FIRST, BEFORE A CURSOR EXISTS (RX-175). `NREGEX_PATTERN_BYTES` is the
-// cheapest refusal there is, and it bounds everything after it, the arena
-// included, so it runs before anything reads a byte of the pattern.
+// THREE REFUSALS BEFORE ANY GRAMMAR, IN THIS ORDER. The length (RX-175), which
+// bounds everything after it; then the encoding (Y-28): a pattern is UTF-8 text,
+// checked whole against RFC 3629 before a byte of grammar is read, so every
+// later step decodes without checking; then the grammar.
 //
-// LAYERING (`BUILD.md` §6, B-16). Imports `core` for the bound and
-// `pattern_error` for the value; a program importing it owes `core`'s eleven arms.
+// AN EXPLICIT STACK, NEVER NATIVE RECURSION (RX-032, `SAFETY.md` S-18). One
+// `while` walks the pattern once. A `(` saves the frame being built on a
+// `Vec<Frame>` and starts the group's; its `)` builds the group's node and takes
+// the saved frame back. No function here calls itself. Cycle 0.1.2 bounds the
+// stack by `NREGEX_NEST_DEPTH`; until then the pattern's length bounds it.
+//
+// THE TREE IS BUILT BOTTOM-UP INTO THE ARENA (Y-26, Y-27, Y-33). A frame keeps two
+// lists: the alternatives closed so far, and the pieces of the current one. A
+// list is its first node and each node's `next`, linked by rewriting the node
+// before (`ast_get`, then `ast_set`). The LAST atom is held back, PENDING, so a
+// quantifier after it can wrap it in a `Repeat` before it joins its list.
+//
+// EVERY LOOP IS A `while` OVER AN `int64`, `decreases` WHAT IS LEFT -- never a
+// `for` over a range, a `loop` or a `till`.
+//
+// LAYERING (`BUILD.md` §6, B-16). Imports `core` and the layer's own three
+// modules; a program importing it owes `core`'s eleven arms.
 mod:parse;
 
 use "../core/core.npk".*;
 use "./pattern_error.npk".*;
+use "./cursor.npk".*;
+use "./ast.npk".*;
+
+// ---- the bytes the grammar names, as the cursor answers them ---------------
+fixed int32:CH_BANG = 33i32;         // `!`, the first ASCII punctuation
+fixed int32:CH_HASH = 35i32;         // `#`
+fixed int32:CH_DOLLAR = 36i32;       // `$`
+fixed int32:CH_AMP = 38i32;          // `&`
+fixed int32:CH_QUOTE = 39i32;        // `'`
+fixed int32:CH_LPAREN = 40i32;       // `(`
+fixed int32:CH_RPAREN = 41i32;       // `)`
+fixed int32:CH_STAR = 42i32;         // `*`
+fixed int32:CH_PLUS = 43i32;         // `+`
+fixed int32:CH_COMMA = 44i32;        // `,`
+fixed int32:CH_MINUS = 45i32;        // `-`
+fixed int32:CH_DOT = 46i32;          // `.`
+fixed int32:CH_SLASH = 47i32;        // `/`, the last punctuation before the digits
+fixed int32:CH_0 = 48i32;
+fixed int32:CH_9 = 57i32;
+fixed int32:CH_COLON = 58i32;        // `:`, the first punctuation after the digits
+fixed int32:CH_LT = 60i32;           // `<`
+fixed int32:CH_EQ = 61i32;           // `=`
+fixed int32:CH_GT = 62i32;           // `>`
+fixed int32:CH_QUESTION = 63i32;     // `?`
+fixed int32:CH_AT = 64i32;           // `@`, the last punctuation before the capitals
+fixed int32:CH_UPPER_A = 65i32;
+fixed int32:CH_UPPER_P = 80i32;
+fixed int32:CH_UPPER_R = 82i32;
+fixed int32:CH_UPPER_Z = 90i32;
+fixed int32:CH_LBRACKET = 91i32;     // `[`, the first punctuation after the capitals
+fixed int32:CH_BACKSLASH = 92i32;    // `\`
+fixed int32:CH_CARET = 94i32;        // `^`
+fixed int32:CH_UNDERSCORE = 95i32;   // `_`
+fixed int32:CH_BACKTICK = 96i32;     // the last punctuation before the small letters
+fixed int32:CH_LOWER_A = 97i32;
+fixed int32:CH_LOWER_Z = 122i32;
+fixed int32:CH_LBRACE = 123i32;      // `{`, the first punctuation after the small letters
+fixed int32:CH_PIPE = 124i32;        // `|`
+fixed int32:CH_RBRACE = 125i32;      // `}`
+fixed int32:CH_TILDE = 126i32;       // `~`, the last ASCII punctuation
+
+// ---- RFC 3629's table, as `int64` byte values (Y-28) ------------------------
+fixed int64:U8_CONT_LO = 128i64;     // 0x80: a continuation byte's floor
+fixed int64:U8_CONT_HI = 191i64;     // 0xBF: and its ceiling
+fixed int64:U8_LEAD2_LO = 194i64;    // 0xC2: the first two-byte lead (0xC0, 0xC1 are overlong)
+fixed int64:U8_LEAD2_HI = 223i64;    // 0xDF
+fixed int64:U8_E0 = 224i64;          // 0xE0: three bytes, the second 0xA0 … 0xBF
+fixed int64:U8_E0_SECOND = 160i64;   // 0xA0
+fixed int64:U8_EC = 236i64;          // 0xE1 … 0xEC: three bytes, any continuation
+fixed int64:U8_ED = 237i64;          // 0xED: three bytes, the second 0x80 … 0x9F (no surrogates)
+fixed int64:U8_ED_SECOND = 159i64;   // 0x9F
+fixed int64:U8_EF = 239i64;          // 0xEE … 0xEF: three bytes, any continuation
+fixed int64:U8_F0 = 240i64;          // 0xF0: four bytes, the second 0x90 … 0xBF
+fixed int64:U8_F0_SECOND = 144i64;   // 0x90
+fixed int64:U8_F3 = 243i64;          // 0xF1 … 0xF3: four bytes, any continuation
+fixed int64:U8_F4 = 244i64;          // 0xF4: four bytes, the second 0x80 … 0x8F (no more than U+10FFFF)
+fixed int64:U8_F4_SECOND = 143i64;   // 0x8F
+
+// One open group, or the pattern itself at the bottom of the stack: the two
+// lists being built at its level, and what its `Group` node will carry.
+#[derive(Copy)]
+struct:Frame = {
+    int64:alt_first;     // the alternatives closed so far: the first, the last, how many
+    int64:alt_last;
+    int64:alt_count;
+    int64:alt_pos;       // where the body starts: after the group's head, or 0
+    int64:cat_first;     // the current alternative's linked pieces
+    int64:cat_last;
+    int64:cat_count;
+    int64:cat_pos;       // where the current alternative starts
+    int64:pending;       // the last atom, not linked yet, which a quantifier may wrap
+    int64:open;          // the group's `(`, or AST_NONE for the pattern itself
+    int64:cap;           // its capture index, 0 if it captures nothing (Y-6)
+    int64:name_len;      // its name's length, the name at `open + 3` (Y-27); 0 if unnamed
+    uint32:flags;        // the flags in force (Y-12): AST_FLAG_U until cycle 0.1.4
+};
+
+// A named group seen so far, for `DuplicateGroupName` (Y-8).
+#[derive(Copy)]
+struct:GroupName = {
+    int64:off;           // the name's first byte in the pattern
+    int64:len;           // its length
+    int64:cap;           // its group's capture index
+};
+
+// The whole state of one parse. MOVE-ONLY, because it holds two `Vec`s
+// (`SAFETY.md` S-23b): built by `parse_pattern`, lent by pointer, freed there.
+struct:Parser = {
+    Cursor:c;                  // the pattern, read once, left to right
+    Frame:f;                   // the frame being built
+    int64:next_cap;            // the next capture index to hand out, from 1
+    Vec<Frame>:stack;          // the frames of the enclosing groups, innermost last
+    Vec<GroupName>:names;      // every named group so far
+};
+
+// ---- characters --------------------------------------------------------------
+
+func:is_digit = bool(int32:b) never fails {
+    pass (b >= CH_0) && (b <= CH_9);
+};
+
+// `Name ::= [A-Za-z_][A-Za-z0-9_]*` (SYNTAX.md §1).
+func:is_name_start = bool(int32:b) never fails {
+    if ((b >= CH_UPPER_A) && (b <= CH_UPPER_Z)) { pass true; }
+    if ((b >= CH_LOWER_A) && (b <= CH_LOWER_Z)) { pass true; }
+    pass b == CH_UNDERSCORE;
+};
+
+func:is_name_char = bool(int32:b) never fails {
+    if (raw is_digit(b)) { pass true; }
+    pass raw is_name_start(b);
+};
+
+// ASCII punctuation: `!` … `/`, `:` … `@`, `[` … the backtick, `{` … `~` (Y-2).
+func:is_ascii_punct = bool(int32:b) never fails {
+    if ((b >= CH_BANG) && (b <= CH_SLASH)) { pass true; }
+    if ((b >= CH_COLON) && (b <= CH_AT)) { pass true; }
+    if ((b >= CH_LBRACKET) && (b <= CH_BACKTICK)) { pass true; }
+    pass (b >= CH_LBRACE) && (b <= CH_TILDE);
+};
+
+// The length of the UTF-8 sequence a lead byte begins, in a VALIDATED pattern.
+func:utf8_len = int64(int64:lead) never fails {
+    if (lead < U8_CONT_LO) { pass 1i64; }
+    if (lead < U8_E0) { pass 2i64; }
+    if (lead < U8_F0) { pass 3i64; }
+    pass 4i64;
+};
+
+// The codepoint whose UTF-8 sequence starts at `i` in a VALIDATED pattern.
+func:decode_at = int64(uint8[]:pat, int64:i) never fails {
+    int64:lead = pat[i] => int64;
+    int64:n = raw utf8_len(lead);
+    int64:cp = lead;
+    if (n == 2i64) { cp = lead - U8_LEAD2_LO + 2i64; }
+    if (n == 3i64) { cp = lead - U8_E0; }
+    if (n == 4i64) { cp = lead - U8_F0; }
+    int64:k = 1i64;
+    while (k < n) decreases n - k {
+        cp = (cp * 64i64) + ((pat[i + k] => int64) - U8_CONT_LO);
+        k = k + 1i64;
+    }
+    pass cp;
+};
+
+// ---- the two refusals before the grammar ------------------------------------
+
+// obligation: never fails ensures result == NIL iff pat is well-formed UTF-8 (RFC 3629)
+//
+// `NIL` if the whole pattern is well-formed UTF-8, else `InvalidPatternEncoding`
+// at the FIRST ill-formed sequence (Y-28): its offset the sequence's first byte,
+// its length the bytes read up to and including the one that broke it, its
+// detail that byte -- or 0 when the pattern ended inside the sequence.
+pub func:parse_check_encoding = PatternError?(uint8[]:pat) never fails {
+    int64:i = 0i64;
+    while (i < pat.len) decreases pat.len - i {
+        int64:b = pat[i] => int64;
+        int64:need = 0i64;
+        int64:lo = U8_CONT_LO;
+        int64:hi = U8_CONT_HI;
+        if (b < U8_CONT_LO) { need = 0i64; }
+        else if ((b >= U8_LEAD2_LO) && (b <= U8_LEAD2_HI)) { need = 1i64; }
+        else if (b == U8_E0) { need = 2i64; lo = U8_E0_SECOND; }
+        else if ((b > U8_E0) && (b <= U8_EC)) { need = 2i64; }
+        else if (b == U8_ED) { need = 2i64; hi = U8_ED_SECOND; }
+        else if ((b > U8_ED) && (b <= U8_EF)) { need = 2i64; }
+        else if (b == U8_F0) { need = 3i64; lo = U8_F0_SECOND; }
+        else if ((b > U8_F0) && (b <= U8_F3)) { need = 3i64; }
+        else if (b == U8_F4) { need = 3i64; hi = U8_F4_SECOND; }
+        else {
+            // a continuation byte where a character must start, 0xC0, 0xC1, or 0xF5 … 0xFF
+            pass raw pattern_error(PatternErrorKind.InvalidPatternEncoding, i, 1i64, b =>! uint32);
+        }
+        int64:k = 1i64;
+        while (k <= need) decreases need + 1i64 - k {
+            if ((i + k) >= pat.len) {
+                pass raw pattern_error(PatternErrorKind.InvalidPatternEncoding, i, k, 0u32);
+            }
+            int64:x = pat[i + k] => int64;
+            if ((x < lo) || (x > hi)) {
+                pass raw pattern_error(PatternErrorKind.InvalidPatternEncoding, i, k + 1i64, x =>! uint32);
+            }
+            lo = U8_CONT_LO;
+            hi = U8_CONT_HI;
+            k = k + 1i64;
+        }
+        i = i + need + 1i64;
+    }
+    pass NIL;
+};
 
 // obligation: never fails ensures (result == NIL) == (pat.len <= NREGEX_PATTERN_BYTES)
 //
@@ -32,4 +237,407 @@ pub func:parse_check_length = PatternError?(uint8[]:pat) never fails {
                                pat.len - NREGEX_PATTERN_BYTES, NREGEX_PATTERN_BYTES =>! uint32);
     }
     pass NIL;
+};
+
+// ---- building the tree -----------------------------------------------------
+
+func:node = AstNode(AstKind:k, uint32:flags, int64:a, int64:b, int64:c, int64:pos, int64:len) never fails {
+    pass AstNode{ kind: k, flags: flags, a: a, b: b, c: c, next: AST_NONE, pos: pos, len: len };
+};
+
+// Makes `n` the sibling after `last`.
+func:link = NIL(Ast->:out, int64:last, int64:n) never fails {
+    AstNode:prev = raw ast_get(<-out, last);
+    prev.next = n;
+    drop ast_set(out, last, prev);
+    pass NIL;
+};
+
+func:frame = Frame(int64:open, int64:start, int64:cap, int64:name_len, uint32:flags) never fails {
+    pass Frame{ alt_first: AST_NONE, alt_last: AST_NONE, alt_count: 0i64, alt_pos: start,
+                cat_first: AST_NONE, cat_last: AST_NONE, cat_count: 0i64, cat_pos: start,
+                pending: AST_NONE, open: open, cap: cap, name_len: name_len, flags: flags };
+};
+
+// Links the pending atom into the current alternative.
+func:commit = NIL(Ast->:out, Frame->:f) never fails {
+    if (f.pending == AST_NONE) { pass NIL; }
+    if (f.cat_last == AST_NONE) { f.cat_first = f.pending; }
+    else { drop link(out, f.cat_last, f.pending); }
+    f.cat_last = f.pending;
+    f.cat_count = f.cat_count + 1i64;
+    f.pending = AST_NONE;
+    pass NIL;
+};
+
+// A new atom: the one before it joins its list, and this one is held pending.
+func:atom = NIL(Ast->:out, Frame->:f, AstKind:k, int64:a, int64:pos, int64:len) never fails {
+    drop commit(out, f);
+    f.pending = raw ast_push(out, raw node(k, f.flags, a, 0i64, 0i64, pos, len));
+    pass NIL;
+};
+
+// Closes the current alternative, which ends at `upto`, into ONE piece -- `Empty`
+// if it has none, the piece itself if it has one, a `Concat` if more -- and adds
+// it to the alternation.
+func:close_alt = NIL(Ast->:out, Frame->:f, int64:upto) never fails {
+    drop commit(out, f);
+    int64:piece = f.cat_first;
+    if (f.cat_count == 0i64) {
+        piece = raw ast_push(out, raw node(AstKind.Empty, f.flags, 0i64, 0i64, 0i64, upto, 0i64));
+    }
+    else if (f.cat_count > 1i64) {
+        piece = raw ast_push(out, raw node(AstKind.Concat, f.flags, f.cat_first, f.cat_count, 0i64,
+                                           f.cat_pos, upto - f.cat_pos));
+    }
+    if (f.alt_last == AST_NONE) { f.alt_first = piece; }
+    else { drop link(out, f.alt_last, piece); }
+    f.alt_last = piece;
+    f.alt_count = f.alt_count + 1i64;
+    f.cat_first = AST_NONE;
+    f.cat_last = AST_NONE;
+    f.cat_count = 0i64;
+    pass NIL;
+};
+
+// Closes the alternation at `upto` and answers the body's node: the one
+// alternative, or an `Alternate` of them all.
+func:close_body = int64(Ast->:out, Frame->:f, int64:upto) never fails {
+    drop close_alt(out, f, upto);
+    if (f.alt_count == 1i64) { pass f.alt_first; }
+    pass raw ast_push(out, raw node(AstKind.Alternate, f.flags, f.alt_first, f.alt_count, 0i64,
+                                    f.alt_pos, upto - f.alt_pos));
+};
+
+// ---- groups (Y-29, Y-30) ---------------------------------------------------
+
+// Starts a group's frame: the one being built is saved on the stack.
+func:push_group = NIL(Parser->:p, int64:open, int64:cap, int64:name_len) never fails {
+    uint32:fl = p.f.flags;
+    drop vec_push(@p.stack, p.f);
+    p.f = raw frame(open, p.c.pos, cap, name_len, fl);
+    pass NIL;
+};
+
+// The next capture index, or `TooManyCaptureGroups` at the group's `(` when the
+// pattern already has `NREGEX_CAPTURE_GROUPS` (S-12).
+func:take_cap = PatternError?(Parser->:p, int64:open) never fails {
+    if (p.next_cap > NREGEX_CAPTURE_GROUPS) {
+        pass raw pattern_error(PatternErrorKind.TooManyCaptureGroups, open, 1i64,
+                               NREGEX_CAPTURE_GROUPS =>! uint32);
+    }
+    pass NIL;
+};
+
+// `(?<name>` with `(?<` read: the name, its `>`, and the checks on both (Y-8, Y-29).
+func:named_group = PatternError?(uint8[]:pat, Parser->:p, int64:open) never fails {
+    int64:start = p.c.pos;
+    int32:b = raw cursor_peek(@p.c);
+    if (b == CURSOR_END) {
+        pass raw pattern_error(PatternErrorKind.BadGroupName, start, 0i64, 0u32);
+    }
+    if (b == CH_GT) {
+        pass raw pattern_error(PatternErrorKind.BadGroupName, start, 1i64, CH_GT =>! uint32);
+    }
+    if (!(raw is_name_start(b))) {
+        pass raw pattern_error(PatternErrorKind.BadGroupName, start, raw utf8_len(b => int64),
+                               raw decode_at(pat, start) =>! uint32);
+    }
+    while (raw is_name_char(raw cursor_peek(@p.c))) decreases pat.len - p.c.pos {
+        discard(raw cursor_bump(@p.c));
+    }
+    int64:len = p.c.pos - start;
+    int32:t = raw cursor_peek(@p.c);
+    if (t == CURSOR_END) {
+        pass raw pattern_error(PatternErrorKind.BadGroupName, start, len, 0u32);
+    }
+    if (t != CH_GT) {
+        pass raw pattern_error(PatternErrorKind.BadGroupName, p.c.pos, raw utf8_len(t => int64),
+                               raw decode_at(pat, p.c.pos) =>! uint32);
+    }
+    discard(raw cursor_bump(@p.c));
+    PatternError?:full = raw take_cap(p, open);
+    if (full != NIL) { pass full; }
+    int64:j = 0i64;
+    while (j < p.names.count) decreases p.names.count - j {
+        GroupName:g = raw vec_get(p.names, j);
+        if (g.len == len) {
+            int64:k = 0i64;
+            bool:same = true;
+            while (k < len) decreases len - k {
+                if (pat[g.off + k] != pat[start + k]) { same = false; }
+                k = k + 1i64;
+            }
+            if (same) {
+                pass raw pattern_error(PatternErrorKind.DuplicateGroupName, start, len, g.cap =>! uint32);
+            }
+        }
+        j = j + 1i64;
+    }
+    drop vec_push(@p.names, GroupName{ off: start, len: len, cap: p.next_cap });
+    drop push_group(p, open, p.next_cap, len);
+    p.next_cap = p.next_cap + 1i64;
+    pass NIL;
+};
+
+// A refusal of a group head, spanning it from its `(` through the byte just read.
+func:head_refused = PatternError?(Parser->:p, PatternErrorKind:k, int64:open, int32:b) never fails {
+    pass raw pattern_error(k, open, p.c.pos - open, b =>! uint32);
+};
+
+// `(` read at `open`. What follows decides the group (Y-29), or the refusal (Y-30).
+func:open_group = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:open) never fails {
+    drop commit(out, @p.f);
+    if (!(raw cursor_eat(@p.c, CH_QUESTION =>! uint8))) {
+        PatternError?:full = raw take_cap(p, open);
+        if (full != NIL) { pass full; }
+        drop push_group(p, open, p.next_cap, 0i64);
+        p.next_cap = p.next_cap + 1i64;
+        pass NIL;
+    }
+    int32:b = raw cursor_peek(@p.c);
+    if (b == CURSOR_END) {
+        pass raw pattern_error(PatternErrorKind.UnclosedGroup, open, p.c.pos - open,
+                               (p.stack.count + 1i64) =>! uint32);
+    }
+    if (b == CH_COLON) {
+        discard(raw cursor_bump(@p.c));
+        drop push_group(p, open, 0i64, 0i64);
+        pass NIL;
+    }
+    if (b == CH_LT) {
+        discard(raw cursor_bump(@p.c));
+        int32:d = raw cursor_peek(@p.c);
+        if ((d == CH_EQ) || (d == CH_BANG)) {
+            discard(raw cursor_bump(@p.c));
+            pass raw head_refused(p, PatternErrorKind.LookaroundUnsupported, open, d);
+        }
+        pass raw named_group(pat, p, open);
+    }
+    if (b == CH_UPPER_P) {
+        discard(raw cursor_bump(@p.c));
+        int32:d = raw cursor_peek(@p.c);
+        if (d == CH_LT) {
+            discard(raw cursor_bump(@p.c));
+            pass raw head_refused(p, PatternErrorKind.WrongNamedGroupSpelling, open, CH_UPPER_P);
+        }
+        if (d == CH_EQ) {
+            discard(raw cursor_bump(@p.c));
+            pass raw head_refused(p, PatternErrorKind.BackreferenceUnsupported, open, d);
+        }
+        if (d == CH_GT) {
+            discard(raw cursor_bump(@p.c));
+            pass raw head_refused(p, PatternErrorKind.RecursionUnsupported, open, d);
+        }
+        pass raw pattern_error(PatternErrorKind.UnknownFlag, open + 2i64, 1i64, CH_UPPER_P =>! uint32);
+    }
+    if (b == CH_QUOTE) {
+        discard(raw cursor_bump(@p.c));
+        pass raw head_refused(p, PatternErrorKind.WrongNamedGroupSpelling, open, b);
+    }
+    if ((b == CH_EQ) || (b == CH_BANG)) {
+        discard(raw cursor_bump(@p.c));
+        pass raw head_refused(p, PatternErrorKind.LookaroundUnsupported, open, b);
+    }
+    if (b == CH_GT) {
+        discard(raw cursor_bump(@p.c));
+        pass raw head_refused(p, PatternErrorKind.AtomicGroupUnsupported, open, b);
+    }
+    if (b == CH_HASH) {
+        discard(raw cursor_bump(@p.c));
+        pass raw head_refused(p, PatternErrorKind.UnsupportedGroup, open, b);
+    }
+    if ((b == CH_UPPER_R) || (b == CH_AMP) || (b == CH_PLUS) || (raw is_digit(b))) {
+        discard(raw cursor_bump(@p.c));
+        pass raw head_refused(p, PatternErrorKind.RecursionUnsupported, open, b);
+    }
+    if (b == CH_MINUS) {
+        discard(raw cursor_bump(@p.c));
+        int32:d = raw cursor_peek(@p.c);
+        if (raw is_digit(d)) {
+            discard(raw cursor_bump(@p.c));
+            pass raw head_refused(p, PatternErrorKind.RecursionUnsupported, open, d);
+        }
+        // `(?-` and a flag: cycle 0.1.4's (Y-31). Until then, provisional.
+        pass raw pattern_error(PatternErrorKind.UnknownFlag, open + 2i64, 1i64, CH_MINUS =>! uint32);
+    }
+    // A flag, or anything else after `(?`: cycle 0.1.4 parses flags (Y-31).
+    int64:at = p.c.pos;
+    pass raw pattern_error(PatternErrorKind.UnknownFlag, at, raw utf8_len(b => int64),
+                           raw decode_at(pat, at) =>! uint32);
+};
+
+// `)` read at `at`: the group's node, which becomes its parent's pending atom.
+func:close_group = PatternError?(Ast->:out, Parser->:p, int64:at) never fails {
+    if (p.stack.count == 0i64) {
+        pass raw pattern_error(PatternErrorKind.UnopenedGroup, at, 1i64, 0u32);
+    }
+    int64:body = raw close_body(out, @p.f, at);
+    int64:g = raw ast_push(out, raw node(AstKind.Group, p.f.flags, body, p.f.cap, p.f.name_len,
+                                         p.f.open, p.c.pos - p.f.open));
+    p.f = raw vec_pop(@p.stack);
+    p.f.pending = g;
+    pass NIL;
+};
+
+// ---- quantifiers (Y-32) ----------------------------------------------------
+
+// Decimal digits at the cursor, at least one known to be there. The value stops
+// growing once it passes `NREGEX_REPEAT_MAX`, so no digit string can overflow.
+func:digits = int64(Cursor->:c) never fails {
+    int64:v = 0i64;
+    while (raw is_digit(raw cursor_peek(c))) decreases c.src.len - c.pos {
+        int32:d = raw cursor_bump(c);
+        if (v <= NREGEX_REPEAT_MAX) { v = (v * 10i64) + ((d - CH_0) => int64); }
+    }
+    pass v;
+};
+
+// A quantifier's first byte `b` read at `at`: wraps the pending atom in a `Repeat`.
+func:quantify = PatternError?(Ast->:out, Parser->:p, int64:at, int32:b) never fails {
+    if (p.f.pending == AST_NONE) {
+        pass raw pattern_error(PatternErrorKind.NothingToRepeat, at, 1i64, b =>! uint32);
+    }
+    AstNode:target = raw ast_get(<-out, p.f.pending);
+    if (target.kind == AstKind.Repeat) {
+        pass raw pattern_error(PatternErrorKind.DoubleRepeat, at, 1i64, b =>! uint32);
+    }
+    int64:min = 0i64;
+    int64:max = AST_NONE;
+    if (b == CH_PLUS) { min = 1i64; }
+    else if (b == CH_QUESTION) { max = 1i64; }
+    else if (b == CH_LBRACE) {
+        if (!(raw is_digit(raw cursor_peek(@p.c)))) {
+            pass raw pattern_error(PatternErrorKind.BadRepeatBounds, at, p.c.pos - at, 0u32);
+        }
+        int64:min_at = p.c.pos;
+        min = raw digits(@p.c);
+        int64:min_len = p.c.pos - min_at;
+        int64:max_at = min_at;
+        int64:max_len = min_len;
+        if (raw cursor_eat(@p.c, CH_RBRACE =>! uint8)) { max = min; }
+        else if (raw cursor_eat(@p.c, CH_COMMA =>! uint8)) {
+            if (!(raw cursor_eat(@p.c, CH_RBRACE =>! uint8))) {
+                if (!(raw is_digit(raw cursor_peek(@p.c)))) {
+                    pass raw pattern_error(PatternErrorKind.BadRepeatBounds, at, p.c.pos - at, 0u32);
+                }
+                max_at = p.c.pos;
+                max = raw digits(@p.c);
+                max_len = p.c.pos - max_at;
+                if (!(raw cursor_eat(@p.c, CH_RBRACE =>! uint8))) {
+                    pass raw pattern_error(PatternErrorKind.BadRepeatBounds, at, p.c.pos - at, 0u32);
+                }
+            }
+        }
+        else {
+            pass raw pattern_error(PatternErrorKind.BadRepeatBounds, at, p.c.pos - at, 0u32);
+        }
+        if (min > NREGEX_REPEAT_MAX) {
+            pass raw pattern_error(PatternErrorKind.RepeatTooLarge, min_at, min_len,
+                                   NREGEX_REPEAT_MAX =>! uint32);
+        }
+        if ((max != AST_NONE) && (max > NREGEX_REPEAT_MAX)) {
+            pass raw pattern_error(PatternErrorKind.RepeatTooLarge, max_at, max_len,
+                                   NREGEX_REPEAT_MAX =>! uint32);
+        }
+        if ((max != AST_NONE) && (min > max)) {
+            pass raw pattern_error(PatternErrorKind.BadRepeatBounds, at, p.c.pos - at, 1u32);
+        }
+    }
+    uint32:bits = p.f.flags;
+    if (raw cursor_eat(@p.c, CH_QUESTION =>! uint8)) { bits = bits + AST_FLAG_LAZY; }
+    else if (raw cursor_eat(@p.c, CH_PLUS =>! uint8)) {
+        pass raw pattern_error(PatternErrorKind.AtomicGroupUnsupported, at, p.c.pos - at,
+                               CH_PLUS =>! uint32);
+    }
+    p.f.pending = raw ast_push(out, raw node(AstKind.Repeat, bits, p.f.pending, min, max,
+                                             target.pos, p.c.pos - target.pos));
+    pass NIL;
+};
+
+// ---- escapes and literals (Y-2, Y-28) --------------------------------------
+
+// `\` read at `at`. ASCII punctuation after it is that punctuation (Y-2); every
+// other escape is cycle 0.1.4's, and until then provisionally `UnknownEscape` (Y-31).
+func:escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:at) never fails {
+    int32:d = raw cursor_peek(@p.c);
+    if (d == CURSOR_END) {
+        pass raw pattern_error(PatternErrorKind.TrailingBackslash, at, 1i64, 0u32);
+    }
+    if (raw is_ascii_punct(d)) {
+        discard(raw cursor_bump(@p.c));
+        drop atom(out, @p.f, AstKind.Literal, d => int64, at, 2i64);
+        pass NIL;
+    }
+    pass raw pattern_error(PatternErrorKind.UnknownEscape, at, 1i64 + raw utf8_len(d => int64),
+                           raw decode_at(pat, at + 1i64) =>! uint32);
+};
+
+// A literal whose first byte `lead` was read at `at`: one codepoint, decoded.
+func:literal = NIL(uint8[]:pat, Ast->:out, Parser->:p, int64:at, int32:lead) never fails {
+    int64:n = raw utf8_len(lead => int64);
+    int64:k = 1i64;
+    while (k < n) decreases n - k {
+        discard(raw cursor_bump(@p.c));
+        k = k + 1i64;
+    }
+    drop atom(out, @p.f, AstKind.Literal, raw decode_at(pat, at), at, n);
+    pass NIL;
+};
+
+// ---- the walk --------------------------------------------------------------
+
+func:parse_run = PatternError?(uint8[]:pat, Ast->:out, Parser->:p) never fails {
+    while (!(raw cursor_at_end(@p.c))) decreases pat.len - p.c.pos {
+        int64:at = p.c.pos;
+        int32:b = raw cursor_bump(@p.c);
+        PatternError?:e = NIL;
+        if (b == CH_PIPE) {
+            drop close_alt(out, @p.f, at);
+            p.f.cat_pos = p.c.pos;
+        }
+        else if (b == CH_LPAREN) { e = raw open_group(pat, out, p, at); }
+        else if (b == CH_RPAREN) { e = raw close_group(out, p, at); }
+        else if ((b == CH_STAR) || (b == CH_PLUS) || (b == CH_QUESTION) || (b == CH_LBRACE)) {
+            e = raw quantify(out, p, at, b);
+        }
+        else if (b == CH_DOT) { drop atom(out, @p.f, AstKind.Dot, 0i64, at, 1i64); }
+        else if (b == CH_CARET) { drop atom(out, @p.f, AstKind.Anchor, 0i64, at, 1i64); }
+        else if (b == CH_DOLLAR) { drop atom(out, @p.f, AstKind.Anchor, 1i64, at, 1i64); }
+        else if (b == CH_BACKSLASH) { e = raw escape(pat, out, p, at); }
+        else if (b == CH_LBRACKET) {
+            // cycle 0.1.3's: until then, provisionally unclosed (Y-31)
+            e = raw pattern_error(PatternErrorKind.UnclosedClass, at, 1i64, 0u32);
+        }
+        else { drop literal(pat, out, p, at, b); }
+        if (e != NIL) { pass e; }
+    }
+    if (p.stack.count > 0i64) {
+        pass raw pattern_error(PatternErrorKind.UnclosedGroup, p.f.open, 1i64,
+                               p.stack.count =>! uint32);
+    }
+    int64:root = raw close_body(out, @p.f, pat.len);
+    drop ast_set_root(out, root);
+    pass NIL;
+};
+
+// obligation: never fails
+//
+// THE PARSE (Y-28 … Y-33). Appends the pattern's nodes to `out` and sets its
+// root, answering `NIL`; or answers the first `PatternError` and leaves `out`'s
+// root as it was -- its nodes are then partial, and the caller frees them. Pass
+// an `Ast` fresh from `ast_init`; the pattern's bytes must outlive the AST,
+// which holds names by offset (Y-26).
+pub func:parse_pattern = PatternError?(uint8[]:pat, Ast->:out) never fails {
+    PatternError?:long = raw parse_check_length(pat);
+    if (long != NIL) { pass long; }
+    PatternError?:bad = raw parse_check_encoding(pat);
+    if (bad != NIL) { pass bad; }
+    Parser:p = Parser{ c: raw cursor_init(pat), f: raw frame(AST_NONE, 0i64, 0i64, 0i64, AST_FLAG_U),
+                       next_cap: 1i64, stack: raw vec_init::<Frame>(8i64),
+                       names: raw vec_init::<GroupName>(4i64) };
+    PatternError?:e = raw parse_run(pat, out, @p);
+    drop vec_free(@p.stack);
+    drop vec_free(@p.names);
+    pass e;
 };

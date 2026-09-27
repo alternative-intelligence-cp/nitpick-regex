@@ -4450,3 +4450,81 @@ list — before a parser exists to leave it dormant (Y-25: every kind has a test
 `(a|)` is a common spelling of an optional group, and Y-27 would need amending too; **keep the kind for a later
 trigger** — none is in §1's grammar, and a kind held for a construct nobody has named is the dormant-rule pattern;
 **leave it to cycle 0.1.6** — the decision is the grammar's, and 0.1.1 is where the grammar is written.
+
+### RX-182 — the parse is one explicit-stack walk that builds the arena bottom-up, the last atom held pending for a quantifier
+
+**2026-09-27, cycle 0.1.1 (the plan's PD-26), at compiler `5fbaf4a`** — `SYNTAX.md` Y-33. `parse_pattern(uint8[]:pat,
+Ast->:out)` answers `PatternError?` (RX-175's shape): the length, the encoding (RX-183), then one `while` over the
+cursor. Its state is a `Parser` — the cursor, the frame being built, the next capture index, a `Vec<Frame>` of the
+enclosing groups' frames and a `Vec<GroupName>` — built by `parse_pattern` and freed there on every path, since a
+leaked `wild` block traps at exit (D-151). `Frame` and `GroupName` own nothing and `#[derive(Copy)]`
+(`check_vec_elements_own_nothing` clears both). A frame's two lists are linked by rewriting the node before
+(`ast_get`, then `ast_set`), and its last atom is PENDING, linked only when the next atom, `|`, `)` or the end
+arrives, so a quantifier wraps it in place. Measured at `5fbaf4a`: a program importing `syntax.npk` still owes
+`core`'s eleven arms, no new undefined symbol appears, and `tests/unit/parse_grammar.npk`'s fifty-nine shapes pass
+at −O0 and through `opt -O2`; the stack is unbounded until cycle 0.1.2, the pattern's length bounding it, and 250
+nested groups parse (`parse_limits.npk`).
+
+*Alternatives declined:* **recursive descent** — RX-032, and a deep pattern would be a blown stack rather than a
+refusal; **children gathered in a side array and copied at the close** — a second allocation per group and a
+second pass; **the node before the last kept per frame, so a quantifier relinks it** — two fields where pending
+is one, and the wrapped atom's link undone; **a frame per alternative** — a group owns its alternatives, and one
+frame per group is what 0.1.2 bounds by `NREGEX_NEST_DEPTH`.
+
+### RX-183 — a pattern is UTF-8 text checked whole before the grammar, and every character is a literal but the twelve metacharacters
+
+**2026-09-27, cycle 0.1.1 (the plan's PD-27)** — `SYNTAX.md` Y-28, per RFC 3629 (`meta/research/CURRENCY.md`).
+`parse_check_encoding` runs after the length and before the walk, and refuses the first ill-formed sequence as
+`InvalidPatternEncoding` with its offset, the bytes read through the one that broke it, and that byte (0 when the
+pattern ended inside the sequence) — one case per way to be ill-formed in `tests/unit/parse_encoding.npk`, and
+every boundary of the table decoded. The metacharacters are `\ . ^ $ | ? * + ( ) [ {`; a bare `]` or `}` is a
+literal; `\` before ASCII punctuation is that punctuation (Y-2), and `\` as the last byte is `TrailingBackslash`.
+
+*Alternatives declined:* **decode only inside a literal**, Y-11's first reading — an ill-formed byte in a group
+name or after `\` would then be reported as another kind, and each later subcycle would re-check what 0.1.1 had
+not; **a bare `]` or `}` refused** — §1 gives neither a meaning outside a class or a bound, and Rust and PCRE take
+both literally; **an unfinished `{` taken as a literal**, PCRE's rule — a pattern whose meaning turns on whether a
+brace completes is the context-dependence Y-2 refuses.
+
+### RX-184 — quantifiers: the six forms and the lazy `?`, a `{` always a bound, and each refusal decided at the quantifier's first byte
+
+**2026-09-27, cycle 0.1.1 (the plan's PD-28)** — `SYNTAX.md` Y-32. `NothingToRepeat` and `DoubleRepeat` are decided at
+the quantifier's first byte, before a bound is read; a `{` that is not `{n}`, `{n,}` or `{n,m}` in decimal digits
+is `BadRepeatBounds` (detail 0); a bound over `NREGEX_REPEAT_MAX` is `RepeatTooLarge` at the number, the value
+saturating as it is read (`a{99999999999999999999}` cannot overflow); a minimum over the maximum is
+`BadRepeatBounds` (detail 1); a `+` straight after a quantifier is `AtomicGroupUnsupported` (Y-30). On the bound and
+one past it: `a{1000}` parses, `a{1001}` is refused (`parse_grammar.npk` case 31, `parse_refusals.npk` case 33).
+
+*Alternatives declined:* **the atom checked after the bound is read** — `{x` at the start would report bad bounds
+where the author most likely meant a brace; **`{,n}` accepted as `{0,n}`** — not in §1, and one spelling is the
+rule; **a possessive `+` read as `DoubleRepeat` until 0.1.5** — a kind 0.1.5 would change in a function 0.1.1
+writes; **`RepeatTooLarge` at the `{`** — the number is what is wrong.
+
+### RX-185 — groups: numbered at the `(`, named by §1's `Name`, closed innermost-first — and the refusals of §8 a group head spells are made at the head
+
+**2026-09-27, cycle 0.1.1 (the plan's PD-29)** — `SYNTAX.md` Y-29 and Y-30, with Y-6, Y-7 and Y-8. The capture index
+is handed out at the `(`, named groups included; the 251st is `TooManyCaptureGroups` at its `(` (detail the bound,
+`parse_limits.npk`); a name is checked character by character and then against every earlier one
+(`DuplicateGroupName`, detail the first group's number); `UnclosedGroup` names the innermost open `(` and says how
+many are open; `(?P<` and `(?'` are `WrongNamedGroupSpelling`. The group-head refusals of §8 — lookaround, the
+atomic group, recursion, `(?P=` and the comment group — are made where the head is read, with the kinds §8 names;
+0.1.5 keeps the escape-shaped ones, the rejection tests and `regex_escape`.
+
+*Alternatives declined:* **`UnclosedGroup` at the outermost `(`** — the innermost is the one whose `)` the author
+forgot last and the one the walk holds; the detail still says how many; **`DuplicateGroupName` at the first
+name** — the second is where the collision was written; **the group's number as `TooManyCaptureGroups`' detail** —
+the bound is what the author can act on, and the number is one more; **§8's heads left provisional until 0.1.5** —
+0.1.1 writes the dispatch, and a provisional branch there would be rewritten.
+
+### RX-186 — until its parser exists, a class, an escape and a flag are refused provisionally, with the kind their parser gives an unknown member
+
+**2026-09-27, cycle 0.1.1 (the plan's PD-30)** — `SYNTAX.md` Y-31. `[` is `UnclosedClass` until 0.1.3; `\` before
+anything but ASCII punctuation is `UnknownEscape` until 0.1.4; `(?` before a flag, or anything Y-29 and Y-30 do not
+name, is `UnknownFlag` until 0.1.4. Each is what that parser answers for a member it does not know, and 0.1.1's
+knows none. No test pins one but `(?P` before a byte no head names — `UnknownFlag` at the `P`, which 0.1.4
+cannot change, since `P` is no flag (`parse_refusals.npk` case 64); `parse_pattern` is not public until cycle
+0.10, so no consumer meets one.
+
+*Alternatives declined:* **the constructs read as literals** — a silent wrong acceptance, and Y-2 forbids `\q` as
+`q`; **a temporary kind** — a thirty-seventh kind to retire at 0.1.5, and a closed list that changes twice;
+**tests pinning them** — 0.1.3 and 0.1.4 would delete the tests they inherit.

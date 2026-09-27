@@ -1,0 +1,118 @@
+// expect-exit: 0
+//
+// THE BOUNDS THE CORE GRAMMAR SPENDS, EACH ON ITS LIMIT AND ONE PAST IT
+// (`SAFETY.md` S-12; RX-184, RX-185): `NREGEX_CAPTURE_GROUPS` -- 250 groups
+// parse, the 251st is `TooManyCaptureGroups` at its `(` (named groups count the
+// same); `NREGEX_PATTERN_BYTES` through `parse_pattern` -- 65 536 bytes parse and
+// one more is `PatternTooLong` before anything reads a byte. And 250 groups
+// nested, which the explicit stack holds without a native frame per level
+// (RX-032): `NREGEX_NEST_DEPTH` is 250, and cycle 0.1.2 refuses the 251st.
+// (`NREGEX_REPEAT_MAX` is `parse_grammar`'s case 31 and `parse_refusals`' 33.)
+mod:parse_limits;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+
+func:many = Bytes(int64:groups, string:piece, string:tail) never fails {
+    Bytes:b = raw bytes_init(8i64);
+    int64:i = 0i64;
+    while (i < groups) decreases groups - i {
+        drop bytes_extend_str(@b, piece);
+        i = i + 1i64;
+    }
+    drop bytes_extend_str(@b, tail);
+    pass move(b);
+};
+
+func:run = int32() never fails {
+    // 250 capture groups: accepted, the root a `Concat` of 250, the last group number 250
+    Bytes:ok = raw many(250i64, "()", "");
+    string:os = raw bytes_copy_string(@ok);
+    Ast:t = raw ast_init(8i64);
+    PatternError?:r = raw parse_pattern(string_bytes(os), @t);
+    if (r != NIL) { drop ast_free(@t); pass 1i32; }
+    AstNode:root = raw ast_get(t, t.root);
+    drop ast_free(@t);
+    if ((root.kind != AstKind.Concat) || (root.b != 250i64)) { pass 2i32; }
+    // 251: refused at the 251st `(`, byte 500, its detail the bound
+    Bytes:over = raw many(250i64, "()", "()");
+    string:s = raw bytes_copy_string(@over);
+    Ast:u = raw ast_init(8i64);
+    PatternError?:q = raw parse_pattern(string_bytes(s), @u);
+    drop ast_free(@u);
+    if (q == NIL) { pass 3i32; }
+    PatternError:e = q ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
+    if (e.kind != PatternErrorKind.TooManyCaptureGroups) { pass 4i32; }
+    if ((e.offset != 500i64) || (e.span_len != 1i64) || (e.detail != 250u32)) { pass 5i32; }
+    // a named group is numbered too: 249 and one named parse; one more named is refused
+    Bytes:named = raw many(249i64, "()", "(?<z>)(?<y>)");
+    string:ns = raw bytes_copy_string(@named);
+    Ast:v = raw ast_init(8i64);
+    PatternError?:w = raw parse_pattern(string_bytes(ns), @v);
+    drop ast_free(@v);
+    if (w == NIL) { pass 6i32; }
+    PatternError:f = w ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
+    if ((f.kind != PatternErrorKind.TooManyCaptureGroups) || (f.offset != 504i64)) { pass 7i32; }
+    // 250 non-capturing groups nested around one literal
+    Bytes:deep = raw many(250i64, "(?:", "a");
+    int64:k = 0i64;
+    while (k < 250i64) decreases 250i64 - k {
+        drop bytes_extend_str(@deep, ")");
+        k = k + 1i64;
+    }
+    string:ds = raw bytes_copy_string(@deep);
+    Ast:x = raw ast_init(8i64);
+    PatternError?:y = raw parse_pattern(string_bytes(ds), @x);
+    if (y != NIL) { drop ast_free(@x); pass 8i32; }
+    int64:at = x.root;
+    int64:levels = 0i64;
+    AstNode:n = raw ast_get(x, at);
+    while ((n.kind == AstKind.Group) && (levels <= 250i64)) decreases 251i64 - levels {
+        levels = levels + 1i64;
+        n = raw ast_get(x, n.a);
+    }
+    drop ast_free(@x);
+    if (levels != 250i64) { pass 9i32; }
+    if ((n.kind != AstKind.Literal) || (n.a != 97i64)) { pass 10i32; }
+    // the length, through `parse_pattern`: on the bound, then one past it
+    Bytes:longest = raw many(65536i64, "a", "");
+    string:ls = raw bytes_copy_string(@longest);
+    Ast:l = raw ast_init(8i64);
+    PatternError?:lr = raw parse_pattern(string_bytes(ls), @l);
+    drop ast_free(@l);
+    if (lr != NIL) { pass 11i32; }
+    Bytes:too = raw many(65536i64, "a", "a");
+    string:ts = raw bytes_copy_string(@too);
+    Ast:m = raw ast_init(8i64);
+    PatternError?:mr = raw parse_pattern(string_bytes(ts), @m);
+    int64:nodes = raw ast_len(m);
+    drop ast_free(@m);
+    if (mr == NIL) { pass 12i32; }
+    PatternError:g = mr ?? raw pattern_error(PatternErrorKind.UnclosedGroup, 0i64, 0i64, 0u32);
+    if ((g.kind != PatternErrorKind.PatternTooLong) || (g.offset != 65536i64) || (g.detail != 65536u32)) { pass 13i32; }
+    if (nodes != 0i64) { pass 14i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:r = raw run();
+    exit r;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

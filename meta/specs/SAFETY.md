@@ -666,6 +666,14 @@ names — offsets into a `Bytes`. So the rule costs the design nothing it had
 decided, and constrains three types it had not. It is enforced because
 it is the only thing standing between a later cycle's `Vec<string>` and a
 `vec_get` that silently empties its container.
+*(2026-09-27, cycle 0.1.1 — RX-182: the parser's `Frame` is shaped, and owns
+nothing — twelve `int64`s and its flags — and so does the `GroupName` it keeps
+for Y-8, an offset, a length and a group number. Each refers to a group's name
+by its place in the pattern, which the caller keeps, as `SYNTAX.md` Y-26 holds
+an AST node's (RX-174) — the same rule as an offset into a `Bytes`, nothing
+owned — and `check_vec_elements_own_nothing` clears `Vec<Frame>` and
+`Vec<GroupName>`, as it has cleared `Vec<AstNode>` since cycle 0.1.0. Two types
+are left to shape, `Literal` and `GroupInfo`, at cycle 0.2.)*
 
 *A cycle that needs an owning element lifts S-23a by a decision*, and the
 compiler's own `List<T>` at `c3bdae2` is the shape it would take: removals that

@@ -102,6 +102,9 @@ of the parenthesis that did it.
 *(2026-09-25, cycle 0.0.4d — RX-161: the state that holds that `Vec<Frame>` is
 move-only by containment — moved, lent by value to a reader, and passed by
 pointer to anything that pushes or pops (`SAFETY.md` S-23b).)*
+*(2026-09-27, cycle 0.1.1 — RX-182: the parser holds it — `src/syntax/parse.npk`'s
+`Parser`, freed by `parse_pattern` on every path (Y-33) — and cycle 0.1.2 adds
+the bound; until then the pattern's length bounds the stack.)*
 
 **Rule Y-10 — every error carries a byte offset into the pattern**, and a
 length where the construct spans more than a point. A user gets "unclosed
@@ -111,7 +114,9 @@ group at byte 14", not "invalid pattern".
 or a class**, where a multi-byte UTF-8 sequence is decoded to a codepoint. A
 pattern that is not valid UTF-8 is `InvalidPatternEncoding`. The **haystack**
 has no such requirement (`SAFETY.md` S-20); the **pattern** does, because a
-pattern is text a person wrote.
+pattern is text a person wrote. *(Since cycle 0.1.1 the whole pattern is checked
+first, before any grammar — Y-28, RX-183 — so every later step decodes without
+checking.)*
 
 **Rule Y-26 (RX-174) — the AST is a flat arena of nodes that own nothing, and
 every operand is an `int64`.** `src/syntax/ast.npk`:
@@ -166,6 +171,87 @@ A list's members — a `Concat`'s pieces, an `Alternate`'s alternatives, a
 `Class`'s items — are its first member and each member's `next`, in the order
 written. The subcycle that parses a construct produces its kind; the operands
 are this table's until a decision says otherwise.
+
+**Rule Y-28 (RX-183) — a pattern is UTF-8 text, checked whole before the grammar,
+and every character is a literal but twelve.** After the length (RX-175), the pattern
+is checked against RFC 3629's well-formed UTF-8: no continuation byte where a
+character starts; no overlong form (a lead `C0` or `C1`, `E0` before less than `A0`,
+`F0` before less than `90`); no surrogate (`ED` before more than `9F`); nothing above
+U+10FFFF (`F4` before more than `8F`, or a lead `F5` … `FF`). The first ill-formed
+sequence is `InvalidPatternEncoding`: its offset the sequence's first byte, its
+length the bytes read up to and including the one that broke it, its detail that
+byte — 0 when the pattern ended inside the sequence. Outside a class the
+metacharacters are `\ . ^ $ | ? * + ( ) [ {`; every other character — a bare `]` or
+`}` included — is a `Literal` of its codepoint, spanning its bytes. `.` is a `Dot`,
+`^` an `Anchor` 0 and `$` an `Anchor` 1. `\` before ASCII punctuation is that
+punctuation, a `Literal` spanning two bytes (Y-2), and `\` as the last byte is
+`TrailingBackslash` at it.
+
+**Rule Y-29 (RX-185) — groups.** `(` opens a capturing group, numbered by its `(`
+(Y-6); `(?:` a non-capturing one; `(?<name>` a capturing one named by
+`Name ::= [A-Za-z_][A-Za-z0-9_]*`. A capturing group — named or not — numbered past
+`NREGEX_CAPTURE_GROUPS` is `TooManyCaptureGroups` at its `(`, detail the bound. A
+name that is empty, begins with a digit, holds any other character, or has no `>` is
+`BadGroupName`: at the offending character, its detail that character's codepoint —
+at the `>` with detail `>` (62) for an empty name — or, when the pattern ends first,
+at the name's start, spanning what was read, detail 0. A name already used is
+`DuplicateGroupName` at the second, spanning it, its detail the first group's
+number. `)` with no group open is `UnopenedGroup` at it. A pattern that ends inside
+a group is `UnclosedGroup` at the INNERMOST open `(`, its detail how many are open;
+`(?` as the pattern's last two bytes is `UnclosedGroup` spanning both. `(?P<` and
+`(?'` are `WrongNamedGroupSpelling` (Y-7) at the `(`, spanning the head, detail `P`
+(80) or `'` (39).
+
+**Rule Y-30 (RX-185) — the refusals of §8 that a group head or a quantifier spells
+are made where they are read**, each at the `(`, spanning the head read, its detail
+the head's last byte: `(?=`, `(?!`, `(?<=`, `(?<!` are `LookaroundUnsupported`;
+`(?>` is `AtomicGroupUnsupported`; `(?R`, `(?&`, `(?P>`, and `(?` before a digit,
+`+`, or `-` and a digit are `RecursionUnsupported`; `(?P=` is
+`BackreferenceUnsupported`; `(?#` is `UnsupportedGroup`. A `+` straight after a
+quantifier — `a*+`, `a{2}+` — is `AtomicGroupUnsupported` at the quantifier,
+spanning through the `+`, detail `+` (43). §8's escapes (`\1`, `\k<…>`, `\G`,
+`\Z`, `\Q`) are cycle 0.1.5's, after 0.1.4 parses escapes.
+
+**Rule Y-31 (RX-186) — until its parser exists, a construct is refused
+PROVISIONALLY**, with the kind its parser gives a member it does not know: `[` is
+`UnclosedClass` at the `[` (cycle 0.1.3); `\` before anything but ASCII punctuation
+is `UnknownEscape` at the `\`, spanning it and the character, detail the
+character's codepoint (cycle 0.1.4); `(?` before anything Y-29 and Y-30 do not name
+— a flag included — is `UnknownFlag` at that character, detail its codepoint (cycle
+0.1.4). No test pins a provisional refusal; the subcycle that parses the construct
+replaces it. One answer among them is final, and a test pins it: `(?P` before a
+byte Y-29 and Y-30 do not name is `UnknownFlag` at the `P`, detail `P` (80), in
+every cycle, since `P` is no flag (`parse_refusals.npk` case 64).
+
+**Rule Y-32 (RX-184) — quantifiers.** `*`, `+`, `?`, `{n}`, `{n,}` and `{n,m}`, each
+followed by `?` to be lazy, wrap the atom before them in a `Repeat` — `a` the atom,
+`b` the minimum, `c` the maximum or `AST_NONE`, `AST_FLAG_LAZY` when lazy; `pos` the
+atom's, `len` through the quantifier. With no atom before it — at the pattern's
+start, after `(` or after `|` — a quantifier is `NothingToRepeat`; after a
+quantifier it is `DoubleRepeat`; each at the quantifier, detail its first byte, and
+each decided there, before a bound is read. A lazy `?` belongs to the quantifier
+before it: `a*?` is lazy, `a*??` a `DoubleRepeat` at its last `?`. A `{` always
+begins a bounded repeat, and one that is not `{`digits`}`, `{`digits`,}` or
+`{`digits`,`digits`}` — no space, no sign, no missing minimum — is `BadRepeatBounds`
+at the `{`, spanning what was read, detail 0; a bound above `NREGEX_REPEAT_MAX` is
+`RepeatTooLarge` at its first digit, spanning its digits, detail the bound (the
+value stops growing past the bound, so no digit string overflows); a minimum above
+the maximum is `BadRepeatBounds` spanning the braces, detail 1. A repeated group or
+anchor is legal (Y-22).
+
+**Rule Y-33 (RX-182) — the tree the parse builds.** `parse_pattern(uint8[]:pat,
+Ast->:out)` refuses the length, then the encoding, then walks the pattern ONCE in
+one `while`: a `(` saves the frame being built on a `Vec<Frame>` and starts the
+group's, and its `)` takes the saved frame back — no function calls itself (RX-032).
+A frame holds the alternatives closed so far, the current alternative's pieces, and
+its last atom PENDING — not yet linked — so a quantifier can wrap it. An alternative
+with no piece is an `Empty` at the offset where it ends; with one, that piece; with
+more, a `Concat` from where it starts to where it ends. A body of one alternative is
+that alternative; of more, an `Alternate` from where the body starts. A `Group` spans
+its `(` through its `)`. Every node's `flags` are the flags in force — `AST_FLAG_U`
+until cycle 0.1.4 parses flags — with `AST_FLAG_LAZY` on a lazy `Repeat`. The first
+refusal, left to right, is the answer; the tree's nodes are then partial, its root is
+unchanged, and the caller frees them.
 
 ---
 
@@ -341,6 +427,27 @@ provoke the kind, and Y-25 forbids a kind nothing produces.*
 **Rule Y-25 — every kind has a test that provokes it**, and a harness check
 diffs the enum against the tests, so a kind nothing can produce is caught. This
 is the compiler's `check_codes_tested` in this library's terms.
+
+**What each refusal cycle 0.1.1 makes carries** — Y-10's offset and length, and the
+detail a message is built from (Y-29 … Y-32):
+
+| Kind | Raised when | Offset | Length | Detail |
+|---|---|---|---|---|
+| `UnclosedGroup` | the pattern ends inside a group | the innermost open `(` | 1; 2 for `(?` at the end | how many groups are open |
+| `UnopenedGroup` | `)` with no group open | the `)` | 1 | 0 |
+| `TrailingBackslash` | `\` is the last byte | the `\` | 1 | 0 |
+| `NothingToRepeat` | a quantifier with no atom before it | the quantifier | 1 | its first byte |
+| `DoubleRepeat` | a quantifier after a quantifier | the second one | 1 | its first byte |
+| `BadRepeatBounds` | a `{` that is no bounded repeat; a minimum above the maximum | the `{` | what was read | 0; 1 |
+| `RepeatTooLarge` | a bound above `NREGEX_REPEAT_MAX` | its first digit | its digits | the bound |
+| `TooManyCaptureGroups` | a group numbered past `NREGEX_CAPTURE_GROUPS` | its `(` | 1 | the bound |
+| `DuplicateGroupName` | a name already used | the second name | its length | the first group's number |
+| `BadGroupName` | an empty, malformed or unfinished name | the bad character; for an unfinished one the name | the character's bytes; what was read | its codepoint; 62 when empty; 0 when unfinished |
+| `WrongNamedGroupSpelling` | `(?P<` or `(?'` | the `(` | the head | 80 or 39 |
+| `LookaroundUnsupported`, `AtomicGroupUnsupported`, `RecursionUnsupported`, `BackreferenceUnsupported`, `UnsupportedGroup` | Y-30's group heads | the `(` | the head | its last byte |
+| `AtomicGroupUnsupported` | a quantifier made possessive | the quantifier | through the `+` | 43 |
+| `InvalidPatternEncoding` | ill-formed UTF-8 | the sequence's first byte | through the byte that broke it | that byte; 0 when cut short |
+| `PatternTooLong` (cycle 0.1.0) | over `NREGEX_PATTERN_BYTES` | the first byte past the bound | the bytes over it | the bound |
 
 *(2026-09-27, cycle 0.1.1 — RX-181: thirty-six, `EmptyAlternate` retired.)*
 *(2026-09-26, cycle 0.1.0 — RX-172: `src/syntax/pattern_error.npk`'s

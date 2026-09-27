@@ -1,0 +1,124 @@
+// expect-exit: 0
+//
+// THE CORE GRAMMAR, REFUSED: EVERY REFUSAL CYCLE 0.1.1 MAKES, WITH ITS OFFSET,
+// LENGTH AND DETAIL (`SYNTAX.md` §9's table, Y-29, Y-30, Y-32; RX-184, RX-185).
+//
+// Each case parses one pattern through `syntax.npk`'s re-exports and requires
+// the refusal to be EXACTLY this kind at this offset, spanning this many bytes,
+// with this detail -- the four fields a message is built from (Y-10, Y-34). A
+// case that differs exits with its number. The PROVISIONAL refusals -- a class,
+// an escape other than punctuation, a flag, each a later subcycle's (Y-31, RX-186) --
+// are not pinned here: cycles 0.1.3 and 0.1.4 change them. Case 64 is not one of
+// them: `(?P` before a byte no head names is `UnknownFlag` at the `P` in every
+// cycle, since `P` is no flag (Y-31).
+mod:parse_refusals;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+
+func:refused = bool(string:pattern, PatternErrorKind:kind, int64:off, int64:len, uint32:detail) never fails {
+    Ast:t = raw ast_init(8i64);
+    PatternError?:r = raw parse_pattern(string_bytes(pattern), @t);
+    drop ast_free(@t);
+    if (r == NIL) { pass false; }
+    PatternError:e = r ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
+    if (e.kind != kind)     { pass false; }
+    if (e.offset != off)    { pass false; }
+    if (e.span_len != len)  { pass false; }
+    pass e.detail == detail;
+};
+
+func:run = int32() never fails {
+    // structure (Y-29)
+    if (!(raw refused("(", PatternErrorKind.UnclosedGroup, 0i64, 1i64, 1u32)))        { pass 1i32; }
+    if (!(raw refused("(a", PatternErrorKind.UnclosedGroup, 0i64, 1i64, 1u32)))       { pass 2i32; }
+    if (!(raw refused("((a)", PatternErrorKind.UnclosedGroup, 0i64, 1i64, 1u32)))     { pass 3i32; }
+    if (!(raw refused("(a(b", PatternErrorKind.UnclosedGroup, 2i64, 1i64, 2u32)))     { pass 4i32; }
+    if (!(raw refused("(?", PatternErrorKind.UnclosedGroup, 0i64, 2i64, 1u32)))       { pass 5i32; }
+    if (!(raw refused("((?", PatternErrorKind.UnclosedGroup, 1i64, 2i64, 2u32)))      { pass 6i32; }
+    if (!(raw refused(")", PatternErrorKind.UnopenedGroup, 0i64, 1i64, 0u32)))        { pass 7i32; }
+    if (!(raw refused("a)", PatternErrorKind.UnopenedGroup, 1i64, 1i64, 0u32)))       { pass 8i32; }
+    if (!(raw refused("(a))", PatternErrorKind.UnopenedGroup, 3i64, 1i64, 0u32)))     { pass 9i32; }
+    if (!(raw refused("\\", PatternErrorKind.TrailingBackslash, 0i64, 1i64, 0u32)))   { pass 10i32; }
+    if (!(raw refused("a\\", PatternErrorKind.TrailingBackslash, 1i64, 1i64, 0u32)))  { pass 11i32; }
+    // quantifiers (Y-32)
+    if (!(raw refused("*", PatternErrorKind.NothingToRepeat, 0i64, 1i64, 42u32)))     { pass 12i32; }
+    if (!(raw refused("a|*", PatternErrorKind.NothingToRepeat, 2i64, 1i64, 42u32)))   { pass 13i32; }
+    if (!(raw refused("(+)", PatternErrorKind.NothingToRepeat, 1i64, 1i64, 43u32)))   { pass 14i32; }
+    if (!(raw refused("{2}", PatternErrorKind.NothingToRepeat, 0i64, 1i64, 123u32)))  { pass 15i32; }
+    if (!(raw refused("??", PatternErrorKind.NothingToRepeat, 0i64, 1i64, 63u32)))    { pass 16i32; }
+    if (!(raw refused("a**", PatternErrorKind.DoubleRepeat, 2i64, 1i64, 42u32)))      { pass 17i32; }
+    if (!(raw refused("a*??", PatternErrorKind.DoubleRepeat, 3i64, 1i64, 63u32)))     { pass 18i32; }
+    if (!(raw refused("a{2}{3}", PatternErrorKind.DoubleRepeat, 4i64, 1i64, 123u32))) { pass 19i32; }
+    if (!(raw refused("a+*", PatternErrorKind.DoubleRepeat, 2i64, 1i64, 42u32)))      { pass 20i32; }
+    if (!(raw refused("a*+", PatternErrorKind.AtomicGroupUnsupported, 1i64, 2i64, 43u32)))   { pass 21i32; }
+    if (!(raw refused("a{2}+", PatternErrorKind.AtomicGroupUnsupported, 1i64, 4i64, 43u32))) { pass 22i32; }
+    if (!(raw refused("a?+", PatternErrorKind.AtomicGroupUnsupported, 1i64, 2i64, 43u32)))   { pass 23i32; }
+    if (!(raw refused("a{", PatternErrorKind.BadRepeatBounds, 1i64, 1i64, 0u32)))     { pass 24i32; }
+    if (!(raw refused("a{x}", PatternErrorKind.BadRepeatBounds, 1i64, 1i64, 0u32)))   { pass 25i32; }
+    if (!(raw refused("a{1", PatternErrorKind.BadRepeatBounds, 1i64, 2i64, 0u32)))    { pass 26i32; }
+    if (!(raw refused("a{1,2", PatternErrorKind.BadRepeatBounds, 1i64, 4i64, 0u32)))  { pass 27i32; }
+    if (!(raw refused("a{,2}", PatternErrorKind.BadRepeatBounds, 1i64, 1i64, 0u32)))  { pass 28i32; }
+    if (!(raw refused("a{1,x}", PatternErrorKind.BadRepeatBounds, 1i64, 3i64, 0u32))) { pass 29i32; }
+    if (!(raw refused("a{1x}", PatternErrorKind.BadRepeatBounds, 1i64, 2i64, 0u32)))  { pass 30i32; }
+    if (!(raw refused("a{ 1}", PatternErrorKind.BadRepeatBounds, 1i64, 1i64, 0u32)))  { pass 31i32; }
+    if (!(raw refused("a{3,1}", PatternErrorKind.BadRepeatBounds, 1i64, 5i64, 1u32))) { pass 32i32; }
+    if (!(raw refused("a{1001}", PatternErrorKind.RepeatTooLarge, 2i64, 4i64, 1000u32)))   { pass 33i32; }
+    if (!(raw refused("a{0,1001}", PatternErrorKind.RepeatTooLarge, 4i64, 4i64, 1000u32))) { pass 34i32; }
+    if (!(raw refused("a{99999999999999999999}", PatternErrorKind.RepeatTooLarge, 2i64, 20i64, 1000u32))) { pass 35i32; }
+    if (!(raw refused("a{2000,1}", PatternErrorKind.RepeatTooLarge, 2i64, 4i64, 1000u32))) { pass 36i32; }
+    // groups (Y-29, Y-30)
+    if (!(raw refused("(?<>a)", PatternErrorKind.BadGroupName, 3i64, 1i64, 62u32)))   { pass 40i32; }
+    if (!(raw refused("(?<1a>x)", PatternErrorKind.BadGroupName, 3i64, 1i64, 49u32))) { pass 41i32; }
+    if (!(raw refused("(?<a-b>x)", PatternErrorKind.BadGroupName, 4i64, 1i64, 45u32))) { pass 42i32; }
+    if (!(raw refused("(?<ab", PatternErrorKind.BadGroupName, 3i64, 2i64, 0u32)))     { pass 43i32; }
+    if (!(raw refused("(?<", PatternErrorKind.BadGroupName, 3i64, 0i64, 0u32)))       { pass 44i32; }
+    if (!(raw refused("(?<é>x)", PatternErrorKind.BadGroupName, 3i64, 2i64, 233u32))) { pass 45i32; }
+    if (!(raw refused("(?<n>a)(?<n>b)", PatternErrorKind.DuplicateGroupName, 10i64, 1i64, 1u32))) { pass 46i32; }
+    if (!(raw refused("(a)(?<x>b)(?<x>c)", PatternErrorKind.DuplicateGroupName, 13i64, 1i64, 2u32))) { pass 47i32; }
+    if (!(raw refused("(?<ab>a)(?<abc>b)(?<ab>c)", PatternErrorKind.DuplicateGroupName, 20i64, 2i64, 1u32))) { pass 48i32; }
+    if (!(raw refused("(?P<n>a)", PatternErrorKind.WrongNamedGroupSpelling, 0i64, 4i64, 80u32))) { pass 49i32; }
+    if (!(raw refused("(?'n'a)", PatternErrorKind.WrongNamedGroupSpelling, 0i64, 3i64, 39u32)))  { pass 50i32; }
+    // the refusals of SYNTAX.md §8 that a group head spells (Y-30)
+    if (!(raw refused("(?=a)", PatternErrorKind.LookaroundUnsupported, 0i64, 3i64, 61u32)))  { pass 51i32; }
+    if (!(raw refused("(?!a)", PatternErrorKind.LookaroundUnsupported, 0i64, 3i64, 33u32)))  { pass 52i32; }
+    if (!(raw refused("(?<=a)", PatternErrorKind.LookaroundUnsupported, 0i64, 4i64, 61u32))) { pass 53i32; }
+    if (!(raw refused("(?<!a)", PatternErrorKind.LookaroundUnsupported, 0i64, 4i64, 33u32))) { pass 54i32; }
+    if (!(raw refused("(?>a)", PatternErrorKind.AtomicGroupUnsupported, 0i64, 3i64, 62u32))) { pass 55i32; }
+    if (!(raw refused("(?#c)", PatternErrorKind.UnsupportedGroup, 0i64, 3i64, 35u32)))       { pass 56i32; }
+    if (!(raw refused("(?R)", PatternErrorKind.RecursionUnsupported, 0i64, 3i64, 82u32)))    { pass 57i32; }
+    if (!(raw refused("(?1)", PatternErrorKind.RecursionUnsupported, 0i64, 3i64, 49u32)))    { pass 58i32; }
+    if (!(raw refused("(?&n)", PatternErrorKind.RecursionUnsupported, 0i64, 3i64, 38u32)))   { pass 59i32; }
+    if (!(raw refused("(?+1)", PatternErrorKind.RecursionUnsupported, 0i64, 3i64, 43u32)))   { pass 60i32; }
+    if (!(raw refused("(?-1)", PatternErrorKind.RecursionUnsupported, 0i64, 4i64, 49u32)))   { pass 61i32; }
+    if (!(raw refused("(?P>n)", PatternErrorKind.RecursionUnsupported, 0i64, 4i64, 62u32)))  { pass 62i32; }
+    if (!(raw refused("(?P=n)", PatternErrorKind.BackreferenceUnsupported, 0i64, 4i64, 61u32))) { pass 63i32; }
+    if (!(raw refused("(?Px)", PatternErrorKind.UnknownFlag, 2i64, 1i64, 80u32)))           { pass 64i32; }
+    // the first refusal wins, left to right
+    if (!(raw refused("a)(", PatternErrorKind.UnopenedGroup, 1i64, 1i64, 0u32)))      { pass 70i32; }
+    if (!(raw refused("(*", PatternErrorKind.NothingToRepeat, 1i64, 1i64, 42u32)))    { pass 71i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:r = raw run();
+    exit r;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

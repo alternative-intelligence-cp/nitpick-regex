@@ -9,11 +9,13 @@
 // refused at depth 251 and the program survives.
 //
 // SINCE CYCLE 0.1.0 THE LAYER HOLDS THE PIECES EVERY LATER SUBCYCLE IS WRITTEN
-// IN, AND PARSES NO CONSTRUCT YET: `pattern_error.npk` (the closed kind list and
-// the one constructor, RX-172), `cursor.npk` (the byte cursor, RX-173), `ast.npk`
-// (the arena, RX-174) and `parse.npk` (the parser's entry and its first refusal,
-// RX-175). `tests/unit/syntax_skeleton.npk` shows they compose, through this
-// file's re-exports alone.
+// IN: `pattern_error.npk` (the closed kind list and the one constructor, RX-172),
+// `cursor.npk` (the byte cursor, RX-173), `ast.npk` (the arena, RX-174) and
+// `parse.npk` (the parser's entry and its first refusal, RX-175).
+// `tests/unit/syntax_skeleton.npk` shows they compose, through this file's
+// re-exports alone. SINCE CYCLE 0.1.1 `parse.npk` PARSES THE CORE GRAMMAR --
+// `parse_pattern`, RX-182 … RX-186 -- and classes, escapes other than
+// punctuation, and flags are the subcycles' after it (Y-31).
 //
 // EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1
 // and 3): `use` is not transitive, a plain `use` re-exports nothing, and one
@@ -61,5 +63,7 @@ pub use "./ast.npk".ast_set;
 pub use "./ast.npk".ast_set_root;
 pub use "./ast.npk".ast_free;
 
-// ---- the parser's entry (RX-175) ----------------------------------------------
+// ---- the parser's entry (RX-175) and the parse (RX-182, RX-183) ---------------
 pub use "./parse.npk".parse_check_length;
+pub use "./parse.npk".parse_check_encoding;
+pub use "./parse.npk".parse_pattern;
