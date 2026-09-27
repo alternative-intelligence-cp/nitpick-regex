@@ -485,7 +485,7 @@ def _summary(c, rep, a, say, secs, sc_counts=None, listed=0):
         return 1
     say("GREEN. Every program built, linked, ran and was judged by its exit code, "
         "and agreed with itself under opt -O2; every rejection reported exactly the "
-        "codes it names; every .npk in the tree was swept as a root by npkc, which "
+        "codes it names, each at as many sites as it names it; every .npk in the tree was swept as a root by npkc, which "
         "neither links nor runs it; and the tree checks agreed with the "
         "specifications.")
     if sc_counts is not None:

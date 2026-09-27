@@ -467,6 +467,7 @@ def check_rejection(c, path, name, exp):
     fl += _match_channel(name, exp.errors, got, notes=False)
     fl += _match_channel(name, exp.notes, got, notes=True)
     fl += _unexpected_codes(name, exp.errors, got)
+    fl += _count_sites(name, exp.errors, got)
     return fl
 
 
@@ -488,6 +489,32 @@ def _match_channel(name, want, got, notes):
                 col = "*" if w["col"] < 0 else str(w["col"])
                 fl.append(f"{name}: {label}{w['code']} at {where}, "
                           f"expected {w['line']}:{col}")
+    return fl
+
+
+def _count_sites(name, want, got):
+    """The NUMBER of sites a code is reported at equals the number of `expect-error`
+    lines naming it -- the compiler's D-332 (its landing 82), held by both of its
+    runners since `5fbaf4a`, and by this one since cycle 0.1.0b (RX-178, `BUILD.md`
+    B-7b). Rule B-7 compares SETS, and a set cannot see a silent site: a code
+    expected at two places and reported at one passes it, and so does a code
+    reported at four places and named once. Asked of codes both named and reported;
+    a code on only one side is the two checks above. The error channel only."""
+    named, sites = {}, {}
+    for w in want:
+        named[w["code"]] = named.get(w["code"], 0) + 1
+    for f in got:
+        if not f["is_note"]:
+            sites.setdefault(f["code"], []).append(f"{f['line']}:{f['col']}")
+    fl = []
+    for code in sorted(named):
+        at = sites.get(code, [])
+        if at and len(at) != named[code]:
+            fl.append(f"{name}: {code} is reported at {len(at)} site(s) -- "
+                      f"{', '.join(at)} -- and {named[code]} `expect-error` line(s) "
+                      f"name it. One line per site (the compiler's D-332, BUILD.md "
+                      f"B-7b): a set of codes cannot see a silent site, so the count "
+                      f"is asserted too.")
     return fl
 
 

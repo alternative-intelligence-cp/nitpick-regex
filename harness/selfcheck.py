@@ -725,6 +725,38 @@ def _case23(d):
     return None                                   # handled by `_run_case23`
 
 
+def _case26(d):
+    """A `check` case naming a code ONCE where it is reported at TWO sites -- the
+    compiler's D-332, ported (RX-178). Under B-7's set equality this passes: the
+    code is named and reported. `tests/rejection/pattern_error_literal.npk` named
+    its `NITPICK-TYPE-079` once for four sites until cycle 0.1.0b."""
+    _write(d, "tests/case/two_sites.npk",
+           "// expect-error: NITPICK-TYPE-007\n"
+           "mod:two_sites;\n\n"
+           "func:main = int32(cstring[]:_~argv) {\n"
+           "    int32:a = true;\n"
+           "    int32:b = true;\n"
+           "    exit 0i32;\n"
+           "};\n" + FAILSAFE)
+    return TOML % CHECK_ENTRY
+
+
+def _case27(d):
+    """A `check` case naming a code at TWO sites where it is reported at ONE --
+    the compiler's own `silent_site` self-check case (D-332), ported (RX-178). Its
+    lines carry no position, so only the count can see the missing site."""
+    _write(d, "tests/case/silent_site.npk",
+           "// expect-error: NITPICK-TYPE-007\n"
+           "// expect-error: NITPICK-TYPE-007\n"
+           "mod:silent_site;\n\n"
+           "func:main = int32(cstring[]:_~argv) {\n"
+           "    int32:a = true;\n"
+           "    int32:b = 1i32;\n"
+           "    exit 0i32;\n"
+           "};\n" + FAILSAFE)
+    return TOML % CHECK_ENTRY
+
+
 def _case24(d):
     """A manifest whose LAYOUT PIN is not what the pinned `opt` derives from its
     triple -- one field of the layout dropped (RX-176). The compiler's
@@ -880,6 +912,13 @@ CASES = [
          "emission state x86-64",
          _case25, ["the module's header is not the pinned one",
                    "i686-unknown-linux-gnu"]),
+    Case(26, "a `check` case naming a code once where it is reported at two sites",
+         "RX-178: the compiler's D-332 -- a set of codes cannot see a count",
+         _case26, ["two_sites.npk", "is reported at 2 site(s)"]),
+    Case(27, "a `check` case naming a code at two sites where it is reported at one",
+         "RX-178: the compiler's `silent_site`, ported -- the hazard D-332 was "
+         "decided for",
+         _case27, ["silent_site.npk", "is reported at 1 site(s)"]),
 ]
 
 

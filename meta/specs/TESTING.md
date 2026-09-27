@@ -306,7 +306,10 @@ requires it to report every one as a failure. The list is `harness/selfcheck.py`
 24. a manifest whose `datalayout` pin is not what the pinned `opt` derives from
     its `triple` — the layout check must name both (RX-176);
 25. a tree pinned consistently to another target, so the layout check passes —
-    the header belt must name the emission's `target` lines (RX-176).
+    the header belt must name the emission's `target` lines (RX-176);
+26. a `check` case naming a code once where it is reported at two sites, and
+27. one naming a code at two sites where it is reported at one — the count of
+    sites per code, the compiler's D-332 (RX-178).
 
 *(Reconciled 2026-09-25 by the third cycle 0.0 audit's triage, RX-154. This list
 had eight bullets and `CASES` eleven entries, and they disagreed in BOTH

@@ -4356,3 +4356,26 @@ checked only when someone remembers is the time audit's E1 in this tree.
 this one retires into the prelude's; **`T:x = v.items[i]; pass x;`** — the same copy with a binding for no
 reason; **`impl:AstNode:Copy`** — the derive states it where the fields are, and a member that later owns is
 refused at the declaration; **renaming the unit** — its subject is a plain-old-data struct, which it still is.
+
+### RX-178 — a rejection file's sites are counted per code: one `expect-error` line per reported site, as the compiler's runners hold since its landing 82
+
+**2026-09-27, cycle 0.1.0b (the plan's PD-22), at compiler `5fbaf4a`** — the compiler's D-332 (its S-113, the
+author's decision), announced to the libraries as advance notice F24.
+
+- **`harness/stages.py` adds the count to B-7's set equality** (`BUILD.md` B-7b): for every code both named and
+  reported on the error channel, the number of reported sites equals the number of `expect-error` lines naming
+  it, and a mismatch fails the file by name, with every site. Notes are outside it, as they are in the
+  compiler's rule.
+- **Measured before the rule was written**, over the thirty-one files here carrying `expect-error` — the
+  twenty-four rejection fixtures, the eight refused probes but probe 18, which moved in at this subcycle — at
+  `5fbaf4a` and at `c970483`: thirty agree, and `tests/rejection/pattern_error_literal.npk` names
+  `NITPICK-TYPE-079` once where it is reported four times at 22:22, once per sealed field it writes. It names
+  it four times now, at 31:22, the header nine lines longer. Probe 18's `TYPE-014` is one site.
+- **Self-check cases 26 and 27** are the two directions: a code named once and reported twice, and the
+  compiler's own `silent_site` shape — named twice, reported once, the lines carrying no position.
+
+*Alternatives declined:* **keep B-7's sets and let the compiler's runners hold the count** — nothing runs our
+fixtures under them until `npkg` can build this library (O-G3), and the parity stage that retires this runner
+would then disagree on the first file it read; **name one line per distinct position** — the literal's four
+sites share one position, and the compiler counts sites, not positions; **the count on notes as well** — D-332
+holds the error channel.

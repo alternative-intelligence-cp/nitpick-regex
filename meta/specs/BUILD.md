@@ -481,6 +481,17 @@ is the single thing that makes the hole unreachable, and the harness names
 was not there", so a rejection fixture without an `// expect-error:` asserts
 nothing at all.
 
+**Rule B-7b (RX-178) — and the COUNT of sites per code is asserted too.** A code
+reported at N sites is named by exactly N `expect-error` lines, each with its
+`expect-error-at` where the site is measured — the compiler's D-332, held by both
+of its runners since its landing 82 and by this one since cycle 0.1.0b. A set
+cannot see a silent site: a code expected at two places and reported at one
+passes B-7, and so does one reported at four and named once
+(`tests/rejection/pattern_error_literal.npk`, until 0.1.0b). Measured at
+`5fbaf4a` over all thirty-one files carrying `expect-error`: that one was the
+only file whose count differed. Self-check cases 26 and 27 are the two
+directions.
+
 **Rule B-8 — the harness is itself tested.** A self-check feeds it wrong
 expectations and requires it to report every one as a failure, and it runs
 first.
