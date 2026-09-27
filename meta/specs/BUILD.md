@@ -232,7 +232,9 @@ position relative to its own manifest on every checkout — so CI prints
 `sha256sum` and the byte count for every artefact the pinned compiler's build
 leaves, `npkc.ll` first. It **prints and asserts nothing**: this repository has
 not been given an expected value it could honestly check against, and the
-comparison belongs to whoever holds both numbers.
+comparison belongs to whoever holds both numbers. *(Since 2026-09-27, cycle 0.1.0b,
+it asserts `npkc.ll` against the pinned commit's row and prints the rest — both
+numbers were held at `c970483`: RX-180, §8a.)*
 
 ---
 
@@ -697,6 +699,15 @@ parse.
 ---
 
 ## 8a. The emission digest CI prints, and why it is not an assertion
+
+*(Since 2026-09-27, cycle 0.1.0b, it IS an assertion — RX-180, the ecosystem audit's
+ED3. The condition this section ends on was met at `c970483`: CI run 36253106675
+printed `npkc.ll` `d36a7e23…` / 28 188 736 B, the workbench's pin record held the
+same row, and cycle 0.1.0's verifier wrote down that they matched. So the workflow
+carries the pinned commit's `npkc.ll` row — notice 82's, `5630c2b4…` /
+30 232 291 B at `5fbaf4a`, moved with every pin — and a runner whose emission
+differs fails the run, as the compiler defect it would be; the binary rows stay
+prints. What follows is RX-141's reasoning, kept as the record of why it waited.)*
 
 **RX-141.** `.github/workflows/ci.yml` digests the compiler's emission
 (`.internal/quickemit/npkc.ll`) on every run and **prints** it, for the

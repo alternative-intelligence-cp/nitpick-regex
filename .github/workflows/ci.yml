@@ -71,6 +71,9 @@
 # this file NOT pinned to something immutable. A workflow this insistent about
 # pinning a compiler by sha and LLVM by patch release should not be surprised
 # when the parts it left on a floating tag roll forward underneath it.
+# *(Triaged 2026-09-27 by cycle 0.1.0b -- the ecosystem audit's EK2 names it in both
+# CIs: one research request serves both, the workbench's, and the bump is a commit
+# of its own once the Node-24 releases are verified and dated. Still a warning.)*
 
 name: nregex
 
@@ -114,6 +117,11 @@ env:
   # 248/250 (probe 18 refused), and the adopted one does not build at `c970483`
   # (`#[derive(Copy)]`, `NITPICK-DERIVE-001`).
   NITPICK_COMMIT: 5fbaf4a40a2f6b213754cd71b6c69700f8aa2c87
+  # THE EMISSION AT THAT COMMIT, as the compiler's own build recorded it -- notice
+  # 82's `npkc.ll` row, in the workbench's `.internal/toolchain/5fbaf4a/PIN.md`. The
+  # emission step below ASSERTS it since cycle 0.1.0b (RX-180): moved with every pin.
+  NPKC_LL_SHA256: 5630c2b4464f5628f23467b7eb775a7571f0c6b8b7f1bdc6c3974b4af5bf97be
+  NPKC_LL_BYTES: 30232291
   # nitpick.toml [toolchain] llvm. Exact patch release: a patch may change
   # instruction selection, which is why the manifest names three digits.
   LLVM_VERSION: 20.1.2
@@ -135,6 +143,28 @@ jobs:
           repository: alternative-intelligence-cp/nitpick
           ref: ${{ env.NITPICK_COMMIT }}
           path: .nitpick
+
+      # `actions/checkout` with an explicit `ref` should make this redundant. It is
+      # here anyway because it is the single fact every claim below rests on, and a
+      # claim resting on a tool's promise rather than on a measurement is the shape
+      # this repository keeps refusing -- `nitpick-time`'s step, ported at cycle
+      # 0.1.0b (the ecosystem audit's EK2; RX-180).
+      - name: Assert the compiler is AT the pinned commit
+        run: |
+          set -euo pipefail
+          have="$(git -C .nitpick rev-parse HEAD)"
+          if [ "$have" != "$NITPICK_COMMIT" ]; then
+            echo "compiler checkout is at $have; the pin is $NITPICK_COMMIT" >&2
+            exit 1
+          fi
+          # Nothing uncommitted: a binary built from a dirty tree is a build of no
+          # commit that ever existed.
+          if [ -n "$(git -C .nitpick status --porcelain)" ]; then
+            echo "the compiler checkout is dirty; the pin names a commit" >&2
+            git -C .nitpick status --porcelain >&2
+            exit 1
+          fi
+          echo "compiler HEAD == $have (clean)"
 
       # The upstream release tarball, because apt.llvm.org packages by MAJOR
       # version and would give whatever 20.1.x is current. ~2 GB, so it is
@@ -225,6 +255,16 @@ jobs:
       # both sides of it and writes down that they matched, and not before.
       # (Cycle 0.0 audit, adjudication (b); RX-141.)
       #
+      # THAT DAY CAME, AND THE STEP ASSERTS NOW (2026-09-27, cycle 0.1.0b, RX-180 --
+      # the ecosystem audit's ED3). At `c970483` run 36253106675 printed `npkc.ll`
+      # `d36a7e23…` / 28 188 736 B, the workbench's pin record held the same row,
+      # and cycle 0.1.0's verifier wrote down that they matched: the cross-machine
+      # claim was observed, and the compiler's D-265 says it is THE claim. So the
+      # row the compiler's build recorded for the pinned commit -- `NPKC_LL_SHA256`
+      # and `NPKC_LL_BYTES` above -- is asserted, after every line is printed; a
+      # difference is a compiler defect to raise, not a pin to bump. The binary rows
+      # stay printed only: D-265 says a version is not a binary.
+      #
       # WHAT IS AND IS NOT A CROSS-MACHINE CLAIM. The compiler's `npkc` BINARY
       # is not one — S-42 measured it differing between this workbench and a
       # runner because D-204's pin is a VERSION of LLVM and a version is not a
@@ -273,6 +313,14 @@ jobs:
               printf '%-12s %s\n' "$f" "absent"
             fi
           done
+          have="$(sha256sum npkc.ll | cut -d' ' -f1)"
+          size="$(stat -c '%s' npkc.ll)"
+          if [ "$have" != "$NPKC_LL_SHA256" ] || [ "$size" != "$NPKC_LL_BYTES" ]; then
+            echo "npkc.ll is $size B / $have; the pin's emission is $NPKC_LL_BYTES B / $NPKC_LL_SHA256." >&2
+            echo "The emission is the cross-machine claim (the compiler's D-265): a compiler defect to raise." >&2
+            exit 1
+          fi
+          echo "npkc.ll == the pin's emission, $size B / $have"
 
       # RX-120'S NUMBERS, ASSERTED. The harness runs this too, as a build step;
       # it is ALSO here on its own so that a moved prelude names itself in the
@@ -289,8 +337,23 @@ jobs:
       - name: RX-120's floor, syscaller and difference, asserted at `5fbaf4a`
         run: harness/baseline/rx120.sh
 
+      # AND THE SUMMARY IS ASSERTED, NOT JUST THE STATUS (RX-180, the ecosystem
+      # audit's EK2; `nitpick-time`'s TM-125, ported). A run filtered by `--only`
+      # prints no `GREEN.` line -- it says twice that it concludes nothing -- so an
+      # edit adding a flag here turns this step red instead of weakening the badge.
       - name: Run the harness
-        run: python3 harness/run.py
+        run: |
+          set +e
+          set -uo pipefail
+          log="$RUNNER_TEMP/harness.log"
+          python3 harness/run.py > "$log" 2>&1
+          status=$?
+          cat "$log"
+          if [ "$status" -ne 0 ]; then exit "$status"; fi
+          if ! grep -q '^GREEN\. ' "$log"; then
+            echo "the harness did not print the UNQUALIFIED green summary: CI runs the full suite, no --only." >&2
+            exit 1
+          fi
 
       # Not part of the harness yet — 0.0.2 owns the stages. Until then this is
       # the one thing 0.0.1 established, run explicitly so that CI is not green

@@ -1814,6 +1814,10 @@ the arms are gone today).
 ---
 
 ### RX-133 — the compiler's emission is INVOCATION-independent and TREE-POSITION-dependent, so CI records its digest and the cross-machine comparison is legitimate
+> **SUPERSEDED IN PART by RX-180 (2026-09-27)** — its *"CI prints it, and asserts nothing"*: the value it had
+> never been told was held at `c970483`, and the step asserts the pin's `npkc.ll` row since cycle 0.1.0b. Its
+> measurement — the emission invocation-independent and tree-position-dependent — stands, and is what makes the
+> assertion legitimate.
 
 **2026-09-06, cycle 0.0.5.** The compiler side asked this workbench for one
 measurement it cannot make itself: its own emission, `npkc.ll`, digested on a
@@ -2318,6 +2322,9 @@ storage layer every later cycle builds on).
 ---
 
 ### RX-141 — the CI emission digest stays a PRINT; a same-machine comparison licenses the substitution and not the assertion
+> **SUPERSEDED IN PART by RX-180 (2026-09-27)** — its "stays a print": the condition it set, both sides held and
+> written down as matching, was met at `c970483`, and the step asserts the pin's `npkc.ll` row since cycle
+> 0.1.0b. Its reasoning about the substitution stands.
 
 **2026-09-06, cycle 0.0.5 audit triage.** `.github/workflows/ci.yml` digests
 `.internal/quickemit/npkc.ll` and prints it, for the compiler's S-42
@@ -4400,3 +4407,26 @@ had an instance in the tree: `src/` declares one identity and no spaced accessor
 remembers, and the audit's plant compiles and charges every importer; **resolve reach to allow a private
 identity nothing raises** — a call-graph walk in a tree check, for a shape `src/` has no use for; **plants as
 units in `tests/`** — a tree check reads `src/`, and a planted `src/` file is a real one.
+
+### RX-180 — CI asserts what it printed: the compiler's commit, its emission against the pin's row, and the harness's unqualified summary
+
+**2026-09-27, cycle 0.1.0b (the plan's PD-24)** — the ecosystem audit of 2026-09-26's ED3 and EK2. It
+supersedes RX-141 in part, and RX-133 in part: the print each kept. RX-133's measurement and RX-141's reasoning
+about the substitution stand.
+
+- **The emission is asserted** (ED3). RX-141 kept the `npkc.ll` digest a print until somebody held both sides
+  and wrote down that they matched. At `c970483` CI run 36253106675 printed `d36a7e23…` / 28 188 736 B, the
+  workbench's pin record held the same, and cycle 0.1.0's verifier recorded the match; the compiler's D-265 makes
+  the emission the cross-machine claim. So the workflow carries the pinned commit's `npkc.ll` row —
+  `5630c2b4…` / 30 232 291 B, notice 82's — and fails when the runner's differs, after printing every row. The
+  binary rows stay prints.
+- **The compiler's checkout is asserted AT the pinned commit, and clean** (EK2), `nitpick-time`'s step.
+- **The harness's unqualified `GREEN.` line is asserted** (EK2), `nitpick-time`'s TM-125: a filtered run exits 0
+  and prints no such line, so a flag added to the step reddens it.
+- **The Node-24 annotation is triaged, not fixed** (EK2's third item): both CIs carry it, one verified research
+  request serves both, and the bump is its own commit — the workbench's to schedule. It is a warning today.
+
+*Alternatives declined:* **assert the workbench's binary digests** — D-265 says a version is not a binary, and
+S-42 measured them differing; **keep the print** — ED3's point: the condition was met and nothing scheduled the
+promotion; **bump the actions now, unverified** — a version this plan has not checked is a currency row nobody
+dated.
