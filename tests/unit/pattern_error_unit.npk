@@ -1,6 +1,6 @@
 // expect-exit: 0
 //
-// `PatternErrorKind` IS `SYNTAX.md` §9, ALL THIRTY-SEVEN, IN ITS ORDER -- AND
+// `PatternErrorKind` IS `SYNTAX.md` §9, ALL THIRTY-SIX, IN ITS ORDER -- AND
 // `pattern_error` BUILDS EACH ONE, THROUGH THE LAYER ENTRY. Cycle 0.1.0, RX-172.
 //
 // WHAT IT PINS. `ordinal` is an EXHAUSTIVE `pick` over the enum, no `(*)`, one
@@ -31,44 +31,43 @@ func:ordinal = int64(PatternErrorKind:k) never fails {
         (PatternErrorKind.EmptyClass) { n = 3i64; },
         (PatternErrorKind.NestTooDeep) { n = 4i64; },
         (PatternErrorKind.TrailingBackslash) { n = 5i64; },
-        (PatternErrorKind.EmptyAlternate) { n = 6i64; },
-        (PatternErrorKind.NothingToRepeat) { n = 7i64; },
-        (PatternErrorKind.DoubleRepeat) { n = 8i64; },
-        (PatternErrorKind.BadRepeatBounds) { n = 9i64; },
-        (PatternErrorKind.RepeatTooLarge) { n = 10i64; },
-        (PatternErrorKind.RepeatProductTooLarge) { n = 11i64; },
-        (PatternErrorKind.BadClassRange) { n = 12i64; },
-        (PatternErrorKind.UnknownPosixClass) { n = 13i64; },
-        (PatternErrorKind.UnknownUnicodeProperty) { n = 14i64; },
-        (PatternErrorKind.ClassOpMismatch) { n = 15i64; },
-        (PatternErrorKind.ClassTooLarge) { n = 16i64; },
-        (PatternErrorKind.UnknownEscape) { n = 17i64; },
-        (PatternErrorKind.BadHexEscape) { n = 18i64; },
-        (PatternErrorKind.BadUnicodeEscape) { n = 19i64; },
-        (PatternErrorKind.InvalidCodepoint) { n = 20i64; },
-        (PatternErrorKind.DuplicateGroupName) { n = 21i64; },
-        (PatternErrorKind.BadGroupName) { n = 22i64; },
-        (PatternErrorKind.UnknownFlag) { n = 23i64; },
-        (PatternErrorKind.TooManyCaptureGroups) { n = 24i64; },
-        (PatternErrorKind.WrongNamedGroupSpelling) { n = 25i64; },
-        (PatternErrorKind.BackreferenceUnsupported) { n = 26i64; },
-        (PatternErrorKind.LookaroundUnsupported) { n = 27i64; },
-        (PatternErrorKind.AtomicGroupUnsupported) { n = 28i64; },
-        (PatternErrorKind.RecursionUnsupported) { n = 29i64; },
-        (PatternErrorKind.UnsupportedAnchor) { n = 30i64; },
-        (PatternErrorKind.UnsupportedGroup) { n = 31i64; },
-        (PatternErrorKind.UnsupportedQuoting) { n = 32i64; },
-        (PatternErrorKind.PatternTooLong) { n = 33i64; },
-        (PatternErrorKind.ProgramTooLarge) { n = 34i64; },
-        (PatternErrorKind.InvalidPatternEncoding) { n = 35i64; },
-        (PatternErrorKind.ByteModeNonAscii) { n = 36i64; }
+        (PatternErrorKind.NothingToRepeat) { n = 6i64; },
+        (PatternErrorKind.DoubleRepeat) { n = 7i64; },
+        (PatternErrorKind.BadRepeatBounds) { n = 8i64; },
+        (PatternErrorKind.RepeatTooLarge) { n = 9i64; },
+        (PatternErrorKind.RepeatProductTooLarge) { n = 10i64; },
+        (PatternErrorKind.BadClassRange) { n = 11i64; },
+        (PatternErrorKind.UnknownPosixClass) { n = 12i64; },
+        (PatternErrorKind.UnknownUnicodeProperty) { n = 13i64; },
+        (PatternErrorKind.ClassOpMismatch) { n = 14i64; },
+        (PatternErrorKind.ClassTooLarge) { n = 15i64; },
+        (PatternErrorKind.UnknownEscape) { n = 16i64; },
+        (PatternErrorKind.BadHexEscape) { n = 17i64; },
+        (PatternErrorKind.BadUnicodeEscape) { n = 18i64; },
+        (PatternErrorKind.InvalidCodepoint) { n = 19i64; },
+        (PatternErrorKind.DuplicateGroupName) { n = 20i64; },
+        (PatternErrorKind.BadGroupName) { n = 21i64; },
+        (PatternErrorKind.UnknownFlag) { n = 22i64; },
+        (PatternErrorKind.TooManyCaptureGroups) { n = 23i64; },
+        (PatternErrorKind.WrongNamedGroupSpelling) { n = 24i64; },
+        (PatternErrorKind.BackreferenceUnsupported) { n = 25i64; },
+        (PatternErrorKind.LookaroundUnsupported) { n = 26i64; },
+        (PatternErrorKind.AtomicGroupUnsupported) { n = 27i64; },
+        (PatternErrorKind.RecursionUnsupported) { n = 28i64; },
+        (PatternErrorKind.UnsupportedAnchor) { n = 29i64; },
+        (PatternErrorKind.UnsupportedGroup) { n = 30i64; },
+        (PatternErrorKind.UnsupportedQuoting) { n = 31i64; },
+        (PatternErrorKind.PatternTooLong) { n = 32i64; },
+        (PatternErrorKind.ProgramTooLarge) { n = 33i64; },
+        (PatternErrorKind.InvalidPatternEncoding) { n = 34i64; },
+        (PatternErrorKind.ByteModeNonAscii) { n = 35i64; }
     }
     pass n;
 };
 
 func:main = int32(cstring[]:_~argv) {
     int64:k = 0i64;
-    while (k < 37i64) decreases 37i64 - k {
+    while (k < 36i64) decreases 36i64 - k {
         PatternErrorKind:kind = (k =>! int32) =>! PatternErrorKind;
         PatternError:e = raw pattern_error(kind, k * 3i64, k + 1i64, (k =>! uint32) + 1000u32);
         if ((raw ordinal(e.kind)) != k)             { exit 20i32; }

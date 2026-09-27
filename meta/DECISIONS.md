@@ -4169,6 +4169,8 @@ true reason; **leaving it to the next audit** — the first layer entry written 
 cycle 0.0's close placed the decision before it.
 
 ### RX-172 — `PatternErrorKind` is `SYNTAX.md` §9 complete and in order; `PatternError` is sealed, so `pattern_error(…)` is the only way to build one, and it stops on a negative offset
+> **SUPERSEDED IN PART by RX-181 (2026-09-27)** — its count: §9 lists thirty-six kinds since cycle 0.1.1, which
+> retired `EmptyAlternate`. The seal, the one constructor and the order stand.
 
 **2026-09-26, cycle 0.1.0 (the plan's PD-16), at compiler `c970483`.** `src/syntax/pattern_error.npk`:
 
@@ -4430,3 +4432,21 @@ about the substitution stand.
 S-42 measured them differing; **keep the print** — ED3's point: the condition was met and nothing scheduled the
 promotion; **bump the actions now, unverified** — a version this plan has not checked is a currency row nobody
 dated.
+
+## The core grammar — cycle 0.1.1
+
+### RX-181 — `EmptyAlternate` is retired: an empty alternative is Y-27's `Empty`, accepted, so no pattern could provoke the kind
+
+**2026-09-27, cycle 0.1.1 (the plan's PD-25), at compiler `5fbaf4a`.** `SYNTAX.md` §9 listed `EmptyAlternate` among
+the structure kinds, and Y-27 (RX-174) already makes `Empty` "an empty pattern, alternative or group body" — the
+same list declares a refusal and the node that accepts its every trigger. The grammar decides for the node: `a|`,
+`|a`, `(|a)` and `()` parse, as in Rust, RE2, PCRE, Python and JavaScript, and an empty alternative is not
+ambiguous, which is the thing this library refuses on principle. So the kind goes — the enum, its place in
+`pattern_error_unit.npk`'s exhaustive `pick` (thirty-six now, every later kind one place earlier), and the
+list — before a parser exists to leave it dormant (Y-25: every kind has a test that provokes it, and cycle
+0.1.6's `check_error_kinds_tested` would have found this one with nothing to test).
+
+*Alternatives declined:* **refuse empty alternatives** — every engine `COMPAT.md` compares against accepts them,
+`(a|)` is a common spelling of an optional group, and Y-27 would need amending too; **keep the kind for a later
+trigger** — none is in §1's grammar, and a kind held for a construct nobody has named is the dormant-rule pattern;
+**leave it to cycle 0.1.6** — the decision is the grammar's, and 0.1.1 is where the grammar is written.

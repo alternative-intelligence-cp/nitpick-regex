@@ -314,7 +314,10 @@ every engine that has it.
 The closed list. Normative; `SAFETY.md` §4.1 references it.
 
 **Structure**: `UnclosedGroup`, `UnopenedGroup`, `UnclosedClass`,
-`EmptyClass`, `NestTooDeep`, `TrailingBackslash`, `EmptyAlternate`.
+`EmptyClass`, `NestTooDeep`, `TrailingBackslash`. ~~`EmptyAlternate`~~ — *retired
+2026-09-27, cycle 0.1.1 (RX-181): an empty alternative is Y-27's `Empty`, accepted, as
+in every engine this document compares against (`COMPAT.md`), so no pattern could
+provoke the kind, and Y-25 forbids a kind nothing produces.*
 
 **Quantifiers**: `NothingToRepeat`, `DoubleRepeat`, `BadRepeatBounds`
 (`{3,1}`), `RepeatTooLarge`, `RepeatProductTooLarge`.
@@ -339,6 +342,7 @@ The closed list. Normative; `SAFETY.md` §4.1 references it.
 diffs the enum against the tests, so a kind nothing can produce is caught. This
 is the compiler's `check_codes_tested` in this library's terms.
 
+*(2026-09-27, cycle 0.1.1 — RX-181: thirty-six, `EmptyAlternate` retired.)*
 *(2026-09-26, cycle 0.1.0 — RX-172: `src/syntax/pattern_error.npk`'s
 `PatternErrorKind` is this list, all thirty-seven, in this order, declared
 before the parser produces any of them, and `tests/unit/pattern_error_unit.npk`

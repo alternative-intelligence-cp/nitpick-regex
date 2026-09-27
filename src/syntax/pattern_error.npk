@@ -38,7 +38,8 @@ use "../core/core.npk".*;
 
 // `SYNTAX.md` §9, in its order. `tests/unit/pattern_error_unit.npk` holds this
 // list to that order with an exhaustive `pick`, so a kind added, dropped or
-// moved here is a red run, not a review comment.
+// moved here is a red run, not a review comment. Thirty-six since cycle 0.1.1:
+// `EmptyAlternate` is retired, an empty alternative being `Y-27`'s `Empty` (RX-181).
 pub enum:PatternErrorKind = {
     // structure
     UnclosedGroup;
@@ -47,7 +48,6 @@ pub enum:PatternErrorKind = {
     EmptyClass;
     NestTooDeep;
     TrailingBackslash;
-    EmptyAlternate;
 
     // quantifiers
     NothingToRepeat;
