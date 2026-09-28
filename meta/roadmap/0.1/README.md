@@ -9,7 +9,10 @@ byte offset on every error.**
 > seven work commits, `2c748d4` … `186db2c`, 250/250 at `5fbaf4a` and in CI run 36338559696 — **and [`0.1.1`](0.1.1.md),
 > the core grammar, is DONE (2026-09-27)** — RX-181 … RX-187 in four work commits, `34b2801` … `1953d72`, 260/260 at
 > `5fbaf4a` and in CI run 36347047570 — **and [`0.1.1b`](0.1.1b.md), open question O-R3 — `Vec<T: Copy>`, the
-> bound on the type — is PLANNED** (2026-09-27, rehearsed at `5fbaf4a`), **then 0.1.2**. *(Until 0.1.1b's plan this
+> bound on the type — is DONE (2026-09-28)** — RX-188 … RX-190 in four work commits, `3baefa6` … `975bdc8`, 238/238
+> at `5fbaf4a` and in CI run 36426481012 — **next, 0.1.2**, the explicit stack, its file a planner's to write.
+> *(Until 0.1.1b's record this banner said 0.1.1b "is PLANNED (2026-09-27, rehearsed at `5fbaf4a`), then
+> 0.1.2".)* *(Until 0.1.1b's plan this
 > banner said "Next, open question O-R3 as a subcycle of its own, then 0.1.2" (the board, 2026-09-27).)* *(Until
 > 0.1.1's record it said 0.1.1 "is next, planned and rehearsed at `5fbaf4a`".)*
 > *(Until 0.1.0b's record this banner said
@@ -95,11 +98,11 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
 - [x] `pattern_error_text`: every kind a sentence — what is wrong, at which byte, what to write instead — 0.1.1's held to the letter (PD-31) — **RX-187, `09f000e`**: twenty-two sentences held to the letter and every kind naming its byte (`pattern_error_text.npk`), 5 with one sentence changed; no new symbol, and the bill `core`'s eleven before and after; 260/260 — one sentence reads the wrong reason for one input, a NUL inside a group name (`0.1.1.md`'s record, for the author)
 
 ### 0.1.1b — `Vec<T: Copy>`, open question O-R3
-- [ ] the shape measured before it is taken: the bound compiles, every verb must repeat it, twelve files move and no other, the masked IR of every other program identical (`0.1.1b.md` §1)
-- [ ] `struct:Vec<T: Copy>` and every verb bounded; `Vec<string>` refused at the type and at each of thirteen verbs, one fixture, fourteen sites; the ten owning units and `vec_unit`'s owning section retired; O-R3 struck (PD-32)
-- [ ] `vec_free_owning` and `drop_element` removed with their re-export and unit; the guard on `vec_free` still 94 (PD-33)
-- [ ] `check_vec_elements_own_nothing` kept and restated: a pointer-holding `Copy` struct compiles and the check fails it; a POD struct without `Copy` is refused and the check clears it (PD-34)
-- [ ] the prose: the status, `238` units, `src/core/` at 37 unit programs, and what cycles 0.2 and C-1's inherit
+- [x] the shape measured before it is taken: the bound compiles, every verb must repeat it, twelve files move and no other, the masked IR of every other program identical (`0.1.1b.md` §1) — **blocks 0a and 0b**: `260/260` and `### RX-187` on the unchanged tree; the struct's bound alone refused at thirteen sites, all in `vec.npk`; twelve verdicts moved and no other; masked IR 72 of 72 identical; eight element kinds and three consumer shapes refused; the fill 7 at −O0 and through `opt -O2`; a `Copy` derive over a `cstring` `NITPICK-DERIVE-006`
+- [x] `struct:Vec<T: Copy>` and every verb bounded; `Vec<string>` refused at the type and at each of thirteen verbs, one fixture, fourteen sites; the ten owning units and `vec_unit`'s owning section retired; O-R3 struck (PD-32) — **RX-188, `3baefa6`**: the fixture's fourteen sites, 51:5 … 66:18, and against `HEAD`'s `vec.npk` one, 60:31; `vec_push` unbounded in a copy refused at its definition, `vec.npk:597:28`; exempt 15; masked IR 72 of 73, `vec_unit` the one; `240/240`
+- [x] `vec_free_owning` and `drop_element` removed with their re-export and unit; the guard on `vec_free` still 94 (PD-33) — **RX-189, `fc0cf01`**: none left in `src/` code; `vec_oob_free_twice` 94 at −O0 and through `opt -O2`; exempt 14; masked IR 72 of 72; `238/238`
+- [x] `check_vec_elements_own_nothing` kept and restated: a pointer-holding `Copy` struct compiles and the check fails it; a POD struct without `Copy` is refused and the check clears it (PD-34) — **RX-190, `cd1ec86`**: `Vec<Pp>` over an `int64->` and `Vec<Sp>` over a `uint8[]` compile and fail the check by name; `Vec<Np>` `NITPICK-TYPE-017` at 4:22 and cleared, eleven element types; `238/238`
+- [x] the prose: the status, `238` units, `src/core/` at 37 unit programs, and what cycles 0.2 and C-1's inherit — **`975bdc8`**: `238/238`, `check_refs` `All clean.`; CI run 36426481012 on `975bdc8`; block 5's sweep `SAME`, every line read, and the one §7 did not account for — O-N22's list naming `drop_element` — dated in the record commit (`0.1.1b.md`'s record)
 
 ### 0.1.2 — the explicit stack
 - [ ] a `Vec<Frame>` bounded by `NREGEX_NEST_DEPTH`, **no native recursion anywhere** (RX-032)

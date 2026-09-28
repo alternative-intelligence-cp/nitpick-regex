@@ -607,6 +607,8 @@ means, and given `SAFETY.md` S-23b's last row (RX-167). **What it blocks (W-27):
 nothing in `src/`, where no generic takes a lent bare `T` — `vec_push`, `vec_set`,
 `vec_insert` and `drop_element` take `move T`; and it is not a clause of cycle
 0.0's gate.
+*(2026-09-28, cycle 0.1.1b — RX-189: `drop_element` is removed with `vec_free_owning`;
+the three verbs still take `move T`, and since RX-188 their `T` is `Copy`.)*
 
 
 ### ~~O-N32 — **the workbench registry's**: a `pick` arm naming a variant its enum lacks was accepted by the frontend and refused by the emitter, `NITPICK-EMIT-002`~~ — **DISCHARGED upstream: the compiler's DEF-142 and DEF-143, its landing 79 (`44ec7e9`), carried by the pin `5fbaf4a`**
