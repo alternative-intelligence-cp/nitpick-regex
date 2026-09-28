@@ -8,8 +8,10 @@ byte offset on every error.**
 > adoption of compiler `5fbaf4a` with the ecosystem audit's items, is DONE (2026-09-27)** — RX-176 … RX-180 in
 > seven work commits, `2c748d4` … `186db2c`, 250/250 at `5fbaf4a` and in CI run 36338559696 — **and [`0.1.1`](0.1.1.md),
 > the core grammar, is DONE (2026-09-27)** — RX-181 … RX-187 in four work commits, `34b2801` … `1953d72`, 260/260 at
-> `5fbaf4a` and in CI run 36347047570. **Next, open question O-R3 as a subcycle of its own, then 0.1.2** (the board,
-> 2026-09-27). *(Until 0.1.1's record this banner said 0.1.1 "is next, planned and rehearsed at `5fbaf4a`".)*
+> `5fbaf4a` and in CI run 36347047570 — **and [`0.1.1b`](0.1.1b.md), open question O-R3 — `Vec<T: Copy>`, the
+> bound on the type — is PLANNED** (2026-09-27, rehearsed at `5fbaf4a`), **then 0.1.2**. *(Until 0.1.1b's plan this
+> banner said "Next, open question O-R3 as a subcycle of its own, then 0.1.2" (the board, 2026-09-27).)* *(Until
+> 0.1.1's record it said 0.1.1 "is next, planned and rehearsed at `5fbaf4a`".)*
 > *(Until 0.1.0b's record this banner said
 > 0.1.0b and 0.1.1 "are PLANNED (2026-09-27, one planner dispatch, both rehearsed at `5fbaf4a`) and run in that
 > order".)* *(Until
@@ -47,6 +49,7 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
 | [0.1.0](0.1.0.md) | **The cursor and the AST** — the byte cursor with offsets, the AST arena, the node kinds | a parser skeleton that accepts `a` and reports an offset for `(` |
 | [0.1.0b](0.1.0b.md) | **The adoption of `5fbaf4a`, and the ecosystem audit's items** — probe 18 refused, `Pod` into `Copy`, the target pins held, D-332's count, EC4 EC5 EC11 ED1 ED3 ES4 EK2 | `250/250` at `5fbaf4a`, and CI asserting the emission |
 | [0.1.1](0.1.1.md) | **The core grammar** — literals, concatenation, alternation, groups, quantifiers — and the error text | `SYNTAX.md` §1's grammar minus classes, escapes and flags; every refusal at its byte, with a sentence saying what to write |
+| [0.1.1b](0.1.1b.md) | **`Vec<T: Copy>`** — open question O-R3: the bound on the type and every verb, the owning units and `vec_free_owning` retired, the element check restated | `Vec<string>` refused at the type and at each verb; `238/238` at `5fbaf4a` |
 | 0.1.2 | **The explicit stack** — nesting, `NREGEX_NEST_DEPTH`, and the refusal | 10 000 levels deep is a `NestTooDeep`, not a segfault |
 | 0.1.3 | **Classes** — items, ranges, Perl and POSIX classes, nesting, `&&`/`--`/`~~` | every class form in §5, parsed to unresolved items |
 | 0.1.4 | **Escapes and flags** — every escape in §1, flag scoping, `(?-u)` | the escape table, and `(?i)` scoped correctly |
@@ -90,6 +93,13 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
 - [x] §8's group heads — lookaround, atomic, recursion, `(?P=`, the comment group — and a possessive quantifier refused where they are read (PD-29) — **RX-185, `6feaa54`**: `parse_refusals` cases 51–63 and 21–23; `(?-1`'s detail the digit, the head's last byte, as Y-30 says (the patch amended, `0.1.1.md`'s record)
 - [x] `[`, an escape other than punctuation, and a flag refused provisionally, pinned by no test (PD-30) — **RX-186, `6feaa54`**: none pinned but `(?Px)`, `UnknownFlag` at the `P` — final, since `P` is no flag, and so stated in Y-31 and RX-186 (`parse_refusals` case 64; the patch amended, `0.1.1.md`'s record)
 - [x] `pattern_error_text`: every kind a sentence — what is wrong, at which byte, what to write instead — 0.1.1's held to the letter (PD-31) — **RX-187, `09f000e`**: twenty-two sentences held to the letter and every kind naming its byte (`pattern_error_text.npk`), 5 with one sentence changed; no new symbol, and the bill `core`'s eleven before and after; 260/260 — one sentence reads the wrong reason for one input, a NUL inside a group name (`0.1.1.md`'s record, for the author)
+
+### 0.1.1b — `Vec<T: Copy>`, open question O-R3
+- [ ] the shape measured before it is taken: the bound compiles, every verb must repeat it, twelve files move and no other, the masked IR of every other program identical (`0.1.1b.md` §1)
+- [ ] `struct:Vec<T: Copy>` and every verb bounded; `Vec<string>` refused at the type and at each of thirteen verbs, one fixture, fourteen sites; the ten owning units and `vec_unit`'s owning section retired; O-R3 struck (PD-32)
+- [ ] `vec_free_owning` and `drop_element` removed with their re-export and unit; the guard on `vec_free` still 94 (PD-33)
+- [ ] `check_vec_elements_own_nothing` kept and restated: a pointer-holding `Copy` struct compiles and the check fails it; a POD struct without `Copy` is refused and the check clears it (PD-34)
+- [ ] the prose: the status, `238` units, `src/core/` at 37 unit programs, and what cycles 0.2 and C-1's inherit
 
 ### 0.1.2 — the explicit stack
 - [ ] a `Vec<Frame>` bounded by `NREGEX_NEST_DEPTH`, **no native recursion anywhere** (RX-032)

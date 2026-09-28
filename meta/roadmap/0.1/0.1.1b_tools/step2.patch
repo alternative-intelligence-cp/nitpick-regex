@@ -1,0 +1,230 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 6dc27465edd5a4c9faf9c0c5a138860314e6495f..7c605ba7ec503b75f4fc4136c1e078c665ccb225 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -2510,6 +2510,10 @@ RX-123 makes, and the single definition is what made this a one-line fix);
+ that an error channel here lands on the search path).
+ 
+ ### RX-144 — the FREE paths stopped on the allocator's check and reported `Unreachable`, so "`cap <= 0` traps `OutOfBounds` like every other misuse in this file" was not true of two of them
++> **SUPERSEDED IN PART by RX-189 (@@DATE@@)** — `vec_free_owning` and its unit
++> `vec_oob_free_owning_after_free`: removed at cycle 0.1.1b, a `Vec<T: Copy>` holding nothing
++> to drop. The guard on `vec_free`, `sset_free`'s inheritance and the lesson about a claimed set
++> stand.
+ > **SUPERSEDED IN PART by RX-156 (2026-09-25)** — its reading that 95 reported
+ > the wrong thing: `Unreachable` is the language's code for a double free. The
+ > guard and its 94 stand, as a trade RX-156 states.
+@@ -3179,6 +3183,8 @@ the pending exit written in the list only — the marker is what a reader of the
+ unit sees, so it must say which failure it excuses.
+ 
+ ### RX-155 — `Vec<T>` is for a `T` that owns nothing, because nothing in the language keeps an owner out; the restriction is stated per verb, measured per verb, and enforced over `src/`
++> **SUPERSEDED IN PART by RX-189 (@@DATE@@)** — *"The two stay apart for cost"*: `vec_free_owning`
++> is removed at cycle 0.1.1b, a `Vec<T: Copy>` having nothing to drop.
+ > **SUPERSEDED IN PART by RX-188 (@@DATE@@)** — *"nothing in the language keeps an owner out"*:
+ > `Vec` is `Vec<T: Copy>` since cycle 0.1.1b, so the compiler refuses one at the type and every
+ > verb; the units measuring each verb, which that bound refuses, are retired; and `tests/` is
+@@ -3291,6 +3297,9 @@ public API change for a rule a tree check enforces over the code that ships;
+ later cycle can break by writing one `Vec<string>` is a rule that asks for care.
+ 
+ ### RX-156 — a double free traps `OutOfBounds` at this library's guard, which is a TRADE against the language's own code; and the guard reaches one binding
++> **SUPERSEDED IN PART by RX-189 (@@DATE@@)** — its reason *"the guard is what keeps
++> `vec_free_owning` from running destructors over a freed block"*: that function is removed at
++> cycle 0.1.1b. The guard and its 94 stand on the others.
+ > **SUPERSEDED IN PART by RX-160 (2026-09-25)** — its premise that R-8's capture copy at cycle 0.8 is the one
+ > place the specification copies a `Vec` (false three ways, BL-8), the reach it gave N-15, and N-15's disposition:
+ > DEFERRED TO 0.0.4d, before the close, by the author's decision on question 9. The guard and the 94 stand.
+@@ -4612,3 +4621,27 @@ renamed** — its name is its history, as probe 18's was (RX-176); **`move` drop
+ `vec_set` and `vec_insert` take** — under `T: Copy` it is a copy either way, and it would change every call site
+ for nothing; **waiting for a consumer that needs an owning element** — none is planned, and the bound is what
+ keeps a later cycle from writing one by accident.
++
++### RX-189 — `vec_free_owning` and `drop_element` are removed: a `Vec<T: Copy>` holds nothing to drop, so `vec_free` is the whole free
++
++**@@DATE@@, cycle 0.1.1b (the plan's PD-33), at compiler `5fbaf4a`.** It supersedes in part RX-144 — the guard
++heading `vec_free_owning`, and that function's unit; RX-156 — its reason that the guard keeps `vec_free_owning`
++from running destructors over a freed block; and RX-155 — *"the two stay apart for cost"*. The guard on
++`vec_free`, and its 94, stand.
++
++**Measured at `5fbaf4a`, over RX-188's tree.** At every `T` the type admits, `vec_free_owning` does what
++`vec_free` does, in O(`count`) where `vec_free` is O(1): each `move(v.items[j])` is a copy and `drop_element`
++drops nothing. Its callers were the ten retired units, `vec_unit.npk`'s retired section, and
++`tests/unit/vec_oob_free_owning_after_free.npk` — RX-144's unit for the guard's worse half, a walk over a freed
++block that no `T: Copy` can make run a destructor. `src/` never called it, `core.npk` re-exported it, and the
++public surface, `src/lib.npk`, never reached it. Removed, every remaining program's IR is RX-188's but for what
++a removal moves, the site-line table and the generated drops' numbering; `vec_oob_free_twice.npk` holds 94.
++
++**The decision.** `vec_free_owning`, `drop_element`, `core.npk`'s re-export and
++`vec_oob_free_owning_after_free.npk` are deleted, and `vec.npk` keeps a paragraph where the managed half was.
++`vec_free` is the one free.
++
++*Alternatives declined:* **kept as an alias of `vec_free`** — two names for one operation, one of them saying
++"owning" at a type that cannot own; **kept until a cycle lifts S-23a** — that cycle needs the compiler's
++`List<T>` discards (RX-155), and the history keeps this one; **its unit kept, pointed at `vec_free`** —
++`vec_oob_free_twice.npk` is that unit already.
+diff --git a/meta/specs/SAFETY.md b/meta/specs/SAFETY.md
+index b32232cc0ddb0049351f16e795e772d5979b54c2..749eaf9d447b6b40d5e653e60c2b5c1531812bab 100644
+--- a/meta/specs/SAFETY.md
++++ b/meta/specs/SAFETY.md
+@@ -592,6 +592,9 @@ than a style note:**
+   reaches one binding there as before — `vec_alias_param_grow.npk` is a double
+   free it cannot see, 95.)* *(Refused at `c970483`, cycle 0.0.4e: that file is a
+   rejection fixture, `NITPICK-TYPE-085` — RX-169.)*
++  *(@@DATE@@, cycle 0.1.1b — RX-189: `vec_free_owning` is gone, a `Vec` holding
++  nothing to drop since RX-188; the guard heads `vec_free`, and
++  `vec_oob_free_owning_after_free.npk` went with its function.)*
+ - **An unchecked index is a WRONG ANSWER, not a crash.** That inverts the
+   failure mode §1 advertises. A wrong program counter in an engine reads an
+   unrelated heap word as an instruction; a wrong sparse-set probe adds a thread
+diff --git a/src/core/core.npk b/src/core/core.npk
+index be4f6fc34c60deb260672fe13b5f7559e8b7f915..ecc4a06c16ddd9f15a867c8bdc337d5494b5b936 100644
+--- a/src/core/core.npk
++++ b/src/core/core.npk
+@@ -49,7 +49,6 @@ pub use "./vec.npk".vec_oob;
+ pub use "./vec.npk".vec_init;
+ pub use "./vec.npk".vec_init_zeroed;
+ pub use "./vec.npk".vec_free;
+-pub use "./vec.npk".vec_free_owning;
+ pub use "./vec.npk".vec_reserve;
+ pub use "./vec.npk".vec_get;
+ pub use "./vec.npk".vec_set;
+diff --git a/src/core/vec.npk b/src/core/vec.npk
+index a9ddf2102f615890ba33dbc7d64329e025af805f..b03c4b281155e93a8c610163fd3c38e68c3d9bd5 100644
+--- a/src/core/vec.npk
++++ b/src/core/vec.npk
+@@ -185,6 +185,8 @@
+ // BY CONSTRUCTION, after which the second handle this guard cannot see does
+ // not compile. `tests/unit/vec_alias_*.npk` and `sparseset_alias_*.npk` pin
+ // today's behaviour and are what 0.0.4d turns into rejection fixtures.)*
++// *(@@DATE@@, cycle 0.1.1b -- RX-189: `vec_free_owning` is gone, so the guard heads
++// `vec_free` alone, and `sset_free` inherits it by calling it.)*
+ //
+ // ============================================================================
+ // MOVE-ONLY, AND WHAT A LOAN STILL REACHES (S-23b; RX-161, RX-162)
+@@ -269,6 +271,8 @@
+ // exactly this shape retaining 125 MiB over two million elements. Where the
+ // obligation is managed the gate is a MEMORY CAP, never an exit code, and
+ // `vec_free_owning` below is the function that discharges it.
++// *(@@DATE@@, cycle 0.1.1b -- RX-189: a `Vec` holds nothing managed since RX-188, so
++// `vec_free` discharges it whole, and `vec_free_owning` is gone.)*
+ //
+ // ============================================================================
+ // WHAT A `Vec` MAY HOLD: A `T` THAT OWNS NOTHING (S-23a, RX-155)
+@@ -476,6 +480,7 @@ pub func:vec_init<T: Copy> = Vec<T>(int64:cap) never fails {
+ // element compiles, links and runs in a `Vec` and in a fixed array alike --
+ // measured at `950bb1d`, `3d15ac9` and `c3bdae2`. The POD shape is this
+ // library's design, and S-23a is what now makes it a rule.)*
++// *(@@DATE@@, cycle 0.1.1b -- RX-189: no `T` owns since RX-188, and this is the one free.)*
+ pub func:vec_free<T: Copy> = NIL(Vec<T>->:v) never fails {
+     // DEAD `Vec` -- see the header. Without this, a double free reaches
+     // `dalloc` with a pointer the allocator has already reclaimed and stops on
+@@ -790,53 +795,9 @@ pub func:vec_init_zeroed<T: Copy> = Vec<T>(int64:n) never fails {
+     pass Vec{ items: mem =>! wild T->, count: n, cap: k, move_only: [] };
+ };
+ 
+-// ---- the managed half ------------------------------------------------------
+-
+-// FREES THE BLOCK **AND DROPS EVERY ELEMENT**, for an owning `T`.
+-//
+-// This is the function `exit 0` cannot check and a memory cap can. Dropping
+-// requires MOVING each element out — `move(v.items[j])` binds the element to a
+-// local that drops at the end of its iteration. It is separate from `vec_free`
+-// for COST: `vec_free` is O(1) at every `T` and this is O(`count`), and at the
+-// non-owning `T` `SAFETY.md` S-23a allows, both are correct -- so this exists
+-// for the managed-half gate and the owning units, which measure what S-23a
+-// excludes (RX-155). RX-126 records that this shape is outside the compiler's
+-// DEF-8 entirely: `Vec<T>` does not drop, so there is no drop flag to get
+-// wrong.
+-//
+-// *(Until the third cycle-0.0 audit's triage the reason given here was that "a
+-// `move` out of an element is refused for a `T` that does not own (there is
+-// nothing to move), so one function cannot serve both". False at `3d15ac9` and
+-// at `c3bdae2`: `vec_free_owning::<int64>` compiles and runs, because a `move`
+-// of a scalar is its copy (D-264).)*
++// ---- the managed half: retired ----------------------------------------------
+ //
+-// obligation: never fails ensures v.cap == 0i64
+-pub func:vec_free_owning<T: Copy> = NIL(Vec<T>->:v) never fails {
+-    // DEAD `Vec` -- see the header (RX-144). Worse here than in `vec_free`:
+-    // without it the loop below MOVES elements out of a freed block and drops
+-    // them, so a `vec_free_owning` after a `vec_free` runs destructors over
+-    // reclaimed memory before `dalloc` ever notices.
+-    if (v.cap <= 0i64) { drop vec_oob(v.cap - 1i64); }
+-    int64:j = 0i64;
+-    int64:live = v.count;
+-    while (j < live) decreases live - j {
+-        // Bound, then dropped at the end of this iteration's scope. Binding is
+-        // the point: an owning value that is never bound is never dropped,
+-        // which is the compiler's own D-183 debt.
+-        T:e = move(v.items[j]);
+-        drop drop_element(move(e));
+-        j = j + 1i64;
+-    }
+-    v.count = 0i64;
+-    dalloc(v.items =>! wild int8->);
+-    v.cap = 0i64;
+-    pass NIL;
+-};
+-
+-// The sink an owning element is moved into so that it drops. It does nothing
+-// with the value on purpose: taking it by `move` makes this function the
+-// owner, and it drops at the closing brace like any other bound owner.
+-func:drop_element<T> = NIL(move T:e) never fails {
+-    discard(e);
+-    pass NIL;
+-};
++// `vec_free_owning`, which moved each element out and dropped it before freeing the
++// block, and its sink `drop_element` are gone since cycle 0.1.1b (RX-189): under the
++// type's `T: Copy` there is nothing to drop, so `vec_free` is the whole free. RX-155
++// measured what it did at an owning `T`, and RX-144 why its guard mattered most.
+diff --git a/tests/unit/vec_oob_free_owning_after_free.npk b/tests/unit/vec_oob_free_owning_after_free.npk
+deleted file mode 100644
+index 9c642f967d5df075d026ef79362fcb31443b2a28..0000000000000000000000000000000000000000
+--- a/tests/unit/vec_oob_free_owning_after_free.npk
++++ /dev/null
+@@ -1,47 +0,0 @@
+-// expect-exit: 94
+-//
+-// `Vec<T>` — OUT OF RANGE: `vec_free_owning` on an already-freed `Vec`.
+-//
+-// RX-144, and the worse half of the pair. `vec_free_owning` does not merely
+-// `dalloc`: it walks `0 .. count` MOVING each element out of the block and
+-// dropping it. Without the `cap <= 0` guard, a call after `vec_free` would run
+-// element destructors over memory the allocator has reclaimed, and only reach
+-// `dalloc`'s own check afterwards. Measured **exit 95, `Unreachable`** at
+-// `3d15ac9`.
+-//
+-// That it is currently survivable is an accident of `vec_free` also setting
+-// `count = 0`, which makes the loop body execute zero times. The guard does not
+-// rely on that: `count` is a field a caller can write, since a `pub struct` has
+-// no private fields (D-149), and the poison that matters is `cap`.
+-// *(Dated 2026-09-25, cycle 0.0.4c: a caller can no longer write it -- `count`
+-// and `cap` are `sealed` since then, `NITPICK-TYPE-079` outside `vec` (RX-153).
+-// The guard still keys on `cap`, the poison `vec_free` writes.)*
+-mod:vec_oob_free_owning_after_free;
+-
+-use "../../src/core/vec.npk".*;
+-
+-func:main = int32(cstring[]:argv) {
+-    Vec<int64>:v = raw vec_init::<int64>(4i64);
+-    drop vec_push(@v, 11i64);
+-    drop vec_free(@v);
+-    drop vec_free_owning(@v);       // cap is already 0
+-
+-    exit 65i32;                     // reached only if neither call trapped
+-};
+-
+-func:failsafe = int32(Error:e) {
+-    pick (e) {
+-        (HeapBadRequest) { exit 91i32; },
+-        (HeapOom)        { exit 92i32; },
+-        (IntOverflow)    { exit 93i32; },
+-        (OutOfBounds)    { exit 94i32; },
+-        (Unreachable)    { exit 95i32; },
+-        (WildLeak)       { exit 96i32; },
+-        (StackExhausted) { exit 106i32; },
+-        (MachineFault) { exit 107i32; },
+-        (DecreasesViolated) { exit 108i32; },
+-        (LimitViolated) { exit 109i32; },
+-        (*)              { exit 99i32; }
+-    }
+-    exit 9i32;
+-};

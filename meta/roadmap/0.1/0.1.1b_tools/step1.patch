@@ -1,0 +1,1461 @@
+diff --git a/harness/baseline/RESIDUE.txt b/harness/baseline/RESIDUE.txt
+index e3e12e0c8406a9823f13dbc7e9bf646b0ea5d295..e6ab3e52135cc2ada54ae311e8d83ea500165395 100644
+--- a/harness/baseline/RESIDUE.txt
++++ b/harness/baseline/RESIDUE.txt
+@@ -35,7 +35,7 @@
+ npk_alloc	`alloc` -- every `Vec` and `Bytes` block. RX-006 makes the containers ours, so the allocator is reached directly.
+ npk_calloc	`calloc` -- `vec_init_zeroed`, the zero-filled block a `SparseSet`'s `sparse` array needs so no key reads uninitialised storage.
+ npk_ralloc	`ralloc` -- `Vec`'s doubling and `Bytes`' growth. B-11's shape is "doubling through `#size_of<T>()`".
+-npk_string_concat	`string_concat`, in TWO places since RX-138. (1) the managed-half gate (`tests/unit/vec_owning_*.npk`), which builds owning `string` elements on purpose to have something a `wild` block count cannot see. (2) `bytes_copy_string`, ONCE, as `string_concat("", view)` -- the cheapest spelling of an owned copy that is `never fails` and so charges the error budget nothing, where `string_slice`'s `Result` would have needed a `?!` that can never fire. P-21 is unchanged and is about LOOPS: `src/` still composes output into a `Bytes` and never by repeated concatenation.
++npk_string_concat	`string_concat`, in TWO places since RX-138. (1) the managed-half gate (`tests/unit/vec_owning_*.npk`), which builds owning `string` elements on purpose to have something a `wild` block count cannot see -- retired at cycle 0.1.1b, `Vec<T: Copy>` refusing an owning element (RX-188), so (2) is the one reference now. (2) `bytes_copy_string`, ONCE, as `string_concat("", view)` -- the cheapest spelling of an owned copy that is `never fails` and so charges the error budget nothing, where `string_slice`'s `Result` would have needed a `?!` that can never fire. P-21 is unchanged and is about LOOPS: `src/` still composes output into a `Bytes` and never by repeated concatenation.
+ memcpy	`mcpy`, which the emitter lowers to `llvm.memcpy` and the linker resolves as plain `memcpy` -- NOT `npk_memcpy`, which is why it looks out of place beside the others. `Bytes` grows by allocating and copying, because `TYPE_REFERENCE.md` §23 has no `buffer_resize`, and `bytes_extend` is one copy rather than a push loop.
+ npk_buffer_new	`buffer_new`, `Bytes`' storage. A `buffer` is the managed owning byte cell and its scope-exit drop IS the reclaim (D-183), so this appears without a matching free.
+ npk_string_from_bytes	`string_from_bytes`, in `bytes_copy_string`, where it names the live prefix of the `Bytes` for the copy on the next line. IT IS A VIEW -- the compiler's runtime sets cap 0 and its own comment beside it reads "cap 0 is the not-mine bit" -- and the view never leaves that expression. It used to be RETURNED, which was RX-138's use-after-free.
+diff --git a/harness/treecheck.py b/harness/treecheck.py
+index b214280429e7bbfdc1b94e0585b794c49ebf5904..9778a4f36a3ebf24c6d23a7d8e035903f0f14fbe 100644
+--- a/harness/treecheck.py
++++ b/harness/treecheck.py
+@@ -792,7 +792,9 @@ def check_vec_elements_own_nothing(root):
+     for rel, code in sorted(codes.items()):
+         params = _params_of(code)
+         for off, elem, how in _vec_elements(code):
+-            if rel == owner and elem in params:
++            # The declaration's own list is not an element, and since RX-188 it reads
++            # `Vec<T: Copy>` -- the parameter with its bound.
++            if rel == owner and elem.split(":")[0].strip() in params:
+                 exempt += 1
+                 continue
+             counts[how] += 1
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index b9907af10234e28b60bae90a18f35f102ebedfe5..6dc27465edd5a4c9faf9c0c5a138860314e6495f 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -533,6 +533,9 @@ toolchain `950bb1d` under LLVM 20.1.2. Where a probe refuted the plan's
+ hypothesis, the decision says so.*
+ 
+ ### RX-110 — the leak gate says what it covers, everywhere it is stated
++> **SUPERSEDED IN PART by RX-188 (@@DATE@@)** — its exception *"any future owning
++> `Vec<GroupInfo>` or `Vec<string>`"*: a `Vec` refuses an owning element since cycle
++> 0.1.1b. `Hir.names` and the rest of the decision stand.
+ > **SUPERSEDED IN PART by RX-155 (2026-09-25)** — its parenthesis "TYPE-046
+ > forces it" of the POD structures. Nothing forces it; `SAFETY.md` S-23a now
+ > requires it of anything a `Vec` holds. The decision stands.
+@@ -3176,6 +3179,10 @@ the pending exit written in the list only — the marker is what a reader of the
+ unit sees, so it must say which failure it excuses.
+ 
+ ### RX-155 — `Vec<T>` is for a `T` that owns nothing, because nothing in the language keeps an owner out; the restriction is stated per verb, measured per verb, and enforced over `src/`
++> **SUPERSEDED IN PART by RX-188 (@@DATE@@)** — *"nothing in the language keeps an owner out"*:
++> `Vec` is `Vec<T: Copy>` since cycle 0.1.1b, so the compiler refuses one at the type and every
++> verb; the units measuring each verb, which that bound refuses, are retired; and `tests/` is
++> outside the check for a reason that is gone. The rule stands, and the table as a measurement.
+ > **SUPERSEDED IN PART by RX-168 (2026-09-26)** — its declined alternative, *"a marker-trait bound
+ > (`vec_get<T: Pod>`)"*: at `c970483` the old `vec_get` does not compile, and the language refuses an
+ > owning `Pod` impl written as declared, so the bound is taken. The rule, its check and its table stand.
+@@ -3435,6 +3442,8 @@ compiler** — `npkc` has no mode that prints a module graph (its usage line at
+ keeps the compiler's tree out of this harness.
+ 
+ ### RX-158 — `check_vec_elements_own_nothing` is DEFAULT-DENY: it clears only what it can see owns nothing
++> **SUPERSEDED IN PART by RX-188 (@@DATE@@)** — *"so do its verbs, units and table"*: the owning
++> units are retired, `Vec<T: Copy>` refusing them since cycle 0.1.1b.
+ > **SUPERSEDED IN PART by RX-166 (2026-09-25)** — three details of its mechanism: a macro splice was cleared as
+ > the POD type it was named after, `fixed`, `nodrop` and `move` were not stripped as qualifiers, and every
+ > parenthesis in an enum body was read as a payload. Default-deny, its scalars and its twelve shapes stand.
+@@ -3966,6 +3975,8 @@ every consumer; **holding the close for N-25** — it is no clause of cycle 0.0'
+ gate and `src/` has no exposure; whether it should become one is the author's.
+ 
+ ### RX-168 — `vec_get` takes `T: Pod`, a trait an owning type cannot implement as it is declared, and `vec_pop` spells its move: DEF-104's gate reaches `src/`
++> **SUPERSEDED IN PART by RX-188 (@@DATE@@)** — its declined alternative `struct:Vec<T: Pod>`,
++> O-R3: taken at cycle 0.1.1b as `Vec<T: Copy>`, its gate met since RX-176 and RX-177.
+ > **SUPERSEDED IN PART by RX-177 (2026-09-27)** — its trait: `vec_get`'s bound is the prelude's `Copy` (the
+ > compiler's D-327) since cycle 0.1.0b, and `Pod`, `pod_copy` and `core.npk`'s re-export are gone. The bound's
+ > reason, and `vec_pop`'s spelled move, stand.
+@@ -4346,6 +4357,8 @@ on; **the lexer re-read left to the audit** — the audit found this repository
+ checked only when someone remembers is the time audit's E1 in this tree.
+ 
+ ### RX-177 — `Pod` retires into the prelude's `Copy`: `vec_get` takes `T: Copy`, a node derives it, and a consumer implements it in one line
++> **SUPERSEDED IN PART by RX-188 (@@DATE@@)** — *"at the same position"*: since cycle 0.1.1b
++> `Vec<string>` is refused at the type first, and the fixture names all fourteen sites.
+ 
+ **2026-09-27, cycle 0.1.0b (the plan's PD-21), at compiler `5fbaf4a`** — the replacement RX-168 was shaped for and
+ `nitpick-time`'s PD-49 planned for both libraries, now that the compiler's D-327 (landing 73) is in the pin.
+@@ -4550,3 +4563,52 @@ the construct** — `API.md` fixes the signature, and a caller holding the patte
+ hold, where `bytes_put_uint` already exists for this; **one generic sentence for the kinds later subcycles
+ produce** — every kind renders a real sentence now, and each subcycle holds its own to the letter when it
+ produces them.
++
++## The bound on the type — cycle 0.1.1b, open question O-R3
++
++### RX-188 — `Vec` is `Vec<T: Copy>`: S-23a is the type's, so an owning element is refused wherever it is written, and the units that measured one retire
++
++**@@DATE@@, cycle 0.1.1b (the plan's PD-32), at compiler `5fbaf4a` — open question O-R3, decided.** It
++supersedes in part RX-155 — *"nothing in the language keeps an owner out"*, its per-verb units and its reason
++for leaving `tests/` outside the check; RX-168 — its declined alternative `struct:Vec<T: Pod>`, O-R3 itself;
++RX-177 — its fixture's single site; RX-158 — *"so do its verbs, units and table"*; and RX-110 — its exception
++*"any future owning `Vec<GroupInfo>` or `Vec<string>`"*. Their rules stand.
++
++**The gate O-R3 named is met** — the compiler refuses an impl that adds `move` to a lent parameter,
++`NITPICK-TYPE-014` (RX-176), and `vec_get`'s bound is the prelude's `Copy`, a marker with no method to
++mis-declare (RX-177) — **and the shape was measured before it was taken**, at `5fbaf4a`:
++
++- **`pub struct:Vec<T: Copy>` compiles, and a generic naming `Vec<T>` must state the bound too**: without it
++  each of the thirteen verbs that names `Vec<T>` is `NITPICK-TYPE-017` at its definition, *"`T` does not
++  implement `Copy`, which `Vec`'s parameter `T` requires"*. With it, every file instantiating `Vec` at a scalar
++  or a `Copy` struct compiles unchanged, and **the IR of all seventy-two programs and roots that compile before
++  and after is byte-identical**: the bound changes no code.
++- **At `Vec<string>` it is refused at every site**: where the type is first written, each turbofish, and each
++  verb's call, the diagnostic naming the verb — `vec_owning_get_moves_out.npk`'s new body, one call per verb,
++  reports fourteen. A consumer's struct field, a parameter and a generic wrapper's unbounded `Vec<U>` are refused
++  the same way, and so is every element that is not `Copy` written as `T`: `Bytes`, a `Vec`, a `cstring`, a
++  pointer, a slice, an optional and a fixed array.
++- **What it refuses in this tree is twelve files, not O-R3's seven**: the ten `vec_owning_*` units — seven per
++  verb, the managed-half pair `vec_owning_freed`/`vec_owning_leak`, and `vec_owning_freed_small_rounds` —
++  `vec_unit.npk`'s `Vec<string>` section, and the rejection fixture's one site becoming fourteen.
++- **The tree check misread the declaration**: `check_vec_elements_own_nothing` exempts `vec.npk`'s `Vec<T>`
++  over its own parameter, and `struct:Vec<T: Copy>` put the bound inside the brackets, so the run failed on
++  the declaration as an element. The exemption now reads the parameter before its bound.
++- **A fill becomes expressible**: under `T: Copy` a generic `vec_fill` that copies its `x` into each slot
++  compiles and runs, where `vec_init_zeroed`'s comment records it refused `NITPICK-TYPE-046`. None is written.
++
++**The decision.** `Vec` is `Vec<T: Copy>`, the bound repeated on every verb. The ten units are deleted: their
++measurements are RX-155's table, taken at `c3bdae2`, and nothing can reach them now. `vec_unit.npk` loses its
++owning section, exits 130 and 131 with it. `vec_owning_get_moves_out.npk` keeps its name — RX-155's and RX-168's
++citations find it — and pins the refusal at every verb. S-23a stands; the compiler holds its "drops nothing"
++half for every consumer, and an element type derives `Copy`, as `AstNode`, `Frame` and `GroupName` do.
++
++*Alternatives declined:* **the bound on `vec_get` alone, as since RX-168** — twelve verbs still compile at
++`Vec<string>`, six of them orphaning, and a harness check over `src/` is all that stands there; **the units kept
++as rejection fixtures** — ten copies of one refusal, each header describing a measurement the language no longer
++admits; **kept as programs over a test-only unbounded copy of `Vec`** — they would measure a type that no longer
++ships, and a cycle that lifts S-23a has RX-155's table and the compiler's `List<T>` to start from; **the fixture
++renamed** — its name is its history, as probe 18's was (RX-176); **`move` dropped from the `T` that `vec_push`,
++`vec_set` and `vec_insert` take** — under `T: Copy` it is a copy either way, and it would change every call site
++for nothing; **waiting for a consumer that needs an owning element** — none is planned, and the bound is what
++keeps a later cycle from writing one by accident.
+diff --git a/meta/OPEN_QUESTIONS.md b/meta/OPEN_QUESTIONS.md
+index 806d36e3e27c71f4aeae121ee8c9e2eabfa223c3..77a7dc7182126e3c186b75ae2036bd73a1523c22 100644
+--- a/meta/OPEN_QUESTIONS.md
++++ b/meta/OPEN_QUESTIONS.md
+@@ -884,8 +884,13 @@ movemask intrinsic, which is a better request than a speculative one.
+   avoids the Pike VM for simple captures. It doubles the compiler's output and
+   needs its own correctness argument. **Decide at cycle 0.8**, where the DFA's
+   capture story is settled; `O-C2` is the compiler half.
+-- **O-R3 — `struct:Vec<T: Pod>`: S-23a stated at the type, not only at
+-  `vec_get`.** Since cycle 0.0.4e `vec_get` takes `T: Pod` (RX-168), which an owning
++- ~~**O-R3 — `struct:Vec<T: Pod>`: S-23a stated at the type, not only at
++  `vec_get`.**~~ — **DECIDED, RX-188 (cycle 0.1.1b, @@DATE@@): `Vec<T: Copy>`, the
++  bound repeated on every verb.** Measured at `5fbaf4a` first: every use at a `Copy`
++  element emits byte-identical IR; `Vec<string>` is `NITPICK-TYPE-017` at the type
++  and at each verb; and the owning units it refuses are ten, not seven — the
++  managed-half pair and its small-rounds control as well. The question as asked:
++  Since cycle 0.0.4e `vec_get` takes `T: Pod` (RX-168), which an owning
+   type cannot implement as declared, so the one verb that hands an element back
+   refuses an owning `T`. Bounding the TYPE would refuse `Vec<string>` itself — every
+   verb, every consumer — and retire `check_vec_elements_own_nothing` into a belt;
+diff --git a/meta/specs/SAFETY.md b/meta/specs/SAFETY.md
+index 116bf7343dc3a8be26e3f5ca2c0c4e4a71e49090..b32232cc0ddb0049351f16e795e772d5979b54c2 100644
+--- a/meta/specs/SAFETY.md
++++ b/meta/specs/SAFETY.md
+@@ -51,6 +51,11 @@ of an owning element out of a `Vec` is refused rather than a move (S-23a,
+ RX-168).)* *(Since cycle 0.1.0b, compiler `5fbaf4a`, the bound is the prelude's
+ `Copy` — RX-177.)*
+ 
++*(@@DATE@@, cycle 0.1.1b — RX-188: for a `Vec` the move-only row's **"nothing keeps
++an owner out"** is false. `Vec` is `Vec<T: Copy>`, so an owning element is
++`NITPICK-TYPE-017` at the type and at every verb, measured at `5fbaf4a`. An array
++still accepts one.)*
++
+ *(2026-09-26, cycle 0.1.0 — RX-173: the second row is narrower than it reads.
+ D-004 keeps a BORROW of a local, `@x`, out of `pass`. A struct holding a view of
+ a PARAMETER, or a pointer parameter, IS returned, and runs, at `c970483` and at
+@@ -634,6 +639,14 @@ bound, a compiler defect pinned by `tests/probe/probe18_impl_adds_move.npk`.)*
+ implement (`NITPICK-TYPE-087`) — and the hole above is refused `NITPICK-TYPE-014`
+ since the compiler's landing 69 (`tests/probe/refused/probe18_impl_adds_move.npk`).
+ The rule's check stays the belt for the other verbs.)*
++*(Amended @@DATE@@ by RX-188, cycle 0.1.1b: THE TYPE SAYS SO. `Vec` is
++`Vec<T: Copy>` and every verb repeats the bound, so an element that is not `Copy`
++is `NITPICK-TYPE-017` wherever `Vec` is instantiated with it — at the type, at a
++turbofish, at each verb's call — in `src/` and `tests/` alike: anything that drops,
++and a pointer, a slice, an optional, a `cstring` or an array written as `T` itself,
++measured at `5fbaf4a`. The paragraph and the table below — *"The language accepts
++`Vec<string>`"* — are RX-155's measurement at `c3bdae2`, kept as history: no row of
++it can be written now, and its units are retired. An element type derives `Copy`.)*
+ 
+ The language accepts `Vec<string>`. `TYPE-046` asks for `move` when an owning
+ place is copied, `pass` moves implicitly, and D-264 checks each generic body in
+@@ -674,6 +687,8 @@ an AST node's (RX-174) — the same rule as an offset into a `Bytes`, nothing
+ owned — and `check_vec_elements_own_nothing` clears `Vec<Frame>` and
+ `Vec<GroupName>`, as it has cleared `Vec<AstNode>` since cycle 0.1.0. Two types
+ are left to shape, `Literal` and `GroupInfo`, at cycle 0.2.)*
++*(@@DATE@@ — RX-188: what stands between a `Vec<string>` and the verbs is the
++compiler now, at the type; and each of those two derives `Copy`.)*
+ 
+ *A cycle that needs an owning element lifts S-23a by a decision*, and the
+ compiler's own `List<T>` at `c3bdae2` is the shape it would take: removals that
+@@ -681,6 +696,8 @@ return the element, discards that drop it, and no by-value get — `l[i]` is a
+ bounds-checked place. A scratch `vec.npk` given those discards turns all five
+ orphaning units to exit 0, measured; the verbs are not built because nothing
+ here needs them.
++*(Since RX-188 that decision lifts the type's `T: Copy` as well, and the units it
++retired are in the history to start from.)*
+ 
+ ### 5.3b What a `Vec` copy is, and what a loan still reaches
+ 
+@@ -863,6 +880,8 @@ Freeing a container's block does **not** drop its elements, and the controlled
+ exit does not notice: `nitpick-time` measured a `Vec<string>` retaining
+ **125 MiB over two million elements at exit 0**, and the same program hit
+ `HeapOom` only when squeezed under a 64 MiB address-space cap.
++*(@@DATE@@, cycle 0.1.1b — RX-188: a `Vec` has no owning elements now,
++`Vec<T: Copy>` refusing one; the measurement is `nitpick-time`'s and stands.)*
+ 
+ **What follows for this library, concretely:**
+ 
+@@ -874,6 +893,7 @@ exit does not notice: `nitpick-time` measured a `Vec<string>` retaining
+   until the third cycle 0.0 audit's triage. Nothing forces it: the language
+   accepts an owning element in an array or a `Vec`, measured at three pins —
+   RX-155.)*
++  *(Since RX-188 it refuses one in a `Vec`: `Vec<T: Copy>`.)*
+ - **The exceptions are the ones to watch**: `Hir.names`, `Vec<GroupInfo>` if a
+   group name is ever an owning `string` rather than an offset into `Bytes`, and
+   any future `Vec<string>`. Each must drop its elements before its block goes.
+@@ -881,6 +901,8 @@ exit does not notice: `nitpick-time` measured a `Vec<string>` retaining
+   S-23a: `Hir.names` is a `Bytes` (H-2), `GroupInfo` holds offsets, and
+   `check_vec_elements_own_nothing` refuses a `Vec` of owners. The sentence
+   stands for the day a decision lifts it.)*
++  *(Since RX-188 an owning `Vec<GroupInfo>` and any `Vec<string>` are the
++  compiler's to refuse, in `tests/` as in `src/`.)*
+ - **Where the obligation is managed, the gate is a memory cap, not an exit
+   code** (`TESTING.md` §7's invariant list is the place it belongs).
+ - **A better instrument is coming.** The compiler's `NPK_HEAP_STATS` will make
+@@ -910,7 +932,8 @@ Three things worth keeping from it:
+   `if (b.len == 0i64) { pass ""; }` in this library would outlive the bug.
+ - **The gate is the pair** `bytes_copy_string_empty.npk` /
+   `bytes_copy_string_nonempty.npk`, the shape `vec_owning_leak` /
+-  `vec_owning_freed` established. **Neither half means anything alone**, and the
++  `vec_owning_freed` established *(that pair retired since RX-188)*. **Neither half
++  means anything alone**, and the
+   `/bin/true` control at the same cap is what makes the number a statement.
+ - **The empty half is committed RED**, carrying `pending-until: fe42dba`,
+   because this tree is not pinned to the fix. It is counted as neither a pass
+diff --git a/meta/specs/VERIFICATION.md b/meta/specs/VERIFICATION.md
+index e858aab57939b72c633a34590adecfda147db88b..008962b81010e8b1f032e843fb086a9f9fe1d86e 100644
+--- a/meta/specs/VERIFICATION.md
++++ b/meta/specs/VERIFICATION.md
+@@ -138,6 +138,7 @@ Most of the list, which is why the residue is small:
+   *(2026-09-26, cycle 0.0.4e — RX-168, RX-169. At `c970483` the loan is inside a rule
+   too, the compiler's: a write through one is `NITPICK-TYPE-085`. And `vec_get` at an
+   owning `T` is refused (`T: Pod`; `T: Copy` since RX-177) rather than a move out of the slot.)*
++  *(@@DATE@@, cycle 0.1.1b — RX-188: and so is every verb, at the type — `Vec<T: Copy>`.)*
+ - **`Result<T>` everywhere** with no unchecked unwrap outside a `never fails`
+   callee (D-163), so no error is dropped.
+ 
+diff --git a/nitpick.toml b/nitpick.toml
+index 6211f43d4d0a58b3ff9609ebc20d0828096c1109..9a4b894d9a0ccb86e405f8297b9f99645570e504 100644
+--- a/nitpick.toml
++++ b/nitpick.toml
+@@ -170,6 +170,10 @@ path  = "tests/rejection"
+ #     DIFFERENTLY under the same cap. `exit 0` cannot see a managed body
+ #     (`SAFETY.md` §8b, S-22), so those two files are the only gate on half of
+ #     this cycle's memory obligations.
++#     (Since cycle 0.1.1b the `Vec` pair is retired -- `Vec<T: Copy>` holds
++#     nothing managed, RX-188 -- and the pair left, `bytes_copy_string_empty`
++#     and `_nonempty`, ends 0 in both halves since `c3bdae2` fixed the leak its
++#     empty half caught; that half reddens if the leak returns.)
+ # All three are `expect-exit:` files, so one entry judges them all -- which is
+ # what RX-119 found was NOT true of the probe directory.
+ [[test]]
+diff --git a/src/core/core.npk b/src/core/core.npk
+index c5146a4d60d939dd2c0f6dfc04e889443a29314b..be4f6fc34c60deb260672fe13b5f7559e8b7f915 100644
+--- a/src/core/core.npk
++++ b/src/core/core.npk
+@@ -6,6 +6,7 @@
+ // a pointer — which is also what keeps every node POD and every structure
+ // serialisable as a fixture. POD by DESIGN: the language would accept an owning
+ // node, and `SAFETY.md` S-23a (RX-155) is what refuses one in a `Vec`.
++// *(@@DATE@@, cycle 0.1.1b -- RX-188: and the compiler does, `Vec` being `Vec<T: Copy>`.)*
+ //
+ // LAYERING (`BUILD.md` §6, B-16). `core` is the bottom of the diagram and the
+ // only module in the library with no dependency at all, which is what lets
+diff --git a/src/core/sparseset.npk b/src/core/sparseset.npk
+index f5e65b2b4424ec18d2e9ae974883c7a76f3a4d9c..7dbd407a51ba15c828219b4abfadb346605c55a7 100644
+--- a/src/core/sparseset.npk
++++ b/src/core/sparseset.npk
+@@ -114,6 +114,8 @@ pub func:sset_init = SparseSet(int64:cap) never fails {
+ // an array, which is what forces the POD shape here". Nothing forbids it:
+ // measured, an owning element compiles, links and runs in a `Vec` and in a fixed
+ // array alike.)*
++// *(@@DATE@@, cycle 0.1.1b -- RX-188: in a fixed array still; in a `Vec` no longer,
++// which is `Vec<T: Copy>`.)*
+ pub func:sset_free = NIL(SparseSet->:s) never fails {
+     drop vec_free(@s.dense);
+     drop vec_free(@s.sparse);
+diff --git a/src/core/vec.npk b/src/core/vec.npk
+index 67ad4754c2436be287f354a74ffb27810fcb84e2..a9ddf2102f615890ba33dbc7d64329e025af805f 100644
+--- a/src/core/vec.npk
++++ b/src/core/vec.npk
+@@ -59,6 +59,9 @@
+ //      cannot implement `Pod` as it is declared -- RX-168.)*
+ //      *(Since cycle 0.1.0b the bound is the prelude's `Copy`, the compiler's
+ //      D-327, which an owning type cannot implement at all -- RX-177.)*
++//      *(Since cycle 0.1.1b, @@DATE@@, THE TYPE SAYS SO: `struct:Vec<T: Copy>`,
++//      every verb repeating the bound, so `Vec<string>` is NITPICK-TYPE-017
++//      wherever it is written -- the type, a turbofish, each verb -- RX-188.)*
+ //   5. **A `Vec` IS MOVE-ONLY, AND THE COMPILER SAYS SO** (`SAFETY.md` S-23b,
+ //      RX-161, since cycle 0.0.4d). A copy of one -- or of any struct holding
+ //      one -- is NITPICK-TYPE-046. A BY-VALUE PARAMETER IS NOT A COPY, IT IS A
+@@ -307,6 +310,12 @@
+ // and so is its `GroupName`; each refers to a group's name by its place in the
+ // PATTERN, as the AST does (RX-174), rather than by an offset into a `Bytes`, and
+ // the check clears both. `Literal` and `GroupInfo` are the two left, at cycle 0.2.)*
++// *(@@DATE@@, cycle 0.1.1b -- RX-188. THE COMPILER SAYS IT NOW, AT THE TYPE: `Vec` is
++// `Vec<T: Copy>`, so at an owning `T` the table above cannot be written -- every row
++// is NITPICK-TYPE-017, at the type and at the verb -- and the units that measured it
++// are retired; the table is RX-155's measurement, kept. An element type derives
++// `Copy`, as `AstNode`, `Frame` and `GroupName` do and `Literal` and `GroupInfo`
++// will.)*
+ //
+ // LAYERING (`BUILD.md` §6, B-16). `core` imports nothing outside `core`. This
+ // file imports nothing at all.
+@@ -357,7 +366,10 @@ mod:vec;
+ // the pin refuses its old body; and a loan IS closed now -- by the compiler,
+ // which refuses every write through one, NITPICK-TYPE-085.)* *(`T: Copy` since
+ // cycle 0.1.0b, RX-177.)*
+-pub struct:Vec<T> = {
++// *(@@DATE@@, cycle 0.1.1b -- RX-188: the bound is the TYPE's, and every function
++// below repeats it, as the compiler requires: a generic naming `Vec<T>` without
++// it is NITPICK-TYPE-017 at its definition.)*
++pub struct:Vec<T: Copy> = {
+     hidden wild T->:items;                 // WILD, DELIBERATELY. See the header.
+     sealed limit<ListLen> int64:count;     // elements in use
+     sealed limit<ListLen> int64:cap;       // elements the block can hold
+@@ -442,7 +454,7 @@ pub func:vec_oob = NIL(int64:i) never fails {
+ //
+ // A capacity of at least one, always, so `vec_push`'s doubling has something to
+ // double and no path multiplies zero by two forever.
+-pub func:vec_init<T> = Vec<T>(int64:cap) never fails {
++pub func:vec_init<T: Copy> = Vec<T>(int64:cap) never fails {
+     int64:n = cap;
+     if (n < 1i64) { n = 1i64; }
+     // `n * #size_of<T>()` traps on overflow (D-210), and that trap is the
+@@ -464,7 +476,7 @@ pub func:vec_init<T> = Vec<T>(int64:cap) never fails {
+ // element compiles, links and runs in a `Vec` and in a fixed array alike --
+ // measured at `950bb1d`, `3d15ac9` and `c3bdae2`. The POD shape is this
+ // library's design, and S-23a is what now makes it a rule.)*
+-pub func:vec_free<T> = NIL(Vec<T>->:v) never fails {
++pub func:vec_free<T: Copy> = NIL(Vec<T>->:v) never fails {
+     // DEAD `Vec` -- see the header. Without this, a double free reaches
+     // `dalloc` with a pointer the allocator has already reclaimed and stops on
+     // ITS check, reporting `Unreachable` about a heap invariant instead of
+@@ -479,7 +491,7 @@ pub func:vec_free<T> = NIL(Vec<T>->:v) never fails {
+ // ---- capacity --------------------------------------------------------------
+ 
+ // obligation: never fails ensures v.cap >= v.count + need
+-pub func:vec_reserve<T> = NIL(Vec<T>->:v, int64:need) never fails {
++pub func:vec_reserve<T: Copy> = NIL(Vec<T>->:v, int64:need) never fails {
+     if (need < 0i64)  { drop vec_oob(need); }
+     // DEAD `Vec` -- see the header. Without this the loop below multiplies zero
+     // by two forever: measured exit 124 under `timeout 6`.
+@@ -504,6 +516,7 @@ pub func:vec_reserve<T> = NIL(Vec<T>->:v, int64:need) never fails {
+ // and either is refused -- `NITPICK-TYPE-087`, or `NITPICK-DERIVE-006` -- for a
+ // type that owns or has a member that is not `Copy`. So an owning `T` cannot meet
+ // the bound, and `vec_get` at `Vec<string>` is `NITPICK-TYPE-017`.
++// *(@@DATE@@, cycle 0.1.1b -- RX-188: the TYPE takes the bound too, so every verb does.)*
+ //
+ // IT REPLACES THIS LIBRARY'S OWN `Pod` (RX-168): one method returning its lent
+ // `self`, which an impl could declare `move` -- a double free through the trait,
+@@ -555,6 +568,8 @@ pub func:vec_reserve<T> = NIL(Vec<T>->:v, int64:need) never fails {
+ // *(2026-09-27, cycle 0.1.0b, compiler `5fbaf4a` -- RX-177: the bound is the prelude's
+ // `Copy`, and the read is `pass v.items[i]` -- a copy under the bound; `pod_copy`
+ // went with `Pod`. At an owning `T` it is still NITPICK-TYPE-017.)*
++// *(@@DATE@@, cycle 0.1.1b -- RX-188: and first at the TYPE, `Vec<T: Copy>`; the bound
++// here is the type's, repeated.)*
+ pub func:vec_get<T: Copy> = T(Vec<T>:v, int64:i) never fails {
+     if (i < 0i64)        { drop vec_oob(i); }
+     if (i >= v.count)    { drop vec_oob(i); }
+@@ -567,7 +582,9 @@ pub func:vec_get<T: Copy> = T(Vec<T>:v, int64:i) never fails {
+ // not drop, and this writes over it (`tests/unit/vec_owning_set_orphans.npk`,
+ // 92 under the managed-half cap). Outside S-23a; stated here, as it already was
+ // at `vec_truncate`, because the third cycle-0.0 audit found it said nowhere.
+-pub func:vec_set<T> = NIL(Vec<T>->:v, int64:i, move T:x) never fails {
++// *(@@DATE@@, cycle 0.1.1b -- RX-188: an owning `T` is refused at the type, so this
++// cannot be written; the unit named above is retired, its measurement RX-155's.)*
++pub func:vec_set<T: Copy> = NIL(Vec<T>->:v, int64:i, move T:x) never fails {
+     if (i < 0i64)        { drop vec_oob(i); }
+     if (i >= v.count)    { drop vec_oob(i); }
+     v.items[i] = move(x);
+@@ -577,7 +594,7 @@ pub func:vec_set<T> = NIL(Vec<T>->:v, int64:i, move T:x) never fails {
+ // ---- adding and removing ---------------------------------------------------
+ 
+ // obligation: never fails ensures v.count == old(v.count) + 1i64
+-pub func:vec_push<T> = NIL(Vec<T>->:v, move T:x) never fails {
++pub func:vec_push<T: Copy> = NIL(Vec<T>->:v, move T:x) never fails {
+     // DEAD `Vec` -- see the header. Without this, `ralloc(<dangling>, 0)`.
+     if (v.cap <= 0i64) { drop vec_oob(v.cap - 1i64); }
+     if (v.count >= v.cap) {
+@@ -607,7 +624,9 @@ pub func:vec_push<T> = NIL(Vec<T>->:v, move T:x) never fails {
+ // D-264's `T` owns). `move(...)` is the prelude's own `list_pop`, and it is what
+ // the implicit move did: diffed at `c3bdae2`, `vec_pop<string>` writes the same
+ // vacancy into the slot past `count`, plus one temporary and its flag.)*
+-pub func:vec_pop<T> = T(Vec<T>->:v) never fails {
++// *(@@DATE@@, cycle 0.1.1b -- RX-188: an owning `T` is refused at the type, so this
++// cannot be written; the unit named above is retired, its measurement RX-155's.)*
++pub func:vec_pop<T: Copy> = T(Vec<T>->:v) never fails {
+     if (v.count <= 0i64) { drop vec_oob(v.count - 1i64); }
+     v.count = v.count - 1i64;
+     pass move(v.items[v.count]);
+@@ -624,7 +643,9 @@ pub func:vec_pop<T> = T(Vec<T>->:v) never fails {
+ // it writes is past `count` or already moved from, and no live element is
+ // overwritten (`tests/unit/vec_owning_insert_moves.npk`, which checks the order
+ // as well, RX-155).
+-pub func:vec_insert<T> = NIL(Vec<T>->:v, int64:i, move T:x) never fails {
++// *(@@DATE@@, cycle 0.1.1b -- RX-188: an owning `T` is refused at the type, so this
++// cannot be written; the unit named above is retired, its measurement RX-155's.)*
++pub func:vec_insert<T: Copy> = NIL(Vec<T>->:v, int64:i, move T:x) never fails {
+     if (i < 0i64)        { drop vec_oob(i); }
+     if (i > v.count)     { drop vec_oob(i); }
+     // DEAD `Vec` -- see the header. Without this, `ralloc(<dangling>, 0)`.
+@@ -656,7 +677,9 @@ pub func:vec_insert<T> = NIL(Vec<T>->:v, int64:i, move T:x) never fails {
+ // AT AN OWNING `T` THE REMOVED ELEMENT IS ORPHANED -- the shift writes over it,
+ // or, at the last index, `count` simply stops counting it
+ // (`tests/unit/vec_owning_remove_orphans.npk`). Outside S-23a (RX-155).
+-pub func:vec_remove<T> = NIL(Vec<T>->:v, int64:i) never fails {
++// *(@@DATE@@, cycle 0.1.1b -- RX-188: an owning `T` is refused at the type, so this
++// cannot be written; the unit named above is retired, its measurement RX-155's.)*
++pub func:vec_remove<T: Copy> = NIL(Vec<T>->:v, int64:i) never fails {
+     if (i < 0i64)        { drop vec_oob(i); }
+     if (i >= v.count)    { drop vec_oob(i); }
+     int64:j = i;
+@@ -679,7 +702,9 @@ pub func:vec_remove<T> = NIL(Vec<T>->:v, int64:i) never fails {
+ // AND AT AN OWNING `T` THE REMOVED ELEMENT IS ORPHANED, which is the larger
+ // hazard and was the one this comment did not mention until the third cycle-0.0
+ // audit (`tests/unit/vec_owning_swap_remove_orphans.npk`). Outside S-23a.
+-pub func:vec_swap_remove<T> = NIL(Vec<T>->:v, int64:i) never fails {
++// *(@@DATE@@, cycle 0.1.1b -- RX-188: an owning `T` is refused at the type, so this
++// cannot be written; the unit named above is retired, its measurement RX-155's.)*
++pub func:vec_swap_remove<T: Copy> = NIL(Vec<T>->:v, int64:i) never fails {
+     if (i < 0i64)        { drop vec_oob(i); }
+     if (i >= v.count)    { drop vec_oob(i); }
+     v.items[i] = move(v.items[v.count - 1i64]);
+@@ -697,7 +722,9 @@ pub func:vec_swap_remove<T> = NIL(Vec<T>->:v, int64:i) never fails {
+ // cycle-0.0 audit's N-13: this was the half of `0.0.4.md`'s managed-half item
+ // that had no test. Outside S-23a; the caller of an owning `Vec` could not
+ // discharge it without `vec_get`'s move, which is why S-23a exists (RX-155).
+-pub func:vec_truncate<T> = NIL(Vec<T>->:v, int64:n) never fails {
++// *(@@DATE@@, cycle 0.1.1b -- RX-188: an owning `T` is refused at the type, so this
++// cannot be written; the unit named above is retired, its measurement RX-155's.)*
++pub func:vec_truncate<T: Copy> = NIL(Vec<T>->:v, int64:n) never fails {
+     if (n < 0i64)        { drop vec_oob(n); }
+     if (n < v.count) { v.count = n; }
+     pass NIL;
+@@ -709,7 +736,9 @@ pub func:vec_truncate<T> = NIL(Vec<T>->:v, int64:n) never fails {
+ // (`tests/unit/vec_owning_clear_orphans.npk`, N-13). Capacity is retained, which
+ // is the whole point: a `Cache` reused across searches clears rather than
+ // reallocating, and `SAFETY.md` S-6 says a search allocates nothing.
+-pub func:vec_clear<T> = NIL(Vec<T>->:v) never fails {
++// *(@@DATE@@, cycle 0.1.1b -- RX-188: an owning `T` is refused at the type, so this
++// cannot be written; the unit named above is retired, its measurement RX-155's.)*
++pub func:vec_clear<T: Copy> = NIL(Vec<T>->:v) never fails {
+     v.count = 0i64;
+     pass NIL;
+ };
+@@ -736,7 +765,11 @@ pub func:vec_clear<T> = NIL(Vec<T>->:v) never fails {
+ // meaningful when `T` owns. `move` does not rescue it either: the value is
+ // consumed by the first slot. So the fill that is expressible is the one that
+ // needs no value, and that is this.
+-pub func:vec_init_zeroed<T> = Vec<T>(int64:n) never fails {
++// *(@@DATE@@, cycle 0.1.1b -- RX-188: under the type's `T: Copy` a fill IS expressible,
++// a `T: Copy` being copied plainly -- measured at `5fbaf4a`, a `vec_fill<T: Copy>` that
++// pushes its `x` three times runs, and reads back 7 for 7. None is written: nothing
++// here needs a value but zero, and `calloc` zeroes in one call.)*
++pub func:vec_init_zeroed<T: Copy> = Vec<T>(int64:n) never fails {
+     // A NEGATIVE `n` WAS THE ONE WAY THIS LIBRARY COULD BUILD AN INVALID `Vec`
+     // ITSELF, and it was found by the triage that fixed RX-139 rather than by
+     // the audit that prompted it. Every other entry point in this file traps on
+@@ -778,7 +811,7 @@ pub func:vec_init_zeroed<T> = Vec<T>(int64:n) never fails {
+ // of a scalar is its copy (D-264).)*
+ //
+ // obligation: never fails ensures v.cap == 0i64
+-pub func:vec_free_owning<T> = NIL(Vec<T>->:v) never fails {
++pub func:vec_free_owning<T: Copy> = NIL(Vec<T>->:v) never fails {
+     // DEAD `Vec` -- see the header (RX-144). Worse here than in `vec_free`:
+     // without it the loop below MOVES elements out of a freed block and drops
+     // them, so a `vec_free_owning` after a `vec_free` runs destructors over
+diff --git a/src/hir/hir.npk b/src/hir/hir.npk
+index 1848ed9fb0f4471b472a96befda0689429c8cb7e..b0be3d0b9e6982157cdaf1286433a3c2b477ce84 100644
+--- a/src/hir/hir.npk
++++ b/src/hir/hir.npk
+@@ -6,6 +6,9 @@
+ // than as owned strings. That is H-2's design, and a `Vec` of nodes MUST keep it
+ // (`SAFETY.md` S-23a, RX-155) -- the language would not: an owning element is
+ // accepted in an array or a `Vec`, and `vec_get` then MOVES it out.
++// *(@@DATE@@, cycle 0.1.1b -- RX-188: for a `Vec` the language does now -- `Vec<T: Copy>`
++// refuses an owning element at the type, as `vec_get` has since cycle 0.0.4e -- so a
++// node type derives `Copy`. An array still accepts one.)*
+ //
+ // LAYERING (`BUILD.md` §6, rule B-16). May import: `syntax`, `unicode`,
+ // `core`.
+diff --git a/tests/rejection/README.md b/tests/rejection/README.md
+index c34bfcb8bf20f395624d61feff47f187f43d1599..eb45843328e7637e0f95479591572799ae8ac368 100644
+--- a/tests/rejection/README.md
++++ b/tests/rejection/README.md
+@@ -140,11 +140,16 @@ And `vec_get` takes `T: Copy` (RX-177; `T: Pod` from RX-168):
+ - **`vec_owning_get_moves_out.npk`** — `vec_get` at `Vec<string>`: `NITPICK-TYPE-017`.
+   Through `c3bdae2` it moved the element out of its slot; the name is kept so RX-155
+   still finds it.
++  *(Since cycle 0.1.1b, @@DATE@@ — RX-188: `Vec` is `Vec<T: Copy>`, and the file pins
++  the refusal at every verb — the type and thirteen calls, fourteen sites, each
++  diagnostic naming its verb.)*
+ 
+ **Each refusal is shown to be the pin's or the bound's**
+ (`../../meta/roadmap/done/0.0/0.0.4e.md` step 6): the six loan and pass-out files and probe
+ 17 still compile and run at `c3bdae2`, each with the exit it asserted as a unit; and
+ `vec_owning_get_moves_out` compiles and runs against the tree before 0.0.4e.
++*(Its body since cycle 0.1.1b reports one site against the tree before 0.1.1b —
++`vec_get`'s — so the other thirteen are the type's bound, RX-188.)*
+ `../unit/loan_spellings.npk` is the positive twin: a callee that frees takes `move`,
+ one that grows takes a pointer, a loop reads its binding, a generic takes `move T` —
+ and all of it runs.
+diff --git a/tests/rejection/vec_owning_get_moves_out.npk b/tests/rejection/vec_owning_get_moves_out.npk
+index 0f8a82171e3ed2a580f2459c16d28c8ef9b0eeaa..381e5c6bcbd2bf238904a02031e142451c5b2913 100644
+--- a/tests/rejection/vec_owning_get_moves_out.npk
++++ b/tests/rejection/vec_owning_get_moves_out.npk
+@@ -1,39 +1,69 @@
+ // expect-error: NITPICK-TYPE-017
+-// expect-error-at: 32:31
++// expect-error-at: 51:5
++// expect-error: NITPICK-TYPE-017
++// expect-error-at: 51:33
++// expect-error: NITPICK-TYPE-017
++// expect-error-at: 52:40
++// expect-error: NITPICK-TYPE-017
++// expect-error-at: 53:21
++// expect-error: NITPICK-TYPE-017
++// expect-error-at: 55:18
++// expect-error: NITPICK-TYPE-017
++// expect-error-at: 57:20
++// expect-error: NITPICK-TYPE-017
++// expect-error-at: 59:17
++// expect-error: NITPICK-TYPE-017
++// expect-error-at: 60:31
++// expect-error: NITPICK-TYPE-017
++// expect-error-at: 61:30
++// expect-error: NITPICK-TYPE-017
++// expect-error-at: 62:20
++// expect-error: NITPICK-TYPE-017
++// expect-error-at: 63:25
++// expect-error: NITPICK-TYPE-017
++// expect-error-at: 64:22
++// expect-error: NITPICK-TYPE-017
++// expect-error-at: 65:19
++// expect-error: NITPICK-TYPE-017
++// expect-error-at: 66:18
+ //
+-// `vec_get` AT AN OWNING `T` IS REFUSED: IT TAKES `T: Copy` SINCE CYCLE 0.1.0b
+-// (RX-177; `T: Pod` from 0.0.4e, RX-168), AND AN OWNING TYPE CANNOT IMPLEMENT
+-// `Copy`. The name is kept so RX-155's citations still find the file.
++// AN OWNING ELEMENT IS REFUSED AT THE TYPE, AT EVERY VERB, SINCE CYCLE 0.1.1b:
++// `Vec` is `Vec<T: Copy>` (RX-188; `SAFETY.md` S-23a) and an owning type cannot
++// implement `Copy`. One site per line above (B-7b): the type where `Vec<string>` is
++// first written, then one call per verb, thirteen, each diagnostic naming its verb --
++// "`string` does not implement `Copy`, which `vec_push`'s parameter `T` requires".
++// Never built -- refused before it could run -- so `z` goes unfreed, one call per verb.
+ //
+-// WHAT IT PINS. Through `c3bdae2` `vec_get` returned its `T` by value from
+-// `pass v.items[i]`, an implicit MOVE, so at `T = string` the first read TOOK the
+-// element -- the slot zeroed and marked vacant -- and a second read returned an
+-// empty string from a slot `count` still counted: exit 0 at -O0 and through
+-// `opt -O2`, when this file was `tests/unit/vec_owning_get_moves_out.npk` and read
+-// twice (RX-155; `SAFETY.md` S-23a's table). At `c970483` that body is refused at
+-// EVERY `T`, NITPICK-TYPE-047 -- DEF-104's gate treats `T` as owning -- and
+-// `vec_get` read through `pod_copy`, whose `pass self` was NITPICK-TYPE-047 for an
+-// owning type; since RX-177 its bound is the prelude's `Copy`. Either way, `vec_get`
+-// at `Vec<string>` is NITPICK-TYPE-017 here. One call, so one diagnostic.
++// THE NAME IS HISTORY, KEPT SO RX-155's AND RX-168's CITATIONS FIND THE FILE.
++// Through `c3bdae2` `vec_get` at `T = string` MOVED the element out -- the slot
++// emptied and still counted, a second read empty, exit 0 when this was a unit that
++// read twice (RX-155). From cycle 0.0.4e `vec_get` alone was refused, `T: Pod`
++// (RX-168) and then `T: Copy` (RX-177), at one site: this file's `vec_get` call.
+ //
+-// A TEST OF THE BOUND, NOT OF THIS FILE: against the tree before cycle 0.0.4e
+-// this file compiles and runs, exit 0, at `c3bdae2` (`meta/roadmap/done/0.0/0.0.4e.md`
+-// step 6) -- the refusal is the bound's, at either pin -- and `vec_get` runs at
+-// `int32` and `int64` across the unit suite, and at a POD struct in `../unit/vec_get_pod_struct.npk`.
++// A TEST OF THE BOUND: against the tree before cycle 0.1.1b this body reports
++// `vec_get`'s site and no other, at `5fbaf4a` (`0.1.1b.md` step 1) -- so the other
++// thirteen are the type's.
+ mod:vec_owning_get_moves_out;
+ 
+ use "../../src/core/vec.npk".*;
+ 
+ func:main = int32(cstring[]:_~argv) {
+     Vec<string>:v = raw vec_init::<string>(4i64);
+-    string:e = string_concat("abcdefghij", "k");        // 11 bytes of heap body
++    Vec<string>:z = raw vec_init_zeroed::<string>(2i64);
++    drop vec_reserve(@v, 8i64);
++    string:e = string_concat("abcdefghij", "k");
+     drop vec_push(@v, move(e));
+-
++    string:f = string_concat("abcdefghij", "l");
++    drop vec_insert(@v, 0i64, move(f));
++    string:g = string_concat("abcdefghij", "m");
++    drop vec_set(@v, 0i64, move(g));
+     string:first = raw vec_get(v, 0i64);
+-    if (string_byte_length(first) != 11i64)             { exit 21i32; }
+-    if (v.count != 1i64)                                { exit 23i32; }
+-
+-    drop vec_free_owning(@v);
++    string:last = raw vec_pop(@v);
++    drop vec_remove(@v, 0i64);
++    drop vec_swap_remove(@v, 0i64);
++    drop vec_truncate(@v, 0i64);
++    drop vec_clear(@z);
++    drop vec_free(@v);
+     exit 0i32;
+ };
+ 
+diff --git a/tests/unit/bytes_copy_string_nonempty.npk b/tests/unit/bytes_copy_string_nonempty.npk
+index 6fb14f1dd38c445c59e9092def13cea1a349d5fd..a46b377e11935dca9914fe6059e684631c17c15d 100644
+--- a/tests/unit/bytes_copy_string_nonempty.npk
++++ b/tests/unit/bytes_copy_string_nonempty.npk
+@@ -9,6 +9,9 @@
+ // and they are required to end DIFFERENTLY at this tree's pin. A cap that both
+ // survive, or that neither does, is measuring something other than the
+ // difference between them.
++// *(@@DATE@@, cycle 0.1.1b -- RX-188: the `Vec` pair is retired, an owning element
++// being refused at the type. And both halves here end 0 since `c3bdae2`, which fixed
++// the leak the empty half caught (DEF-25, `fe42dba`): that half reddens if it returns.)*
+ //
+ // WHY A CAP AND NOT `exit 0` (`SAFETY.md` §8b, rule S-22, RX-110). A `string`'s
+ // bytes are MANAGED. D-151 counts `wild` blocks, D-188 counts live drivers, and
+diff --git a/tests/unit/sparseset_unit.npk b/tests/unit/sparseset_unit.npk
+index eb42d6dc358c433b9389b6ff2c56c418aa0e2236..fced59ba5732c37c84ab11ddc99422c55841c7ea 100644
+--- a/tests/unit/sparseset_unit.npk
++++ b/tests/unit/sparseset_unit.npk
+@@ -160,7 +160,8 @@ func:main = int32(cstring[]:_~argv) {
+     // covers this exactly (`SAFETY.md` §8b). That is the design -- a `Vec` holds
+     // a `T` that owns nothing, `SAFETY.md` S-23a -- and not, as this said until
+     // the third cycle-0.0 audit's triage, "TYPE-046 forcing the representation":
+-    // nothing in the language forces it (RX-155).
++    // nothing in the language forces it (RX-155). *(Since cycle 0.1.1b the type
++    // does: `Vec<T: Copy>`, RX-188.)*
+     exit 0i32;
+ };
+ 
+diff --git a/tests/unit/vec_owning_clear_orphans.npk b/tests/unit/vec_owning_clear_orphans.npk
+deleted file mode 100644
+index a0a55b961cd9a02565e48653c451b6d793122067..0000000000000000000000000000000000000000
+--- a/tests/unit/vec_owning_clear_orphans.npk
++++ /dev/null
+@@ -1,67 +0,0 @@
+-// expect-exit: 92
+-// mem-cap-mib: 64
+-//
+-// `vec_clear` AT AN OWNING `T` ORPHANS every element -- RX-155.
+-//
+-// PINNED, NOT ENDORSED. `Vec<T>` is for a NON-OWNING `T` (`SAFETY.md` S-23a),
+-// and this file measures what happens outside that, so the restriction rests
+-// on a run rather than a sentence: a `wild T->` slot does not drop, and `vec_clear`
+-// discards an element without moving it out. Each round builds a `Vec<string>`
+-// of 257-byte bodies, applies `vec_clear`, and releases the rest with
+-// `vec_free_owning`; the orphans accumulate across rounds and the program
+-// meets `HeapOom` under the 64 MiB cap -- **92**. `vec_owning_freed.npk` is
+-// the control: the same rounds without the verb, the same cap, exit 0 -- and
+-// the harness runs `/bin/true` under the cap first, because a low cap measures
+-// the loader.
+-//
+-// Measured at `c3bdae2` with the runtime's `NPK_HEAP_STATS` over 1 000 rounds
+-// of two elements: `peak_live` grows linearly with the rounds for this verb
+-// and stays flat for the control (the numbers are RX-155's table).
+-//
+-// EXIT 0 MEANS THE VERB STOPPED ORPHANING -- `vec.npk` now drops what it
+-// discards, which is a change to RX-155's per-verb table, so re-read it: the
+-// restriction may be liftable for this verb.
+-mod:vec_owning_clear_orphans;
+-
+-use "../../src/core/vec.npk".*;
+-
+-func:main = int32(cstring[]:_~argv) {
+-    string:filler = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+-
+-    int64:round = 0i64;
+-    while (round < 500i64) decreases 500i64 - round {
+-        Vec<string>:v = raw vec_init::<string>(16i64);
+-        int64:k = 0i64;
+-        while (k < 1000i64) decreases 1000i64 - k {
+-            // BOUND, NEVER NESTED -- an owning temporary passed straight into
+-            // `vec_push` would be the compiler's D-183 leak, not this verb's.
+-            string:e = string_concat(filler, "k");      // 257 bytes of heap body
+-            drop vec_push(@v, move(e));
+-            k = k + 1i64;
+-        }
+-        // THE VERB: clear. Every element is orphaned, and `vec_free_owning`
+-        // then drops nothing.
+-        drop vec_clear(@v);
+-        drop vec_free_owning(@v);
+-        round = round + 1i64;
+-    }
+-
+-    exit 0i32;
+-};
+-
+-func:failsafe = int32(Error:e) {
+-    pick (e) {
+-        (HeapBadRequest) { exit 91i32; },
+-        (HeapOom)        { exit 92i32; },
+-        (IntOverflow)    { exit 93i32; },
+-        (OutOfBounds)    { exit 94i32; },
+-        (Unreachable)    { exit 95i32; },
+-        (WildLeak)       { exit 96i32; },
+-        (StackExhausted) { exit 106i32; },
+-        (MachineFault) { exit 107i32; },
+-        (DecreasesViolated) { exit 108i32; },
+-        (LimitViolated) { exit 109i32; },
+-        (*)              { exit 99i32; }
+-    }
+-    exit 9i32;
+-};
+diff --git a/tests/unit/vec_owning_freed.npk b/tests/unit/vec_owning_freed.npk
+deleted file mode 100644
+index 5bb9074314374b8e24559b0f0accea39f8bfcefb..0000000000000000000000000000000000000000
+--- a/tests/unit/vec_owning_freed.npk
++++ /dev/null
+@@ -1,79 +0,0 @@
+-// expect-exit: 0
+-// mem-cap-mib: 64
+-//
+-// THE MANAGED HALF, FREED — `vec_free_owning` DROPS EVERY ELEMENT, then the block.
+-//
+-// THIS IS ONE OF A PAIR AND NEITHER HALF MEANS ANYTHING ALONE. The two files
+-// are identical but for the one function name, they run under the SAME 64 MiB
+-// address-space cap, and they are required to end differently: this one exits
+-// 0. A cap that both survive, or that neither does, is measuring
+-// something other than the difference between them.
+-//
+-// WHY A CAP AND NOT `exit 0` (`SAFETY.md` §8b, rule S-22, RX-110).
+-// `exit 0` is SILENT HERE BY CONSTRUCTION. D-151 counts `wild` blocks, D-188
+-// counts live drivers, and NEITHER SEES A MANAGED BODY — a `string`'s bytes are
+-// managed. So a `Vec<string>` freed with `vec_free` releases the block, orphans
+-// every body, and exits 0 with a clean conscience: `nitpick-time` measured
+-// exactly this retaining 125 MiB over two million elements AT EXIT 0, and
+-// hitting `HeapOom` only when squeezed under a cap. An acceptance item that
+-// leant on the exit code here would be unfalsifiable, which is why
+-// `0.0.4.md` §6 gives the managed half its own gate.
+-//
+-// THE SHAPE IS A LOOP OF ROUNDS, NOT ONE BIG VECTOR, and that is the whole
+-// design. At peak both halves hold the same 1 000 live strings, so a
+-// single-vector program could not tell them apart at any cap. The difference is
+-// only visible ACROSS rounds: the correct half returns to flat after every
+-// round, the leaking half never does.
+-//
+-// THE `/bin/true` CONTROL IS RUN BY THE HARNESS AT THIS SAME CAP, and it is not
+-// decoration. A low address-space cap measures the DYNAMIC LOADER rather than
+-// the program — this ecosystem has already published a bound that `/bin/true`
+-// also fails — so the runner requires the control to pass before it believes
+-// anything this file says.
+-mod:vec_owning_freed;
+-
+-use "../../src/core/vec.npk".*;
+-
+-func:main = int32(cstring[]:_~argv) {
+-    // 256 bytes of body per element, so the arithmetic is legible: 1 000 per
+-    // round times 500 rounds is 500 000 strings and well over 128 MiB retained
+-    // if nothing drops them, against a 64 MiB cap.
+-    string:filler = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+-
+-    int64:round = 0i64;
+-    while (round < 500i64) decreases 500i64 - round {
+-        Vec<string>:v = raw vec_init::<string>(16i64);
+-        int64:k = 0i64;
+-        while (k < 1000i64) decreases 1000i64 - k {
+-            // BOUND, NEVER NESTED. `vec_push(@v, string_concat(filler, t))`
+-            // would pass an owning TEMPORARY that is never bound and therefore
+-            // never dropped — the compiler's D-183 debt, and the difference
+-            // between linear and quadratic memory in any loop that does it.
+-            string:tag = "&{k}";
+-            string:e = string_concat(filler, tag);
+-            drop vec_push(@v, move(e));
+-            k = k + 1i64;
+-        }
+-        drop vec_free_owning(@v);
+-        round = round + 1i64;
+-    }
+-
+-    exit 0i32;
+-};
+-
+-func:failsafe = int32(Error:e) {
+-    pick (e) {
+-        (HeapBadRequest) { exit 91i32; },
+-        (HeapOom)        { exit 92i32; },
+-        (IntOverflow)    { exit 93i32; },
+-        (OutOfBounds)    { exit 94i32; },
+-        (Unreachable)    { exit 95i32; },
+-        (WildLeak)       { exit 96i32; },
+-        (StackExhausted) { exit 106i32; },
+-        (MachineFault) { exit 107i32; },
+-        (DecreasesViolated) { exit 108i32; },
+-        (LimitViolated) { exit 109i32; },
+-        (*)              { exit 99i32; }
+-    }
+-    exit 9i32;
+-};
+diff --git a/tests/unit/vec_owning_freed_small_rounds.npk b/tests/unit/vec_owning_freed_small_rounds.npk
+deleted file mode 100644
+index 8f062a2f57c7086b495b52e597bb53e7e6652026..0000000000000000000000000000000000000000
+--- a/tests/unit/vec_owning_freed_small_rounds.npk
++++ /dev/null
+@@ -1,63 +0,0 @@
+-// expect-exit: 0
+-// mem-cap-mib: 64
+-//
+-// THE CONTROL FOR `vec_owning_remove_orphans.npk` AND
+-// `vec_owning_swap_remove_orphans.npk`: THE SAME ROUNDS, WITHOUT THE VERB.
+-//
+-// Those two build 40 000 rounds of a 16-element `Vec<string>` and apply their
+-// verb to every element before `vec_free_owning`; under the 64 MiB cap they meet
+-// `HeapOom`, 92, because each removed element is orphaned. This file is the same
+-// program with the verb's loop deleted and nothing else changed, so every
+-// element is still counted when `vec_free_owning` drops it -- and it must exit
+-// **0** under the same cap. A pair means something only when its two halves end
+-// differently under ONE cap, and the harness runs `/bin/true` under that cap first,
+-// because a low cap measures the loader (`0.0.5.md` A13).
+-//
+-// WHY IT EXISTS: `SAFETY.md` S-23a and both units' headers named
+-// `vec_owning_freed.npk` as their control, "the same rounds without the verb" --
+-// true of the set, truncate and clear units, which share its 500 rounds of 1 000,
+-// and FALSE of these two, whose rounds are 40 000 of 16. The fourth cycle-0.0
+-// audit (N-23) built this control by hand, measured it at exit 0, and found it
+-// was not committed. It is now, and the sentences name it.
+-mod:vec_owning_freed_small_rounds;
+-
+-use "../../src/core/vec.npk".*;
+-
+-func:main = int32(cstring[]:_~argv) {
+-    string:filler = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+-
+-    int64:round = 0i64;
+-    while (round < 40000i64) decreases 40000i64 - round {
+-        Vec<string>:v = raw vec_init::<string>(16i64);
+-        int64:k = 0i64;
+-        while (k < 16i64) decreases 16i64 - k {
+-            // BOUND, NEVER NESTED -- an owning temporary passed straight into
+-            // `vec_push` would be the compiler's D-183 leak, which this pair does not measure.
+-            string:e = string_concat(filler, "k");      // 257 bytes of heap body
+-            drop vec_push(@v, move(e));
+-            k = k + 1i64;
+-        }
+-        // NO VERB: every element is still counted, and `vec_free_owning` drops it.
+-        drop vec_free_owning(@v);
+-        round = round + 1i64;
+-    }
+-
+-    exit 0i32;
+-};
+-
+-func:failsafe = int32(Error:e) {
+-    pick (e) {
+-        (HeapBadRequest) { exit 91i32; },
+-        (HeapOom)        { exit 92i32; },
+-        (IntOverflow)    { exit 93i32; },
+-        (OutOfBounds)    { exit 94i32; },
+-        (Unreachable)    { exit 95i32; },
+-        (WildLeak)       { exit 96i32; },
+-        (StackExhausted) { exit 106i32; },
+-        (MachineFault) { exit 107i32; },
+-        (DecreasesViolated) { exit 108i32; },
+-        (LimitViolated) { exit 109i32; },
+-        (*)              { exit 99i32; }
+-    }
+-    exit 9i32;
+-};
+diff --git a/tests/unit/vec_owning_insert_moves.npk b/tests/unit/vec_owning_insert_moves.npk
+deleted file mode 100644
+index c770c14aef33acb5ed6c4a3aec39cecbb52e8f5e..0000000000000000000000000000000000000000
+--- a/tests/unit/vec_owning_insert_moves.npk
++++ /dev/null
+@@ -1,68 +0,0 @@
+-// expect-exit: 0
+-// mem-cap-mib: 64
+-//
+-// `vec_insert` AT AN OWNING `T` IS OWNERSHIP-CORRECT -- RX-155.
+-//
+-// One of the four verbs that account for ownership at an owning `T`. Its shift
+-// MOVES each element up one slot, from the top, so every slot it writes is
+-// either past `count` or already moved from, and no live element is
+-// overwritten -- the third cycle-0.0 audit checked that reading and it holds.
+-// This file makes the reading a run: each round inserts 64 strings, every one
+-// at index 0, so every insert shifts all of the others; `vec_free_owning` then
+-// drops them. An orphan anywhere would carry the rounds' bodies past the 64 MiB
+-// cap to `HeapOom`, 92; a duplicated owner would be a double free the
+-// allocator stops, 95. Correct, it ends 0.
+-//
+-// And ORDER, because a shift can keep ownership straight and still put an
+-// element in the wrong place. Element `k` is 1 025 + `k` bytes, and after 64
+-// inserts at the front the last element is the first one inserted, so the
+-// first two pops -- `vec_pop` is ownership-correct
+-// (`vec_owning_pop_moves_out.npk`) -- must be 1 025 and 1 026 bytes: exit 41 or 42
+-// if they are not.
+-mod:vec_owning_insert_moves;
+-
+-use "../../src/core/vec.npk".*;
+-
+-func:main = int32(cstring[]:_~argv) {
+-    string:filler = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+-
+-    int64:round = 0i64;
+-    while (round < 2500i64) decreases 2500i64 - round {
+-        Vec<string>:v = raw vec_init::<string>(4i64);
+-        string:acc = "";
+-        int64:k = 0i64;
+-        while (k < 64i64) decreases 64i64 - k {
+-            acc = string_concat(acc, "y");
+-            string:e = string_concat(filler, acc);      // 1 025 + k bytes
+-            drop vec_insert(@v, 0i64, move(e));
+-            k = k + 1i64;
+-        }
+-        if (round == 0i64) {
+-            string:p0 = raw vec_pop(@v);
+-            if (string_byte_length(p0) != 1025i64) { exit 41i32; }
+-            string:p1 = raw vec_pop(@v);
+-            if (string_byte_length(p1) != 1026i64) { exit 42i32; }
+-        }
+-        drop vec_free_owning(@v);
+-        round = round + 1i64;
+-    }
+-
+-    exit 0i32;
+-};
+-
+-func:failsafe = int32(Error:e) {
+-    pick (e) {
+-        (HeapBadRequest) { exit 91i32; },
+-        (HeapOom)        { exit 92i32; },
+-        (IntOverflow)    { exit 93i32; },
+-        (OutOfBounds)    { exit 94i32; },
+-        (Unreachable)    { exit 95i32; },
+-        (WildLeak)       { exit 96i32; },
+-        (StackExhausted) { exit 106i32; },
+-        (MachineFault) { exit 107i32; },
+-        (DecreasesViolated) { exit 108i32; },
+-        (LimitViolated) { exit 109i32; },
+-        (*)              { exit 99i32; }
+-    }
+-    exit 9i32;
+-};
+diff --git a/tests/unit/vec_owning_leak.npk b/tests/unit/vec_owning_leak.npk
+deleted file mode 100644
+index c381a01d1e5f1bea93659c0b692827a7efb85541..0000000000000000000000000000000000000000
+--- a/tests/unit/vec_owning_leak.npk
++++ /dev/null
+@@ -1,79 +0,0 @@
+-// expect-exit: 92
+-// mem-cap-mib: 64
+-//
+-// THE MANAGED HALF, LEAK — `vec_free` releases the BLOCK and orphans every element.
+-//
+-// THIS IS ONE OF A PAIR AND NEITHER HALF MEANS ANYTHING ALONE. The two files
+-// are identical but for the one function name, they run under the SAME 64 MiB
+-// address-space cap, and they are required to end differently: this one exits
+-// 92. A cap that both survive, or that neither does, is measuring
+-// something other than the difference between them.
+-//
+-// WHY A CAP AND NOT `exit 0` (`SAFETY.md` §8b, rule S-22, RX-110).
+-// `exit 0` is SILENT HERE BY CONSTRUCTION. D-151 counts `wild` blocks, D-188
+-// counts live drivers, and NEITHER SEES A MANAGED BODY — a `string`'s bytes are
+-// managed. So a `Vec<string>` freed with `vec_free` releases the block, orphans
+-// every body, and exits 0 with a clean conscience: `nitpick-time` measured
+-// exactly this retaining 125 MiB over two million elements AT EXIT 0, and
+-// hitting `HeapOom` only when squeezed under a cap. An acceptance item that
+-// leant on the exit code here would be unfalsifiable, which is why
+-// `0.0.4.md` §6 gives the managed half its own gate.
+-//
+-// THE SHAPE IS A LOOP OF ROUNDS, NOT ONE BIG VECTOR, and that is the whole
+-// design. At peak both halves hold the same 1 000 live strings, so a
+-// single-vector program could not tell them apart at any cap. The difference is
+-// only visible ACROSS rounds: the correct half returns to flat after every
+-// round, the leaking half never does.
+-//
+-// THE `/bin/true` CONTROL IS RUN BY THE HARNESS AT THIS SAME CAP, and it is not
+-// decoration. A low address-space cap measures the DYNAMIC LOADER rather than
+-// the program — this ecosystem has already published a bound that `/bin/true`
+-// also fails — so the runner requires the control to pass before it believes
+-// anything this file says.
+-mod:vec_owning_leak;
+-
+-use "../../src/core/vec.npk".*;
+-
+-func:main = int32(cstring[]:_~argv) {
+-    // 256 bytes of body per element, so the arithmetic is legible: 1 000 per
+-    // round times 500 rounds is 500 000 strings and well over 128 MiB retained
+-    // if nothing drops them, against a 64 MiB cap.
+-    string:filler = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+-
+-    int64:round = 0i64;
+-    while (round < 500i64) decreases 500i64 - round {
+-        Vec<string>:v = raw vec_init::<string>(16i64);
+-        int64:k = 0i64;
+-        while (k < 1000i64) decreases 1000i64 - k {
+-            // BOUND, NEVER NESTED. `vec_push(@v, string_concat(filler, t))`
+-            // would pass an owning TEMPORARY that is never bound and therefore
+-            // never dropped — the compiler's D-183 debt, and the difference
+-            // between linear and quadratic memory in any loop that does it.
+-            string:tag = "&{k}";
+-            string:e = string_concat(filler, tag);
+-            drop vec_push(@v, move(e));
+-            k = k + 1i64;
+-        }
+-        drop vec_free(@v);
+-        round = round + 1i64;
+-    }
+-
+-    exit 0i32;
+-};
+-
+-func:failsafe = int32(Error:e) {
+-    pick (e) {
+-        (HeapBadRequest) { exit 91i32; },
+-        (HeapOom)        { exit 92i32; },
+-        (IntOverflow)    { exit 93i32; },
+-        (OutOfBounds)    { exit 94i32; },
+-        (Unreachable)    { exit 95i32; },
+-        (WildLeak)       { exit 96i32; },
+-        (StackExhausted) { exit 106i32; },
+-        (MachineFault) { exit 107i32; },
+-        (DecreasesViolated) { exit 108i32; },
+-        (LimitViolated) { exit 109i32; },
+-        (*)              { exit 99i32; }
+-    }
+-    exit 9i32;
+-};
+diff --git a/tests/unit/vec_owning_pop_moves_out.npk b/tests/unit/vec_owning_pop_moves_out.npk
+deleted file mode 100644
+index cb513a5803549630e4c6709af644e04e75f13454..0000000000000000000000000000000000000000
+--- a/tests/unit/vec_owning_pop_moves_out.npk
++++ /dev/null
+@@ -1,71 +0,0 @@
+-// expect-exit: 0
+-// mem-cap-mib: 64
+-//
+-// `vec_pop` AT AN OWNING `T` IS OWNERSHIP-CORRECT -- RX-155.
+-//
+-// One of the four verbs that account for ownership at an owning `T` (with
+-// `vec_push`, `vec_insert` and `vec_free_owning`): it lowers `count` FIRST and
+-// then moves the element out to the caller, so the element leaves the container
+-// with its ownership and drops at the caller's binding. `vec.npk` said until
+-// the third cycle-0.0 audit that `vec_pop` was "scalar `T` only, for
+-// `vec_get`'s reason" -- false: `vec_get` leaves its slot counted, and
+-// `vec_pop` uncounts it before the move.
+-//
+-// Each round pushes 500 strings and pops all of them, each popped value bound
+-// and dropped at the end of its iteration. If a pop orphaned anything, 400
+-// rounds would carry about 300 MB of bodies past the 64 MiB cap and end
+-// in `HeapOom`, 92, as `vec_owning_leak.npk` does at the same cap; correct, it
+-// ends 0. THE ELEMENTS DIFFER IN LENGTH -- element `k` is 1 025 + `k` bytes, a
+-// kilobyte of filler so that a pop orphaning even half its elements carries the
+-// rounds past the cap -- and the first pop of the first round is checked to be
+-// the last element pushed, 1 524 bytes: exit 31 if it is not.
+-mod:vec_owning_pop_moves_out;
+-
+-use "../../src/core/vec.npk".*;
+-
+-func:main = int32(cstring[]:_~argv) {
+-    string:filler = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+-
+-    int64:round = 0i64;
+-    while (round < 400i64) decreases 400i64 - round {
+-        Vec<string>:v = raw vec_init::<string>(16i64);
+-        string:acc = "";
+-        int64:k = 0i64;
+-        while (k < 500i64) decreases 500i64 - k {
+-            acc = string_concat(acc, "y");
+-            string:e = string_concat(filler, acc);      // 1 025 + k bytes
+-            drop vec_push(@v, move(e));
+-            k = k + 1i64;
+-        }
+-        // UNTIL EMPTY, not 500 times: a pop that uncounted more than it returned
+-        // would then stop early and leave its orphans for the cap to find,
+-        // rather than trapping on an empty pop and hiding which half failed.
+-        bool:first = true;
+-        while (v.count > 0i64) decreases v.count {
+-            string:p = raw vec_pop(@v);
+-            if (first && round == 0i64 && string_byte_length(p) != 1524i64) { exit 31i32; }
+-            first = false;
+-        }
+-        drop vec_free_owning(@v);
+-        round = round + 1i64;
+-    }
+-
+-    exit 0i32;
+-};
+-
+-func:failsafe = int32(Error:e) {
+-    pick (e) {
+-        (HeapBadRequest) { exit 91i32; },
+-        (HeapOom)        { exit 92i32; },
+-        (IntOverflow)    { exit 93i32; },
+-        (OutOfBounds)    { exit 94i32; },
+-        (Unreachable)    { exit 95i32; },
+-        (WildLeak)       { exit 96i32; },
+-        (StackExhausted) { exit 106i32; },
+-        (MachineFault) { exit 107i32; },
+-        (DecreasesViolated) { exit 108i32; },
+-        (LimitViolated) { exit 109i32; },
+-        (*)              { exit 99i32; }
+-    }
+-    exit 9i32;
+-};
+diff --git a/tests/unit/vec_owning_remove_orphans.npk b/tests/unit/vec_owning_remove_orphans.npk
+deleted file mode 100644
+index 77c407aced315f01a8edae08c446af1681827e0c..0000000000000000000000000000000000000000
+--- a/tests/unit/vec_owning_remove_orphans.npk
++++ /dev/null
+@@ -1,74 +0,0 @@
+-// expect-exit: 92
+-// mem-cap-mib: 64
+-//
+-// `vec_remove` AT AN OWNING `T` ORPHANS the element it removes -- RX-155.
+-//
+-// PINNED, NOT ENDORSED. `Vec<T>` is for a NON-OWNING `T` (`SAFETY.md` S-23a),
+-// and this file measures what happens outside that, so the restriction rests
+-// on a run rather than a sentence: a `wild T->` slot does not drop, and `vec_remove`
+-// discards an element without moving it out. Each round builds a `Vec<string>`
+-// of 257-byte bodies, applies `vec_remove`, and releases the rest with
+-// `vec_free_owning`; the orphans accumulate across rounds and the program
+-// meets `HeapOom` under the 64 MiB cap -- **92**. `vec_owning_freed_small_rounds.npk`
+-// is the control: the same 40 000 rounds of 16 without the verb, the same cap,
+-// exit 0 -- and the harness runs `/bin/true` under the cap first, because a low
+-// cap measures the loader. *(This named `vec_owning_freed.npk` until the fourth
+-// cycle-0.0 audit (N-23). That file's rounds are 500 of 1 000 -- the set,
+-// truncate and clear units' shape, not this one's. The audit built the
+-// matching control by hand; it is committed now.)*
+-//
+-// Measured at `c3bdae2` with the runtime's `NPK_HEAP_STATS` over 1 000 rounds
+-// of two elements: `peak_live` grows linearly with the rounds for this verb
+-// and stays flat for the control (the numbers are RX-155's table).
+-//
+-// EXIT 0 MEANS THE VERB STOPPED ORPHANING -- `vec.npk` now drops what it
+-// discards, which is a change to RX-155's per-verb table, so re-read it: the
+-// restriction may be liftable for this verb.
+-mod:vec_owning_remove_orphans;
+-
+-use "../../src/core/vec.npk".*;
+-
+-func:main = int32(cstring[]:_~argv) {
+-    string:filler = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+-
+-    int64:round = 0i64;
+-    while (round < 40000i64) decreases 40000i64 - round {
+-        Vec<string>:v = raw vec_init::<string>(16i64);
+-        int64:k = 0i64;
+-        while (k < 16i64) decreases 16i64 - k {
+-            // BOUND, NEVER NESTED -- an owning temporary passed straight into
+-            // `vec_push` would be the compiler's D-183 leak, not this verb's.
+-            string:e = string_concat(filler, "k");      // 257 bytes of heap body
+-            drop vec_push(@v, move(e));
+-            k = k + 1i64;
+-        }
+-        // THE VERB: remove index 0 until empty -- the shift overwrites the
+-        // removed element, and the last removal only lowers `count`.
+-        int64:j = 0i64;
+-        while (j < 16i64) decreases 16i64 - j {
+-            drop vec_remove(@v, 0i64);
+-            j = j + 1i64;
+-        }
+-        drop vec_free_owning(@v);
+-        round = round + 1i64;
+-    }
+-
+-    exit 0i32;
+-};
+-
+-func:failsafe = int32(Error:e) {
+-    pick (e) {
+-        (HeapBadRequest) { exit 91i32; },
+-        (HeapOom)        { exit 92i32; },
+-        (IntOverflow)    { exit 93i32; },
+-        (OutOfBounds)    { exit 94i32; },
+-        (Unreachable)    { exit 95i32; },
+-        (WildLeak)       { exit 96i32; },
+-        (StackExhausted) { exit 106i32; },
+-        (MachineFault) { exit 107i32; },
+-        (DecreasesViolated) { exit 108i32; },
+-        (LimitViolated) { exit 109i32; },
+-        (*)              { exit 99i32; }
+-    }
+-    exit 9i32;
+-};
+diff --git a/tests/unit/vec_owning_set_orphans.npk b/tests/unit/vec_owning_set_orphans.npk
+deleted file mode 100644
+index b1be48316cb236ab22e6f28e28cf6510479993c7..0000000000000000000000000000000000000000
+--- a/tests/unit/vec_owning_set_orphans.npk
++++ /dev/null
+@@ -1,71 +0,0 @@
+-// expect-exit: 92
+-// mem-cap-mib: 64
+-//
+-// `vec_set` AT AN OWNING `T` ORPHANS the element it overwrites -- RX-155.
+-//
+-// PINNED, NOT ENDORSED. `Vec<T>` is for a NON-OWNING `T` (`SAFETY.md` S-23a),
+-// and this file measures what happens outside that, so the restriction rests
+-// on a run rather than a sentence: a `wild T->` slot does not drop, and `vec_set`
+-// discards an element without moving it out. Each round builds a `Vec<string>`
+-// of 257-byte bodies, applies `vec_set`, and releases the rest with
+-// `vec_free_owning`; the orphans accumulate across rounds and the program
+-// meets `HeapOom` under the 64 MiB cap -- **92**. `vec_owning_freed.npk` is
+-// the control: the same rounds without the verb, the same cap, exit 0 -- and
+-// the harness runs `/bin/true` under the cap first, because a low cap measures
+-// the loader.
+-//
+-// Measured at `c3bdae2` with the runtime's `NPK_HEAP_STATS` over 1 000 rounds
+-// of two elements: `peak_live` grows linearly with the rounds for this verb
+-// and stays flat for the control (the numbers are RX-155's table).
+-//
+-// EXIT 0 MEANS THE VERB STOPPED ORPHANING -- `vec.npk` now drops what it
+-// discards, which is a change to RX-155's per-verb table, so re-read it: the
+-// restriction may be liftable for this verb.
+-mod:vec_owning_set_orphans;
+-
+-use "../../src/core/vec.npk".*;
+-
+-func:main = int32(cstring[]:_~argv) {
+-    string:filler = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+-
+-    int64:round = 0i64;
+-    while (round < 500i64) decreases 500i64 - round {
+-        Vec<string>:v = raw vec_init::<string>(16i64);
+-        int64:k = 0i64;
+-        while (k < 1000i64) decreases 1000i64 - k {
+-            // BOUND, NEVER NESTED -- an owning temporary passed straight into
+-            // `vec_push` would be the compiler's D-183 leak, not this verb's.
+-            string:e = string_concat(filler, "k");      // 257 bytes of heap body
+-            drop vec_push(@v, move(e));
+-            k = k + 1i64;
+-        }
+-        // THE VERB: overwrite every slot. Each element it replaces is orphaned.
+-        int64:j = 0i64;
+-        while (j < 1000i64) decreases 1000i64 - j {
+-            string:r = string_concat(filler, "r");
+-            drop vec_set(@v, j, move(r));
+-            j = j + 1i64;
+-        }
+-        drop vec_free_owning(@v);
+-        round = round + 1i64;
+-    }
+-
+-    exit 0i32;
+-};
+-
+-func:failsafe = int32(Error:e) {
+-    pick (e) {
+-        (HeapBadRequest) { exit 91i32; },
+-        (HeapOom)        { exit 92i32; },
+-        (IntOverflow)    { exit 93i32; },
+-        (OutOfBounds)    { exit 94i32; },
+-        (Unreachable)    { exit 95i32; },
+-        (WildLeak)       { exit 96i32; },
+-        (StackExhausted) { exit 106i32; },
+-        (MachineFault) { exit 107i32; },
+-        (DecreasesViolated) { exit 108i32; },
+-        (LimitViolated) { exit 109i32; },
+-        (*)              { exit 99i32; }
+-    }
+-    exit 9i32;
+-};
+diff --git a/tests/unit/vec_owning_swap_remove_orphans.npk b/tests/unit/vec_owning_swap_remove_orphans.npk
+deleted file mode 100644
+index bde01f162b08f27f4d46c68ff055bd3045283b88..0000000000000000000000000000000000000000
+--- a/tests/unit/vec_owning_swap_remove_orphans.npk
++++ /dev/null
+@@ -1,74 +0,0 @@
+-// expect-exit: 92
+-// mem-cap-mib: 64
+-//
+-// `vec_swap_remove` AT AN OWNING `T` ORPHANS the element it removes -- RX-155.
+-//
+-// PINNED, NOT ENDORSED. `Vec<T>` is for a NON-OWNING `T` (`SAFETY.md` S-23a),
+-// and this file measures what happens outside that, so the restriction rests
+-// on a run rather than a sentence: a `wild T->` slot does not drop, and `vec_swap_remove`
+-// discards an element without moving it out. Each round builds a `Vec<string>`
+-// of 257-byte bodies, applies `vec_swap_remove`, and releases the rest with
+-// `vec_free_owning`; the orphans accumulate across rounds and the program
+-// meets `HeapOom` under the 64 MiB cap -- **92**. `vec_owning_freed_small_rounds.npk`
+-// is the control: the same 40 000 rounds of 16 without the verb, the same cap,
+-// exit 0 -- and the harness runs `/bin/true` under the cap first, because a low
+-// cap measures the loader. *(This named `vec_owning_freed.npk` until the fourth
+-// cycle-0.0 audit (N-23). That file's rounds are 500 of 1 000 -- the set,
+-// truncate and clear units' shape, not this one's. The audit built the
+-// matching control by hand; it is committed now.)*
+-//
+-// Measured at `c3bdae2` with the runtime's `NPK_HEAP_STATS` over 1 000 rounds
+-// of two elements: `peak_live` grows linearly with the rounds for this verb
+-// and stays flat for the control (the numbers are RX-155's table).
+-//
+-// EXIT 0 MEANS THE VERB STOPPED ORPHANING -- `vec.npk` now drops what it
+-// discards, which is a change to RX-155's per-verb table, so re-read it: the
+-// restriction may be liftable for this verb.
+-mod:vec_owning_swap_remove_orphans;
+-
+-use "../../src/core/vec.npk".*;
+-
+-func:main = int32(cstring[]:_~argv) {
+-    string:filler = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+-
+-    int64:round = 0i64;
+-    while (round < 40000i64) decreases 40000i64 - round {
+-        Vec<string>:v = raw vec_init::<string>(16i64);
+-        int64:k = 0i64;
+-        while (k < 16i64) decreases 16i64 - k {
+-            // BOUND, NEVER NESTED -- an owning temporary passed straight into
+-            // `vec_push` would be the compiler's D-183 leak, not this verb's.
+-            string:e = string_concat(filler, "k");      // 257 bytes of heap body
+-            drop vec_push(@v, move(e));
+-            k = k + 1i64;
+-        }
+-        // THE VERB: swap-remove index 0 until empty -- the last element is
+-        // moved over the removed one, which is orphaned.
+-        int64:j = 0i64;
+-        while (j < 16i64) decreases 16i64 - j {
+-            drop vec_swap_remove(@v, 0i64);
+-            j = j + 1i64;
+-        }
+-        drop vec_free_owning(@v);
+-        round = round + 1i64;
+-    }
+-
+-    exit 0i32;
+-};
+-
+-func:failsafe = int32(Error:e) {
+-    pick (e) {
+-        (HeapBadRequest) { exit 91i32; },
+-        (HeapOom)        { exit 92i32; },
+-        (IntOverflow)    { exit 93i32; },
+-        (OutOfBounds)    { exit 94i32; },
+-        (Unreachable)    { exit 95i32; },
+-        (WildLeak)       { exit 96i32; },
+-        (StackExhausted) { exit 106i32; },
+-        (MachineFault) { exit 107i32; },
+-        (DecreasesViolated) { exit 108i32; },
+-        (LimitViolated) { exit 109i32; },
+-        (*)              { exit 99i32; }
+-    }
+-    exit 9i32;
+-};
+diff --git a/tests/unit/vec_owning_truncate_orphans.npk b/tests/unit/vec_owning_truncate_orphans.npk
+deleted file mode 100644
+index 7f8679dafe5359720b911b93335cc5b3a79ef446..0000000000000000000000000000000000000000
+--- a/tests/unit/vec_owning_truncate_orphans.npk
++++ /dev/null
+@@ -1,67 +0,0 @@
+-// expect-exit: 92
+-// mem-cap-mib: 64
+-//
+-// `vec_truncate` AT AN OWNING `T` ORPHANS every element it discards -- RX-155.
+-//
+-// PINNED, NOT ENDORSED. `Vec<T>` is for a NON-OWNING `T` (`SAFETY.md` S-23a),
+-// and this file measures what happens outside that, so the restriction rests
+-// on a run rather than a sentence: a `wild T->` slot does not drop, and `vec_truncate`
+-// discards an element without moving it out. Each round builds a `Vec<string>`
+-// of 257-byte bodies, applies `vec_truncate`, and releases the rest with
+-// `vec_free_owning`; the orphans accumulate across rounds and the program
+-// meets `HeapOom` under the 64 MiB cap -- **92**. `vec_owning_freed.npk` is
+-// the control: the same rounds without the verb, the same cap, exit 0 -- and
+-// the harness runs `/bin/true` under the cap first, because a low cap measures
+-// the loader.
+-//
+-// Measured at `c3bdae2` with the runtime's `NPK_HEAP_STATS` over 1 000 rounds
+-// of two elements: `peak_live` grows linearly with the rounds for this verb
+-// and stays flat for the control (the numbers are RX-155's table).
+-//
+-// EXIT 0 MEANS THE VERB STOPPED ORPHANING -- `vec.npk` now drops what it
+-// discards, which is a change to RX-155's per-verb table, so re-read it: the
+-// restriction may be liftable for this verb.
+-mod:vec_owning_truncate_orphans;
+-
+-use "../../src/core/vec.npk".*;
+-
+-func:main = int32(cstring[]:_~argv) {
+-    string:filler = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+-
+-    int64:round = 0i64;
+-    while (round < 500i64) decreases 500i64 - round {
+-        Vec<string>:v = raw vec_init::<string>(16i64);
+-        int64:k = 0i64;
+-        while (k < 1000i64) decreases 1000i64 - k {
+-            // BOUND, NEVER NESTED -- an owning temporary passed straight into
+-            // `vec_push` would be the compiler's D-183 leak, not this verb's.
+-            string:e = string_concat(filler, "k");      // 257 bytes of heap body
+-            drop vec_push(@v, move(e));
+-            k = k + 1i64;
+-        }
+-        // THE VERB: truncate to empty. Every element past the new count is
+-        // orphaned, and `vec_free_owning` then drops nothing.
+-        drop vec_truncate(@v, 0i64);
+-        drop vec_free_owning(@v);
+-        round = round + 1i64;
+-    }
+-
+-    exit 0i32;
+-};
+-
+-func:failsafe = int32(Error:e) {
+-    pick (e) {
+-        (HeapBadRequest) { exit 91i32; },
+-        (HeapOom)        { exit 92i32; },
+-        (IntOverflow)    { exit 93i32; },
+-        (OutOfBounds)    { exit 94i32; },
+-        (Unreachable)    { exit 95i32; },
+-        (WildLeak)       { exit 96i32; },
+-        (StackExhausted) { exit 106i32; },
+-        (MachineFault) { exit 107i32; },
+-        (DecreasesViolated) { exit 108i32; },
+-        (LimitViolated) { exit 109i32; },
+-        (*)              { exit 99i32; }
+-    }
+-    exit 9i32;
+-};
+diff --git a/tests/unit/vec_unit.npk b/tests/unit/vec_unit.npk
+index 68e8f3563892fcb06d9bd6ab58e3ffdb8f031fef..109da95099af37134ad87728a03af3941af5704b 100644
+--- a/tests/unit/vec_unit.npk
++++ b/tests/unit/vec_unit.npk
+@@ -23,6 +23,9 @@
+ // `.npk`, which `check_refs` does not open -- the gate reads markdown links
+ // in markdown files, so a citation inside source is checked by nothing but
+ // a reader.)
++// *(@@DATE@@, cycle 0.1.1b -- RX-188: the `Vec<string>` section and that pair are gone,
++// an owning element being refused at the type, so every block here is `wild` and
++// `exit 0` covers this program whole.)*
+ mod:vec_unit;
+ 
+ use "../../src/core/vec.npk".*;
+@@ -184,27 +187,10 @@ func:main = int32(cstring[]:_~argv) {
+     if ((raw vec_get(b, 2i64)) != 9i32)                 { exit 122i32; }
+     drop vec_free(@b);
+ 
+-    // ---- AN OWNING T ------------------------------------------------------
+-
+-    // `string` owns a heap body. This is the shape `SAFETY.md` §8b is about and
+-    // the reason `vec_free_owning` exists.
+-    Vec<string>:s = raw vec_init::<string>(2i64);
+-    drop vec_push(@s, "alpha");
+-    drop vec_push(@s, "beta");
+-    drop vec_push(@s, "gamma");                          // forces the doubling
+-    if (s.count != 3i64)                                { exit 130i32; }
+-    // The assertion here is on the container's own state, and not on an
+-    // element read back: `vec_get` at an owning `T` MOVES the element out, which
+-    // `vec_owning_get_moves_out.npk` measures. This comment said until the third
+-    // cycle-0.0 audit (BL-5) that such a copy "is TYPE-046" -- refused -- and
+-    // declined to read for that reason; nothing refuses it (RX-155).
+-    // (Since cycle 0.0.4e, compiler `c970483`, something does: `vec_get` takes
+-    // `T: Pod` -- `T: Copy` since RX-177 -- so the read this comment declines is NITPICK-TYPE-017 here --
+-    // `../rejection/vec_owning_get_moves_out.npk`, RX-168.)
+-    if (s.cap < 3i64)                                   { exit 131i32; }
+-    // DROPS EVERY ELEMENT, then the block. `vec_free` would release the block
+-    // and orphan three string bodies, and this program would still exit 0.
+-    drop vec_free_owning(@s);
++    // ---- AN OWNING T: REFUSED SINCE CYCLE 0.1.1b ------------------------------
++    // A `Vec<string>` was built here and freed with `vec_free_owning` until then,
++    // exits 130 and 131. `Vec` is `Vec<T: Copy>` now (RX-188), so that section is
++    // NITPICK-TYPE-017 at every verb: `../rejection/vec_owning_get_moves_out.npk`.
+ 
+     exit 0i32;
+ };

@@ -1,0 +1,148 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 3a04b7e7c6a22c7574a36520fac7c85a63b479ad..6a98b106242a6f6579eea54af7fae78a0f41f68b 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -6,12 +6,14 @@ Guidance for Claude Code sessions working in this repository.
+ 
+ `nregex` — a regular-expression library for **Nitpick**, the safety-critical
+ systems language at `../../nitpick`. **Status: cycle 0.1, the pattern parser, is
+-open, and its 0.1.0, 0.1.0b and 0.1.1 are done** — the pieces the parser is written
++open, and its 0.1.0, 0.1.0b, 0.1.1 and 0.1.1b are done** — the pieces the parser is written
+ in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/0.1/0.1.0.md`); the adoption of
+ compiler `5fbaf4a` (RX-176 … RX-180, `0.1.0b.md`); and the core grammar —
+ `parse_pattern` builds the AST for literals, `.`, `^`, `$`, groups, alternation and
+ quantifiers, refuses what is wrong with the byte it is at, and
+-`pattern_error_text` says what to write instead (RX-181 … RX-187, `0.1.1.md`).
++`pattern_error_text` says what to write instead (RX-181 … RX-187, `0.1.1.md`); and
++the bound on `Vec`'s type — `Vec<T: Copy>`, an owning element refused wherever it is
++written (RX-188 … RX-190, `0.1.1b.md`).
+ Cycle 0.0, foundations, CLOSED on 2026-09-26 — the sixth audit accepted it, and
+ it is archived in `meta/roadmap/done/0.0/`. The
+ specifications, the decisions and the roadmap are complete; `tests/probe/` holds
+@@ -39,10 +41,11 @@ owning element, refused `TYPE-017`; and since 0.1.0 the syntax layer's three —
+ and the AST's `Vec` read, refused `TYPE-080`); `harness/` builds, sweeps,
+ diffs and judges them, **and proves first that it can fail**; and since 0.0.4
+ `src/core/` is real — `Vec<T>`, `Bytes`, `ByteSet`, `SparseSet` and `limits.npk`,
+-with 48 unit programs of their own — seven of them measuring what each `Vec` verb does at an
+-owning element type, which `SAFETY.md` S-23a keeps out of `src/` (the eighth, `vec_get`'s, is a
+-refusal since cycle 0.0.4e: `vec_get` takes `T: Pod`, RX-168, the prelude's `T: Copy` since
+-0.1.0b, RX-177); the swap and the moves a move-only
++with 37 unit programs of their own — 48 until cycle 0.1.1b retired the ten that measured each
++`Vec` verb at an owning element type, and `vec_oob_free_owning_after_free`, because
++`Vec<T: Copy>` refuses an owning element at the type and at every verb (RX-188, RX-189; the
++refusal is `tests/rejection/vec_owning_get_moves_out.npk`, one site per verb, where
++`vec_get`'s alone was refused from cycle 0.0.4e); the swap and the moves a move-only
+ `Vec` still allows (RX-161); and `loan_spellings`, the spellings the six loan and pass-out
+ refusals prescribe — the six were units pinning a compiler defect until `c970483` refused them
+ (RX-169); and `vec_get_pod_struct`, a consumer's own `Copy` for a POD struct (its own `Pod`
+@@ -56,7 +59,7 @@ behind its layer entry, with ten unit programs and three refusals of their own 
+ refused provisionally until 0.1.3 and 0.1.4 (`SYNTAX.md` Y-31). **No matching happens yet**: `src/hir/`,
+ `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are still one
+ placeholder module each. A full green run at compiler `5fbaf4a` is
+-**260 units** (after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus eight tree checks; take those numbers from the runner's
++**238 units** (after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus eight tree checks; take those numbers from the runner's
+ summary rather than from here. **Nothing is PENDING any more**:
+ `tests/unit/bytes_copy_string_empty.npk` was committed red under
+ `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
+@@ -151,6 +154,11 @@ Full statement in `meta/specs/SAFETY.md` §1. The ones that bite hardest:
+   `tests/probe/probe18_impl_adds_move.npk`.)*
+   *(Since cycle 0.1.0b, compiler `5fbaf4a`: the bound is the prelude's `Copy`, a marker
+   with no method, and that impl is `NITPICK-TYPE-014` — RX-176, RX-177.)*
++  *(Since cycle 0.1.1b, `5fbaf4a`: for a `Vec` something keeps an owner out — the TYPE,
++  `Vec<T: Copy>`, every verb repeating the bound, so `Vec<string>` is `NITPICK-TYPE-017`
++  at the type and at each verb, and an element type derives `Copy` (RX-188). The check
++  stays: a `Copy` struct may hold a pointer or a slice, which the compiler admits and
++  the check refuses (RX-190).)*
+   **And since cycle 0.0.4d a `Vec` IS itself an owner** — a hidden zero-length array of
+   `string` makes it one — so a `Vec`, a `SparseSet` and any struct holding one are
+   move-only: copy one and it is `TYPE-046`; transfer it with `move(...)`; lend it BY VALUE
+@@ -393,7 +401,8 @@ evidence.
+   quotes is the four characters `&{k}`, measured at `c3bdae2`; `` `&{k}` `` is the
+   number. `vec_owning_freed.npk` and `vec_owning_leak.npk` build their tags the
+   first way, which is harmless there — the pair measures bytes, not content — and
+-  is why no program here has ever referenced `npk_int_to_string` (RX-131).
++  is why no program here has ever referenced `npk_int_to_string` (RX-131). *(Both
++  retired at cycle 0.1.1b, RX-188.)*
+ 
+ ## Building and testing
+ 
+diff --git a/README.md b/README.md
+index 9a4a54130fb611f1ea5b80e6679cc86f34a38e56..da8833d8e61f95052daadc5c0ec23955ba4c7c29 100644
+--- a/README.md
++++ b/README.md
+@@ -15,7 +15,9 @@ makes the guarantee below possible.
+ > the byte cursor and the AST arena. Cycle 0.1.0b moved the pinned compiler to
+ > `5fbaf4a`, and cycle 0.1.1 parses the core grammar — literals, groups,
+ > alternation and quantifiers — into an AST, refusing a bad pattern with the byte
+-> it is at and a sentence saying what to write instead. Nothing matches a pattern yet.
++> it is at and a sentence saying what to write instead. Cycle 0.1.1b bounded `Vec`'s
++> element type by the prelude's `Copy`, so the compiler refuses an owning element
++> wherever one is written. Nothing matches a pattern yet.
+ > The specification set is in [`meta/specs/`](meta/specs/) and the plan in
+ > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
+ > discipline the compiler used — specs first, then a cycle map, then
+diff --git a/meta/roadmap/0.2/README.md b/meta/roadmap/0.2/README.md
+index d30458ba12490db77a3285b1bd4ebcf1c4ced163..fe4a62d91cc81102e95ad06e71e830e1119a79da 100644
+--- a/meta/roadmap/0.2/README.md
++++ b/meta/roadmap/0.2/README.md
+@@ -23,7 +23,7 @@ RX-015, RX-031. Settled. **No open questions.**
+ 
+ ### 0.2.0 — the arena
+ - [ ] `HirNode` as a POD struct with no owning field; `#size_of` asserted
+-- [ ] `Literal` and `GroupInfo` shaped to own nothing — offsets into a `Bytes`, the way `Hir.names` holds group names — because a `Vec` holds a `T` that owns nothing (`SAFETY.md` S-23a, RX-155) and `check_vec_elements_own_nothing` fails the run otherwise. `HIR.md` §2 names both without fields; this cycle is where they get them
++- [ ] `Literal` and `GroupInfo` shaped to own nothing — offsets into a `Bytes`, the way `Hir.names` holds group names — because a `Vec` holds a `T` that owns nothing (`SAFETY.md` S-23a, RX-155) and `check_vec_elements_own_nothing` fails the run otherwise. `HIR.md` §2 names both without fields; this cycle is where they get them — and each `#[derive(Copy)]`s, as every `Vec` element must since `Vec` is `Vec<T: Copy>` (cycle 0.1.1b, RX-188)
+ - [ ] children by `int32` index, never by pointer (H-3)
+ - [ ] names in one `Bytes`, referenced by offset and length
+ - [ ] the nine kinds from H-4
+diff --git a/meta/roadmap/ROADMAP.md b/meta/roadmap/ROADMAP.md
+index 700ab8a56012644ed6878a0201072f956e336117..98da104eff55e1ff8415503f9d72eb002e42e9e9 100644
+--- a/meta/roadmap/ROADMAP.md
++++ b/meta/roadmap/ROADMAP.md
+@@ -53,7 +53,7 @@ cycle 0.0.
+ | Cycle | Topic | Gated on |
+ |---|---|---|
+ | **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **DONE 2026-09-26, archived to [`done/0.0/`](done/0.0/README.md).** The sixth W-22 audit ACCEPTED the close at compiler `c970483`, after five refusals — three on 2026-09-06, two on 2026-09-25 — and two inserted subcycles, 0.0.4d (`Vec` move-only) and 0.0.4e (the re-pin that refused the loan). The close is [`done/0.0/0.0.5.md`](done/0.0/0.0.5.md) §13 | — |
+-| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **OPEN: [`0.1.0`](0.1/0.1.0.md), the cursor and the AST, done; [`0.1.0b`](0.1/0.1.0b.md), the adoption of `5fbaf4a` and the ecosystem audit's items, done; [`0.1.1`](0.1/0.1.1.md), the core grammar, done; next, open question O-R3 — `struct:Vec<T: Copy>` — as a subcycle of its own, then 0.1.2, the explicit stack's bound** | 0.0 |
++| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **OPEN: [`0.1.0`](0.1/0.1.0.md), the cursor and the AST, done; [`0.1.0b`](0.1/0.1.0b.md), the adoption of `5fbaf4a` and the ecosystem audit's items, done; [`0.1.1`](0.1/0.1.1.md), the core grammar, done; [`0.1.1b`](0.1/0.1.1b.md), open question O-R3 — `Vec<T: Copy>` — done; next, 0.1.2, the explicit stack's bound** | 0.0 |
+ | **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction | 0.1 |
+ | **0.3** | **Unicode** — generated tables, properties, scripts, simple case folding | 0.0 |
+ | **0.4** | **UTF-8 automata** — codepoint ranges to byte ranges, alphabet compression | 0.3 |
+@@ -182,6 +182,9 @@ RX-180.)*
+ *(After cycle 0.1.1, the same compiler: **260** units — five unit programs for the core
+ grammar and its error text, and the parse sweep's five more files; `PatternErrorKind` at
+ thirty-six; decisions through RX-187.)*
++*(After cycle 0.1.1b, the same compiler: **238** units — the ten owning-element units and
++`vec_oob_free_owning_after_free` retired with `Vec<T: Copy>`, and the parse sweep's eleven
++fewer files — `src/core/` with **37** unit programs; decisions through RX-190.)*
+ 
+ **Two probes refuted their own hypothesis**, which is the cycle's best return:
+ `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler
+diff --git a/meta/specs/COMPILE.md b/meta/specs/COMPILE.md
+index cbeddc33ac45682424d6148514c9d04d5edece5a..1b5c90845321cd59f43be8fd1a52352ccf2c8c9f 100644
+--- a/meta/specs/COMPILE.md
++++ b/meta/specs/COMPILE.md
+@@ -35,6 +35,9 @@ pub struct:Program = {
+ A `Program` is therefore **copyable, comparable, and dumpable** — which is what
+ makes a compiled program a committed fixture (`TESTING.md` §4) and a compiler
+ change a visible diff rather than a behaviour nobody can inspect.
++*(@@DATE@@, cycle 0.1.1b — RX-188: `Inst`, `InstKind` and `ByteSet` each
++`#[derive(Copy)]` by the cycle that first writes `Vec<Inst>` or `Vec<ByteSet>` — `Vec` is
++`Vec<T: Copy>` — and `ByteSet` does not yet.)*
+ 
+ *(Flagged 2026-09-25 — RX-160, the fourth cycle 0.0 audit's BL-8. **"Copyable" here
+ means the CONTENT: plain data, compared and dumped element by element.** A BINDING
+diff --git a/meta/specs/HIR.md b/meta/specs/HIR.md
+index b11cfc4e70feab902acc40939499528a05c4c95b..17cc09bcc8d6981b89eb892b5dd639e1b7e295b3 100644
+--- a/meta/specs/HIR.md
++++ b/meta/specs/HIR.md
+@@ -53,6 +53,10 @@ pub struct:Hir = {
+ array, and comparable — which is what makes the whole tree a fixture a test can
+ commit (`TESTING.md` §4). Names live in one `Bytes` and are referenced by
+ offset and length.
++*(@@DATE@@, cycle 0.1.1b — RX-188: and every element type of `Hir`'s `Vec`s —
++`HirNode`, `ClassRange`, `Literal`, `GroupInfo` — `#[derive(Copy)]`s, with every enum it
++holds: `Vec` is `Vec<T: Copy>`, and a struct of scalars that does not say so is
++`NITPICK-TYPE-017` at its `Vec`, measured at `5fbaf4a`.)*
+ 
+ **Rule H-3 — children are found by index, never by pointer.** The language
+ would allow a pointer tree, and it would be worse: a `Vec<HirNode>` reallocates
