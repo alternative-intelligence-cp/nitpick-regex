@@ -185,6 +185,8 @@
 // BY CONSTRUCTION, after which the second handle this guard cannot see does
 // not compile. `tests/unit/vec_alias_*.npk` and `sparseset_alias_*.npk` pin
 // today's behaviour and are what 0.0.4d turns into rejection fixtures.)*
+// *(2026-09-28, cycle 0.1.1b -- RX-189: `vec_free_owning` is gone, so the guard heads
+// `vec_free` alone, and `sset_free` inherits it by calling it.)*
 //
 // ============================================================================
 // MOVE-ONLY, AND WHAT A LOAN STILL REACHES (S-23b; RX-161, RX-162)
@@ -269,6 +271,8 @@
 // exactly this shape retaining 125 MiB over two million elements. Where the
 // obligation is managed the gate is a MEMORY CAP, never an exit code, and
 // `vec_free_owning` below is the function that discharges it.
+// *(2026-09-28, cycle 0.1.1b -- RX-189: a `Vec` holds nothing managed since RX-188, so
+// `vec_free` discharges it whole, and `vec_free_owning` is gone.)*
 //
 // ============================================================================
 // WHAT A `Vec` MAY HOLD: A `T` THAT OWNS NOTHING (S-23a, RX-155)
@@ -476,6 +480,7 @@ pub func:vec_init<T: Copy> = Vec<T>(int64:cap) never fails {
 // element compiles, links and runs in a `Vec` and in a fixed array alike --
 // measured at `950bb1d`, `3d15ac9` and `c3bdae2`. The POD shape is this
 // library's design, and S-23a is what now makes it a rule.)*
+// *(2026-09-28, cycle 0.1.1b -- RX-189: no `T` owns since RX-188, and this is the one free.)*
 pub func:vec_free<T: Copy> = NIL(Vec<T>->:v) never fails {
     // DEAD `Vec` -- see the header. Without this, a double free reaches
     // `dalloc` with a pointer the allocator has already reclaimed and stops on
@@ -790,53 +795,9 @@ pub func:vec_init_zeroed<T: Copy> = Vec<T>(int64:n) never fails {
     pass Vec{ items: mem =>! wild T->, count: n, cap: k, move_only: [] };
 };
 
-// ---- the managed half ------------------------------------------------------
-
-// FREES THE BLOCK **AND DROPS EVERY ELEMENT**, for an owning `T`.
+// ---- the managed half: retired ----------------------------------------------
 //
-// This is the function `exit 0` cannot check and a memory cap can. Dropping
-// requires MOVING each element out — `move(v.items[j])` binds the element to a
-// local that drops at the end of its iteration. It is separate from `vec_free`
-// for COST: `vec_free` is O(1) at every `T` and this is O(`count`), and at the
-// non-owning `T` `SAFETY.md` S-23a allows, both are correct -- so this exists
-// for the managed-half gate and the owning units, which measure what S-23a
-// excludes (RX-155). RX-126 records that this shape is outside the compiler's
-// DEF-8 entirely: `Vec<T>` does not drop, so there is no drop flag to get
-// wrong.
-//
-// *(Until the third cycle-0.0 audit's triage the reason given here was that "a
-// `move` out of an element is refused for a `T` that does not own (there is
-// nothing to move), so one function cannot serve both". False at `3d15ac9` and
-// at `c3bdae2`: `vec_free_owning::<int64>` compiles and runs, because a `move`
-// of a scalar is its copy (D-264).)*
-//
-// obligation: never fails ensures v.cap == 0i64
-pub func:vec_free_owning<T: Copy> = NIL(Vec<T>->:v) never fails {
-    // DEAD `Vec` -- see the header (RX-144). Worse here than in `vec_free`:
-    // without it the loop below MOVES elements out of a freed block and drops
-    // them, so a `vec_free_owning` after a `vec_free` runs destructors over
-    // reclaimed memory before `dalloc` ever notices.
-    if (v.cap <= 0i64) { drop vec_oob(v.cap - 1i64); }
-    int64:j = 0i64;
-    int64:live = v.count;
-    while (j < live) decreases live - j {
-        // Bound, then dropped at the end of this iteration's scope. Binding is
-        // the point: an owning value that is never bound is never dropped,
-        // which is the compiler's own D-183 debt.
-        T:e = move(v.items[j]);
-        drop drop_element(move(e));
-        j = j + 1i64;
-    }
-    v.count = 0i64;
-    dalloc(v.items =>! wild int8->);
-    v.cap = 0i64;
-    pass NIL;
-};
-
-// The sink an owning element is moved into so that it drops. It does nothing
-// with the value on purpose: taking it by `move` makes this function the
-// owner, and it drops at the closing brace like any other bound owner.
-func:drop_element<T> = NIL(move T:e) never fails {
-    discard(e);
-    pass NIL;
-};
+// `vec_free_owning`, which moved each element out and dropped it before freeing the
+// block, and its sink `drop_element` are gone since cycle 0.1.1b (RX-189): under the
+// type's `T: Copy` there is nothing to drop, so `vec_free` is the whole free. RX-155
+// measured what it did at an owning `T`, and RX-144 why its guard mattered most.

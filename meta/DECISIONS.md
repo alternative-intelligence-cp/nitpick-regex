@@ -2510,6 +2510,10 @@ RX-123 makes, and the single definition is what made this a one-line fix);
 that an error channel here lands on the search path).
 
 ### RX-144 — the FREE paths stopped on the allocator's check and reported `Unreachable`, so "`cap <= 0` traps `OutOfBounds` like every other misuse in this file" was not true of two of them
+> **SUPERSEDED IN PART by RX-189 (2026-09-28)** — `vec_free_owning` and its unit
+> `vec_oob_free_owning_after_free`: removed at cycle 0.1.1b, a `Vec<T: Copy>` holding nothing
+> to drop. The guard on `vec_free`, `sset_free`'s inheritance and the lesson about a claimed set
+> stand.
 > **SUPERSEDED IN PART by RX-156 (2026-09-25)** — its reading that 95 reported
 > the wrong thing: `Unreachable` is the language's code for a double free. The
 > guard and its 94 stand, as a trade RX-156 states.
@@ -3179,6 +3183,8 @@ the pending exit written in the list only — the marker is what a reader of the
 unit sees, so it must say which failure it excuses.
 
 ### RX-155 — `Vec<T>` is for a `T` that owns nothing, because nothing in the language keeps an owner out; the restriction is stated per verb, measured per verb, and enforced over `src/`
+> **SUPERSEDED IN PART by RX-189 (2026-09-28)** — *"The two stay apart for cost"*: `vec_free_owning`
+> is removed at cycle 0.1.1b, a `Vec<T: Copy>` having nothing to drop.
 > **SUPERSEDED IN PART by RX-188 (2026-09-28)** — *"nothing in the language keeps an owner out"*:
 > `Vec` is `Vec<T: Copy>` since cycle 0.1.1b, so the compiler refuses one at the type and every
 > verb; the units measuring each verb, which that bound refuses, are retired; and `tests/` is
@@ -3291,6 +3297,9 @@ public API change for a rule a tree check enforces over the code that ships;
 later cycle can break by writing one `Vec<string>` is a rule that asks for care.
 
 ### RX-156 — a double free traps `OutOfBounds` at this library's guard, which is a TRADE against the language's own code; and the guard reaches one binding
+> **SUPERSEDED IN PART by RX-189 (2026-09-28)** — its reason *"the guard is what keeps
+> `vec_free_owning` from running destructors over a freed block"*: that function is removed at
+> cycle 0.1.1b. The guard and its 94 stand on the others.
 > **SUPERSEDED IN PART by RX-160 (2026-09-25)** — its premise that R-8's capture copy at cycle 0.8 is the one
 > place the specification copies a `Vec` (false three ways, BL-8), the reach it gave N-15, and N-15's disposition:
 > DEFERRED TO 0.0.4d, before the close, by the author's decision on question 9. The guard and the 94 stand.
@@ -4612,3 +4621,27 @@ renamed** — its name is its history, as probe 18's was (RX-176); **`move` drop
 `vec_set` and `vec_insert` take** — under `T: Copy` it is a copy either way, and it would change every call site
 for nothing; **waiting for a consumer that needs an owning element** — none is planned, and the bound is what
 keeps a later cycle from writing one by accident.
+
+### RX-189 — `vec_free_owning` and `drop_element` are removed: a `Vec<T: Copy>` holds nothing to drop, so `vec_free` is the whole free
+
+**2026-09-28, cycle 0.1.1b (the plan's PD-33), at compiler `5fbaf4a`.** It supersedes in part RX-144 — the guard
+heading `vec_free_owning`, and that function's unit; RX-156 — its reason that the guard keeps `vec_free_owning`
+from running destructors over a freed block; and RX-155 — *"the two stay apart for cost"*. The guard on
+`vec_free`, and its 94, stand.
+
+**Measured at `5fbaf4a`, over RX-188's tree.** At every `T` the type admits, `vec_free_owning` does what
+`vec_free` does, in O(`count`) where `vec_free` is O(1): each `move(v.items[j])` is a copy and `drop_element`
+drops nothing. Its callers were the ten retired units, `vec_unit.npk`'s retired section, and
+`tests/unit/vec_oob_free_owning_after_free.npk` — RX-144's unit for the guard's worse half, a walk over a freed
+block that no `T: Copy` can make run a destructor. `src/` never called it, `core.npk` re-exported it, and the
+public surface, `src/lib.npk`, never reached it. Removed, every remaining program's IR is RX-188's but for what
+a removal moves, the site-line table and the generated drops' numbering; `vec_oob_free_twice.npk` holds 94.
+
+**The decision.** `vec_free_owning`, `drop_element`, `core.npk`'s re-export and
+`vec_oob_free_owning_after_free.npk` are deleted, and `vec.npk` keeps a paragraph where the managed half was.
+`vec_free` is the one free.
+
+*Alternatives declined:* **kept as an alias of `vec_free`** — two names for one operation, one of them saying
+"owning" at a type that cannot own; **kept until a cycle lifts S-23a** — that cycle needs the compiler's
+`List<T>` discards (RX-155), and the history keeps this one; **its unit kept, pointed at `vec_free`** —
+`vec_oob_free_twice.npk` is that unit already.

@@ -592,6 +592,9 @@ than a style note:**
   reaches one binding there as before — `vec_alias_param_grow.npk` is a double
   free it cannot see, 95.)* *(Refused at `c970483`, cycle 0.0.4e: that file is a
   rejection fixture, `NITPICK-TYPE-085` — RX-169.)*
+  *(2026-09-28, cycle 0.1.1b — RX-189: `vec_free_owning` is gone, a `Vec` holding
+  nothing to drop since RX-188; the guard heads `vec_free`, and
+  `vec_oob_free_owning_after_free.npk` went with its function.)*
 - **An unchecked index is a WRONG ANSWER, not a crash.** That inverts the
   failure mode §1 advertises. A wrong program counter in an engine reads an
   unrelated heap word as an instruction; a wrong sparse-set probe adds a thread

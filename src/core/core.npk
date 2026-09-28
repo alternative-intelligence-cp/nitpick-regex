@@ -49,7 +49,6 @@ pub use "./vec.npk".vec_oob;
 pub use "./vec.npk".vec_init;
 pub use "./vec.npk".vec_init_zeroed;
 pub use "./vec.npk".vec_free;
-pub use "./vec.npk".vec_free_owning;
 pub use "./vec.npk".vec_reserve;
 pub use "./vec.npk".vec_get;
 pub use "./vec.npk".vec_set;
