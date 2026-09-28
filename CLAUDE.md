@@ -6,12 +6,14 @@ Guidance for Claude Code sessions working in this repository.
 
 `nregex` — a regular-expression library for **Nitpick**, the safety-critical
 systems language at `../../nitpick`. **Status: cycle 0.1, the pattern parser, is
-open, and its 0.1.0, 0.1.0b and 0.1.1 are done** — the pieces the parser is written
+open, and its 0.1.0, 0.1.0b, 0.1.1 and 0.1.1b are done** — the pieces the parser is written
 in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/0.1/0.1.0.md`); the adoption of
 compiler `5fbaf4a` (RX-176 … RX-180, `0.1.0b.md`); and the core grammar —
 `parse_pattern` builds the AST for literals, `.`, `^`, `$`, groups, alternation and
 quantifiers, refuses what is wrong with the byte it is at, and
-`pattern_error_text` says what to write instead (RX-181 … RX-187, `0.1.1.md`).
+`pattern_error_text` says what to write instead (RX-181 … RX-187, `0.1.1.md`); and
+the bound on `Vec`'s type — `Vec<T: Copy>`, an owning element refused wherever it is
+written (RX-188 … RX-190, `0.1.1b.md`).
 Cycle 0.0, foundations, CLOSED on 2026-09-26 — the sixth audit accepted it, and
 it is archived in `meta/roadmap/done/0.0/`. The
 specifications, the decisions and the roadmap are complete; `tests/probe/` holds
@@ -39,10 +41,11 @@ owning element, refused `TYPE-017`; and since 0.1.0 the syntax layer's three —
 and the AST's `Vec` read, refused `TYPE-080`); `harness/` builds, sweeps,
 diffs and judges them, **and proves first that it can fail**; and since 0.0.4
 `src/core/` is real — `Vec<T>`, `Bytes`, `ByteSet`, `SparseSet` and `limits.npk`,
-with 48 unit programs of their own — seven of them measuring what each `Vec` verb does at an
-owning element type, which `SAFETY.md` S-23a keeps out of `src/` (the eighth, `vec_get`'s, is a
-refusal since cycle 0.0.4e: `vec_get` takes `T: Pod`, RX-168, the prelude's `T: Copy` since
-0.1.0b, RX-177); the swap and the moves a move-only
+with 37 unit programs of their own — 48 until cycle 0.1.1b retired the ten that measured each
+`Vec` verb at an owning element type, and `vec_oob_free_owning_after_free`, because
+`Vec<T: Copy>` refuses an owning element at the type and at every verb (RX-188, RX-189; the
+refusal is `tests/rejection/vec_owning_get_moves_out.npk`, one site per verb, where
+`vec_get`'s alone was refused from cycle 0.0.4e); the swap and the moves a move-only
 `Vec` still allows (RX-161); and `loan_spellings`, the spellings the six loan and pass-out
 refusals prescribe — the six were units pinning a compiler defect until `c970483` refused them
 (RX-169); and `vec_get_pod_struct`, a consumer's own `Copy` for a POD struct (its own `Pod`
@@ -56,7 +59,7 @@ behind its layer entry, with ten unit programs and three refusals of their own �
 refused provisionally until 0.1.3 and 0.1.4 (`SYNTAX.md` Y-31). **No matching happens yet**: `src/hir/`,
 `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are still one
 placeholder module each. A full green run at compiler `5fbaf4a` is
-**260 units** (after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus eight tree checks; take those numbers from the runner's
+**238 units** (after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus eight tree checks; take those numbers from the runner's
 summary rather than from here. **Nothing is PENDING any more**:
 `tests/unit/bytes_copy_string_empty.npk` was committed red under
 `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
@@ -151,6 +154,11 @@ Full statement in `meta/specs/SAFETY.md` §1. The ones that bite hardest:
   `tests/probe/probe18_impl_adds_move.npk`.)*
   *(Since cycle 0.1.0b, compiler `5fbaf4a`: the bound is the prelude's `Copy`, a marker
   with no method, and that impl is `NITPICK-TYPE-014` — RX-176, RX-177.)*
+  *(Since cycle 0.1.1b, `5fbaf4a`: for a `Vec` something keeps an owner out — the TYPE,
+  `Vec<T: Copy>`, every verb repeating the bound, so `Vec<string>` is `NITPICK-TYPE-017`
+  at the type and at each verb, and an element type derives `Copy` (RX-188). The check
+  stays: a `Copy` struct may hold a pointer or a slice, which the compiler admits and
+  the check refuses (RX-190).)*
   **And since cycle 0.0.4d a `Vec` IS itself an owner** — a hidden zero-length array of
   `string` makes it one — so a `Vec`, a `SparseSet` and any struct holding one are
   move-only: copy one and it is `TYPE-046`; transfer it with `move(...)`; lend it BY VALUE
@@ -393,7 +401,8 @@ evidence.
   quotes is the four characters `&{k}`, measured at `c3bdae2`; `` `&{k}` `` is the
   number. `vec_owning_freed.npk` and `vec_owning_leak.npk` build their tags the
   first way, which is harmless there — the pair measures bytes, not content — and
-  is why no program here has ever referenced `npk_int_to_string` (RX-131).
+  is why no program here has ever referenced `npk_int_to_string` (RX-131). *(Both
+  retired at cycle 0.1.1b, RX-188.)*
 
 ## Building and testing
 

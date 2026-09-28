@@ -35,6 +35,9 @@ pub struct:Program = {
 A `Program` is therefore **copyable, comparable, and dumpable** — which is what
 makes a compiled program a committed fixture (`TESTING.md` §4) and a compiler
 change a visible diff rather than a behaviour nobody can inspect.
+*(2026-09-28, cycle 0.1.1b — RX-188: `Inst`, `InstKind` and `ByteSet` each
+`#[derive(Copy)]` by the cycle that first writes `Vec<Inst>` or `Vec<ByteSet>` — `Vec` is
+`Vec<T: Copy>` — and `ByteSet` does not yet.)*
 
 *(Flagged 2026-09-25 — RX-160, the fourth cycle 0.0 audit's BL-8. **"Copyable" here
 means the CONTENT: plain data, compared and dumped element by element.** A BINDING

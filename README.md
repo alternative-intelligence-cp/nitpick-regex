@@ -15,7 +15,9 @@ makes the guarantee below possible.
 > the byte cursor and the AST arena. Cycle 0.1.0b moved the pinned compiler to
 > `5fbaf4a`, and cycle 0.1.1 parses the core grammar — literals, groups,
 > alternation and quantifiers — into an AST, refusing a bad pattern with the byte
-> it is at and a sentence saying what to write instead. Nothing matches a pattern yet.
+> it is at and a sentence saying what to write instead. Cycle 0.1.1b bounded `Vec`'s
+> element type by the prelude's `Copy`, so the compiler refuses an owning element
+> wherever one is written. Nothing matches a pattern yet.
 > The specification set is in [`meta/specs/`](meta/specs/) and the plan in
 > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
 > discipline the compiler used — specs first, then a cycle map, then

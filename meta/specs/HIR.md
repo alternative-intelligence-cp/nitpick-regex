@@ -53,6 +53,10 @@ pub struct:Hir = {
 array, and comparable — which is what makes the whole tree a fixture a test can
 commit (`TESTING.md` §4). Names live in one `Bytes` and are referenced by
 offset and length.
+*(2026-09-28, cycle 0.1.1b — RX-188: and every element type of `Hir`'s `Vec`s —
+`HirNode`, `ClassRange`, `Literal`, `GroupInfo` — `#[derive(Copy)]`s, with every enum it
+holds: `Vec` is `Vec<T: Copy>`, and a struct of scalars that does not say so is
+`NITPICK-TYPE-017` at its `Vec`, measured at `5fbaf4a`.)*
 
 **Rule H-3 — children are found by index, never by pointer.** The language
 would allow a pointer tree, and it would be worse: a `Vec<HirNode>` reallocates

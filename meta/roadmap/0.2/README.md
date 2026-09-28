@@ -23,7 +23,7 @@ RX-015, RX-031. Settled. **No open questions.**
 
 ### 0.2.0 — the arena
 - [ ] `HirNode` as a POD struct with no owning field; `#size_of` asserted
-- [ ] `Literal` and `GroupInfo` shaped to own nothing — offsets into a `Bytes`, the way `Hir.names` holds group names — because a `Vec` holds a `T` that owns nothing (`SAFETY.md` S-23a, RX-155) and `check_vec_elements_own_nothing` fails the run otherwise. `HIR.md` §2 names both without fields; this cycle is where they get them
+- [ ] `Literal` and `GroupInfo` shaped to own nothing — offsets into a `Bytes`, the way `Hir.names` holds group names — because a `Vec` holds a `T` that owns nothing (`SAFETY.md` S-23a, RX-155) and `check_vec_elements_own_nothing` fails the run otherwise. `HIR.md` §2 names both without fields; this cycle is where they get them — and each `#[derive(Copy)]`s, as every `Vec` element must since `Vec` is `Vec<T: Copy>` (cycle 0.1.1b, RX-188)
 - [ ] children by `int32` index, never by pointer (H-3)
 - [ ] names in one `Bytes`, referenced by offset and length
 - [ ] the nine kinds from H-4
