@@ -650,6 +650,12 @@ and a pointer, a slice, an optional, a `cstring` or an array written as `T` itse
 measured at `5fbaf4a`. The paragraph and the table below — *"The language accepts
 `Vec<string>`"* — are RX-155's measurement at `c3bdae2`, kept as history: no row of
 it can be written now, and its units are retired. An element type derives `Copy`.)*
+*(Amended 2026-09-28 by RX-190, cycle 0.1.1b: the check is not only a belt. `Copy` is
+the compiler's "drops nothing", and it admits what this rule's other half refuses:
+a `#[derive(Copy)]` struct holding a pointer or a slice compiles as a `Vec` element
+at `5fbaf4a`, and `check_vec_elements_own_nothing` fails it — while the compiler
+refuses a POD struct that does not derive `Copy`, which the check clears. So the
+check is the belt for the first half and the rule for the second, and both run.)*
 
 The language accepts `Vec<string>`. `TYPE-046` asks for `move` when an owning
 place is copied, `pass` moves implicitly, and D-264 checks each generic body in

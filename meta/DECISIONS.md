@@ -3451,6 +3451,9 @@ compiler** — `npkc` has no mode that prints a module graph (its usage line at
 keeps the compiler's tree out of this harness.
 
 ### RX-158 — `check_vec_elements_own_nothing` is DEFAULT-DENY: it clears only what it can see owns nothing
+> **SUPERSEDED IN PART by RX-190 (2026-09-28)** — its declined alternative *"the compiler's own
+> ownership predicate"*, reachable since cycle 0.1.1b through the type's `T: Copy`: it runs
+> beside this check, which stays for what `Copy` admits.
 > **SUPERSEDED IN PART by RX-188 (2026-09-28)** — *"so do its verbs, units and table"*: the owning
 > units are retired, `Vec<T: Copy>` refusing them since cycle 0.1.1b.
 > **SUPERSEDED IN PART by RX-166 (2026-09-25)** — three details of its mechanism: a macro splice was cleared as
@@ -4645,3 +4648,27 @@ a removal moves, the site-line table and the generated drops' numbering; `vec_oo
 "owning" at a type that cannot own; **kept until a cycle lifts S-23a** — that cycle needs the compiler's
 `List<T>` discards (RX-155), and the history keeps this one; **its unit kept, pointed at `vec_free`** —
 `vec_oob_free_twice.npk` is that unit already.
+
+### RX-190 — `check_vec_elements_own_nothing` stays: the belt for "drops nothing", which the compiler holds since RX-188, and the rule for "holds no block of its own", which `Copy` does not ask
+
+**2026-09-28, cycle 0.1.1b (the plan's PD-34), at compiler `5fbaf4a`.** It supersedes in part RX-158 — its
+declined alternative *"the compiler's own ownership predicate — reachable only by building the compiler"*: the
+type's `T: Copy` reaches it at every build. O-R3 expected the check to retire into a belt; measured, it is half
+belt.
+
+**Measured at `5fbaf4a`, each shape planted in a copy of `src/`.** A `#[derive(Copy)]` struct holding a pointer
+(`int64->`) or a slice (`uint8[]`) compiles as a `Vec` element — the compiler's `Copy` passes such a member by
+kind (D-327) — and the check fails it by name: a pointer holds a block. The reverse: a struct of scalars that does not derive `Copy` is
+`NITPICK-TYPE-017` as a `Vec` element, and the check clears it. So neither refusal contains the other. As `T`
+itself a pointer, a slice, an optional, a `cstring` and an array are all refused by the compiler, and a
+`#[derive(Copy)]` over a `cstring` member is `NITPICK-DERIVE-006` since D-328 made `cstring` own.
+
+**The decision.** The check keeps its mechanism, its scope (`src/`) and its place in the run; its docstring, its
+failure message and `TESTING.md`'s row say which half is whose: the compiler's `Copy` for "drops nothing", with
+the check as its belt, and the check alone for "holds no block of its own".
+
+*Alternatives declined:* **retiring the check, as O-R3 foresaw** — `Vec<Pp>` over a pointer-holding `Copy`
+struct would then pass the run, the second half of S-23a unchecked; **narrowing S-23a to what `Copy` asks** — a
+`Vec` of pointers is a `Vec` of blocks some other owner must free, which is the orphaning RX-155 measured, one
+level down; **teaching the check the compiler's `Copy` rule** — a second copy of a rule the compiler already
+enforces, which is what a belt is for and a rule is not.

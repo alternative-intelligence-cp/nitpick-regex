@@ -743,6 +743,13 @@ def check_vec_elements_own_nothing(root):
     the belt for `vec_get`, whose bound an impl declaring `move` defeats.)*
     *(Since cycle 0.1.0b, compiler `5fbaf4a`: the bound is the prelude's `Copy`
     (RX-177), a marker no impl can mis-declare -- the belt stays for the six.)*
+    *(Since cycle 0.1.1b the bound is the TYPE's, `Vec<T: Copy>` (RX-188): the
+    compiler refuses an element that drops, at every verb, so for "owns nothing"
+    this check is the belt. It is still the RULE for "holds no block of its own":
+    a `Copy` struct may hold a pointer or a slice, which the compiler admits and
+    this check refuses -- and the compiler refuses a POD struct that does not
+    derive `Copy`, which this check clears. Measured at `5fbaf4a`; neither
+    contains the other, so both run (RX-190).)*
 
     So the restriction is this library's, and this is what makes it a rule
     rather than a request: `src/` is the code that ships, and a `Vec` whose
@@ -765,7 +772,9 @@ def check_vec_elements_own_nothing(root):
     struct is judged with its parameters unbound, so it fails too; teaching the
     check to substitute is the widening a decision would make, if a cycle needs
     one. And `tests/` is out of scope on purpose: the owning units instantiate
-    `Vec<string>` precisely to measure what the verbs do there.
+    `Vec<string>` precisely to measure what the verbs do there. *(Retired at cycle
+    0.1.1b, RX-188; `tests/` stays out because it ships nothing, and the compiler
+    refuses an owning element there too.)*
 
     Source is read through `lexical.py` (RX-157), so a comment or string naming
     `Vec<string>` is not reported and a `'"'` earlier on the line hides nothing.
@@ -805,17 +814,18 @@ def check_vec_elements_own_nothing(root):
                 shown = f"`Vec<{elem}>`" if how == "Vec" else f"a `vec_...::<{elem}>` call"
                 fl.append(
                     f"{rel}:{ln}:{col}: {shown} -- the element is not cleared: {why}. "
-                    f"`Vec<T>` is for a NON-OWNING `T` (SAFETY.md S-23a, RX-155), and "
-                    f"this check clears only what it can see owns nothing (RX-158): at "
-                    f"an owning `T` six verbs orphan what they discard, invisibly to "
-                    f"`exit 0`, and `vec_get` is refused only by its `Copy` bound (RX-177). Keep "
+                    f"`Vec<T>` is for a `T` that owns nothing and holds no block of its "
+                    f"own (SAFETY.md S-23a, RX-155), and this check clears only what it "
+                    f"can see is so (RX-158): the compiler refuses an element that drops "
+                    f"(`Vec<T: Copy>`, RX-188), and one that holds a pointer or a slice "
+                    f"is this check's to refuse (RX-190). Keep "
                     f"the element POD -- an offset into a `Bytes`, as HIR.md H-2 does "
                     f"for group names -- or widen the check by a decision.")
     ndecl = sum(len(v) for v in decls.values())
     notes.append(f"{ndecl} struct/enum declaration(s) under src/, every one of a "
                  f"name followed; {exempt} exempt as {owner}'s own `Vec<T>` over its "
                  f"type parameter, and nothing else there.")
-    return Result("check_vec_elements_own_nothing", "SAFETY.md S-23a (RX-155, RX-158)",
+    return Result("check_vec_elements_own_nothing", "SAFETY.md S-23a (RX-155, RX-158, RX-190)",
                   f"{counts['Vec'] + counts['turbofish']} element type(s) -- "
                   f"{counts['Vec']} `Vec<...>` and {counts['turbofish']} "
                   f"`vec_...::<...>` -- in {len(files)} file(s) under src/", fl, notes)
