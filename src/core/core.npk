@@ -6,6 +6,7 @@
 // a pointer — which is also what keeps every node POD and every structure
 // serialisable as a fixture. POD by DESIGN: the language would accept an owning
 // node, and `SAFETY.md` S-23a (RX-155) is what refuses one in a `Vec`.
+// *(2026-09-28, cycle 0.1.1b -- RX-188: and the compiler does, `Vec` being `Vec<T: Copy>`.)*
 //
 // LAYERING (`BUILD.md` §6, B-16). `core` is the bottom of the diagram and the
 // only module in the library with no dependency at all, which is what lets

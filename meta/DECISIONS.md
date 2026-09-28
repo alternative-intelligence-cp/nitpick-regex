@@ -533,6 +533,9 @@ toolchain `950bb1d` under LLVM 20.1.2. Where a probe refuted the plan's
 hypothesis, the decision says so.*
 
 ### RX-110 — the leak gate says what it covers, everywhere it is stated
+> **SUPERSEDED IN PART by RX-188 (2026-09-28)** — its exception *"any future owning
+> `Vec<GroupInfo>` or `Vec<string>`"*: a `Vec` refuses an owning element since cycle
+> 0.1.1b. `Hir.names` and the rest of the decision stand.
 > **SUPERSEDED IN PART by RX-155 (2026-09-25)** — its parenthesis "TYPE-046
 > forces it" of the POD structures. Nothing forces it; `SAFETY.md` S-23a now
 > requires it of anything a `Vec` holds. The decision stands.
@@ -3176,6 +3179,10 @@ the pending exit written in the list only — the marker is what a reader of the
 unit sees, so it must say which failure it excuses.
 
 ### RX-155 — `Vec<T>` is for a `T` that owns nothing, because nothing in the language keeps an owner out; the restriction is stated per verb, measured per verb, and enforced over `src/`
+> **SUPERSEDED IN PART by RX-188 (2026-09-28)** — *"nothing in the language keeps an owner out"*:
+> `Vec` is `Vec<T: Copy>` since cycle 0.1.1b, so the compiler refuses one at the type and every
+> verb; the units measuring each verb, which that bound refuses, are retired; and `tests/` is
+> outside the check for a reason that is gone. The rule stands, and the table as a measurement.
 > **SUPERSEDED IN PART by RX-168 (2026-09-26)** — its declined alternative, *"a marker-trait bound
 > (`vec_get<T: Pod>`)"*: at `c970483` the old `vec_get` does not compile, and the language refuses an
 > owning `Pod` impl written as declared, so the bound is taken. The rule, its check and its table stand.
@@ -3435,6 +3442,8 @@ compiler** — `npkc` has no mode that prints a module graph (its usage line at
 keeps the compiler's tree out of this harness.
 
 ### RX-158 — `check_vec_elements_own_nothing` is DEFAULT-DENY: it clears only what it can see owns nothing
+> **SUPERSEDED IN PART by RX-188 (2026-09-28)** — *"so do its verbs, units and table"*: the owning
+> units are retired, `Vec<T: Copy>` refusing them since cycle 0.1.1b.
 > **SUPERSEDED IN PART by RX-166 (2026-09-25)** — three details of its mechanism: a macro splice was cleared as
 > the POD type it was named after, `fixed`, `nodrop` and `move` were not stripped as qualifiers, and every
 > parenthesis in an enum body was read as a payload. Default-deny, its scalars and its twelve shapes stand.
@@ -3966,6 +3975,8 @@ every consumer; **holding the close for N-25** — it is no clause of cycle 0.0'
 gate and `src/` has no exposure; whether it should become one is the author's.
 
 ### RX-168 — `vec_get` takes `T: Pod`, a trait an owning type cannot implement as it is declared, and `vec_pop` spells its move: DEF-104's gate reaches `src/`
+> **SUPERSEDED IN PART by RX-188 (2026-09-28)** — its declined alternative `struct:Vec<T: Pod>`,
+> O-R3: taken at cycle 0.1.1b as `Vec<T: Copy>`, its gate met since RX-176 and RX-177.
 > **SUPERSEDED IN PART by RX-177 (2026-09-27)** — its trait: `vec_get`'s bound is the prelude's `Copy` (the
 > compiler's D-327) since cycle 0.1.0b, and `Pod`, `pod_copy` and `core.npk`'s re-export are gone. The bound's
 > reason, and `vec_pop`'s spelled move, stand.
@@ -4346,6 +4357,8 @@ on; **the lexer re-read left to the audit** — the audit found this repository 
 checked only when someone remembers is the time audit's E1 in this tree.
 
 ### RX-177 — `Pod` retires into the prelude's `Copy`: `vec_get` takes `T: Copy`, a node derives it, and a consumer implements it in one line
+> **SUPERSEDED IN PART by RX-188 (2026-09-28)** — *"at the same position"*: since cycle 0.1.1b
+> `Vec<string>` is refused at the type first, and the fixture names all fourteen sites.
 
 **2026-09-27, cycle 0.1.0b (the plan's PD-21), at compiler `5fbaf4a`** — the replacement RX-168 was shaped for and
 `nitpick-time`'s PD-49 planned for both libraries, now that the compiler's D-327 (landing 73) is in the pin.
@@ -4550,3 +4563,52 @@ the construct** — `API.md` fixes the signature, and a caller holding the patte
 hold, where `bytes_put_uint` already exists for this; **one generic sentence for the kinds later subcycles
 produce** — every kind renders a real sentence now, and each subcycle holds its own to the letter when it
 produces them.
+
+## The bound on the type — cycle 0.1.1b, open question O-R3
+
+### RX-188 — `Vec` is `Vec<T: Copy>`: S-23a is the type's, so an owning element is refused wherever it is written, and the units that measured one retire
+
+**2026-09-28, cycle 0.1.1b (the plan's PD-32), at compiler `5fbaf4a` — open question O-R3, decided.** It
+supersedes in part RX-155 — *"nothing in the language keeps an owner out"*, its per-verb units and its reason
+for leaving `tests/` outside the check; RX-168 — its declined alternative `struct:Vec<T: Pod>`, O-R3 itself;
+RX-177 — its fixture's single site; RX-158 — *"so do its verbs, units and table"*; and RX-110 — its exception
+*"any future owning `Vec<GroupInfo>` or `Vec<string>`"*. Their rules stand.
+
+**The gate O-R3 named is met** — the compiler refuses an impl that adds `move` to a lent parameter,
+`NITPICK-TYPE-014` (RX-176), and `vec_get`'s bound is the prelude's `Copy`, a marker with no method to
+mis-declare (RX-177) — **and the shape was measured before it was taken**, at `5fbaf4a`:
+
+- **`pub struct:Vec<T: Copy>` compiles, and a generic naming `Vec<T>` must state the bound too**: without it
+  each of the thirteen verbs that names `Vec<T>` is `NITPICK-TYPE-017` at its definition, *"`T` does not
+  implement `Copy`, which `Vec`'s parameter `T` requires"*. With it, every file instantiating `Vec` at a scalar
+  or a `Copy` struct compiles unchanged, and **the IR of all seventy-two programs and roots that compile before
+  and after is byte-identical**: the bound changes no code.
+- **At `Vec<string>` it is refused at every site**: where the type is first written, each turbofish, and each
+  verb's call, the diagnostic naming the verb — `vec_owning_get_moves_out.npk`'s new body, one call per verb,
+  reports fourteen. A consumer's struct field, a parameter and a generic wrapper's unbounded `Vec<U>` are refused
+  the same way, and so is every element that is not `Copy` written as `T`: `Bytes`, a `Vec`, a `cstring`, a
+  pointer, a slice, an optional and a fixed array.
+- **What it refuses in this tree is twelve files, not O-R3's seven**: the ten `vec_owning_*` units — seven per
+  verb, the managed-half pair `vec_owning_freed`/`vec_owning_leak`, and `vec_owning_freed_small_rounds` —
+  `vec_unit.npk`'s `Vec<string>` section, and the rejection fixture's one site becoming fourteen.
+- **The tree check misread the declaration**: `check_vec_elements_own_nothing` exempts `vec.npk`'s `Vec<T>`
+  over its own parameter, and `struct:Vec<T: Copy>` put the bound inside the brackets, so the run failed on
+  the declaration as an element. The exemption now reads the parameter before its bound.
+- **A fill becomes expressible**: under `T: Copy` a generic `vec_fill` that copies its `x` into each slot
+  compiles and runs, where `vec_init_zeroed`'s comment records it refused `NITPICK-TYPE-046`. None is written.
+
+**The decision.** `Vec` is `Vec<T: Copy>`, the bound repeated on every verb. The ten units are deleted: their
+measurements are RX-155's table, taken at `c3bdae2`, and nothing can reach them now. `vec_unit.npk` loses its
+owning section, exits 130 and 131 with it. `vec_owning_get_moves_out.npk` keeps its name — RX-155's and RX-168's
+citations find it — and pins the refusal at every verb. S-23a stands; the compiler holds its "drops nothing"
+half for every consumer, and an element type derives `Copy`, as `AstNode`, `Frame` and `GroupName` do.
+
+*Alternatives declined:* **the bound on `vec_get` alone, as since RX-168** — twelve verbs still compile at
+`Vec<string>`, six of them orphaning, and a harness check over `src/` is all that stands there; **the units kept
+as rejection fixtures** — ten copies of one refusal, each header describing a measurement the language no longer
+admits; **kept as programs over a test-only unbounded copy of `Vec`** — they would measure a type that no longer
+ships, and a cycle that lifts S-23a has RX-155's table and the compiler's `List<T>` to start from; **the fixture
+renamed** — its name is its history, as probe 18's was (RX-176); **`move` dropped from the `T` that `vec_push`,
+`vec_set` and `vec_insert` take** — under `T: Copy` it is a copy either way, and it would change every call site
+for nothing; **waiting for a consumer that needs an owning element** — none is planned, and the bound is what
+keeps a later cycle from writing one by accident.

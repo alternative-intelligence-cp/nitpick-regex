@@ -23,6 +23,9 @@
 // `.npk`, which `check_refs` does not open -- the gate reads markdown links
 // in markdown files, so a citation inside source is checked by nothing but
 // a reader.)
+// *(2026-09-28, cycle 0.1.1b -- RX-188: the `Vec<string>` section and that pair are gone,
+// an owning element being refused at the type, so every block here is `wild` and
+// `exit 0` covers this program whole.)*
 mod:vec_unit;
 
 use "../../src/core/vec.npk".*;
@@ -184,27 +187,10 @@ func:main = int32(cstring[]:_~argv) {
     if ((raw vec_get(b, 2i64)) != 9i32)                 { exit 122i32; }
     drop vec_free(@b);
 
-    // ---- AN OWNING T ------------------------------------------------------
-
-    // `string` owns a heap body. This is the shape `SAFETY.md` §8b is about and
-    // the reason `vec_free_owning` exists.
-    Vec<string>:s = raw vec_init::<string>(2i64);
-    drop vec_push(@s, "alpha");
-    drop vec_push(@s, "beta");
-    drop vec_push(@s, "gamma");                          // forces the doubling
-    if (s.count != 3i64)                                { exit 130i32; }
-    // The assertion here is on the container's own state, and not on an
-    // element read back: `vec_get` at an owning `T` MOVES the element out, which
-    // `vec_owning_get_moves_out.npk` measures. This comment said until the third
-    // cycle-0.0 audit (BL-5) that such a copy "is TYPE-046" -- refused -- and
-    // declined to read for that reason; nothing refuses it (RX-155).
-    // (Since cycle 0.0.4e, compiler `c970483`, something does: `vec_get` takes
-    // `T: Pod` -- `T: Copy` since RX-177 -- so the read this comment declines is NITPICK-TYPE-017 here --
-    // `../rejection/vec_owning_get_moves_out.npk`, RX-168.)
-    if (s.cap < 3i64)                                   { exit 131i32; }
-    // DROPS EVERY ELEMENT, then the block. `vec_free` would release the block
-    // and orphan three string bodies, and this program would still exit 0.
-    drop vec_free_owning(@s);
+    // ---- AN OWNING T: REFUSED SINCE CYCLE 0.1.1b ------------------------------
+    // A `Vec<string>` was built here and freed with `vec_free_owning` until then,
+    // exits 130 and 131. `Vec` is `Vec<T: Copy>` now (RX-188), so that section is
+    // NITPICK-TYPE-017 at every verb: `../rejection/vec_owning_get_moves_out.npk`.
 
     exit 0i32;
 };

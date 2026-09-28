@@ -51,6 +51,11 @@ of an owning element out of a `Vec` is refused rather than a move (S-23a,
 RX-168).)* *(Since cycle 0.1.0b, compiler `5fbaf4a`, the bound is the prelude's
 `Copy` — RX-177.)*
 
+*(2026-09-28, cycle 0.1.1b — RX-188: for a `Vec` the move-only row's **"nothing keeps
+an owner out"** is false. `Vec` is `Vec<T: Copy>`, so an owning element is
+`NITPICK-TYPE-017` at the type and at every verb, measured at `5fbaf4a`. An array
+still accepts one.)*
+
 *(2026-09-26, cycle 0.1.0 — RX-173: the second row is narrower than it reads.
 D-004 keeps a BORROW of a local, `@x`, out of `pass`. A struct holding a view of
 a PARAMETER, or a pointer parameter, IS returned, and runs, at `c970483` and at
@@ -634,6 +639,14 @@ bound, a compiler defect pinned by `tests/probe/probe18_impl_adds_move.npk`.)*
 implement (`NITPICK-TYPE-087`) — and the hole above is refused `NITPICK-TYPE-014`
 since the compiler's landing 69 (`tests/probe/refused/probe18_impl_adds_move.npk`).
 The rule's check stays the belt for the other verbs.)*
+*(Amended 2026-09-28 by RX-188, cycle 0.1.1b: THE TYPE SAYS SO. `Vec` is
+`Vec<T: Copy>` and every verb repeats the bound, so an element that is not `Copy`
+is `NITPICK-TYPE-017` wherever `Vec` is instantiated with it — at the type, at a
+turbofish, at each verb's call — in `src/` and `tests/` alike: anything that drops,
+and a pointer, a slice, an optional, a `cstring` or an array written as `T` itself,
+measured at `5fbaf4a`. The paragraph and the table below — *"The language accepts
+`Vec<string>`"* — are RX-155's measurement at `c3bdae2`, kept as history: no row of
+it can be written now, and its units are retired. An element type derives `Copy`.)*
 
 The language accepts `Vec<string>`. `TYPE-046` asks for `move` when an owning
 place is copied, `pass` moves implicitly, and D-264 checks each generic body in
@@ -674,6 +687,8 @@ an AST node's (RX-174) — the same rule as an offset into a `Bytes`, nothing
 owned — and `check_vec_elements_own_nothing` clears `Vec<Frame>` and
 `Vec<GroupName>`, as it has cleared `Vec<AstNode>` since cycle 0.1.0. Two types
 are left to shape, `Literal` and `GroupInfo`, at cycle 0.2.)*
+*(2026-09-28 — RX-188: what stands between a `Vec<string>` and the verbs is the
+compiler now, at the type; and each of those two derives `Copy`.)*
 
 *A cycle that needs an owning element lifts S-23a by a decision*, and the
 compiler's own `List<T>` at `c3bdae2` is the shape it would take: removals that
@@ -681,6 +696,8 @@ return the element, discards that drop it, and no by-value get — `l[i]` is a
 bounds-checked place. A scratch `vec.npk` given those discards turns all five
 orphaning units to exit 0, measured; the verbs are not built because nothing
 here needs them.
+*(Since RX-188 that decision lifts the type's `T: Copy` as well, and the units it
+retired are in the history to start from.)*
 
 ### 5.3b What a `Vec` copy is, and what a loan still reaches
 
@@ -863,6 +880,8 @@ Freeing a container's block does **not** drop its elements, and the controlled
 exit does not notice: `nitpick-time` measured a `Vec<string>` retaining
 **125 MiB over two million elements at exit 0**, and the same program hit
 `HeapOom` only when squeezed under a 64 MiB address-space cap.
+*(2026-09-28, cycle 0.1.1b — RX-188: a `Vec` has no owning elements now,
+`Vec<T: Copy>` refusing one; the measurement is `nitpick-time`'s and stands.)*
 
 **What follows for this library, concretely:**
 
@@ -874,6 +893,7 @@ exit does not notice: `nitpick-time` measured a `Vec<string>` retaining
   until the third cycle 0.0 audit's triage. Nothing forces it: the language
   accepts an owning element in an array or a `Vec`, measured at three pins —
   RX-155.)*
+  *(Since RX-188 it refuses one in a `Vec`: `Vec<T: Copy>`.)*
 - **The exceptions are the ones to watch**: `Hir.names`, `Vec<GroupInfo>` if a
   group name is ever an owning `string` rather than an offset into `Bytes`, and
   any future `Vec<string>`. Each must drop its elements before its block goes.
@@ -881,6 +901,8 @@ exit does not notice: `nitpick-time` measured a `Vec<string>` retaining
   S-23a: `Hir.names` is a `Bytes` (H-2), `GroupInfo` holds offsets, and
   `check_vec_elements_own_nothing` refuses a `Vec` of owners. The sentence
   stands for the day a decision lifts it.)*
+  *(Since RX-188 an owning `Vec<GroupInfo>` and any `Vec<string>` are the
+  compiler's to refuse, in `tests/` as in `src/`.)*
 - **Where the obligation is managed, the gate is a memory cap, not an exit
   code** (`TESTING.md` §7's invariant list is the place it belongs).
 - **A better instrument is coming.** The compiler's `NPK_HEAP_STATS` will make
@@ -910,7 +932,8 @@ Three things worth keeping from it:
   `if (b.len == 0i64) { pass ""; }` in this library would outlive the bug.
 - **The gate is the pair** `bytes_copy_string_empty.npk` /
   `bytes_copy_string_nonempty.npk`, the shape `vec_owning_leak` /
-  `vec_owning_freed` established. **Neither half means anything alone**, and the
+  `vec_owning_freed` established *(that pair retired since RX-188)*. **Neither half
+  means anything alone**, and the
   `/bin/true` control at the same cap is what makes the number a statement.
 - **The empty half is committed RED**, carrying `pending-until: fe42dba`,
   because this tree is not pinned to the fix. It is counted as neither a pass

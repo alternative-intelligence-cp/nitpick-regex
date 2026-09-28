@@ -792,7 +792,9 @@ def check_vec_elements_own_nothing(root):
     for rel, code in sorted(codes.items()):
         params = _params_of(code)
         for off, elem, how in _vec_elements(code):
-            if rel == owner and elem in params:
+            # The declaration's own list is not an element, and since RX-188 it reads
+            # `Vec<T: Copy>` -- the parameter with its bound.
+            if rel == owner and elem.split(":")[0].strip() in params:
                 exempt += 1
                 continue
             counts[how] += 1

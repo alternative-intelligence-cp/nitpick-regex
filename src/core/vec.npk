@@ -59,6 +59,9 @@
 //      cannot implement `Pod` as it is declared -- RX-168.)*
 //      *(Since cycle 0.1.0b the bound is the prelude's `Copy`, the compiler's
 //      D-327, which an owning type cannot implement at all -- RX-177.)*
+//      *(Since cycle 0.1.1b, 2026-09-28, THE TYPE SAYS SO: `struct:Vec<T: Copy>`,
+//      every verb repeating the bound, so `Vec<string>` is NITPICK-TYPE-017
+//      wherever it is written -- the type, a turbofish, each verb -- RX-188.)*
 //   5. **A `Vec` IS MOVE-ONLY, AND THE COMPILER SAYS SO** (`SAFETY.md` S-23b,
 //      RX-161, since cycle 0.0.4d). A copy of one -- or of any struct holding
 //      one -- is NITPICK-TYPE-046. A BY-VALUE PARAMETER IS NOT A COPY, IT IS A
@@ -307,6 +310,12 @@
 // and so is its `GroupName`; each refers to a group's name by its place in the
 // PATTERN, as the AST does (RX-174), rather than by an offset into a `Bytes`, and
 // the check clears both. `Literal` and `GroupInfo` are the two left, at cycle 0.2.)*
+// *(2026-09-28, cycle 0.1.1b -- RX-188. THE COMPILER SAYS IT NOW, AT THE TYPE: `Vec` is
+// `Vec<T: Copy>`, so at an owning `T` the table above cannot be written -- every row
+// is NITPICK-TYPE-017, at the type and at the verb -- and the units that measured it
+// are retired; the table is RX-155's measurement, kept. An element type derives
+// `Copy`, as `AstNode`, `Frame` and `GroupName` do and `Literal` and `GroupInfo`
+// will.)*
 //
 // LAYERING (`BUILD.md` §6, B-16). `core` imports nothing outside `core`. This
 // file imports nothing at all.
@@ -357,7 +366,10 @@ mod:vec;
 // the pin refuses its old body; and a loan IS closed now -- by the compiler,
 // which refuses every write through one, NITPICK-TYPE-085.)* *(`T: Copy` since
 // cycle 0.1.0b, RX-177.)*
-pub struct:Vec<T> = {
+// *(2026-09-28, cycle 0.1.1b -- RX-188: the bound is the TYPE's, and every function
+// below repeats it, as the compiler requires: a generic naming `Vec<T>` without
+// it is NITPICK-TYPE-017 at its definition.)*
+pub struct:Vec<T: Copy> = {
     hidden wild T->:items;                 // WILD, DELIBERATELY. See the header.
     sealed limit<ListLen> int64:count;     // elements in use
     sealed limit<ListLen> int64:cap;       // elements the block can hold
@@ -442,7 +454,7 @@ pub func:vec_oob = NIL(int64:i) never fails {
 //
 // A capacity of at least one, always, so `vec_push`'s doubling has something to
 // double and no path multiplies zero by two forever.
-pub func:vec_init<T> = Vec<T>(int64:cap) never fails {
+pub func:vec_init<T: Copy> = Vec<T>(int64:cap) never fails {
     int64:n = cap;
     if (n < 1i64) { n = 1i64; }
     // `n * #size_of<T>()` traps on overflow (D-210), and that trap is the
@@ -464,7 +476,7 @@ pub func:vec_init<T> = Vec<T>(int64:cap) never fails {
 // element compiles, links and runs in a `Vec` and in a fixed array alike --
 // measured at `950bb1d`, `3d15ac9` and `c3bdae2`. The POD shape is this
 // library's design, and S-23a is what now makes it a rule.)*
-pub func:vec_free<T> = NIL(Vec<T>->:v) never fails {
+pub func:vec_free<T: Copy> = NIL(Vec<T>->:v) never fails {
     // DEAD `Vec` -- see the header. Without this, a double free reaches
     // `dalloc` with a pointer the allocator has already reclaimed and stops on
     // ITS check, reporting `Unreachable` about a heap invariant instead of
@@ -479,7 +491,7 @@ pub func:vec_free<T> = NIL(Vec<T>->:v) never fails {
 // ---- capacity --------------------------------------------------------------
 
 // obligation: never fails ensures v.cap >= v.count + need
-pub func:vec_reserve<T> = NIL(Vec<T>->:v, int64:need) never fails {
+pub func:vec_reserve<T: Copy> = NIL(Vec<T>->:v, int64:need) never fails {
     if (need < 0i64)  { drop vec_oob(need); }
     // DEAD `Vec` -- see the header. Without this the loop below multiplies zero
     // by two forever: measured exit 124 under `timeout 6`.
@@ -504,6 +516,7 @@ pub func:vec_reserve<T> = NIL(Vec<T>->:v, int64:need) never fails {
 // and either is refused -- `NITPICK-TYPE-087`, or `NITPICK-DERIVE-006` -- for a
 // type that owns or has a member that is not `Copy`. So an owning `T` cannot meet
 // the bound, and `vec_get` at `Vec<string>` is `NITPICK-TYPE-017`.
+// *(2026-09-28, cycle 0.1.1b -- RX-188: the TYPE takes the bound too, so every verb does.)*
 //
 // IT REPLACES THIS LIBRARY'S OWN `Pod` (RX-168): one method returning its lent
 // `self`, which an impl could declare `move` -- a double free through the trait,
@@ -555,6 +568,8 @@ pub func:vec_reserve<T> = NIL(Vec<T>->:v, int64:need) never fails {
 // *(2026-09-27, cycle 0.1.0b, compiler `5fbaf4a` -- RX-177: the bound is the prelude's
 // `Copy`, and the read is `pass v.items[i]` -- a copy under the bound; `pod_copy`
 // went with `Pod`. At an owning `T` it is still NITPICK-TYPE-017.)*
+// *(2026-09-28, cycle 0.1.1b -- RX-188: and first at the TYPE, `Vec<T: Copy>`; the bound
+// here is the type's, repeated.)*
 pub func:vec_get<T: Copy> = T(Vec<T>:v, int64:i) never fails {
     if (i < 0i64)        { drop vec_oob(i); }
     if (i >= v.count)    { drop vec_oob(i); }
@@ -567,7 +582,9 @@ pub func:vec_get<T: Copy> = T(Vec<T>:v, int64:i) never fails {
 // not drop, and this writes over it (`tests/unit/vec_owning_set_orphans.npk`,
 // 92 under the managed-half cap). Outside S-23a; stated here, as it already was
 // at `vec_truncate`, because the third cycle-0.0 audit found it said nowhere.
-pub func:vec_set<T> = NIL(Vec<T>->:v, int64:i, move T:x) never fails {
+// *(2026-09-28, cycle 0.1.1b -- RX-188: an owning `T` is refused at the type, so this
+// cannot be written; the unit named above is retired, its measurement RX-155's.)*
+pub func:vec_set<T: Copy> = NIL(Vec<T>->:v, int64:i, move T:x) never fails {
     if (i < 0i64)        { drop vec_oob(i); }
     if (i >= v.count)    { drop vec_oob(i); }
     v.items[i] = move(x);
@@ -577,7 +594,7 @@ pub func:vec_set<T> = NIL(Vec<T>->:v, int64:i, move T:x) never fails {
 // ---- adding and removing ---------------------------------------------------
 
 // obligation: never fails ensures v.count == old(v.count) + 1i64
-pub func:vec_push<T> = NIL(Vec<T>->:v, move T:x) never fails {
+pub func:vec_push<T: Copy> = NIL(Vec<T>->:v, move T:x) never fails {
     // DEAD `Vec` -- see the header. Without this, `ralloc(<dangling>, 0)`.
     if (v.cap <= 0i64) { drop vec_oob(v.cap - 1i64); }
     if (v.count >= v.cap) {
@@ -607,7 +624,9 @@ pub func:vec_push<T> = NIL(Vec<T>->:v, move T:x) never fails {
 // D-264's `T` owns). `move(...)` is the prelude's own `list_pop`, and it is what
 // the implicit move did: diffed at `c3bdae2`, `vec_pop<string>` writes the same
 // vacancy into the slot past `count`, plus one temporary and its flag.)*
-pub func:vec_pop<T> = T(Vec<T>->:v) never fails {
+// *(2026-09-28, cycle 0.1.1b -- RX-188: an owning `T` is refused at the type, so this
+// cannot be written; the unit named above is retired, its measurement RX-155's.)*
+pub func:vec_pop<T: Copy> = T(Vec<T>->:v) never fails {
     if (v.count <= 0i64) { drop vec_oob(v.count - 1i64); }
     v.count = v.count - 1i64;
     pass move(v.items[v.count]);
@@ -624,7 +643,9 @@ pub func:vec_pop<T> = T(Vec<T>->:v) never fails {
 // it writes is past `count` or already moved from, and no live element is
 // overwritten (`tests/unit/vec_owning_insert_moves.npk`, which checks the order
 // as well, RX-155).
-pub func:vec_insert<T> = NIL(Vec<T>->:v, int64:i, move T:x) never fails {
+// *(2026-09-28, cycle 0.1.1b -- RX-188: an owning `T` is refused at the type, so this
+// cannot be written; the unit named above is retired, its measurement RX-155's.)*
+pub func:vec_insert<T: Copy> = NIL(Vec<T>->:v, int64:i, move T:x) never fails {
     if (i < 0i64)        { drop vec_oob(i); }
     if (i > v.count)     { drop vec_oob(i); }
     // DEAD `Vec` -- see the header. Without this, `ralloc(<dangling>, 0)`.
@@ -656,7 +677,9 @@ pub func:vec_insert<T> = NIL(Vec<T>->:v, int64:i, move T:x) never fails {
 // AT AN OWNING `T` THE REMOVED ELEMENT IS ORPHANED -- the shift writes over it,
 // or, at the last index, `count` simply stops counting it
 // (`tests/unit/vec_owning_remove_orphans.npk`). Outside S-23a (RX-155).
-pub func:vec_remove<T> = NIL(Vec<T>->:v, int64:i) never fails {
+// *(2026-09-28, cycle 0.1.1b -- RX-188: an owning `T` is refused at the type, so this
+// cannot be written; the unit named above is retired, its measurement RX-155's.)*
+pub func:vec_remove<T: Copy> = NIL(Vec<T>->:v, int64:i) never fails {
     if (i < 0i64)        { drop vec_oob(i); }
     if (i >= v.count)    { drop vec_oob(i); }
     int64:j = i;
@@ -679,7 +702,9 @@ pub func:vec_remove<T> = NIL(Vec<T>->:v, int64:i) never fails {
 // AND AT AN OWNING `T` THE REMOVED ELEMENT IS ORPHANED, which is the larger
 // hazard and was the one this comment did not mention until the third cycle-0.0
 // audit (`tests/unit/vec_owning_swap_remove_orphans.npk`). Outside S-23a.
-pub func:vec_swap_remove<T> = NIL(Vec<T>->:v, int64:i) never fails {
+// *(2026-09-28, cycle 0.1.1b -- RX-188: an owning `T` is refused at the type, so this
+// cannot be written; the unit named above is retired, its measurement RX-155's.)*
+pub func:vec_swap_remove<T: Copy> = NIL(Vec<T>->:v, int64:i) never fails {
     if (i < 0i64)        { drop vec_oob(i); }
     if (i >= v.count)    { drop vec_oob(i); }
     v.items[i] = move(v.items[v.count - 1i64]);
@@ -697,7 +722,9 @@ pub func:vec_swap_remove<T> = NIL(Vec<T>->:v, int64:i) never fails {
 // cycle-0.0 audit's N-13: this was the half of `0.0.4.md`'s managed-half item
 // that had no test. Outside S-23a; the caller of an owning `Vec` could not
 // discharge it without `vec_get`'s move, which is why S-23a exists (RX-155).
-pub func:vec_truncate<T> = NIL(Vec<T>->:v, int64:n) never fails {
+// *(2026-09-28, cycle 0.1.1b -- RX-188: an owning `T` is refused at the type, so this
+// cannot be written; the unit named above is retired, its measurement RX-155's.)*
+pub func:vec_truncate<T: Copy> = NIL(Vec<T>->:v, int64:n) never fails {
     if (n < 0i64)        { drop vec_oob(n); }
     if (n < v.count) { v.count = n; }
     pass NIL;
@@ -709,7 +736,9 @@ pub func:vec_truncate<T> = NIL(Vec<T>->:v, int64:n) never fails {
 // (`tests/unit/vec_owning_clear_orphans.npk`, N-13). Capacity is retained, which
 // is the whole point: a `Cache` reused across searches clears rather than
 // reallocating, and `SAFETY.md` S-6 says a search allocates nothing.
-pub func:vec_clear<T> = NIL(Vec<T>->:v) never fails {
+// *(2026-09-28, cycle 0.1.1b -- RX-188: an owning `T` is refused at the type, so this
+// cannot be written; the unit named above is retired, its measurement RX-155's.)*
+pub func:vec_clear<T: Copy> = NIL(Vec<T>->:v) never fails {
     v.count = 0i64;
     pass NIL;
 };
@@ -736,7 +765,11 @@ pub func:vec_clear<T> = NIL(Vec<T>->:v) never fails {
 // meaningful when `T` owns. `move` does not rescue it either: the value is
 // consumed by the first slot. So the fill that is expressible is the one that
 // needs no value, and that is this.
-pub func:vec_init_zeroed<T> = Vec<T>(int64:n) never fails {
+// *(2026-09-28, cycle 0.1.1b -- RX-188: under the type's `T: Copy` a fill IS expressible,
+// a `T: Copy` being copied plainly -- measured at `5fbaf4a`, a `vec_fill<T: Copy>` that
+// pushes its `x` three times runs, and reads back 7 for 7. None is written: nothing
+// here needs a value but zero, and `calloc` zeroes in one call.)*
+pub func:vec_init_zeroed<T: Copy> = Vec<T>(int64:n) never fails {
     // A NEGATIVE `n` WAS THE ONE WAY THIS LIBRARY COULD BUILD AN INVALID `Vec`
     // ITSELF, and it was found by the triage that fixed RX-139 rather than by
     // the audit that prompted it. Every other entry point in this file traps on
@@ -778,7 +811,7 @@ pub func:vec_init_zeroed<T> = Vec<T>(int64:n) never fails {
 // of a scalar is its copy (D-264).)*
 //
 // obligation: never fails ensures v.cap == 0i64
-pub func:vec_free_owning<T> = NIL(Vec<T>->:v) never fails {
+pub func:vec_free_owning<T: Copy> = NIL(Vec<T>->:v) never fails {
     // DEAD `Vec` -- see the header (RX-144). Worse here than in `vec_free`:
     // without it the loop below MOVES elements out of a freed block and drops
     // them, so a `vec_free_owning` after a `vec_free` runs destructors over

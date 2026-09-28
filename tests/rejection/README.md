@@ -140,11 +140,16 @@ And `vec_get` takes `T: Copy` (RX-177; `T: Pod` from RX-168):
 - **`vec_owning_get_moves_out.npk`** — `vec_get` at `Vec<string>`: `NITPICK-TYPE-017`.
   Through `c3bdae2` it moved the element out of its slot; the name is kept so RX-155
   still finds it.
+  *(Since cycle 0.1.1b, 2026-09-28 — RX-188: `Vec` is `Vec<T: Copy>`, and the file pins
+  the refusal at every verb — the type and thirteen calls, fourteen sites, each
+  diagnostic naming its verb.)*
 
 **Each refusal is shown to be the pin's or the bound's**
 (`../../meta/roadmap/done/0.0/0.0.4e.md` step 6): the six loan and pass-out files and probe
 17 still compile and run at `c3bdae2`, each with the exit it asserted as a unit; and
 `vec_owning_get_moves_out` compiles and runs against the tree before 0.0.4e.
+*(Its body since cycle 0.1.1b reports one site against the tree before 0.1.1b —
+`vec_get`'s — so the other thirteen are the type's bound, RX-188.)*
 `../unit/loan_spellings.npk` is the positive twin: a callee that frees takes `move`,
 one that grows takes a pointer, a loop reads its binding, a generic takes `move T` —
 and all of it runs.

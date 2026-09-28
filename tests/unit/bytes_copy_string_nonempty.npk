@@ -9,6 +9,9 @@
 // and they are required to end DIFFERENTLY at this tree's pin. A cap that both
 // survive, or that neither does, is measuring something other than the
 // difference between them.
+// *(2026-09-28, cycle 0.1.1b -- RX-188: the `Vec` pair is retired, an owning element
+// being refused at the type. And both halves here end 0 since `c3bdae2`, which fixed
+// the leak the empty half caught (DEF-25, `fe42dba`): that half reddens if it returns.)*
 //
 // WHY A CAP AND NOT `exit 0` (`SAFETY.md` §8b, rule S-22, RX-110). A `string`'s
 // bytes are MANAGED. D-151 counts `wild` blocks, D-188 counts live drivers, and

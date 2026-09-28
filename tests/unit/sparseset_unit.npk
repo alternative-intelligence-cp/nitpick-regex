@@ -160,7 +160,8 @@ func:main = int32(cstring[]:_~argv) {
     // covers this exactly (`SAFETY.md` §8b). That is the design -- a `Vec` holds
     // a `T` that owns nothing, `SAFETY.md` S-23a -- and not, as this said until
     // the third cycle-0.0 audit's triage, "TYPE-046 forcing the representation":
-    // nothing in the language forces it (RX-155).
+    // nothing in the language forces it (RX-155). *(Since cycle 0.1.1b the type
+    // does: `Vec<T: Copy>`, RX-188.)*
     exit 0i32;
 };
 

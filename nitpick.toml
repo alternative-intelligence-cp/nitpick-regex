@@ -170,6 +170,10 @@ path  = "tests/rejection"
 #     DIFFERENTLY under the same cap. `exit 0` cannot see a managed body
 #     (`SAFETY.md` §8b, S-22), so those two files are the only gate on half of
 #     this cycle's memory obligations.
+#     (Since cycle 0.1.1b the `Vec` pair is retired -- `Vec<T: Copy>` holds
+#     nothing managed, RX-188 -- and the pair left, `bytes_copy_string_empty`
+#     and `_nonempty`, ends 0 in both halves since `c3bdae2` fixed the leak its
+#     empty half caught; that half reddens if the leak returns.)
 # All three are `expect-exit:` files, so one entry judges them all -- which is
 # what RX-119 found was NOT true of the probe directory.
 [[test]]

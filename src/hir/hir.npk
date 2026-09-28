@@ -6,6 +6,9 @@
 // than as owned strings. That is H-2's design, and a `Vec` of nodes MUST keep it
 // (`SAFETY.md` S-23a, RX-155) -- the language would not: an owning element is
 // accepted in an array or a `Vec`, and `vec_get` then MOVES it out.
+// *(2026-09-28, cycle 0.1.1b -- RX-188: for a `Vec` the language does now -- `Vec<T: Copy>`
+// refuses an owning element at the type, as `vec_get` has since cycle 0.0.4e -- so a
+// node type derives `Copy`. An array still accepts one.)*
 //
 // LAYERING (`BUILD.md` §6, rule B-16). May import: `syntax`, `unicode`,
 // `core`.

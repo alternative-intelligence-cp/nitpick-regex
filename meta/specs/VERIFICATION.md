@@ -138,6 +138,7 @@ Most of the list, which is why the residue is small:
   *(2026-09-26, cycle 0.0.4e — RX-168, RX-169. At `c970483` the loan is inside a rule
   too, the compiler's: a write through one is `NITPICK-TYPE-085`. And `vec_get` at an
   owning `T` is refused (`T: Pod`; `T: Copy` since RX-177) rather than a move out of the slot.)*
+  *(2026-09-28, cycle 0.1.1b — RX-188: and so is every verb, at the type — `Vec<T: Copy>`.)*
 - **`Result<T>` everywhere** with no unchecked unwrap outside a `never fails`
   callee (D-163), so no error is dropped.
 

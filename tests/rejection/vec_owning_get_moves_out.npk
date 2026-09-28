@@ -1,39 +1,69 @@
 // expect-error: NITPICK-TYPE-017
-// expect-error-at: 32:31
+// expect-error-at: 51:5
+// expect-error: NITPICK-TYPE-017
+// expect-error-at: 51:33
+// expect-error: NITPICK-TYPE-017
+// expect-error-at: 52:40
+// expect-error: NITPICK-TYPE-017
+// expect-error-at: 53:21
+// expect-error: NITPICK-TYPE-017
+// expect-error-at: 55:18
+// expect-error: NITPICK-TYPE-017
+// expect-error-at: 57:20
+// expect-error: NITPICK-TYPE-017
+// expect-error-at: 59:17
+// expect-error: NITPICK-TYPE-017
+// expect-error-at: 60:31
+// expect-error: NITPICK-TYPE-017
+// expect-error-at: 61:30
+// expect-error: NITPICK-TYPE-017
+// expect-error-at: 62:20
+// expect-error: NITPICK-TYPE-017
+// expect-error-at: 63:25
+// expect-error: NITPICK-TYPE-017
+// expect-error-at: 64:22
+// expect-error: NITPICK-TYPE-017
+// expect-error-at: 65:19
+// expect-error: NITPICK-TYPE-017
+// expect-error-at: 66:18
 //
-// `vec_get` AT AN OWNING `T` IS REFUSED: IT TAKES `T: Copy` SINCE CYCLE 0.1.0b
-// (RX-177; `T: Pod` from 0.0.4e, RX-168), AND AN OWNING TYPE CANNOT IMPLEMENT
-// `Copy`. The name is kept so RX-155's citations still find the file.
+// AN OWNING ELEMENT IS REFUSED AT THE TYPE, AT EVERY VERB, SINCE CYCLE 0.1.1b:
+// `Vec` is `Vec<T: Copy>` (RX-188; `SAFETY.md` S-23a) and an owning type cannot
+// implement `Copy`. One site per line above (B-7b): the type where `Vec<string>` is
+// first written, then one call per verb, thirteen, each diagnostic naming its verb --
+// "`string` does not implement `Copy`, which `vec_push`'s parameter `T` requires".
+// Never built -- refused before it could run -- so `z` goes unfreed, one call per verb.
 //
-// WHAT IT PINS. Through `c3bdae2` `vec_get` returned its `T` by value from
-// `pass v.items[i]`, an implicit MOVE, so at `T = string` the first read TOOK the
-// element -- the slot zeroed and marked vacant -- and a second read returned an
-// empty string from a slot `count` still counted: exit 0 at -O0 and through
-// `opt -O2`, when this file was `tests/unit/vec_owning_get_moves_out.npk` and read
-// twice (RX-155; `SAFETY.md` S-23a's table). At `c970483` that body is refused at
-// EVERY `T`, NITPICK-TYPE-047 -- DEF-104's gate treats `T` as owning -- and
-// `vec_get` read through `pod_copy`, whose `pass self` was NITPICK-TYPE-047 for an
-// owning type; since RX-177 its bound is the prelude's `Copy`. Either way, `vec_get`
-// at `Vec<string>` is NITPICK-TYPE-017 here. One call, so one diagnostic.
+// THE NAME IS HISTORY, KEPT SO RX-155's AND RX-168's CITATIONS FIND THE FILE.
+// Through `c3bdae2` `vec_get` at `T = string` MOVED the element out -- the slot
+// emptied and still counted, a second read empty, exit 0 when this was a unit that
+// read twice (RX-155). From cycle 0.0.4e `vec_get` alone was refused, `T: Pod`
+// (RX-168) and then `T: Copy` (RX-177), at one site: this file's `vec_get` call.
 //
-// A TEST OF THE BOUND, NOT OF THIS FILE: against the tree before cycle 0.0.4e
-// this file compiles and runs, exit 0, at `c3bdae2` (`meta/roadmap/done/0.0/0.0.4e.md`
-// step 6) -- the refusal is the bound's, at either pin -- and `vec_get` runs at
-// `int32` and `int64` across the unit suite, and at a POD struct in `../unit/vec_get_pod_struct.npk`.
+// A TEST OF THE BOUND: against the tree before cycle 0.1.1b this body reports
+// `vec_get`'s site and no other, at `5fbaf4a` (`0.1.1b.md` step 1) -- so the other
+// thirteen are the type's.
 mod:vec_owning_get_moves_out;
 
 use "../../src/core/vec.npk".*;
 
 func:main = int32(cstring[]:_~argv) {
     Vec<string>:v = raw vec_init::<string>(4i64);
-    string:e = string_concat("abcdefghij", "k");        // 11 bytes of heap body
+    Vec<string>:z = raw vec_init_zeroed::<string>(2i64);
+    drop vec_reserve(@v, 8i64);
+    string:e = string_concat("abcdefghij", "k");
     drop vec_push(@v, move(e));
-
+    string:f = string_concat("abcdefghij", "l");
+    drop vec_insert(@v, 0i64, move(f));
+    string:g = string_concat("abcdefghij", "m");
+    drop vec_set(@v, 0i64, move(g));
     string:first = raw vec_get(v, 0i64);
-    if (string_byte_length(first) != 11i64)             { exit 21i32; }
-    if (v.count != 1i64)                                { exit 23i32; }
-
-    drop vec_free_owning(@v);
+    string:last = raw vec_pop(@v);
+    drop vec_remove(@v, 0i64);
+    drop vec_swap_remove(@v, 0i64);
+    drop vec_truncate(@v, 0i64);
+    drop vec_clear(@z);
+    drop vec_free(@v);
     exit 0i32;
 };
 

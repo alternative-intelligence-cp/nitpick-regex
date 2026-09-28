@@ -884,8 +884,13 @@ movemask intrinsic, which is a better request than a speculative one.
   avoids the Pike VM for simple captures. It doubles the compiler's output and
   needs its own correctness argument. **Decide at cycle 0.8**, where the DFA's
   capture story is settled; `O-C2` is the compiler half.
-- **O-R3 — `struct:Vec<T: Pod>`: S-23a stated at the type, not only at
-  `vec_get`.** Since cycle 0.0.4e `vec_get` takes `T: Pod` (RX-168), which an owning
+- ~~**O-R3 — `struct:Vec<T: Pod>`: S-23a stated at the type, not only at
+  `vec_get`.**~~ — **DECIDED, RX-188 (cycle 0.1.1b, 2026-09-28): `Vec<T: Copy>`, the
+  bound repeated on every verb.** Measured at `5fbaf4a` first: every use at a `Copy`
+  element emits byte-identical IR; `Vec<string>` is `NITPICK-TYPE-017` at the type
+  and at each verb; and the owning units it refuses are ten, not seven — the
+  managed-half pair and its small-rounds control as well. The question as asked:
+  Since cycle 0.0.4e `vec_get` takes `T: Pod` (RX-168), which an owning
   type cannot implement as declared, so the one verb that hands an element back
   refuses an owning `T`. Bounding the TYPE would refuse `Vec<string>` itself — every
   verb, every consumer — and retire `check_vec_elements_own_nothing` into a belt;

@@ -114,6 +114,8 @@ pub func:sset_init = SparseSet(int64:cap) never fails {
 // an array, which is what forces the POD shape here". Nothing forbids it:
 // measured, an owning element compiles, links and runs in a `Vec` and in a fixed
 // array alike.)*
+// *(2026-09-28, cycle 0.1.1b -- RX-188: in a fixed array still; in a `Vec` no longer,
+// which is `Vec<T: Copy>`.)*
 pub func:sset_free = NIL(SparseSet->:s) never fails {
     drop vec_free(@s.dense);
     drop vec_free(@s.sparse);
