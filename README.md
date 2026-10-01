@@ -19,7 +19,10 @@ makes the guarantee below possible.
 > element type by the prelude's `Copy`, so the compiler refuses an owning element
 > wherever one is written. Cycle 0.1.2 bounded the parser's nesting: a pattern nested
 > more than 250 groups deep is refused at the `(` that goes too deep, never a blown
-> stack, and no function in the library calls itself. Nothing matches a pattern yet.
+> stack, and no function in the library calls itself. Cycle 0.1.3 parses classes —
+> ranges, nested classes, `&&` `--` `~~`, `\d`, `\p{…}` and `[:alpha:]` — reading every
+> shape as Rust's `regex` reads it or refusing it with what to write. Nothing matches a
+> pattern yet.
 > The specification set is in [`meta/specs/`](meta/specs/) and the plan in
 > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
 > discipline the compiler used — specs first, then a cycle map, then

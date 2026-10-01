@@ -6,7 +6,7 @@ Guidance for Claude Code sessions working in this repository.
 
 `nregex` — a regular-expression library for **Nitpick**, the safety-critical
 systems language at `../../nitpick`. **Status: cycle 0.1, the pattern parser, is
-open, and its 0.1.0, 0.1.0b, 0.1.1, 0.1.1b and 0.1.2 are done** — the pieces the parser is written
+open, and its 0.1.0, 0.1.0b, 0.1.1, 0.1.1b, 0.1.2 and 0.1.3 are done** — the pieces the parser is written
 in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/0.1/0.1.0.md`); the adoption of
 compiler `5fbaf4a` (RX-176 … RX-180, `0.1.0b.md`); and the core grammar —
 `parse_pattern` builds the AST for literals, `.`, `^`, `$`, groups, alternation and
@@ -16,7 +16,10 @@ the bound on `Vec`'s type — `Vec<T: Copy>`, an owning element refused wherever
 written (RX-188 … RX-190, `0.1.1b.md`); and the explicit stack's bound — a `(` that would
 nest groups past `NREGEX_NEST_DEPTH` is `NestTooDeep` at it, 10 000 levels and the longest
 pattern refused so, no function under `src/` on a call cycle, and the reason restated: a
-recursion deeper than its stack traps (RX-191 … RX-195, `0.1.2.md`).
+recursion deeper than its stack traps (RX-191 … RX-195, `0.1.2.md`); and classes — members,
+ranges, nested classes and the operators, left to right, each shape read as Rust's `regex` reads
+it or refused with what to write; Perl classes, properties and POSIX classes unresolved; groups and
+classes nesting 250 deep together; and open question O-Y2 decided (RX-196 … RX-201, `0.1.3.md`).
 Cycle 0.0, foundations, CLOSED on 2026-09-26 — the sixth audit accepted it, and
 it is archived in `meta/roadmap/done/0.0/`. The
 specifications, the decisions and the roadmap are complete; `tests/probe/` holds
@@ -62,11 +65,13 @@ behind its layer entry, with ten unit programs and three refusals of their own �
 `pattern_error_text` — **and since 0.1.2 its stack is bounded**: a `(` that would nest
 groups past `NREGEX_NEST_DEPTH` is `NestTooDeep` at it, before a byte after it is read
 (`SYNTAX.md` Y-35), with one unit program more, `parse_nest_deep`, the gate at 10 000
-levels and at the longest pattern, forty runs a leg. A class, an escape other than punctuation, and a flag are
-refused provisionally until 0.1.3 and 0.1.4 (`SYNTAX.md` Y-31). **No matching happens yet**: `src/hir/`,
+levels and at the longest pattern, forty runs a leg — **and since 0.1.3 it parses classes**
+(`SYNTAX.md` Y-36 … Y-38), with two unit programs more, `parse_classes` and
+`parse_class_refusals`. An escape other than punctuation, a Perl class or a property, and a flag are
+refused provisionally until 0.1.4 (`SYNTAX.md` Y-31). **No matching happens yet**: `src/hir/`,
 `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are still one
 placeholder module each. A full green run at compiler `5fbaf4a` is
-**242 units** (after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus nine tree checks (eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
+**246 units** (after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus nine tree checks (eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
 summary rather than from here. **Nothing is PENDING any more**:
 `tests/unit/bytes_copy_string_empty.npk` was committed red under
 `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at

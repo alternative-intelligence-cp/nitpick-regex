@@ -132,7 +132,7 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
 
 ### 0.1.4 — escapes and flags
 - [ ] the provisional `UnknownEscape` and `UnknownFlag` (`SYNTAX.md` Y-31) replaced; a `Flags` node never the pending atom (`(?i)*` is `NothingToRepeat`); each kind produced here held to its sentence (`0.1.1.md` §8)
-- [ ] every escape in §1's `Escape` production
+- [ ] every escape in §1's `Escape` production *(2026-10-01 — RX-197: inside a class too, where an escape naming a codepoint is a member and may end a range — `parse.npk`'s `class_escape` and `class_range` refuse each provisionally until then; and `\b` there is this subcycle's to decide)*
 - [ ] **`\` before an unlisted ASCII letter or digit is `UnknownEscape`, never a literal** (Y-2) — a test per unassigned letter
 - [ ] `\x41`, `\x{1F600}`, `A`, `\U0001F600`, with `BadHexEscape`, `BadUnicodeEscape`, `InvalidCodepoint` (surrogates and above `U+10FFFF`)
 - [ ] flags `imsxu`, scoped per Y-12: `(?i:…)` to the group, `(?i)` to the end of the enclosing group, `(?-i)` clearing
@@ -147,7 +147,7 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
 - [ ] a rejection test per refusal in `tests/rejection/`, with the exact-code rule
 
 ### 0.1.6 — close
-- [ ] **`check_error_kinds_tested` live and green**: every `PatternErrorKind` in `SYNTAX.md` §9 has a test that provokes it
+- [ ] **`check_error_kinds_tested` live and green**: every `PatternErrorKind` in `SYNTAX.md` §9 has a test that provokes it *(2026-10-01 — RX-197: no pattern reaches `EmptyClass` in the parser, open question O-Y3 for cycle 0.3.4, so the check counts it with the kinds a later cycle provokes, as it does `ClassTooLarge`)*
 - [ ] a fuzz pass over random byte strings as patterns: never traps, always terminates, always produces a program or an error with a valid offset
 - [ ] findings written; `0.2.0.md` written; archived
 

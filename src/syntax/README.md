@@ -10,19 +10,23 @@ since cycle 0.1.1 it parses the core grammar — literals, `.`, `^`, `$`, groups
 alternation and quantifiers (`SYNTAX.md` Y-28 … Y-33) — and says what each
 refusal means (Y-34). Since cycle 0.1.2 its stack is bounded: a `(` that would nest
 groups past `NREGEX_NEST_DEPTH` is `NestTooDeep` at it, before a byte after it is read
-(Y-35). A class, an escape other than punctuation, and a flag are refused
-provisionally until cycles 0.1.3 and 0.1.4 (Y-31):
+(Y-35). Since cycle 0.1.3 it parses classes — members, ranges, nested classes and the
+operators, Perl classes, properties and POSIX classes, unresolved (Y-36 … Y-38) — and
+groups and classes nest at most `NREGEX_NEST_DEPTH` deep together. An escape other than
+punctuation, a Perl class or a property, and a flag are refused provisionally until cycle
+0.1.4 (Y-31):
 
 | File | What |
 |---|---|
 | `syntax.npk` | the layer entry: every name the layer offers, `pub use`, one per line |
-| `pattern_error.npk` | `PatternErrorKind` (`SYNTAX.md` §9), `PatternError` (`SAFETY.md` S-9), and `pattern_error`, the only way to build one — RX-172; and `pattern_error_text`, what is wrong, at which byte, and what to write instead — RX-187 |
+| `pattern_error.npk` | `PatternErrorKind` (`SYNTAX.md` §9), `PatternError` (`SAFETY.md` S-9), and `pattern_error`, the only way to build one — RX-172; `pattern_error_text`, what is wrong, at which byte, and what to write instead — RX-187; and `posix_class_name`, §5.1's fourteen names in one place — RX-197 |
 | `cursor.npk` | the byte cursor: one byte of lookahead, moved by nothing outside it — RX-173 |
 | `ast.npk` | the AST arena: sixteen kinds of 56-byte node that own nothing (`SYNTAX.md` Y-26, Y-27) — RX-174 |
-| `parse.npk` | the parser: `parse_check_length`, the first refusal — RX-175; `parse_check_encoding`, the pattern checked whole as UTF-8 — RX-183; and `parse_pattern`, one explicit-stack walk that builds the AST — RX-182, RX-184 … RX-186 — its stack bounded at the `(`, RX-193 |
+| `parse.npk` | the parser: `parse_check_length`, the first refusal — RX-175; `parse_check_encoding`, the pattern checked whole as UTF-8 — RX-183; and `parse_pattern`, one explicit-stack walk that builds the AST — RX-182, RX-184 … RX-186 — its stack bounded at the `(`, RX-193; a class read by `parse_class`'s own `while` on a stack of its own — RX-197, RX-199, RX-200 — bounded with the groups', RX-198 |
 
 `tests/unit/syntax_skeleton.npk` composes the pieces through `syntax.npk` alone,
 and `parse_grammar`, `parse_refusals`, `parse_encoding`, `parse_limits` and
 `pattern_error_text` hold the parse and its text to the specification the same
 way; `parse_nest_deep` holds the bound at 10 000 levels and at the longest pattern,
-forty runs a leg (RX-194).
+forty runs a leg (RX-194); and `parse_classes` and `parse_class_refusals` hold every
+class shape and every class refusal (RX-197).
