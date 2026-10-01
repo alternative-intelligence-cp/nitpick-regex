@@ -55,6 +55,13 @@ version.
     "`200E..200F ; Pattern_White_Space`", "`2028 ; Pattern_White_Space`", "`2029 ; Pattern_White_Space`"
 - <https://www.unicode.org/versions/latest/> — retrieved 2026-10-01: answered 302, `Location:
   http://www.unicode.org/versions/Unicode18.0.0/`.
+- **Perl 5.34.0's release notes**, `perl5340delta`, <https://perldoc.perl.org/perl5340delta> — retrieved 2026-10-01
+  by cycle 0.1.4's worker, one fetch, for `COMPAT.md` §3's *"which Perl reads since its 5.34"*, which no source above
+  read *(added in 0.1.4's record commit)*: its section "Blanks freely allowed within but adjacent to curly braces (in
+  double-quotish contexts and regular expression patterns)" — "This means you can write things like `\x{ FFFC }` if you
+  like. This applies to all such constructs, namely `\b{}`, `\g{}`, `\k{}`, `\N{}`, `\o{}`, and `\x{}`; as well as the
+  regular expression quantifier `{m,n}`."; "This ability is in effect regardless of the presence of the `/x` regular
+  expression pattern modifier."
 
 ## Measured here
 
