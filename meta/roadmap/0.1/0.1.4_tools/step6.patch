@@ -1,0 +1,489 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index fefab650225fbd90901d322b84dbe7765fd8bb6d..2dbe05e109190687e450abeda56b2ed60f1d5424 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -5195,3 +5195,44 @@ at the end as `UnknownFlag`, as Rust's "expected flag"** — `(?` at the end is
+ is this; **the `Flags` node pending, like an atom** — a quantifier would repeat a change of flags; **a `Group` with the
+ flags of the frame it closes** — those say what its last alternative ended with, where its `(`'s say what was in force
+ around it.
++
++### RX-207 — `x`: white space and comments are skipped between constructs and nowhere else, and what the engines read two ways is `ExtendedAmbiguity` — in a class, and past ASCII
++
++**@@DATE@@, cycle 0.1.4 (the plan's PD-51), at compiler `5fbaf4a`** — `SYNTAX.md` Y-42 and Y-39, with §4's table and §9;
++per `meta/research/escape-flag-syntax-reference-engines.md`, as of 2026-10-01, and the UCD's `PropList.txt`, whose
++White_Space and Pattern_White_Space are the same in 16.0.0, 17.0.0 and 18.0.0. It makes RX-201's refusal, and adds
++the kind RX-201 said this cycle would.
++
++**What chose the rules.** §4 says `x` ignores white space and `#` to the end of the line — not where, nor which white
++space. Measured in Rust's `regex` 1.13.1, Perl 5.38.2, Python 3.12.3 and Java 21.0.12.1 (the plan's §1.6): between
++constructs all four skip the six ASCII white-space bytes and a `#` comment, and agree — `(?x)a b`, `a *`, `a | b`, a
++comment between an atom and its quantifier. Inside a construct they part: Rust skips white space inside `\x4 1`,
++`\x{ 41}`, `a{2, 3}` and `( ?:a)`, and between `a*` and its lazy `?`; Perl reads `\x4 1` as U+0004 and `1` and refuses
++`( ?:a)`; Python refuses `a* ?` and `( ?:a)` and reads `a{2, 3}` as text; Java reads `( ?:a)` as Rust does and refuses
++`a{ 2}`. Past ASCII they part again: Rust skips U+00A0, U+3000, U+2028 and U+0085 and not U+200E; Perl skips U+2028,
++U+0085 and U+200E and not U+00A0 or U+3000; Python and Java skip none.
++
++**The decision.** Y-42. Under `x` the walk skips the six ASCII white-space bytes, and a `#` through the next line
++feed, where a construct may begin — the reading all four share — and nowhere else: inside a construct white space is
++that construct's byte, read as without `x`, which refuses each shape the engines read two ways. A codepoint past ASCII
++in White_Space or Pattern_White_Space is `ExtendedAmbiguity` under `x`, in a class or out; inside a class every
++white-space byte and `#` is too (RX-201), a range's end included. `ExtendedAmbiguity` is a new kind after
++`WrongNamedGroupSpelling` — thirty-eight kinds — at the codepoint, spanning it, its detail the codepoint: 9 … 13 or 32
++for ASCII white space, 35 for `#`. The twenty-one codepoints past ASCII are named in `parse.npk` from `PropList.txt`,
++not taken from one of cycle 0.3's generated tables, since the parser reads no table (Y-37); Pattern_White_Space is
++closed by Unicode's stability policy, and cycle 0.3, which generates White_Space, can hold the list to it.
++
++**The text.** `tests/unit/pattern_error_text.npk` cases 60–63: white space in a class names what Rust and Java do with
++it, what Perl, Python and .NET do, and the escape to write — `\x20`, `\t`, `\n`, `\v`, `\f` or `\r`; a `#` in a
++class names `\#`; white space past ASCII names the codepoint, what each engine skips, and `\x{A0}`.
++
++**Measured at `5fbaf4a`.** `tests/unit/parse_flags.npk` cases 30–47 and `parse_flag_refusals.npk` cases 60–85 pass at
++−O0 and through `opt -O2`, and against the parser before this decision exit 30 and 60; each rule broken in a copy
++exits as the plan's §1.10 records.
++
++*Alternatives declined:* **Rust's reading, white space skipped inside constructs too** — Perl, Python and Java each
++read some of those shapes otherwise, so a pattern would change meaning between them with no word said; **white space
++past ASCII read as itself** — Python's and Java's reading, and a silent difference from Rust for U+00A0 and from Perl
++for U+2028; **skipped, as Rust skips it** — a silent difference from Perl, Python and Java; **a kind for each case —
++white space in a class, `#` in a class, white space past ASCII** — three kinds for one ambiguity, which the detail
++tells apart; **`UnknownFlag` or `ByteModeNonAscii` reused** — kinds named for something else.
+diff --git a/meta/specs/COMPAT.md b/meta/specs/COMPAT.md
+index 34b02261b72e8f14e32537b42e62a126f4632666..0544f3982a84a8b50b0f60aacc75f1126c22d45a 100644
+--- a/meta/specs/COMPAT.md
++++ b/meta/specs/COMPAT.md
+@@ -40,6 +40,8 @@ The closest neighbour, so the list is short and each entry is deliberate.
+ | `\u{41}`, `\U{1F600}` | a codepoint | refused, naming `\x{…}` | one spelling for a codepoint in braces (`SYNTAX.md` Y-40) — RX-204 |
+ | `\<`, `\>` | the start and the end of a word | refused, naming `\b`, and `<` or `>` for the byte | Rust and GNU `grep` read a word assertion, Perl, PCRE, Python and Java the byte — RX-205 |
+ | flags `U` and `R` | swap greed; CRLF mode | `(?U)` refused, `UnknownFlag`; `(?R)` refused as PCRE's recursion (`SYNTAX.md` Y-30) | flags nregex does not have — RX-206 |
++| `x` mode inside a construct | white space skipped inside escapes, bounds and group heads — `\x4 1`, `a{2, 3}`, `( ?:a)` — and before a lazy `?` | read as without `x`, so each refused | Perl, Python and Java read each of these otherwise (`SYNTAX.md` Y-42) — RX-207 |
++| white space past ASCII under `x` | Unicode's White_Space skipped | refused, `ExtendedAmbiguity` | Perl skips Pattern_White_Space, Python and Java ASCII white space alone (Y-42) — RX-207 |
+ | replacement | closures **or** templates | templates and non-capturing function values | no closures (D-018) |
+ | `Match` | a `&str` slice | byte offsets | borrows never pass up (D-004) |
+ | DFA cache | pooled internally | an explicit `Cache` the caller owns | `ENGINES.md` §5 |
+@@ -76,6 +78,8 @@ The list a user migrating from Python, PHP, Java or JavaScript needs.
+ | `\<`, `\>` — the bytes in Perl, PCRE, Python and Java | refused, since Rust's `regex` and GNU `grep` read word assertions; write `<` or `>` (Y-40, RX-205) |
+ | `(?i)` after the pattern's start — global in Python, which requires it first | from there to the enclosing group's `)`, across `|`, as in Perl, PCRE and Rust (`SYNTAX.md` Y-41, RX-206) |
+ | `(?^)`, `(?a)`, `(?n)`, `(?U)` — Perl's, PCRE's and .NET's other flags | `UnknownFlag`: the flags are `i`, `m`, `s`, `x` and `u` (Y-41) |
++| blanks inside `a{2, 3}` and `\x{ 41 }`, which Perl reads since its 5.34 | refused, `BadRepeatBounds` and `BadHexEscape`, under `x` or not (`SYNTAX.md` Y-32, Y-42) |
++| white space past ASCII under `x` — U+2028, U+0085, U+200E skipped by Perl | refused, `ExtendedAmbiguity`; write `\x{2028}` (Y-42, RX-207) |
+ 
+ **Rule K-1 — every refusal names the alternative in its message**, and where
+ there is none it names the reason. `LookaroundUnsupported` says the pattern
+diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
+index f894dbd0f491faaa02aa64a86bc4aa29d35f1b62..5ed7b5b79ca8186e2512e482c9c3717ef0a3107a 100644
+--- a/meta/specs/SYNTAX.md
++++ b/meta/specs/SYNTAX.md
+@@ -372,6 +372,9 @@ The refusal's sentence names both: *"the `(` or `[` here would nest groups and c
+ | `x` | extended: unescaped whitespace and `#`-to-end-of-line are ignored | off |
+ | `u` | Unicode mode: `.` is a codepoint, classes are Unicode-aware | **on** |
+ 
++*(@@DATE@@, cycle 0.1.4 — RX-207: `x` skips white space and comments outside a class and only between constructs
++(Y-42); inside a class it refuses them (Y-39).)*
++
+ **Rule Y-12 — flags are scoped.** `(?i:…)` applies to the group; `(?i)` applies
+ from that point to the end of the **enclosing** group, and is undone when the
+ group closes. `(?-i)` clears. This is the standard scoping and there is no
+@@ -397,6 +400,8 @@ white space and `#`-to-end-of-line (the table above). Inside one the engines dis
+ Perl's `/x`, PCRE2's `x`, Python and .NET keep both as members, and Perl's and PCRE2's `xx` ignore a space or a tab —
+ so under `x` a white-space byte or a `#` inside a class is refused at that byte, never read either way: `\x20`
+ matches a space and `\#` a `#`. Cycle 0.1.4 parses the flags and makes the refusal, with a kind it adds to §9.
++*(@@DATE@@, cycle 0.1.4 — RX-207: made — `ExtendedAmbiguity` at the byte, one byte long, its detail the byte: 9 … 13 or
++32 for white space, 35 for `#`; a range's end is read the same way, and white space past ASCII too (Y-42).)*
+ 
+ **Rule Y-41 (RX-206) — a group head of flags.** After `(?`, a byte no other head names begins flags: the letters `i`,
+ `m`, `s`, `x` and `u`, then at most one `-` and the letters it clears — at least one letter after `(?` and after the
+@@ -413,6 +418,17 @@ inside the flags is `UnclosedGroup` at the `(`, spanning the head, as `(?` at th
+ Y-30 name are read first: `(?P` before a byte no head names stays `UnknownFlag` at the `P` (Y-31), and `(?-` and a
+ digit is `RecursionUnsupported`.
+ 
++**Rule Y-42 (RX-207) — `x` outside a class.** Under `x`, the walk skips white space — tab, line feed, vertical tab,
++form feed, carriage return and space — and a `#` with every byte after it through the next line feed, or to the
++pattern's end, wherever a construct may begin: before an atom, a `|`, a `(`, a `)` or a quantifier. Never inside one —
++an escape, a group head, a name, a bound's braces, a property's braces, or between a quantifier and its lazy `?` —
++where a white-space byte is that construct's own, read as without `x`: `\x4 1` is `BadHexEscape`, `a{2, 3}`
++`BadRepeatBounds`, `( ?:a)` `NothingToRepeat`, `a* ?` `DoubleRepeat` and `(?i x)` `UnknownFlag`, where engines read
++each two ways. A codepoint past ASCII that Unicode names white space — White_Space, which Rust's `regex` skips under
++`x`, or Pattern_White_Space, which Perl skips: U+0085, U+00A0, U+1680, U+2000 … U+200A, U+200E, U+200F, U+2028,
++U+2029, U+202F, U+205F and U+3000 — is `ExtendedAmbiguity` under `x`, in a class or out, at it, spanning its bytes,
++its detail the codepoint; Python and Java read each as itself. `\ ` and `\x{A0}` write white space under `x`.
++
+ ---
+ 
+ ## 5. Classes
+@@ -611,8 +627,9 @@ kind retires as `EmptyAlternate` did, is open question O-Y3, for cycle 0.3.4.)*
+ `InvalidCodepoint` (a surrogate or above `U+10FFFF`).
+ 
+ **Groups and flags**: `DuplicateGroupName`, `BadGroupName`, `UnknownFlag`,
+-`DuplicateFlag`, `TooManyCaptureGroups`, `WrongNamedGroupSpelling`. *(`DuplicateFlag` since
+-@@DATE@@, cycle 0.1.4 — RX-206.)*
++`DuplicateFlag`, `TooManyCaptureGroups`, `WrongNamedGroupSpelling`, `ExtendedAmbiguity`.
++*(`DuplicateFlag` since @@DATE@@, cycle 0.1.4 — RX-206; `ExtendedAmbiguity` since @@DATE@@, cycle 0.1.4 —
++RX-207.)*
+ 
+ **Refusals** (§8): `BackreferenceUnsupported`, `LookaroundUnsupported`,
+ `AtomicGroupUnsupported`, `RecursionUnsupported`, `UnsupportedAnchor`,
+@@ -674,6 +691,7 @@ RX-197)* *(and, since @@DATE@@, each cycle 0.1.4's escapes make — Y-40, RX-204
+ | `InvalidCodepoint` (cycle 0.1.4) | an escape naming a surrogate or a value past U+10FFFF | the `\` | the escape | the surrogate's value; `NOT_A_CODEPOINT` past U+10FFFF |
+ | `UnknownFlag` (cycle 0.1.4) | a byte that is no flag where one may be — a `)` or `:` where one is due, and a second `-`, among them | that byte | its bytes | its codepoint |
+ | `DuplicateFlag` (cycle 0.1.4) | a flag named twice in one head, set or cleared | the second | 1 | the letter |
++| `ExtendedAmbiguity` (cycle 0.1.4) | under `x`, white space or `#` in a class; white space past ASCII anywhere | that codepoint | its bytes | its codepoint: 9 … 13, 32, 35, or one of Y-42's |
+ 
+ *(@@DATE@@, cycle 0.1.4 — RX-203: a detail whose domain is a codepoint — the one a refusal found where it wanted
+ another — says what no codepoint can with `NOT_A_CODEPOINT`, U+110000, one past the last: that the pattern ended
+@@ -681,6 +699,7 @@ where a codepoint was due. `UnknownUnicodeProperty`'s details are reasons, not c
+ 
+ *(2026-09-27, cycle 0.1.1 — RX-181: thirty-six, `EmptyAlternate` retired.)*
+ *(@@DATE@@, cycle 0.1.4 — RX-206: thirty-seven, `DuplicateFlag` after `UnknownFlag`.)*
++*(@@DATE@@, cycle 0.1.4 — RX-207: thirty-eight, `ExtendedAmbiguity` after `WrongNamedGroupSpelling`.)*
+ *(2026-09-26, cycle 0.1.0 — RX-172: `src/syntax/pattern_error.npk`'s
+ `PatternErrorKind` is this list, all thirty-seven, in this order, declared
+ before the parser produces any of them, and `tests/unit/pattern_error_unit.npk`
+diff --git a/src/syntax/parse.npk b/src/syntax/parse.npk
+index 4b9fb3ac67e7a9cf2ef8242d8876fbe5372f27f7..e28884535324f6440351369cd77312c19ca0d9d0 100644
+--- a/src/syntax/parse.npk
++++ b/src/syntax/parse.npk
+@@ -46,6 +46,10 @@ use "./cursor.npk".*;
+ use "./ast.npk".*;
+ 
+ // ---- the bytes the grammar names, as the cursor answers them ---------------
++fixed int32:CH_TAB = 9i32;           // the first of five white-space controls, tab … carriage return,
++fixed int32:CH_LF = 10i32;           // line feed, which ends an `x` comment (§4)
++fixed int32:CH_CR = 13i32;           // carriage return, the last
++fixed int32:CH_SPACE = 32i32;        // and the space: the white space `x` skips (Y-42)
+ fixed int32:CH_BANG = 33i32;         // `!`, the first ASCII punctuation
+ fixed int32:CH_DEL = 127i32;         // the last ASCII byte (Y-2)
+ fixed int32:CH_HASH = 35i32;         // `#`
+@@ -120,6 +124,22 @@ fixed int64:U8_F3 = 243i64;          // 0xF1 … 0xF3: four bytes, any continuat
+ fixed int64:U8_F4 = 244i64;          // 0xF4: four bytes, the second 0x80 … 0x8F (no more than U+10FFFF)
+ fixed int64:U8_F4_SECOND = 143i64;   // 0x8F
+ 
++// ---- white space past ASCII that some engine skips under `x` (Y-42; RX-207) -------
++// Unicode's White_Space, which Rust's `regex` skips, and Pattern_White_Space, which Perl skips --
++// `PropList.txt` of the UCD, the same in 16.0.0, 17.0.0 and 18.0.0.
++fixed int64:WS_NEL = 133i64;             // U+0085, next line: both
++fixed int64:WS_NBSP = 160i64;            // U+00A0, no-break space: White_Space
++fixed int64:WS_OGHAM = 5760i64;          // U+1680
++fixed int64:WS_EN_QUAD = 8192i64;        // U+2000 … U+200A, the typographic spaces
++fixed int64:WS_HAIR = 8202i64;
++fixed int64:WS_LRM = 8206i64;            // U+200E, U+200F, the direction marks: Pattern_White_Space
++fixed int64:WS_RLM = 8207i64;
++fixed int64:WS_LSEP = 8232i64;           // U+2028, U+2029, the separators: both
++fixed int64:WS_PSEP = 8233i64;
++fixed int64:WS_NNBSP = 8239i64;          // U+202F, U+205F, U+3000
++fixed int64:WS_MMSP = 8287i64;
++fixed int64:WS_IDEO = 12288i64;
++
+ // ---- the codepoints an escape may name (§1's `Escape`; RX-204) ---------------
+ fixed int64:CP_SURROGATE_LO = 55296i64;  // U+D800, the first surrogate: half of a UTF-16 pair, no codepoint
+ fixed int64:CP_SURROGATE_HI = 57343i64;  // U+DFFF, the last
+@@ -243,6 +263,21 @@ func:is_literal_escape = bool(int32:b) never fails {
+     pass !(raw is_digit(b));
+ };
+ 
++// White space as `x` skips it outside a class (§4, Y-42): tab, line feed, vertical tab, form feed,
++// carriage return and space -- the six every engine measured skips.
++func:is_space = bool(int32:b) never fails {
++    if ((b >= CH_TAB) && (b <= CH_CR)) { pass true; }
++    pass b == CH_SPACE;
++};
++
++// White space past ASCII that some engine skips under `x` and another reads as itself (Y-42).
++func:is_wide_space = bool(int64:cp) never fails {
++    if ((cp == WS_NEL) || (cp == WS_NBSP) || (cp == WS_OGHAM)) { pass true; }
++    if ((cp >= WS_EN_QUAD) && (cp <= WS_HAIR)) { pass true; }
++    if ((cp == WS_LRM) || (cp == WS_RLM) || (cp == WS_LSEP) || (cp == WS_PSEP)) { pass true; }
++    pass (cp == WS_NNBSP) || (cp == WS_MMSP) || (cp == WS_IDEO);
++};
++
+ // A hex digit's value, or -1 for any other byte -- `CURSOR_END` included.
+ func:hex_value = int64(int32:b) never fails {
+     if (raw is_digit(b)) { pass (b - CH_0) => int64; }
+@@ -975,15 +1010,39 @@ func:escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:at) never
+     pass raw unknown_escape(pat, at);
+ };
+ 
+-// A literal whose first byte `lead` was read at `at`: one codepoint, decoded.
+-func:literal = NIL(uint8[]:pat, Ast->:out, Parser->:p, int64:at, int32:lead) never fails {
++// The flag `x` is in force (§4).
++func:extended = bool(Parser->:p) never fails {
++    pass (p.f.flags & AST_FLAG_X) != 0u32;
++};
++
++// `ExtendedAmbiguity` at the codepoint `cp`, written in `n` bytes at `at`: under `x` the engines read
++// it two ways, so nregex reads it neither (Y-39, Y-42; RX-207).
++func:ambiguous = PatternError?(int64:at, int64:n, int64:cp) never fails {
++    pass raw pattern_error(PatternErrorKind.ExtendedAmbiguity, at, n, cp =>! uint32);
++};
++
++// Under `x`, a `#` just read outside a class: the comment runs through the next line feed, or to the
++// pattern's end (§4).
++func:skip_comment = NIL(Parser->:p) never fails {
++    bool:more = true;
++    while (more && !(raw cursor_at_end(@p.c))) decreases p.c.src.len - p.c.pos {
++        more = (raw cursor_bump(@p.c)) != CH_LF;
++    }
++    pass NIL;
++};
++
++// A literal whose first byte `lead` was read at `at`: one codepoint, decoded -- unless it is white
++// space past ASCII under `x`, which is `ExtendedAmbiguity` (Y-42).
++func:literal = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:at, int32:lead) never fails {
+     int64:n = raw utf8_len(lead => int64);
+     int64:k = 1i64;
+     while (k < n) decreases n - k {
+         discard(raw cursor_bump(@p.c));
+         k = k + 1i64;
+     }
+-    drop atom(out, @p.f, AstKind.Literal, raw decode_at(pat, at), at, n);
++    int64:cp = raw decode_at(pat, at);
++    if ((raw extended(p)) && (raw is_wide_space(cp))) { pass raw ambiguous(at, n, cp); }
++    drop atom(out, @p.f, AstKind.Literal, cp, at, n);
+     pass NIL;
+ };
+ 
+@@ -1221,6 +1280,9 @@ func:class_range = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame-
+             k = k + 1i64;
+         }
+         hi = raw decode_at(pat, at);
++        if ((raw extended(p)) && ((raw is_space(b)) || (b == CH_HASH) || (raw is_wide_space(hi)))) {
++            pass raw ambiguous(at, n, hi);
++        }
+     }
+     if (hi < lo.a) {
+         pass raw pattern_error(PatternErrorKind.BadClassRange, lo.pos, p.c.pos - lo.pos, 0u32);
+@@ -1278,7 +1340,10 @@ func:parse_class = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:open)
+         int64:at = p.c.pos;
+         int32:b = raw cursor_bump(@p.c);
+         PatternError?:e = NIL;
+-        if (b == CH_RBRACKET) {
++        if ((raw extended(p)) && ((raw is_space(b)) || (b == CH_HASH))) {
++            e = raw ambiguous(at, 1i64, b => int64);
++        }
++        else if (b == CH_RBRACKET) {
+             e = raw class_close(out, @cf, p.f.flags, p.c.pos);
+             if (e != NIL) { pass e; }
+             if (p.classes.count == 0i64) {
+@@ -1322,7 +1387,9 @@ func:parse_class = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:open)
+                 discard(raw cursor_bump(@p.c));
+                 k = k + 1i64;
+             }
+-            drop class_one(out, @cf, p.f.flags, raw decode_at(pat, at), at, n);
++            int64:cp = raw decode_at(pat, at);
++            if ((raw extended(p)) && (raw is_wide_space(cp))) { e = raw ambiguous(at, n, cp); }
++            else { drop class_one(out, @cf, p.f.flags, cp, at, n); }
+         }
+         if (e != NIL) { pass e; }
+     }
+@@ -1338,7 +1405,11 @@ func:parse_run = PatternError?(uint8[]:pat, Ast->:out, Parser->:p) never fails {
+         int64:at = p.c.pos;
+         int32:b = raw cursor_bump(@p.c);
+         PatternError?:e = NIL;
+-        if (b == CH_PIPE) {
++        if ((raw extended(p)) && ((raw is_space(b)) || (b == CH_HASH))) {
++            // under `x`, between two constructs: white space, skipped, or a comment (Y-42)
++            if (b == CH_HASH) { drop skip_comment(p); }
++        }
++        else if (b == CH_PIPE) {
+             drop close_alt(out, @p.f, at);
+             p.f.cat_pos = p.c.pos;
+         }
+@@ -1352,7 +1423,7 @@ func:parse_run = PatternError?(uint8[]:pat, Ast->:out, Parser->:p) never fails {
+         else if (b == CH_DOLLAR) { drop atom(out, @p.f, AstKind.Anchor, 1i64, at, 1i64); }
+         else if (b == CH_BACKSLASH) { e = raw escape(pat, out, p, at); }
+         else if (b == CH_LBRACKET) { e = raw parse_class(pat, out, p, at); }
+-        else { drop literal(pat, out, p, at, b); }
++        else { e = raw literal(pat, out, p, at, b); }
+         if (e != NIL) { pass e; }
+     }
+     if (p.stack.count > 0i64) {
+diff --git a/src/syntax/pattern_error.npk b/src/syntax/pattern_error.npk
+index a8c46d7a30016cf1e40b827c0d245ad3aa3b06c3..02062e8f69541ceed811daec9c243cd137777cd5 100644
+--- a/src/syntax/pattern_error.npk
++++ b/src/syntax/pattern_error.npk
+@@ -43,6 +43,7 @@ use "../core/core.npk".*;
+ // moved here is a red run, not a review comment. Thirty-six since cycle 0.1.1:
+ // `EmptyAlternate` is retired, an empty alternative being `Y-27`'s `Empty` (RX-181).
+ // *(@@DATE@@, cycle 0.1.4 -- RX-206: thirty-seven, `DuplicateFlag` after `UnknownFlag`.)*
++// *(@@DATE@@, cycle 0.1.4 -- RX-207: thirty-eight, `ExtendedAmbiguity` after `WrongNamedGroupSpelling`.)*
+ pub enum:PatternErrorKind = {
+     // structure
+     UnclosedGroup;
+@@ -79,6 +80,7 @@ pub enum:PatternErrorKind = {
+     DuplicateFlag;
+     TooManyCaptureGroups;
+     WrongNamedGroupSpelling;
++    ExtendedAmbiguity;
+ 
+     // refusals (§8)
+     BackreferenceUnsupported;
+@@ -489,6 +491,30 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
+             if (e.detail == 39u32) { drop put(@b, ": `(?'name'...)` is the .NET spelling. Write `(?<name>...)`."); }
+             else { drop put(@b, ": `(?P<name>...)` is Python's spelling. Write `(?<name>...)`."); }
+         },
++        (PatternErrorKind.ExtendedAmbiguity) {
++            if (e.detail == 35u32) {
++                drop put(@b, "`#` in a class at byte "); drop num(@b, e.offset);
++                drop put(@b, " under `x`: Rust's `regex` and Java begin a comment here, and Perl, Python and .NET match a `#`, so nregex refuses it. Write `\\#` to match a `#`.");
++            }
++            else if (e.detail < 128u32) {
++                drop put(@b, "white space in a class at byte "); drop num(@b, e.offset);
++                drop put(@b, " under `x`: Rust's `regex` and Java skip it here, and Perl, Python and .NET match it, so nregex refuses it. Write `");
++                if (e.detail == 9u32) { drop put(@b, "\\t"); }
++                else if (e.detail == 10u32) { drop put(@b, "\\n"); }
++                else if (e.detail == 11u32) { drop put(@b, "\\v"); }
++                else if (e.detail == 12u32) { drop put(@b, "\\f"); }
++                else if (e.detail == 13u32) { drop put(@b, "\\r"); }
++                else { drop put(@b, "\\x20"); }
++                drop put(@b, "` to match it, or remove it.");
++            }
++            else {
++                drop put(@b, "white space past ASCII at byte "); drop num(@b, e.offset);
++                drop put(@b, " under `x`: "); drop shown(@b, e.detail);
++                drop put(@b, " is skipped there by some engines and matched by others -- Rust's `regex` skips Unicode's White_Space, Perl its Pattern_White_Space, and Python and Java ASCII white space alone -- so nregex refuses it. Write `\\x{");
++                drop hex(@b, e.detail => int64, 1i64);
++                drop put(@b, "}` to match it, or remove it.");
++            }
++        },
+         (PatternErrorKind.BackreferenceUnsupported) {
+             drop put(@b, "backreference at byte "); drop num(@b, e.offset);
+             drop put(@b, " is not supported: matching one is NP-hard in general, and every nregex search takes linear time. Capture both parts and compare them yourself.");
+diff --git a/tests/unit/parse_flag_refusals.npk b/tests/unit/parse_flag_refusals.npk
+index 0af87c7bdd51496aed2950a258b42d28dc13db69..470ac9934c5b8d554a1b13230041c308f68fdda0 100644
+--- a/tests/unit/parse_flag_refusals.npk
++++ b/tests/unit/parse_flag_refusals.npk
+@@ -61,6 +61,30 @@ func:run = int32() never fails {
+     if (!(raw refused("(?i)*", PatternErrorKind.NothingToRepeat, 4i64, 1i64, 42u32)))    { pass 40i32; }
+     if (!(raw refused("a(?i)+", PatternErrorKind.NothingToRepeat, 5i64, 1i64, 43u32)))   { pass 41i32; }
+     if (!(raw refused("(?-i){2}", PatternErrorKind.NothingToRepeat, 5i64, 1i64, 123u32))) { pass 42i32; }
++    // `x` inside a class: white space and `#`, which the engines read two ways (Y-39)
++    if (!(raw refused("(?x)[a b]", PatternErrorKind.ExtendedAmbiguity, 6i64, 1i64, 32u32)))      { pass 60i32; }
++    if (!(raw refused("(?x)[a#b]", PatternErrorKind.ExtendedAmbiguity, 6i64, 1i64, 35u32)))      { pass 61i32; }
++    if (!(raw refused("(?x)[a\tb]", PatternErrorKind.ExtendedAmbiguity, 6i64, 1i64, 9u32)))      { pass 62i32; }
++    if (!(raw refused("(?x)[ ]", PatternErrorKind.ExtendedAmbiguity, 5i64, 1i64, 32u32)))        { pass 63i32; }
++    if (!(raw refused("(?x)[a- ]", PatternErrorKind.ExtendedAmbiguity, 7i64, 1i64, 32u32)))      { pass 64i32; }
++    if (!(raw refused("(?x)[a-#]", PatternErrorKind.ExtendedAmbiguity, 7i64, 1i64, 35u32)))      { pass 65i32; }
++    if (!(raw refused("(?x:[ ])", PatternErrorKind.ExtendedAmbiguity, 5i64, 1i64, 32u32)))       { pass 66i32; }
++    if (!(raw refused("(?x)[^\r]", PatternErrorKind.ExtendedAmbiguity, 6i64, 1i64, 13u32)))      { pass 67i32; }
++    // white space past ASCII, which some engines skip under `x` and others match (Y-42)
++    if (!(raw refused("(?x)a\u{A0}b", PatternErrorKind.ExtendedAmbiguity, 5i64, 2i64, 160u32)))  { pass 70i32; }
++    if (!(raw refused("(?x)a\u{2028}", PatternErrorKind.ExtendedAmbiguity, 5i64, 3i64, 8232u32)))  { pass 71i32; }
++    if (!(raw refused("(?x)\u{200E}", PatternErrorKind.ExtendedAmbiguity, 4i64, 3i64, 8206u32)))   { pass 72i32; }
++    if (!(raw refused("(?x)\u{85}", PatternErrorKind.ExtendedAmbiguity, 4i64, 2i64, 133u32)))    { pass 73i32; }
++    if (!(raw refused("(?x)[a\u{3000}]", PatternErrorKind.ExtendedAmbiguity, 6i64, 3i64, 12288u32))) { pass 74i32; }
++    if (!(raw refused("(?x)[a-\u{A0}]", PatternErrorKind.ExtendedAmbiguity, 7i64, 2i64, 160u32))) { pass 75i32; }
++    if (!(raw refused("(?x)\u{2000}\u{200A}", PatternErrorKind.ExtendedAmbiguity, 4i64, 3i64, 8192u32))) { pass 76i32; }
++    // never inside a construct, where white space is that construct's own byte (Y-42)
++    if (!(raw refused("(?x)\\x4 1", PatternErrorKind.BadHexEscape, 4i64, 4i64, 32u32)))          { pass 80i32; }
++    if (!(raw refused("(?x)a{2, 3}", PatternErrorKind.BadRepeatBounds, 5i64, 3i64, 0u32)))       { pass 81i32; }
++    if (!(raw refused("(?x)( ?:a)", PatternErrorKind.NothingToRepeat, 6i64, 1i64, 63u32)))      { pass 82i32; }
++    if (!(raw refused("(?x)a* ?", PatternErrorKind.DoubleRepeat, 7i64, 1i64, 63u32)))            { pass 83i32; }
++    if (!(raw refused("(?x)(?i x)", PatternErrorKind.UnknownFlag, 7i64, 1i64, 32u32)))           { pass 84i32; }
++    if (!(raw refused("(?x)(?<a b>c)", PatternErrorKind.BadGroupName, 8i64, 1i64, 32u32)))       { pass 85i32; }
+     // the first refusal wins, left to right
+     if (!(raw refused("(?qq)", PatternErrorKind.UnknownFlag, 2i64, 1i64, 113u32)))       { pass 50i32; }
+     if (!(raw refused("(?iiq)", PatternErrorKind.DuplicateFlag, 3i64, 1i64, 105u32)))    { pass 51i32; }
+diff --git a/tests/unit/parse_flags.npk b/tests/unit/parse_flags.npk
+index 5020b9ed4c213c407817dad1b104fe70a6e7538c..b9b743457b51db22beec7cffea7ec8af98435109 100644
+--- a/tests/unit/parse_flags.npk
++++ b/tests/unit/parse_flags.npk
+@@ -258,6 +258,25 @@ func:run = int32() never fails {
+     if (!(raw tree("(?i)(?<n>a)", "(cat{iu} (flags +i) (grp{iu} 1 <n> 'a'{iu}))", false))) { pass 25i32; }
+     if (!(raw tree("(?i)\\b\\x41", "(cat{iu} (flags +i) \\b{iu} 'A'{iu})", false)))         { pass 26i32; }
+     if (!(raw tree("(?i)()", "(cat{iu} (flags +i) (grp{iu} 1 E{iu}))", false)))           { pass 27i32; }
++    // `x` (Y-42): white space and comments skipped between constructs, outside a class
++    if (!(raw tree("(?x)a b", "(cat{xu} (flags +x) 'a'{xu} 'b'{xu})", false)))             { pass 30i32; }
++    if (!(raw tree("(?x)a # comment\nb", "(cat{xu} (flags +x) 'a'{xu} 'b'{xu})", false)))  { pass 31i32; }
++    if (!(raw tree("(?x)a *", "(cat{xu} (flags +x) (rep{xu} 0 - 'a'{xu}))", false)))       { pass 32i32; }
++    if (!(raw tree("(?x)a#c\n*", "(cat{xu} (flags +x) (rep{xu} 0 - 'a'{xu}))", false)))    { pass 33i32; }
++    if (!(raw tree("(?x)\\ \\#", "(cat{xu} (flags +x) #32{xu} '#'{xu})", false)))         { pass 34i32; }
++    if (!(raw tree("(?x)a#b", "(cat{xu} (flags +x) 'a'{xu})", false)))                     { pass 35i32; }
++    if (!(raw tree("(?x)a | b", "(alt{xu} (cat{xu} (flags +x) 'a'{xu}) 'b'{xu})", false)))  { pass 36i32; }
++    if (!(raw tree("(?x: a b )c", "(cat (grp (cat{xu} 'a'{xu} 'b'{xu})) 'c')", false)))     { pass 37i32; }
++    if (!(raw tree("(?x)a(?-x) b", "(cat (flags +x) 'a'{xu} (flags{xu} -x) #32 'b')", false))) { pass 38i32; }
++    if (!(raw tree("(?x)a\t\n\x0b\x0c\r b", "(cat{xu} (flags +x) 'a'{xu} 'b'{xu})", false))) { pass 39i32; }
++    if (!(raw tree("(?x)[a\\ b]", "(cat{xu} (flags +x) (cls{xu} 'a'{xu} #32{xu} 'b'{xu}))", false))) { pass 40i32; }
++    if (!(raw tree("(?x)(?<n>a )", "(cat{xu} (flags +x) (grp{xu} 1 <n> 'a'{xu}))", false))) { pass 41i32; }
++    if (!(raw tree("(?x) ^ a $ ", "(cat{xu} (flags +x) ^{xu} 'a'{xu} ${xu})", false)))    { pass 42i32; }
++    if (!(raw tree("(?x)\\x{A0}é", "(cat{xu} (flags +x) #160{xu} #233{xu})", false)))     { pass 43i32; }
++    if (!(raw tree("(?x)a#c\r\nb", "(cat{xu} (flags +x) 'a'{xu} 'b'{xu})", false)))       { pass 44i32; }
++    if (!(raw tree("(?x)a#", "(cat{xu} (flags +x) 'a'{xu})", false)))                      { pass 45i32; }
++    if (!(raw tree("(?x)a b", "(cat{xu}@0+7 (flags@0+4 +x) 'a'{xu}@4+1 'b'{xu}@6+1)", true))) { pass 46i32; }
++    if (!(raw tree("(?-x)[a b]", "(cat (flags -x) (cls 'a' #32 'b'))", false)))             { pass 47i32; }
+     pass 0i32;
+ };
+ 
+diff --git a/tests/unit/pattern_error_text.npk b/tests/unit/pattern_error_text.npk
+index a76b77def1224033ea0455a032c2ce39c182cb35..1d982ff9b491e4b4f476f9bd096b77a338e204f3 100644
+--- a/tests/unit/pattern_error_text.npk
++++ b/tests/unit/pattern_error_text.npk
+@@ -125,7 +125,7 @@ func:run = int32() never fails {
+     if (!(raw same(raw pattern_error_text(en), "bad group name at byte 4: a name is ASCII letters, digits and `_`, and does not begin with a digit."))) { pass 39i32; }
+     // every kind renders a sentence naming its byte
+     int64:k = 0i64;
+-    while (k < 37i64) decreases 37i64 - k {
++    while (k < 38i64) decreases 38i64 - k {
+         PatternErrorKind:kind = (k =>! int32) =>! PatternErrorKind;
+         string:s = raw pattern_error_text(raw pattern_error(kind, 7i64, 1i64, 0u32));
+         if (!(raw has(s, " at byte 7"))) { pass 40i32; }
+@@ -153,6 +153,11 @@ func:run = int32() never fails {
+     if (!(raw says("(?i-m-s)", "second `-` in a group's flags at byte 5: the flags hold one `-`, and every flag after it is cleared. Write `(?i-ms)`, not `(?i-m-s)`."))) { pass 57i32; }
+     if (!(raw says("(?i-i)", "flag named twice at byte 4: `i` already appears in this group's flags, set or cleared. Name each flag once."))) { pass 58i32; }
+     if (!(raw says("(?xx)", "flag named twice at byte 3: `x` already appears in this group's flags. Perl's and PCRE2's `(?xx)` also ignores spaces and tabs in a class, and under nregex's `x` a space or a `#` in a class is refused instead: write `(?x)`, and `\\x20` or `\\#` in a class."))) { pass 59i32; }
++    // cycle 0.1.4's `x` (Y-39, Y-42)
++    if (!(raw says("(?x)[a b]", "white space in a class at byte 6 under `x`: Rust's `regex` and Java skip it here, and Perl, Python and .NET match it, so nregex refuses it. Write `\\x20` to match it, or remove it."))) { pass 60i32; }
++    if (!(raw says("(?x)[a\tb]", "white space in a class at byte 6 under `x`: Rust's `regex` and Java skip it here, and Perl, Python and .NET match it, so nregex refuses it. Write `\\t` to match it, or remove it."))) { pass 61i32; }
++    if (!(raw says("(?x)[a#b]", "`#` in a class at byte 6 under `x`: Rust's `regex` and Java begin a comment here, and Perl, Python and .NET match a `#`, so nregex refuses it. Write `\\#` to match a `#`."))) { pass 62i32; }
++    if (!(raw says("(?x)a\u{A0}b", "white space past ASCII at byte 5 under `x`: U+00A0 is skipped there by some engines and matched by others -- Rust's `regex` skips Unicode's White_Space, Perl its Pattern_White_Space, and Python and Java ASCII white space alone -- so nregex refuses it. Write `\\x{A0}` to match it, or remove it."))) { pass 63i32; }
+     pass 0i32;
+ };
+ 
+diff --git a/tests/unit/pattern_error_unit.npk b/tests/unit/pattern_error_unit.npk
+index 0427368b1d3858748f7efe75af21854fc9f43244..d3cd13f4d853cddd2813c1583f6ca8be29c7148a 100644
+--- a/tests/unit/pattern_error_unit.npk
++++ b/tests/unit/pattern_error_unit.npk
+@@ -3,6 +3,7 @@
+ // `PatternErrorKind` IS `SYNTAX.md` §9, ALL THIRTY-SIX, IN ITS ORDER -- AND
+ // `pattern_error` BUILDS EACH ONE, THROUGH THE LAYER ENTRY. Cycle 0.1.0, RX-172.
+ // *(@@DATE@@, cycle 0.1.4 -- RX-206: thirty-seven, `DuplicateFlag` after `UnknownFlag`.)*
++// *(@@DATE@@, cycle 0.1.4 -- RX-207: thirty-eight, `ExtendedAmbiguity` after `WrongNamedGroupSpelling`.)*
+ //
+ // WHAT IT PINS. `ordinal` is an EXHAUSTIVE `pick` over the enum, no `(*)`, one
+ // arm per kind in §9's order, each answering its place in that list. So the enum
+@@ -52,24 +53,25 @@ func:ordinal = int64(PatternErrorKind:k) never fails {
+         (PatternErrorKind.DuplicateFlag) { n = 23i64; },
+         (PatternErrorKind.TooManyCaptureGroups) { n = 24i64; },
+         (PatternErrorKind.WrongNamedGroupSpelling) { n = 25i64; },
+-        (PatternErrorKind.BackreferenceUnsupported) { n = 26i64; },
+-        (PatternErrorKind.LookaroundUnsupported) { n = 27i64; },
+-        (PatternErrorKind.AtomicGroupUnsupported) { n = 28i64; },
+-        (PatternErrorKind.RecursionUnsupported) { n = 29i64; },
+-        (PatternErrorKind.UnsupportedAnchor) { n = 30i64; },
+-        (PatternErrorKind.UnsupportedGroup) { n = 31i64; },
+-        (PatternErrorKind.UnsupportedQuoting) { n = 32i64; },
+-        (PatternErrorKind.PatternTooLong) { n = 33i64; },
+-        (PatternErrorKind.ProgramTooLarge) { n = 34i64; },
+-        (PatternErrorKind.InvalidPatternEncoding) { n = 35i64; },
+-        (PatternErrorKind.ByteModeNonAscii) { n = 36i64; }
++        (PatternErrorKind.ExtendedAmbiguity) { n = 26i64; },
++        (PatternErrorKind.BackreferenceUnsupported) { n = 27i64; },
++        (PatternErrorKind.LookaroundUnsupported) { n = 28i64; },
++        (PatternErrorKind.AtomicGroupUnsupported) { n = 29i64; },
++        (PatternErrorKind.RecursionUnsupported) { n = 30i64; },
++        (PatternErrorKind.UnsupportedAnchor) { n = 31i64; },
++        (PatternErrorKind.UnsupportedGroup) { n = 32i64; },
++        (PatternErrorKind.UnsupportedQuoting) { n = 33i64; },
++        (PatternErrorKind.PatternTooLong) { n = 34i64; },
++        (PatternErrorKind.ProgramTooLarge) { n = 35i64; },
++        (PatternErrorKind.InvalidPatternEncoding) { n = 36i64; },
++        (PatternErrorKind.ByteModeNonAscii) { n = 37i64; }
+     }
+     pass n;
+ };
+ 
+ func:main = int32(cstring[]:_~argv) {
+     int64:k = 0i64;
+-    while (k < 37i64) decreases 37i64 - k {
++    while (k < 38i64) decreases 38i64 - k {
+         PatternErrorKind:kind = (k =>! int32) =>! PatternErrorKind;
+         PatternError:e = raw pattern_error(kind, k * 3i64, k + 1i64, (k =>! uint32) + 1000u32);
+         if ((raw ordinal(e.kind)) != k)             { exit 20i32; }

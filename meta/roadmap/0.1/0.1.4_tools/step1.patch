@@ -1,0 +1,266 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 101f541475fd529f62477985e47113bfeb991ab6..80e1a9c8cc2a6427ec7149f58aa323799efa1d33 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -32,10 +32,10 @@
+ # `check_specs_current`, which reports (eight, seven of which could fail, until
+ # cycle 0.1.2's `check_no_recursion`). AND SINCE 0.0.3 IT IS ALSO EVIDENCE
+ # THAT THE RUNNER CAN FAIL: the self-check runs FIRST and feeds it every live
+-# kind of wrong expectation, requiring a red for each -- 28 live and 4 PENDING
+-# on stages that do not exist until 0.3, 0.5 and 0.8, 32 cases in V-20's list
+-# since cycle 0.1.2 (30 at cycle 0.1.0b, 24 at the cycle 0.0 close's fifth triage,
+-# 15 and 19 at the fourth), and the run prints the counts itself, so
++# kind of wrong expectation, requiring a red for each -- 29 live and 4 PENDING
++# on stages that do not exist until 0.3, 0.5 and 0.8, 33 cases in V-20's list
++# since cycle 0.1.4 (32 at cycle 0.1.2, 30 at cycle 0.1.0b, 24 at the cycle 0.0
++# close's fifth triage, 15 and 19 at the fourth), and the run prints the counts itself, so
+ # the green says how much of the list it covers. It is still NOT evidence about this library's BEHAVIOUR: `src/core/`
+ # is real and carries its own suites, but nothing matches yet.
+ #
+diff --git a/harness/selfcheck.py b/harness/selfcheck.py
+index 4152a7047d79fbd8b5dc33017b35752a170f0ddf..1e2356e9aa56ad795b35d92327a7f6caf3036717 100644
+--- a/harness/selfcheck.py
++++ b/harness/selfcheck.py
+@@ -709,6 +709,45 @@ def _case31(d):
+     return None                                   # handled by `_run_case31`
+ 
+ 
++def _zz(cmp):
++    """A `src/core/zz.npk` whose function compares `n` as `cmp` writes it, on line 4."""
++    return ("mod:zz;\n\npub func:zz_over = bool(int64:n) never fails {\n"
++            f"    if ({cmp}) {{ pass true; }}\n    pass false;\n}};\n")
++
++
++def _run_case32(case):
++    """Case 32, on the instrument: `check_constants_named` over six planted bounds, each a
++    spelling the pinned compiler accepts and the check's first pattern could not read -- a
++    digit-separated decimal, a hex, a binary and an octal literal, a width suffix past the eight it
++    listed, and a literal on the LEFT of the comparison -- and a clean control holding each spelling
++    at a small value, a shift, a bound in a comment and in a string, and one in `limits.npk`, the
++    file that may hold them (RX-202)."""
++    lim = os.path.join("src", "core", "limits.npk")
++    with open(os.path.join(ROOT, lim), encoding="utf-8") as fh:
++        limits = fh.read()
++    return _run_plants(case, "check_constants_named", [
++        ("a digit-separated decimal", {"src/core/zz.npk": _zz("n > 1_000_000i64")},
++         ["src/core/zz.npk:4", "`1_000_000i64` (1000000)"]),
++        ("a hex literal", {"src/core/zz.npk": _zz("n > 10FFFFhexi64")},
++         ["src/core/zz.npk:4", "`10FFFFhexi64` (1114111)"]),
++        ("a binary literal", {"src/core/zz.npk": _zz("n >= 1111_0100bin")},
++         ["src/core/zz.npk:4", "`1111_0100bin` (244)"]),
++        ("an octal literal", {"src/core/zz.npk": _zz("n < 777oct")},
++         ["src/core/zz.npk:4", "`777oct` (511)"]),
++        ("a width suffix past `u64`", {"src/core/zz.npk": _zz("n > 1000i128")},
++         ["src/core/zz.npk:4", "`1000i128` (1000)"]),
++        ("a literal left of the comparison", {"src/core/zz.npk": _zz("65_536i64 <= n")},
++         ["src/core/zz.npk:4", "`65_536i64` (65536)"]),
++    ], {"src/core/zz.npk": _zz("(n > 0FFhex) || (n >= 1_00i64) || (1_0_0i64 < n) || ((n >> 6i64) < 4i64)")
++                           + "\n// n > 1_000_000i64, in a comment\n"
++                           + "pub func:zz_s = string() never fails {\n    pass \"n > 99_999\";\n};\n",
++        lim: limits + "\npub func:zz_l = bool(int64:n) never fails {\n    pass n > 1_000_000i64;\n};\n"})
++
++
++def _case32(d):
++    return None                                   # handled by `_run_case32`
++
++
+ def _case19(d):
+     """A RED UNIT HIDDEN BY TWO LONE CARRIAGE RETURNS -- the fifth audit's BL-9 (a).
+ 
+@@ -1109,6 +1148,11 @@ CASES = [
+          "RX-194: the gate's 'not on a signal' is the runner reading a killed process "
+          "as `0 - signal` -- shown red here, so `expect-exit: 0` is met by a normal exit alone",
+          _case31, ()),
++    Case(32, "a bound compared in each spelling the compiler accepts: digit-separated, hex, "
++             "binary, octal, a wide width suffix, and left of the operator",
++         "RX-202: `check_constants_named` read a literal as decimal digits after the operator "
++         "and passed all six -- a spelling it cannot read is a bound it cannot see",
++         _case32, ()),
+ ]
+ 
+ 
+@@ -1214,6 +1258,8 @@ def _run_case(case, keep):
+         return _run_case30(case)
+     if case.num == 31:
+         return _run_case31(case)
++    if case.num == 32:
++        return _run_case32(case)
+     d = tempfile.mkdtemp(prefix=f"nregex-selfcheck-{case.num}-")
+     try:
+         toml = case.build_tree(d)
+diff --git a/harness/treecheck.py b/harness/treecheck.py
+index 4f9ffb0e40c09e830f0b6f4c81c877741aff0493..848b648af81f63fbb86541af445c62ba1fe6527e 100644
+--- a/harness/treecheck.py
++++ b/harness/treecheck.py
+@@ -317,6 +317,60 @@ _SMALL = {0, 1, 2, 3, 4, 7, 8, 15, 16, 24, 31, 32, 63, 64, 100, 127, 128, 255, 2
+ # and `>>` from both ends.
+ _CMP_LITERAL = re.compile(
+     r'(?<![<>])[<>]=?(?![<>])\s*(\d+)(?:i8|i16|i32|i64|u8|u16|u32|u64)?\b')
++# *(@@DATE@@, cycle 0.1.4 -- RX-202: that pattern read a literal only as decimal digits and one of
++# eight width suffixes, after the operator -- so `> 1_000_000i64`, `> 10FFFFhexi64`, `> 777oct`,
++# `> 1000i128` and `65_536i64 < n` all passed, every one a spelling the pinned compiler accepts,
++# measured at `5fbaf4a`. It is kept above as it was written, and read by nothing; the three below
++# replace it, and self-check case 32 plants each spelling.)*
++#
++# AN INTEGER LITERAL AS THE COMPILER'S LEXER READS ONE (`LEXICAL_REFERENCE.md` §6.2, read at
++# `5fbaf4a`; `BUILD.md` B-4e re-reads it at every adoption). It begins with a decimal digit, which
++# no identifier does (the compiler's D-147), and runs on through letters, digits and `_`; the
++# underscores are ignored; its base is a SUFFIX -- `hex`, `bin`, `oct`, or the balanced `t`, `ter`,
++# `tri` (digits 0, 1 and `T` for -1) and `n`, `non` (digits 0 … 4 and `a` … `d` for -1 … -4) --
++# and a width suffix may follow it. A C prefix, `0x`, is a lexer error there (`NITPICK-LEX-003`),
++# so it is no literal here.
++_NUM = r"[0-9][0-9A-Za-z_]*"
++_WIDTH = re.compile(r"(?:[iu](?:8|16|32|64|128|256|512|1024|2048|4096)|tbb(?:8|16|32|64|128|256)"
++                    r"|f(?:32|64|128)|tfp(?:32|64|128|256)|dim256|char(?:8|16|32))$")
++_BASES = (("hex", 16), ("bin", 2), ("oct", 8), ("ter", 3), ("tri", 3), ("non", 9), ("t", 3), ("n", 9))
++# A comparison, `<`, `>`, `<=` or `>=` -- never a shift (`<<`, `>>`), an arrow (`->`, `=>`) or an
++# `==` -- with the literal on EITHER side of it: a bound is spent whichever side it is written on.
++_CMP_RIGHT = re.compile(r"(?<![<>=-])[<>]=?(?![<>=])\s*-?\s*(" + _NUM + ")")
++_CMP_LEFT = re.compile(r"(?<![0-9A-Za-z_.])(" + _NUM + r")\s*(?<![<>=-])[<>]=?(?![<>=])")
++
++
++def _int_value(tok):
++    """The value of the integer literal `tok`, or None when it is no literal this reader can
++    read -- which the check reports by its text rather than passing: a spelling it cannot read
++    is a spelling it cannot clear."""
++    t = _WIDTH.sub("", tok)
++    base, body = 10, t
++    for suffix, b in _BASES:
++        if t.endswith(suffix) and len(t) > len(suffix):
++            base, body = b, t[:-len(suffix)]
++            break
++    body = body.replace("_", "")
++    if not body:
++        return None
++    if base in (3, 9):
++        neg = {"t": -1, "T": -1} if base == 3 else {"a": -1, "b": -2, "c": -3, "d": -4,
++                                                      "A": -1, "B": -2, "C": -3, "D": -4}
++        top = "1" if base == 3 else "4"
++        v = 0
++        for c in body:
++            if c in neg:
++                d = neg[c]
++            elif "0" <= c <= top:
++                d = int(c)
++            else:
++                return None
++            v = v * base + d
++        return v
++    try:
++        return int(body, base)
++    except ValueError:
++        return None
+ 
+ 
+ def check_constants_named(root):
+@@ -338,11 +392,17 @@ def check_constants_named(root):
+         except OSError:
+             continue
+         for ln, code in enumerate(lexical.blank(text).split("\n"), 1):
+-            for m in _CMP_LITERAL.finditer(code):
+-                v = int(m.group(1))
++            seen = set()
++            for m in list(_CMP_RIGHT.finditer(code)) + list(_CMP_LEFT.finditer(code)):
++                if m.start(1) in seen:
++                    continue
++                seen.add(m.start(1))
++                tok = m.group(1)
++                v = _int_value(tok)
+                 if v in _SMALL:
+                     continue
+-                fl.append(f"{rel}:{ln}: the literal `{v}` is compared against outside "
++                said = f"`{tok}`" if v is None or tok == str(v) else f"`{tok}` ({v})"
++                fl.append(f"{rel}:{ln}: the literal {said} is compared against outside "
+                           f"`{LIMITS_FILE}`. EVERY BOUND IS A NAMED CONSTANT THERE "
+                           f"(SAFETY.md S-12, RX-062), with the specification rule that "
+                           f"set it beside it -- a bound written inline is a bound "
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index e06e6d5a0572552e28425bd7f2e73f87efcde768..4109b539d0332e336c49fa4db92f4339bea73245 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -5029,3 +5029,33 @@ do** — the closest neighbour's reading, and a silent difference from Perl, PCR
+ is how a space is often matched under `x`; **ignore a space and a tab only, as `xx` does** — a third reading, and each
+ family's surprise at once; **leave it to cycle 0.1.4, with the flags** — the cycle 0.1 README puts the question with
+ the class parser, whose reading of a class's bytes this is.
++
++## Escapes and flags — cycle 0.1.4
++
++### RX-202 — `check_constants_named` reads a literal as the compiler's lexer does: every base, separator and width suffix, on either side of the comparison
++
++**@@DATE@@, cycle 0.1.4 (the plan's PD-46), at compiler `5fbaf4a`** — `SAFETY.md` S-12 (RX-062), `TESTING.md` V-20.
++The check found a bound by one pattern — `<`, `>`, `<=` or `>=`, then decimal digits and one of eight width
++suffixes — so it read neither a literal written another way nor one left of the comparison. The compiler's
++lexer reads more (`LEXICAL_REFERENCE.md` §6.2): `_` between digits, ignored; a base suffix, `hex`, `bin`,
++`oct`, and the balanced `t`, `ter`, `tri` and `n`, `non`; and every width suffix it lists. Measured at
++`5fbaf4a` on one file planted in `src/core/`: `n > 1_000_000i64`, `n > 10FFFFhexi64`, `n > 0D800hex`,
++`n >= 1111_0100bin`, `n < 777oct`, `1_000_000i64 < n` and `n > 1_0i64` compile, link and run, each value as
++written, and the check passed the file — seven bounds, no failure.
++
++**The decision.** A literal is what the lexer reads as one — a token that begins with a decimal digit and runs
++on through letters, digits and `_` (the compiler's D-147) — and its value is the lexer's: the separators
++dropped, the width suffix stripped, the base its suffix names. The check reads a literal on either side of a
++comparison, never at a shift or an arrow, and passes it only when its value is one of the small values it always
++passed; a token it cannot read is reported by its text, never passed. Self-check case 32 plants six spellings,
++each alone — a digit-separated decimal, a hex, a binary and an octal literal, a width suffix past `u64`, and a
++literal left of the comparison — each required to fail naming its text and its value, and a clean control holding
++each spelling at a small value, a shift, a bound in a comment and in a string, and one in `limits.npk`. Against
++the check before this decision all six pass; against a reader that skips the left side, or one that never reads
++a base suffix, the case is red. `BUILD.md` B-4e's re-read takes in §6.2, which this reader mirrors.
++
++*Alternatives declined:* **`_` added to the old pattern** — the measured case alone, leaving hex, binary, octal,
++the wider widths and the left side as blind as before; **every literal above some size outside `limits.npk`,
++compared or not** — another check, the one its own docstring says would be switched off within a week; **the
++reader in `harness/lexical.py`** — that module finds the spans that are not code and nothing else, and one check
++reads numbers; **the blindness left to the compiler** — the rule is this library's (S-12), not the language's.
+diff --git a/meta/specs/BUILD.md b/meta/specs/BUILD.md
+index e55e0bfae8603db6e76e509ef0cd50faed274f24..3375f36761ba275419abfb0404f8388ccacb660c 100644
+--- a/meta/specs/BUILD.md
++++ b/meta/specs/BUILD.md
+@@ -350,6 +350,10 @@ finds the next one. *(Made a rule by the ecosystem audit of 2026-09-26, its ED1:
+ `nitpick-time` had one, TM-202, and this repository — whose reader time's is a
+ port of — had none. The first re-read, `c970483` to `5fbaf4a`: a character
+ literal's width (DEF-145), not its span; the mirror did not move.)*
++*(@@DATE@@, cycle 0.1.4 — RX-202: and `LEXICAL_REFERENCE.md` §6.2, with the lexer's scan of a numeric
++literal, which `harness/treecheck.py`'s literal reader for `check_constants_named` mirrors: a token from a
++decimal digit through letters, digits and `_`, its base suffix and its width suffix. A change there is a
++change to that reader, and self-check case 32 holds six of its spellings.)*
+ 
+ **Rule B-1a (RX-176) — the manifest pins the target, and the runner holds every
+ emission it links to it.** `[toolchain]` carries `triple` and `datalayout`
+diff --git a/meta/specs/TESTING.md b/meta/specs/TESTING.md
+index a5db711846eee719908389b27d1a9543d9cf24ed..1b0490ad7f77177c6f8ed09136a06c6b50b546d8 100644
+--- a/meta/specs/TESTING.md
++++ b/meta/specs/TESTING.md
+@@ -200,7 +200,7 @@ framing that let both be wrong. The framing is the column.
+ |---|---|---|
+ | `check_layering` | **yes** | every `use` edge against `BUILD.md` §6, including the oracle's restriction |
+ | `check_error_budget` | **yes** | every `error:` declaration, public or private, keyed by its module, against `SAFETY.md` §4 — **exactly one**, `api.ERegexPattern` (RX-179) |
+-| `check_constants_named` | **yes** | no bound outside `src/core/limits.npk` |
++| `check_constants_named` | **yes** | no bound outside `src/core/limits.npk` — *since cycle 0.1.4 a literal in every spelling the compiler's lexer reads an integer, and on either side of the comparison (RX-202)* |
+ | `check_no_division` | **yes** | no `/` or `%` under `src/` — `SAFETY.md` S-25 (RX-132), because a division arms two `failsafe` arms in every importer |
+ | `check_accessor_confinement` | **yes** | no `.items[` outside `src/core/vec.npk`, no `.ptr[` outside `src/core/bytes.npk`, **within `src/`** — `SAFETY.md` S-23, **the only bounds check this library has** (RX-136). *Since cycle 0.0.4c `Vec`'s half is the compiler's too — `items` is `hidden`, so `.items` outside `vec.npk` is `NITPICK-TYPE-080` in every module; `Bytes`' half is not, because a sealed `buf` admits a write THROUGH `.ptr` (RX-153). The check stays for both, and for the owning files' own use of their accessors. Since cycle 0.0.4d `Bytes`' half is the compiler's too: `buf` is `hidden` (RX-163). Since cycle 0.1.0b the spaced forms too — `. items [`, and either split across a line break (RX-179)* |
+ | `check_vec_elements_own_nothing` | **yes** | every `Vec` element named under `src/` — in a `Vec<…>`, with or without a space, and in a `vec_…::<…>` turbofish — is CLEARED as owning nothing, **default-deny** (RX-158): each name in it is one of the language's non-owning scalars or a struct or enum declared under `src/` whose fields and payloads clear the same way, every declaration of that name judged; a pointer, a slice, `wild` storage, a prelude type, a bare type parameter or an unresolved name fails — `SAFETY.md` S-23a (RX-155). The language accepts an owning element and `vec_get` then MOVES it out; this is what makes the restriction a rule. Only `vec.npk`'s own `Vec<T>` over its type parameter is exempt, and `tests/` is out of scope because the owning units measure the verbs there. *Since cycle 0.1.1b (RX-188, RX-190) the compiler refuses an element that drops, at the type, and this check is the belt there; it stays the rule for an element that holds a block — a `Copy` struct may hold a pointer or a slice. The declaration `Vec<T: Copy>` is exempt as its parameter, and `tests/` stays out because it ships nothing.* *It was a denylist of nine words until the fourth cycle 0.0 audit walked twelve shapes past it (N-18)* |
+@@ -333,6 +333,11 @@ requires it to report every one as a failure. The list is `harness/selfcheck.py`
+     red, the runner reading each as `0 - signal`, and a control exiting 0 must
+     pass (RX-194): `tests/unit/parse_nest_deep.npk`'s "not on a signal" is this
+     reading. On the instrument, with stand-in executables, as 22 is.
++32. `check_constants_named` over six planted bounds, each a spelling the pinned
++    compiler accepts that its first pattern could not read — a digit-separated
++    decimal, a hex, a binary and an octal literal, a width suffix past `u64`, a
++    literal left of the comparison — each failing by its text and its value, and a
++    clean tree passing (RX-202). On the instrument.
+ 
+ *(Reconciled 2026-09-25 by the third cycle 0.0 audit's triage, RX-154. This list
+ had eight bullets and `CASES` eleven entries, and they disagreed in BOTH
+@@ -372,6 +377,11 @@ that is not there.
+ that read a killed process as a clean exit. **32 cases, 28 live, 4 pending** on the
+ day it was written.)*
+ 
++*(Extended @@DATE@@ by cycle 0.1.4, RX-202: 32. It was seen to fail against the check as it
++stood before — all six plants passed — and against two broken readers: one that never read
++the left of a comparison, and one that never read a base suffix. **33 cases, 29 live, 4
++pending** on the day it was written.)*
++
+ **Rule V-21 — the self-check runs first in every full invocation.** A harness
+ that has not proven it can fail has not proven anything.
+ 

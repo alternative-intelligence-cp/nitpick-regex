@@ -1,0 +1,324 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 2dbe05e109190687e450abeda56b2ed60f1d5424..c0ff02d3134f5a2944dd8868981ce97f31fd1305 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -5236,3 +5236,33 @@ past ASCII read as itself** — Python's and Java's reading, and a silent differ
+ for U+2028; **skipped, as Rust skips it** — a silent difference from Perl, Python and Java; **a kind for each case —
+ white space in a class, `#` in a class, white space past ASCII** — three kinds for one ambiguity, which the detail
+ tells apart; **`UnknownFlag` or `ByteModeNonAscii` reused** — kinds named for something else.
++
++### RX-208 — `(?-u)`: every literal a byte, `\xHH` any byte, and a codepoint past ASCII written any other way refused, naming its UTF-8 bytes
++
++**@@DATE@@, cycle 0.1.4 (the plan's PD-52), at compiler `5fbaf4a`** — `SYNTAX.md` Y-43, with Y-13, Y-14 and Y-26; per
++`meta/research/escape-flag-syntax-reference-engines.md`, as of 2026-10-01. Y-14 refuses a non-ASCII literal under
++`(?-u)` and asks the refusal to name the codepoint; it does not say what an escape names there. Measured in Rust's
++`regex` 1.13.1 (regex-syntax 0.8.11, with `utf8` off, as for a search over bytes): `(?-u)é` and `(?-u)\x{E9}` are é's
++two UTF-8 bytes, C3 A9, and `(?-u)\xE9` the one byte E9 — two escapes of one value naming different bytes; `(?-u)[é]`
++and `(?-u)\pL` are refused, *"Unicode not allowed here"*.
++
++**The decision.** Y-43. Under `(?-u)` a literal is one byte, and every `Literal` carries `AST_FLAG_BYTE` — Y-26 named
++the bit for "a `Literal` that is a byte under `(?-u)`", and each is. `\x` and two hex digits name a byte whatever its
++value; any other way to write a codepoint past ASCII — as itself, `\x{…}`, `\u…`, `\U…` — is `ByteModeNonAscii`, in a
++class or out, as a member or a range's end, so the two readings of Rust's that disagree are each a refusal here. `\p`
++and `\P` are refused at the `\`, their detail the letter, which no codepoint past ASCII is, so one kind carries both
++cases. The sentence names the codepoint, as Y-14 asks, and its UTF-8 bytes as escapes, and the one byte when the
++codepoint is below U+0100: *"non-ASCII literal at byte 5 under `(?-u)`: U+00E9 takes 2 bytes in UTF-8, and in byte
++mode a literal is one byte. Write its UTF-8 bytes as `\xC3\xA9`, the byte E9 as `\xE9`, or turn `u` back on around
++it, as in `(?u:...)`."*
++
++**Measured at `5fbaf4a`.** `tests/unit/parse_flags.npk` cases 50–61, `parse_escape_refusals.npk` cases 78–90 and
++`pattern_error_text.npk` cases 64–66 pass at −O0 and through `opt -O2`, and against the parser before this decision
++the first two exit 50 and 78; each rule broken in a copy exits as the plan's §1.10 records.
++
++*Alternatives declined:* **`\x{E9}` as the byte E9, one rule for every hex escape** — Rust reads it as two bytes, so a
++pattern would change meaning between the two, silently; **a codepoint past ASCII as its UTF-8 bytes, as Rust reads
++`é`** — Y-14 calls that silent nonsense in a class, and a literal and a class member would differ; **`\p` under
++`(?-u)` left to cycle 0.3, which resolves properties** — the parser knows the flags, no reading of a property is a
++byte class, and Rust refuses it when it parses; **`AST_FLAG_BYTE` on a byte past ASCII only** — every literal under
++`(?-u)` is a byte, and a bit on some would leave a reader asking the flags for the rest.
+diff --git a/meta/specs/COMPAT.md b/meta/specs/COMPAT.md
+index 0544f3982a84a8b50b0f60aacc75f1126c22d45a..dfc11e74f85856249ebef9f7317c43087b9f78ca 100644
+--- a/meta/specs/COMPAT.md
++++ b/meta/specs/COMPAT.md
+@@ -42,6 +42,7 @@ The closest neighbour, so the list is short and each entry is deliberate.
+ | flags `U` and `R` | swap greed; CRLF mode | `(?U)` refused, `UnknownFlag`; `(?R)` refused as PCRE's recursion (`SYNTAX.md` Y-30) | flags nregex does not have — RX-206 |
+ | `x` mode inside a construct | white space skipped inside escapes, bounds and group heads — `\x4 1`, `a{2, 3}`, `( ?:a)` — and before a lazy `?` | read as without `x`, so each refused | Perl, Python and Java read each of these otherwise (`SYNTAX.md` Y-42) — RX-207 |
+ | white space past ASCII under `x` | Unicode's White_Space skipped | refused, `ExtendedAmbiguity` | Perl skips Pattern_White_Space, Python and Java ASCII white space alone (Y-42) — RX-207 |
++| a codepoint past ASCII under `(?-u)` | `é` and `\x{E9}` are é's UTF-8 bytes, `\xE9` the byte E9; `[é]` refused | each refused but `\xE9`, the sentence naming the codepoint and its bytes | two escapes of one value naming different bytes is a difference no pattern should carry in silence (`SYNTAX.md` Y-43) — RX-208 |
+ | replacement | closures **or** templates | templates and non-capturing function values | no closures (D-018) |
+ | `Match` | a `&str` slice | byte offsets | borrows never pass up (D-004) |
+ | DFA cache | pooled internally | an explicit `Cache` the caller owns | `ENGINES.md` §5 |
+diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
+index 5ed7b5b79ca8186e2512e482c9c3717ef0a3107a..c5c50460f4e92add7937efe8af01ee8265840d2f 100644
+--- a/meta/specs/SYNTAX.md
++++ b/meta/specs/SYNTAX.md
+@@ -192,6 +192,8 @@ on a `Repeat`, `AST_FLAG_NEGATED` 512 on a `Class`, `PerlClass`, `PosixClass` or
+ `(?-u)` (Y-13). `#size_of<AstNode>()` is 56, measured, with no padding.
+ *(@@DATE@@, cycle 0.1.4 — RX-206: "the flags in force at the node" are its frame's when it is built — a `Group`'s its
+ parent's, a `Flags` node's before its change (Y-41).)*
++*(@@DATE@@, cycle 0.1.4 — RX-208: `AST_FLAG_BYTE` is on every `Literal` read under `(?-u)`, its `a` a byte; a class
++member there is a byte too, with no bit, since its node's flags lack `u` (Y-43).)*
+ 
+ **Rule Y-27 (RX-174) — the node kinds are a closed list of sixteen**, one for
+ each construct of §1 that survives parsing; a refusal (§8) produces none.
+@@ -389,11 +391,15 @@ performance hint.** With Unicode off, `.` matches one **byte**, `\w` is ASCII,
+ a class is a byte class, and offsets may land inside a UTF-8 sequence. It
+ exists because searching binary data is a real thing a systems library is asked
+ to do. `UNICODE.md` §6 states the interaction with an invalid-UTF-8 haystack.
++*(@@DATE@@, cycle 0.1.4 — RX-208: parsed as Y-43 says.)*
+ 
+ **Rule Y-14 — `(?-u)` with a pattern containing a non-ASCII literal is
+ refused** (`ByteModeNonAscii`). In byte mode a literal `é` would be two byte
+ literals, and `[é]` would be a class of two unrelated bytes — a silent
+ nonsense. The refusal names the codepoint.
++*(@@DATE@@, cycle 0.1.4 — RX-208: made — `ByteModeNonAscii` at the codepoint, written as itself or by any escape but
++`\xHH`, in a class or out, a range's end included; its detail the codepoint, and its sentence names the codepoint and
++its UTF-8 bytes (Y-43).)*
+ 
+ **Rule Y-39 (RX-201) — under `x`, a class holds no unescaped white space and no `#`.** Outside a class, `x` ignores
+ white space and `#`-to-end-of-line (the table above). Inside one the engines disagree — Rust and Java ignore both,
+@@ -429,6 +435,15 @@ each two ways. A codepoint past ASCII that Unicode names white space — White_S
+ U+2029, U+202F, U+205F and U+3000 — is `ExtendedAmbiguity` under `x`, in a class or out, at it, spanning its bytes,
+ its detail the codepoint; Python and Java read each as itself. `\ ` and `\x{A0}` write white space under `x`.
+ 
++**Rule Y-43 (RX-208) — `(?-u)`, the byte mode.** Under `(?-u)` a literal is one byte: every `Literal` carries
++`AST_FLAG_BYTE`, its `a` the byte. A codepoint past ASCII is `ByteModeNonAscii` at it, spanning it, its detail the
++codepoint — written as itself, as `\x{…}`, `\u…` or `\U…`, in a class or out, a member or a range's end — but `\x`
++and two hex digits, which name a byte whatever its value: `(?-u)\xE9` is the byte E9, and `(?-u)\x{E9}` refused.
++`\p` and `\P` are `ByteModeNonAscii` at the `\`, spanning both bytes, their detail the letter — `p`, 112, or `P`, 80,
++which no codepoint past ASCII is — since a property names codepoints. `\d`, `\w`, `\s`, the POSIX classes, `.`, `\b`
++and `\B` keep their ASCII meanings (`UNICODE.md` U-9), which the nodes' flags carry. `(?u)` and `(?u:…)` turn Unicode
++back on.
++
+ ---
+ 
+ ## 5. Classes
+@@ -692,6 +707,7 @@ RX-197)* *(and, since @@DATE@@, each cycle 0.1.4's escapes make — Y-40, RX-204
+ | `UnknownFlag` (cycle 0.1.4) | a byte that is no flag where one may be — a `)` or `:` where one is due, and a second `-`, among them | that byte | its bytes | its codepoint |
+ | `DuplicateFlag` (cycle 0.1.4) | a flag named twice in one head, set or cleared | the second | 1 | the letter |
+ | `ExtendedAmbiguity` (cycle 0.1.4) | under `x`, white space or `#` in a class; white space past ASCII anywhere | that codepoint | its bytes | its codepoint: 9 … 13, 32, 35, or one of Y-42's |
++| `ByteModeNonAscii` (cycle 0.1.4) | under `(?-u)`, a codepoint past ASCII written as itself or by an escape but `\xHH`; `\p` or `\P` | that codepoint; the `\` | its bytes or the escape; 2 | the codepoint; 112 or 80 |
+ 
+ *(@@DATE@@, cycle 0.1.4 — RX-203: a detail whose domain is a codepoint — the one a refusal found where it wanted
+ another — says what no codepoint can with `NOT_A_CODEPOINT`, U+110000, one past the last: that the pattern ended
+diff --git a/src/syntax/parse.npk b/src/syntax/parse.npk
+index e28884535324f6440351369cd77312c19ca0d9d0..f1d9627a2aff5c08ca646c4a43e37a0a13deab48 100644
+--- a/src/syntax/parse.npk
++++ b/src/syntax/parse.npk
+@@ -981,10 +981,14 @@ func:escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:at) never
+     PatternError?:bad = raw escape_cp(pat, p, at, @e);
+     if (bad != NIL) { pass bad; }
+     if (e.named) {
+-        drop atom(out, @p.f, AstKind.Literal, e.cp, at, p.c.pos - at);
++        PatternError?:wide = raw byte_mode(p, at, p.c.pos - at, e.cp, e.byte);
++        if (wide != NIL) { pass wide; }
++        drop literal_atom(out, p, e.cp, at, p.c.pos - at);
+         pass NIL;
+     }
+     if (raw is_class_letter(d)) {
++        PatternError?:bytes = raw byte_mode_property(p, at, d);
++        if (bytes != NIL) { pass bytes; }
+         discard(raw cursor_bump(@p.c));
+         if ((d == CH_LOWER_P) || (d == CH_UPPER_P)) {
+             PatternError?:prop = raw read_property(p, at);
+@@ -1021,6 +1025,34 @@ func:ambiguous = PatternError?(int64:at, int64:n, int64:cp) never fails {
+     pass raw pattern_error(PatternErrorKind.ExtendedAmbiguity, at, n, cp =>! uint32);
+ };
+ 
++// Under `(?-u)` a literal is one byte (Y-13, Y-43): the codepoint `cp`, written in `n` bytes at `at`,
++// is `ByteModeNonAscii` past ASCII, its detail the codepoint -- unless it was written `\x` and two hex
++// digits, which name a byte (`hex2`). Under `u`, any codepoint (RX-208).
++func:byte_mode = PatternError?(Parser->:p, int64:at, int64:n, int64:cp, bool:hex2) never fails {
++    if ((p.f.flags & AST_FLAG_U) != 0u32) { pass NIL; }
++    if (hex2 || (cp < 128i64)) { pass NIL; }
++    pass raw pattern_error(PatternErrorKind.ByteModeNonAscii, at, n, cp =>! uint32);
++};
++
++// A `Literal` of `cp`, written in `n` bytes at `at`, as the frame's pending atom -- `AST_FLAG_BYTE`
++// on it under `(?-u)`, where its `a` is a byte (Y-26, Y-43).
++func:literal_atom = NIL(Ast->:out, Parser->:p, int64:cp, int64:at, int64:n) never fails {
++    uint32:fl = p.f.flags;
++    if ((fl & AST_FLAG_U) == 0u32) { fl = fl + AST_FLAG_BYTE; }
++    drop commit(out, @p.f);
++    p.f.pending = raw ast_push(out, raw node(AstKind.Literal, fl, cp, 0i64, 0i64, at, n));
++    pass NIL;
++};
++
++// Under `(?-u)` a Unicode property names nothing a byte class can hold: `\p` or `\P` at `at` is
++// `ByteModeNonAscii` there, spanning the two bytes, its detail the letter -- which no codepoint past
++// ASCII is (RX-208).
++func:byte_mode_property = PatternError?(Parser->:p, int64:at, int32:d) never fails {
++    if ((p.f.flags & AST_FLAG_U) != 0u32) { pass NIL; }
++    if ((d != CH_LOWER_P) && (d != CH_UPPER_P)) { pass NIL; }
++    pass raw pattern_error(PatternErrorKind.ByteModeNonAscii, at, 2i64, d =>! uint32);
++};
++
+ // Under `x`, a `#` just read outside a class: the comment runs through the next line feed, or to the
+ // pattern's end (§4).
+ func:skip_comment = NIL(Parser->:p) never fails {
+@@ -1032,7 +1064,8 @@ func:skip_comment = NIL(Parser->:p) never fails {
+ };
+ 
+ // A literal whose first byte `lead` was read at `at`: one codepoint, decoded -- unless it is white
+-// space past ASCII under `x`, which is `ExtendedAmbiguity` (Y-42).
++// space past ASCII under `x`, which is `ExtendedAmbiguity` (Y-42), or past ASCII under `(?-u)`, which
++// is `ByteModeNonAscii` (Y-43).
+ func:literal = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:at, int32:lead) never fails {
+     int64:n = raw utf8_len(lead => int64);
+     int64:k = 1i64;
+@@ -1042,7 +1075,9 @@ func:literal = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:at, int32
+     }
+     int64:cp = raw decode_at(pat, at);
+     if ((raw extended(p)) && (raw is_wide_space(cp))) { pass raw ambiguous(at, n, cp); }
+-    drop atom(out, @p.f, AstKind.Literal, cp, at, n);
++    PatternError?:wide = raw byte_mode(p, at, n, cp, false);
++    if (wide != NIL) { pass wide; }
++    drop literal_atom(out, p, cp, at, n);
+     pass NIL;
+ };
+ 
+@@ -1176,10 +1211,14 @@ func:class_escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame
+     PatternError?:bad = raw escape_cp(pat, p, at, @e);
+     if (bad != NIL) { pass bad; }
+     if (e.named) {
++        PatternError?:wide = raw byte_mode(p, at, p.c.pos - at, e.cp, e.byte);
++        if (wide != NIL) { pass wide; }
+         drop class_one(out, cf, p.f.flags, e.cp, at, p.c.pos - at);
+         pass NIL;
+     }
+     if (raw is_class_letter(d)) {
++        PatternError?:bytes = raw byte_mode_property(p, at, d);
++        if (bytes != NIL) { pass bytes; }
+         discard(raw cursor_bump(@p.c));
+         if ((d == CH_LOWER_P) || (d == CH_UPPER_P)) {
+             PatternError?:prop = raw read_property(p, at);
+@@ -1270,6 +1309,8 @@ func:class_range = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame-
+         PatternError?:bad = raw escape_cp(pat, p, at, @e);
+         if (bad != NIL) { pass bad; }
+         if (!e.named) { pass raw unknown_escape(pat, at); }
++        PatternError?:wide = raw byte_mode(p, at, p.c.pos - at, e.cp, e.byte);
++        if (wide != NIL) { pass wide; }
+         hi = e.cp;
+     }
+     else {
+@@ -1283,6 +1324,8 @@ func:class_range = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame-
+         if ((raw extended(p)) && ((raw is_space(b)) || (b == CH_HASH) || (raw is_wide_space(hi)))) {
+             pass raw ambiguous(at, n, hi);
+         }
++        PatternError?:wide = raw byte_mode(p, at, n, hi, false);
++        if (wide != NIL) { pass wide; }
+     }
+     if (hi < lo.a) {
+         pass raw pattern_error(PatternErrorKind.BadClassRange, lo.pos, p.c.pos - lo.pos, 0u32);
+@@ -1389,7 +1432,8 @@ func:parse_class = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:open)
+             }
+             int64:cp = raw decode_at(pat, at);
+             if ((raw extended(p)) && (raw is_wide_space(cp))) { e = raw ambiguous(at, n, cp); }
+-            else { drop class_one(out, @cf, p.f.flags, cp, at, n); }
++            else { e = raw byte_mode(p, at, n, cp, false); }
++            if (e == NIL) { drop class_one(out, @cf, p.f.flags, cp, at, n); }
+         }
+         if (e != NIL) { pass e; }
+     }
+diff --git a/src/syntax/pattern_error.npk b/src/syntax/pattern_error.npk
+index 02062e8f69541ceed811daec9c243cd137777cd5..5836bb31a85ca6f4343718db9156aaa23e410ccb 100644
+--- a/src/syntax/pattern_error.npk
++++ b/src/syntax/pattern_error.npk
+@@ -565,8 +565,30 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
+             drop put(@b, ": a pattern is UTF-8 text, and this sequence is not well-formed.");
+         },
+         (PatternErrorKind.ByteModeNonAscii) {
+-            drop put(@b, "non-ASCII literal at byte "); drop num(@b, e.offset);
+-            drop put(@b, " under `(?-u)`: in byte mode a literal is one byte. Write the bytes as `\\xHH` escapes, or leave `u` on.");
++            if ((e.detail == 112u32) || (e.detail == 80u32)) {
++                drop put(@b, "Unicode property at byte "); drop num(@b, e.offset);
++                drop put(@b, " under `(?-u)`: a property names codepoints, and byte mode matches bytes. Turn `u` back on around it, as in `(?u:\\");
++                drop ch(@b, e.detail); drop put(@b, "{Greek})`, or write the bytes it should match as a class.");
++            }
++            else {
++                int64:cp = e.detail => int64;
++                int64:n = raw utf8_count(cp);
++                drop put(@b, "non-ASCII literal at byte "); drop num(@b, e.offset);
++                drop put(@b, " under `(?-u)`: "); drop shown(@b, e.detail);
++                drop put(@b, " takes "); drop num(@b, n);
++                drop put(@b, " bytes in UTF-8, and in byte mode a literal is one byte. Write its UTF-8 bytes as `");
++                int64:k = 0i64;
++                while (k < n) decreases n - k {
++                    drop put(@b, "\\x"); drop hex(@b, raw utf8_at(cp, k), 2i64);
++                    k = k + 1i64;
++                }
++                drop put(@b, "`");
++                if (cp < 256i64) {
++                    drop put(@b, ", the byte "); drop hex(@b, cp, 2i64);
++                    drop put(@b, " as `\\x"); drop hex(@b, cp, 2i64); drop put(@b, "`");
++                }
++                drop put(@b, ", or turn `u` back on around it, as in `(?u:...)`.");
++            }
+         }
+     }
+     pass raw bytes_copy_string(@b);
+diff --git a/tests/unit/parse_escape_refusals.npk b/tests/unit/parse_escape_refusals.npk
+index 80878ea7eba35c40978fe59638359d632e4858c1..2372d2ca15a9917cd7332d3ea4b9412450f5f2b8 100644
+--- a/tests/unit/parse_escape_refusals.npk
++++ b/tests/unit/parse_escape_refusals.npk
+@@ -121,6 +121,21 @@ func:run = int32() never fails {
+     if (!(raw refused("a\\>", PatternErrorKind.UnknownEscape, 1i64, 2i64, 62u32)))           { pass 75i32; }
+     if (!(raw refused("[\\<]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 60u32)))          { pass 76i32; }
+     if (!(raw refused("[!-\\>]", PatternErrorKind.UnknownEscape, 3i64, 2i64, 62u32)))        { pass 77i32; }
++    // under `(?-u)`, a codepoint past ASCII written as itself or by an escape other than `\xHH`, and
++    // a property, which names codepoints (Y-43; RX-208)
++    if (!(raw refused("(?-u)é", PatternErrorKind.ByteModeNonAscii, 5i64, 2i64, 233u32)))        { pass 78i32; }
++    if (!(raw refused("(?-u)a€", PatternErrorKind.ByteModeNonAscii, 6i64, 3i64, 8364u32)))      { pass 79i32; }
++    if (!(raw refused("(?-u)\\x{E9}", PatternErrorKind.ByteModeNonAscii, 5i64, 6i64, 233u32)))  { pass 80i32; }
++    if (!(raw refused("(?-u)\\u00E9", PatternErrorKind.ByteModeNonAscii, 5i64, 6i64, 233u32)))  { pass 81i32; }
++    if (!(raw refused("(?-u)\\U0001F600", PatternErrorKind.ByteModeNonAscii, 5i64, 10i64, 128512u32))) { pass 82i32; }
++    if (!(raw refused("(?-u)[é]", PatternErrorKind.ByteModeNonAscii, 6i64, 2i64, 233u32)))      { pass 83i32; }
++    if (!(raw refused("(?-u)[a-é]", PatternErrorKind.ByteModeNonAscii, 8i64, 2i64, 233u32)))    { pass 84i32; }
++    if (!(raw refused("(?-u)[\\x{100}]", PatternErrorKind.ByteModeNonAscii, 6i64, 7i64, 256u32))) { pass 85i32; }
++    if (!(raw refused("(?-u)\\pL", PatternErrorKind.ByteModeNonAscii, 5i64, 2i64, 112u32)))     { pass 86i32; }
++    if (!(raw refused("(?-u)[\\P{Greek}]", PatternErrorKind.ByteModeNonAscii, 6i64, 2i64, 80u32))) { pass 87i32; }
++    if (!(raw refused("(?-u:\\x{80})", PatternErrorKind.ByteModeNonAscii, 5i64, 6i64, 128u32))) { pass 88i32; }
++    if (!(raw refused("(?-u)\\x{D800}", PatternErrorKind.InvalidCodepoint, 5i64, 8i64, 55296u32))) { pass 89i32; }
++    if (!(raw refused("(?u)é(?-u)é", PatternErrorKind.ByteModeNonAscii, 11i64, 2i64, 233u32)))  { pass 90i32; }
+     pass 0i32;
+ };
+ 
+diff --git a/tests/unit/parse_flags.npk b/tests/unit/parse_flags.npk
+index b9b743457b51db22beec7cffea7ec8af98435109..d0044a8e1d4cf0ef56810474b98414ada9ed4296 100644
+--- a/tests/unit/parse_flags.npk
++++ b/tests/unit/parse_flags.npk
+@@ -277,6 +277,19 @@ func:run = int32() never fails {
+     if (!(raw tree("(?x)a#", "(cat{xu} (flags +x) 'a'{xu})", false)))                      { pass 45i32; }
+     if (!(raw tree("(?x)a b", "(cat{xu}@0+7 (flags@0+4 +x) 'a'{xu}@4+1 'b'{xu}@6+1)", true))) { pass 46i32; }
+     if (!(raw tree("(?-x)[a b]", "(cat (flags -x) (cls 'a' #32 'b'))", false)))             { pass 47i32; }
++    // `(?-u)` (Y-13, Y-43): every literal a byte, `AST_FLAG_BYTE` on it; `\xHH` any byte
++    if (!(raw tree("(?-u)a", "(cat{} (flags -u) 'a'b{})", false)))                       { pass 50i32; }
++    if (!(raw tree("(?-u)\\xE9", "(cat{}@0+9 (flags@0+5 -u) #233b{}@5+4)", true)))         { pass 51i32; }
++    if (!(raw tree("(?-u)\\xFF\\x80\\x7F", "(cat{} (flags -u) #255b{} #128b{} #127b{})", false))) { pass 52i32; }
++    if (!(raw tree("(?-u:\\xFF)é", "(cat (grp #255b{}) #233)", false)))                    { pass 53i32; }
++    if (!(raw tree("(?-u)[\\xE9-\\xFF]", "(cat{} (flags -u) (cls{} #233-#255{}))", false))) { pass 54i32; }
++    if (!(raw tree("(?-u)[a-\\xFF]", "(cat{} (flags -u) (cls{} 'a'-#255{}))", false)))     { pass 55i32; }
++    if (!(raw tree("(?-u)\\x{41}\\u0042\\x{7F}", "(cat{} (flags -u) 'A'b{} 'B'b{} #127b{})", false))) { pass 56i32; }
++    if (!(raw tree("(?-u)\\w.[[:alpha:]\\d]", "(cat{} (flags -u) \\w{} .{} (cls{} [:alpha:]{} \\d{}))", false))) { pass 57i32; }
++    if (!(raw tree("(?-u)\\(\\n", "(cat{} (flags -u) '('b{} #10b{})", false)))              { pass 58i32; }
++    if (!(raw tree("(?-u)(?u)é", "(cat (flags -u) (flags{} +u) #233)", false)))            { pass 59i32; }
++    if (!(raw tree("(?i-u)k", "(cat{i} (flags +i -u) 'k'b{i})", false)))                   { pass 60i32; }
++    if (!(raw tree("(?x-u)a # é\nb", "(cat{x} (flags +x -u) 'a'b{x} 'b'b{x})", false)))    { pass 61i32; }
+     pass 0i32;
+ };
+ 
+diff --git a/tests/unit/pattern_error_text.npk b/tests/unit/pattern_error_text.npk
+index 1d982ff9b491e4b4f476f9bd096b77a338e204f3..1b4e23d8fb61d45b0e5ee3b766231a9dfb000251 100644
+--- a/tests/unit/pattern_error_text.npk
++++ b/tests/unit/pattern_error_text.npk
+@@ -158,6 +158,10 @@ func:run = int32() never fails {
+     if (!(raw says("(?x)[a\tb]", "white space in a class at byte 6 under `x`: Rust's `regex` and Java skip it here, and Perl, Python and .NET match it, so nregex refuses it. Write `\\t` to match it, or remove it."))) { pass 61i32; }
+     if (!(raw says("(?x)[a#b]", "`#` in a class at byte 6 under `x`: Rust's `regex` and Java begin a comment here, and Perl, Python and .NET match a `#`, so nregex refuses it. Write `\\#` to match a `#`."))) { pass 62i32; }
+     if (!(raw says("(?x)a\u{A0}b", "white space past ASCII at byte 5 under `x`: U+00A0 is skipped there by some engines and matched by others -- Rust's `regex` skips Unicode's White_Space, Perl its Pattern_White_Space, and Python and Java ASCII white space alone -- so nregex refuses it. Write `\\x{A0}` to match it, or remove it."))) { pass 63i32; }
++    // cycle 0.1.4's `(?-u)` (Y-43)
++    if (!(raw says("(?-u)é", "non-ASCII literal at byte 5 under `(?-u)`: U+00E9 takes 2 bytes in UTF-8, and in byte mode a literal is one byte. Write its UTF-8 bytes as `\\xC3\\xA9`, the byte E9 as `\\xE9`, or turn `u` back on around it, as in `(?u:...)`."))) { pass 64i32; }
++    if (!(raw says("(?-u)\\x{20AC}", "non-ASCII literal at byte 5 under `(?-u)`: U+20AC takes 3 bytes in UTF-8, and in byte mode a literal is one byte. Write its UTF-8 bytes as `\\xE2\\x82\\xAC`, or turn `u` back on around it, as in `(?u:...)`."))) { pass 65i32; }
++    if (!(raw says("(?-u)\\pL", "Unicode property at byte 5 under `(?-u)`: a property names codepoints, and byte mode matches bytes. Turn `u` back on around it, as in `(?u:\\p{Greek})`, or write the bytes it should match as a class."))) { pass 66i32; }
+     pass 0i32;
+ };
+ 

@@ -1,0 +1,254 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+index dacc6ad400d2872668439ff5b7adb0035c37ba9c..7de16cfdb9ffe6582f71a2baad3c5b6b969edf7f 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -6,7 +6,7 @@ Guidance for Claude Code sessions working in this repository.
+ 
+ `nregex` — a regular-expression library for **Nitpick**, the safety-critical
+ systems language at `../../nitpick`. **Status: cycle 0.1, the pattern parser, is
+-open, and its 0.1.0, 0.1.0b, 0.1.1, 0.1.1b, 0.1.2 and 0.1.3 are done** — the pieces the parser is written
++open, and its 0.1.0, 0.1.0b, 0.1.1, 0.1.1b, 0.1.2, 0.1.3 and 0.1.4 are done** — the pieces the parser is written
+ in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/0.1/0.1.0.md`); the adoption of
+ compiler `5fbaf4a` (RX-176 … RX-180, `0.1.0b.md`); and the core grammar —
+ `parse_pattern` builds the AST for literals, `.`, `^`, `$`, groups, alternation and
+@@ -19,7 +19,12 @@ pattern refused so, no function under `src/` on a call cycle, and the reason res
+ recursion deeper than its stack traps (RX-191 … RX-195, `0.1.2.md`); and classes — members,
+ ranges, nested classes and the operators, left to right, each shape read as Rust's `regex` reads
+ it or refused with what to write; Perl classes, properties and POSIX classes unresolved; groups and
+-classes nesting 250 deep together; and open question O-Y2 decided (RX-196 … RX-201, `0.1.3.md`).
++classes nesting 250 deep together; and open question O-Y2 decided (RX-196 … RX-201, `0.1.3.md`); and escapes
++and flags — every escape of §1 read as a codepoint, a class or an anchor, in a class and out, and every other refused
++with what to write, `\<` and `\>` among them; flag groups scoped to their enclosing group; `x` skipping white space
++between constructs and refusing what the engines read two ways; `(?-u)` reading every literal as a byte; a detail
++that names no codepoint for the end of the pattern; and `check_constants_named` reading every spelling of an integer
++(RX-202 … RX-208, `0.1.4.md`).
+ Cycle 0.0, foundations, CLOSED on 2026-09-26 — the sixth audit accepted it, and
+ it is archived in `meta/roadmap/done/0.0/`. The
+ specifications, the decisions and the roadmap are complete; `tests/probe/` holds
+@@ -67,11 +72,13 @@ groups past `NREGEX_NEST_DEPTH` is `NestTooDeep` at it, before a byte after it i
+ (`SYNTAX.md` Y-35), with one unit program more, `parse_nest_deep`, the gate at 10 000
+ levels and at the longest pattern, forty runs a leg — **and since 0.1.3 it parses classes**
+ (`SYNTAX.md` Y-36 … Y-38), with two unit programs more, `parse_classes` and
+-`parse_class_refusals`. An escape other than punctuation, a Perl class or a property, and a flag are
+-refused provisionally until 0.1.4 (`SYNTAX.md` Y-31). **No matching happens yet**: `src/hir/`,
++`parse_class_refusals` — **and since 0.1.4 it reads escapes and flags** (`SYNTAX.md` Y-40 … Y-43), with four
++unit programs more, `parse_escapes`, `parse_escape_refusals`, `parse_flags` and `parse_flag_refusals`. Only §8's
++escapes — `\1` … `\9`, `\k`, `\G`, `\Z`, `\Q`, `\E` — are refused provisionally, until 0.1.5 (`SYNTAX.md` Y-30,
++Y-31). **No matching happens yet**: `src/hir/`,
+ `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are still one
+ placeholder module each. A full green run at compiler `5fbaf4a` is
+-**246 units** (after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus nine tree checks (eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
++**254 units** (after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus nine tree checks (eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
+ summary rather than from here. **Nothing is PENDING any more**:
+ `tests/unit/bytes_copy_string_empty.npk` was committed red under
+ `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
+diff --git a/README.md b/README.md
+index 5b240f98d2c4ca8ffddc3f2a75721f51a9590432..71552312bf05a5f0315119a973dd339b32105ba6 100644
+--- a/README.md
++++ b/README.md
+@@ -21,7 +21,9 @@ makes the guarantee below possible.
+ > more than 250 groups deep is refused at the `(` that goes too deep, never a blown
+ > stack, and no function in the library calls itself. Cycle 0.1.3 parses classes —
+ > ranges, nested classes, `&&` `--` `~~`, `\d`, `\p{…}` and `[:alpha:]` — reading every
+-> shape as Rust's `regex` reads it or refusing it with what to write. Nothing matches a
++> shape as Rust's `regex` reads it or refusing it with what to write. Cycle 0.1.4 reads
++> every escape — `\x{1F600}`, `\u00E9`, `\A`, `\b` — and the flags `i`, `m`, `s`, `x` and
++> `u`, scoped to their group, refusing what the engines read two ways. Nothing matches a
+ > pattern yet.
+ > The specification set is in [`meta/specs/`](meta/specs/) and the plan in
+ > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
+diff --git a/meta/roadmap/0.1/README.md b/meta/roadmap/0.1/README.md
+index 00570ed368a7172730bf2113d98db38b45f9a4f9..ed7e6f5f5f9636f563d3bc6336bf69f1442d2afd 100644
+--- a/meta/roadmap/0.1/README.md
++++ b/meta/roadmap/0.1/README.md
+@@ -137,20 +137,20 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
+ - [ ] the provisional `UnknownEscape` and `UnknownFlag` (`SYNTAX.md` Y-31) replaced; a `Flags` node never the pending atom (`(?i)*` is `NothingToRepeat`); each kind produced here held to its sentence (`0.1.1.md` §8)
+ - [ ] every escape in §1's `Escape` production *(2026-10-01 — RX-197: inside a class too, where an escape naming a codepoint is a member and may end a range — `parse.npk`'s `class_escape` and `class_range` refuse each provisionally until then; and `\b` there is this subcycle's to decide)*
+ - [ ] **`\` before an unlisted ASCII letter or digit is `UnknownEscape`, never a literal** (Y-2) — a test per unassigned letter
+-- [ ] `\x41`, `\x{1F600}`, `A`, `\U0001F600`, with `BadHexEscape`, `BadUnicodeEscape`, `InvalidCodepoint` (surrogates and above `U+10FFFF`)
++- [ ] `\x41`, `\x{1F600}`, `A`, `\U0001F600`, with `BadHexEscape`, `BadUnicodeEscape`, `InvalidCodepoint` (surrogates and above `U+10FFFF`) *(@@DATE@@ — cycle 0.1.4: the third is `\u0041`, which reads `A` because the list was written with the escape decoded, `46d870d`; every other item names an escape)*
+ - [ ] flags `imsxu`, scoped per Y-12: `(?i:…)` to the group, `(?i)` to the end of the enclosing group, `(?-i)` clearing
+ - [ ] `x` mode: whitespace and `#`-to-end-of-line ignored, per O-Y2's answer *(2026-10-01 — RX-201: outside a class; inside one, a white-space byte or a `#` is refused at it (Y-39), with a kind this subcycle adds to §9 and a sentence naming `\x20` and `\#`; `(?xx)`, a repeated flag, refused saying so)*
+ - [ ] `(?-u)` byte mode, and `ByteModeNonAscii` when a non-ASCII literal appears under it (Y-14) — **naming the codepoint**
+ - [ ] `UnknownFlag`
+ 
+ ### 0.1.5 — the refusals
+-- [ ] every construct in §8 refused with its own kind and offset — the group-head ones and the possessive quantifier since 0.1.1 (Y-30); here the escape-shaped ones
++- [ ] every construct in §8 refused with its own kind and offset — the group-head ones and the possessive quantifier since 0.1.1 (Y-30); here the escape-shaped ones *(@@DATE@@ — cycle 0.1.4: each is `UnknownEscape` until then (Y-40), and `\Q` in a class too. Two sentences of 0.1.1's meet Rust's syntax: `(?R)` is Rust's CRLF flag and `\b{start}` its start-of-word assertion, which read today as recursion and as a bad bound)*
+ - [ ] **each message names the guarantee or the alternative, never "unsupported"** (K-1) — the sentences exist since 0.1.1 (Y-34); here each is held to the letter: `BackreferenceUnsupported` says the pattern could not be matched in linear time; `UnsupportedQuoting` names `regex_escape()`; `\Z` names `\n?\z`; `\p{InGreek}` names `\p{Script=Greek}`
+ - [ ] `regex_escape(text)` implemented here, since §8 points at it
+ - [ ] a rejection test per refusal in `tests/rejection/`, with the exact-code rule
+ 
+ ### 0.1.6 — close
+-- [ ] **`check_error_kinds_tested` live and green**: every `PatternErrorKind` in `SYNTAX.md` §9 has a test that provokes it *(2026-10-01 — RX-197: no pattern reaches `EmptyClass` in the parser, open question O-Y3 for cycle 0.3.4, so the check counts it with the kinds a later cycle provokes, as it does `ClassTooLarge`)*
++- [ ] **`check_error_kinds_tested` live and green**: every `PatternErrorKind` in `SYNTAX.md` §9 has a test that provokes it *(2026-10-01 — RX-197: no pattern reaches `EmptyClass` in the parser, open question O-Y3 for cycle 0.3.4, so the check counts it with the kinds a later cycle provokes, as it does `ClassTooLarge`)* *(@@DATE@@ — cycle 0.1.4: thirty-eight kinds; `DuplicateFlag` and `ExtendedAmbiguity` are new, each provoked by `parse_flag_refusals`)*
+ - [ ] a fuzz pass over random byte strings as patterns: never traps, always terminates, always produces a program or an error with a valid offset
+ - [ ] findings written; `0.2.0.md` written; archived
+ 
+diff --git a/meta/roadmap/0.3/README.md b/meta/roadmap/0.3/README.md
+index 5e3de701054ffd09aab0b37b763d57f4f5470b94..c53a19c0985a59f789a141da3ba65f243d40f83a 100644
+--- a/meta/roadmap/0.3/README.md
++++ b/meta/roadmap/0.3/README.md
+@@ -25,7 +25,7 @@ design; recorded when chosen).
+ 
+ ### 0.3.0 — the generator
+ - [ ] Q-1 answered: the UCD version pinned, recorded in `src/unicode/version.npk` and in `meta/DECISIONS.md` beside RX-021
+-- [ ] reads `DerivedGeneralCategory.txt`, `Scripts.txt`, `ScriptExtensions.txt`, `DerivedCoreProperties.txt`, `PropList.txt`, `CaseFolding.txt`, `PropertyAliases.txt`, `PropertyValueAliases.txt`
++- [ ] reads `DerivedGeneralCategory.txt`, `Scripts.txt`, `ScriptExtensions.txt`, `DerivedCoreProperties.txt`, `PropList.txt`, `CaseFolding.txt`, `PropertyAliases.txt`, `PropertyValueAliases.txt` *(@@DATE@@ — cycle 0.1.4, RX-207: and holds the parser's twenty-one white-space codepoints past ASCII, named in `parse.npk` for `x` (`SYNTAX.md` Y-42), to the White_Space and Pattern_White_Space it generates)*
+ - [ ] the UCD files themselves **gitignored**; the generated tables **committed**
+ - [ ] the emitted shape is `ClassRange { uint32:lo; uint32:hi; }` arrays, sorted and disjoint (U-4)
+ - [ ] every generated file carries the Unicode version and the generator's name in its header
+diff --git a/meta/roadmap/ROADMAP.md b/meta/roadmap/ROADMAP.md
+index 2c021fe9271df81f13e39c9a9e37c6335cbbe84a..0554cf3419b96e2c7c35ed393f12d9d1a8838c28 100644
+--- a/meta/roadmap/ROADMAP.md
++++ b/meta/roadmap/ROADMAP.md
+@@ -53,7 +53,7 @@ cycle 0.0.
+ | Cycle | Topic | Gated on |
+ |---|---|---|
+ | **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **DONE 2026-09-26, archived to [`done/0.0/`](done/0.0/README.md).** The sixth W-22 audit ACCEPTED the close at compiler `c970483`, after five refusals — three on 2026-09-06, two on 2026-09-25 — and two inserted subcycles, 0.0.4d (`Vec` move-only) and 0.0.4e (the re-pin that refused the loan). The close is [`done/0.0/0.0.5.md`](done/0.0/0.0.5.md) §13 | — |
+-| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **OPEN: [`0.1.0`](0.1/0.1.0.md), the cursor and the AST, done; [`0.1.0b`](0.1/0.1.0b.md), the adoption of `5fbaf4a` and the ecosystem audit's items, done; [`0.1.1`](0.1/0.1.1.md), the core grammar, done; [`0.1.1b`](0.1/0.1.1b.md), open question O-R3 — `Vec<T: Copy>` — done; [`0.1.2`](0.1/0.1.2.md), the explicit stack's bound, done; [`0.1.3`](0.1/0.1.3.md), classes, done; next, 0.1.4, escapes and flags** | 0.0 |
++| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **OPEN: [`0.1.0`](0.1/0.1.0.md), the cursor and the AST, done; [`0.1.0b`](0.1/0.1.0b.md), the adoption of `5fbaf4a` and the ecosystem audit's items, done; [`0.1.1`](0.1/0.1.1.md), the core grammar, done; [`0.1.1b`](0.1/0.1.1b.md), open question O-R3 — `Vec<T: Copy>` — done; [`0.1.2`](0.1/0.1.2.md), the explicit stack's bound, done; [`0.1.3`](0.1/0.1.3.md), classes, done; [`0.1.4`](0.1/0.1.4.md), escapes and flags, done; next, 0.1.5, the refusals** | 0.0 |
+ | **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction | 0.1 |
+ | **0.3** | **Unicode** — generated tables, properties, scripts, simple case folding | 0.0 |
+ | **0.4** | **UTF-8 automata** — codepoint ranges to byte ranges, alphabet compression | 0.3 |
+@@ -192,6 +192,9 @@ RX-195.)*
+ *(After cycle 0.1.3, the same compiler: **246** units — `parse_classes` and
+ `parse_class_refusals`, each run as a program and swept as a root; decisions through
+ RX-201.)*
++*(After cycle 0.1.4, the same compiler: **254** units — `parse_escapes`, `parse_escape_refusals`,
++`parse_flags` and `parse_flag_refusals`, each run as a program and swept as a root; a self-check
++of **33** cases, 29 live; **thirty-eight** pattern error kinds; decisions through RX-208.)*
+ 
+ **Two probes refuted their own hypothesis**, which is the cycle's best return:
+ `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler
+diff --git a/meta/specs/SAFETY.md b/meta/specs/SAFETY.md
+index 6ccdf75486755092b770c7f25fff97fb3dd2e60f..832b037573106fb4ee6eaa79893315dfa76ecccd 100644
+--- a/meta/specs/SAFETY.md
++++ b/meta/specs/SAFETY.md
+@@ -206,7 +206,8 @@ held by the compiler (`tests/rejection/pattern_error_literal.npk`). The
+ constructor stops on a negative offset or length, a defect in the code that
+ built the error. Thirty-two bytes, measured. `SYNTAX.md` §9 lists thirty-seven
+ kinds; "thirty" above is a round number.)* *(Thirty-six since cycle 0.1.1, which
+-retired `EmptyAlternate` — RX-181.)*
++retired `EmptyAlternate` — RX-181.)* *(Thirty-eight since cycle 0.1.4, which added
++`DuplicateFlag` and `ExtendedAmbiguity` — RX-206, RX-207.)*
+ 
+ ### 4.1 `PatternErrorKind`
+ 
+diff --git a/src/syntax/README.md b/src/syntax/README.md
+index ae85155b09e3b39564288123cd958a6c33c98c78..d8cde9443a05bfb6918dcba3808294912715c76a 100644
+--- a/src/syntax/README.md
++++ b/src/syntax/README.md
+@@ -12,21 +12,23 @@ refusal means (Y-34). Since cycle 0.1.2 its stack is bounded: a `(` that would n
+ groups past `NREGEX_NEST_DEPTH` is `NestTooDeep` at it, before a byte after it is read
+ (Y-35). Since cycle 0.1.3 it parses classes — members, ranges, nested classes and the
+ operators, Perl classes, properties and POSIX classes, unresolved (Y-36 … Y-38) — and
+-groups and classes nest at most `NREGEX_NEST_DEPTH` deep together. An escape other than
+-punctuation, a Perl class or a property, and a flag are refused provisionally until cycle
+-0.1.4 (Y-31):
++groups and classes nest at most `NREGEX_NEST_DEPTH` deep together. Since cycle 0.1.4 it reads
++every escape, in a class and out (Y-40), and the flags — groups of them, `x` and `(?-u)`
++(Y-41 … Y-43); only §8's escapes are refused provisionally, until cycle 0.1.5 (Y-30, Y-31):
+ 
+ | File | What |
+ |---|---|
+ | `syntax.npk` | the layer entry: every name the layer offers, `pub use`, one per line |
+-| `pattern_error.npk` | `PatternErrorKind` (`SYNTAX.md` §9), `PatternError` (`SAFETY.md` S-9), and `pattern_error`, the only way to build one — RX-172; `pattern_error_text`, what is wrong, at which byte, and what to write instead — RX-187; and `posix_class_name`, §5.1's fourteen names in one place — RX-197 |
++| `pattern_error.npk` | `PatternErrorKind` (`SYNTAX.md` §9), `PatternError` (`SAFETY.md` S-9), and `pattern_error`, the only way to build one — RX-172; `pattern_error_text`, what is wrong, at which byte, and what to write instead — RX-187; `posix_class_name`, §5.1's fourteen names in one place — RX-197; and `NOT_A_CODEPOINT`, the detail no codepoint takes — RX-203 |
+ | `cursor.npk` | the byte cursor: one byte of lookahead, moved by nothing outside it — RX-173 |
+ | `ast.npk` | the AST arena: sixteen kinds of 56-byte node that own nothing (`SYNTAX.md` Y-26, Y-27) — RX-174 |
+-| `parse.npk` | the parser: `parse_check_length`, the first refusal — RX-175; `parse_check_encoding`, the pattern checked whole as UTF-8 — RX-183; and `parse_pattern`, one explicit-stack walk that builds the AST — RX-182, RX-184 … RX-186 — its stack bounded at the `(`, RX-193; a class read by `parse_class`'s own `while` on a stack of its own — RX-197, RX-199, RX-200 — bounded with the groups', RX-198 |
++| `parse.npk` | the parser: `parse_check_length`, the first refusal — RX-175; `parse_check_encoding`, the pattern checked whole as UTF-8 — RX-183; and `parse_pattern`, one explicit-stack walk that builds the AST — RX-182, RX-184 … RX-186 — its stack bounded at the `(`, RX-193; a class read by `parse_class`'s own `while` on a stack of its own — RX-197, RX-199, RX-200 — bounded with the groups', RX-198; every escape read by `escape_cp`, in a class and out — RX-204, RX-205; and the flags by `read_flags`, with `x` and `(?-u)` — RX-206 … RX-208 |
+ 
+ `tests/unit/syntax_skeleton.npk` composes the pieces through `syntax.npk` alone,
+ and `parse_grammar`, `parse_refusals`, `parse_encoding`, `parse_limits` and
+ `pattern_error_text` hold the parse and its text to the specification the same
+ way; `parse_nest_deep` holds the bound at 10 000 levels and at the longest pattern,
+-forty runs a leg (RX-194); and `parse_classes` and `parse_class_refusals` hold every
+-class shape and every class refusal (RX-197).
++forty runs a leg (RX-194); `parse_classes` and `parse_class_refusals` hold every
++class shape and every class refusal (RX-197); and `parse_escapes`, `parse_escape_refusals`,
++`parse_flags` and `parse_flag_refusals` hold every escape, every flag, and each refusal of
++either (RX-203 … RX-208).
+diff --git a/src/syntax/parse.npk b/src/syntax/parse.npk
+index f1d9627a2aff5c08ca646c4a43e37a0a13deab48..6c571eea569060772609b7309d3f7734e4f477fe 100644
+--- a/src/syntax/parse.npk
++++ b/src/syntax/parse.npk
+@@ -1,7 +1,8 @@
+ // `src/syntax/parse.npk` — THE PARSER: PATTERN TEXT TO AN AST. Cycle 0.1.0 wrote
+ // its entry's first refusal (RX-175); cycle 0.1.1 writes the core grammar
+ // (RX-182 … RX-186; `meta/specs/SYNTAX.md` §1 and Y-28 … Y-33); cycle 0.1.3 its
+-// classes (RX-197, RX-198; Y-35 … Y-38).
++// classes (RX-197, RX-198; Y-35 … Y-38); cycle 0.1.4 its escapes and flags (RX-203 …
++// RX-208; Y-40 … Y-43).
+ //
+ // HOW `syntax` SAYS A PATTERN IS WRONG: WITH A VALUE. The library's one `error:`
+ // identity, `ERegexPattern`, is `api`'s (`SAFETY.md` S-8), and `syntax` sits
+diff --git a/src/syntax/syntax.npk b/src/syntax/syntax.npk
+index 9c1148f3781771cedb938eb58703a6d476c0da6a..f9b73c350aa845a709e9ff0573273afce83bdae9 100644
+--- a/src/syntax/syntax.npk
++++ b/src/syntax/syntax.npk
+@@ -22,6 +22,8 @@
+ // operators, Perl classes, properties and POSIX classes inside a class, unresolved
+ // (Y-36 … Y-38, RX-197) -- groups and classes nesting at most `NREGEX_NEST_DEPTH` deep
+ // together (RX-198).
++// SINCE CYCLE 0.1.4 IT READS ESCAPES AND FLAGS -- every escape of §1, in a class and out,
++// and `(?flags)` and `(?flags:...)`, with `x` and `(?-u)` (Y-40 … Y-43, RX-203 … RX-208).
+ //
+ // EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1
+ // and 3): `use` is not transitive, a plain `use` re-exports nothing, and one
+diff --git a/tests/unit/parse_class_refusals.npk b/tests/unit/parse_class_refusals.npk
+index 7dabe0407be389dc1a81c9409a9d6040045d556d..3da52c0549dc50573fbce733c8f93ed34067a79b 100644
+--- a/tests/unit/parse_class_refusals.npk
++++ b/tests/unit/parse_class_refusals.npk
+@@ -12,6 +12,8 @@
+ // is refused PROVISIONALLY inside a class as outside it (Y-31) and is not pinned here:
+ // cycle 0.1.4 changes it. `NestTooDeep` at a `[` is `parse_limits`' and
+ // `parse_nest_deep`'s.
++// *(@@DATE@@, cycle 0.1.4 -- RX-204: an escape is no longer provisional but §8's, and
++// `parse_escape_refusals` holds an escape's refusals in a class too.)*
+ mod:parse_class_refusals;
+ 
+ use "../../src/core/core.npk".*;
+diff --git a/tests/unit/parse_limits.npk b/tests/unit/parse_limits.npk
+index 16b2498e615b37f1b3509591cd2516c016b84c0f..dd291d31aaec1c4dfd6fbefcfa858047295ae540 100644
+--- a/tests/unit/parse_limits.npk
++++ b/tests/unit/parse_limits.npk
+@@ -16,7 +16,9 @@
+ // *(2026-10-01, cycle 0.1.3 -- RX-198: classes nest too, and groups and classes count
+ // together against `NREGEX_NEST_DEPTH` (Y-35): 250 nested classes parse and the 251st
+ // `[` is `NestTooDeep` at byte 250; so is a `[` inside 250 groups, and the 126th `[`
+-// inside 125 groups; 249 groups around a class parse (cases 19-23).)*
++// inside 125 groups; 249 groups around a class parse (cases 19-24).)*
++// *(@@DATE@@, cycle 0.1.4: "19-24" above read "19-23" until this subcycle, where the cases
++// are 19-24 -- cycle 0.1.3's verifier's finding.)*
+ mod:parse_limits;
+ 
+ use "../../src/core/core.npk".*;
+diff --git a/tests/unit/parse_refusals.npk b/tests/unit/parse_refusals.npk
+index 8052589d73f61667694181cf38452ff45459c4ea..c05ffd117049aaed480facf2258b0c80217000d5 100644
+--- a/tests/unit/parse_refusals.npk
++++ b/tests/unit/parse_refusals.npk
+@@ -16,6 +16,9 @@
+ // *(2026-10-01, cycle 0.1.3's record -- RX-199: nor is a Perl class or a property,
+ // in a class or out of one, and the same two units hold them. Every other escape but
+ // punctuation, and a flag, are still provisional, until cycle 0.1.4.)*
++// *(@@DATE@@, cycle 0.1.4 -- RX-204, RX-206: nor is any escape but §8's, which cycle 0.1.5
++// refuses by their own kinds, nor a flag: `parse_escapes`, `parse_escape_refusals`,
++// `parse_flags` and `parse_flag_refusals` hold them.)*
+ mod:parse_refusals;
+ 
+ use "../../src/core/core.npk".*;
+diff --git a/tests/unit/pattern_error_text.npk b/tests/unit/pattern_error_text.npk
+index 1b4e23d8fb61d45b0e5ee3b766231a9dfb000251..33b168e96149eb7f6e666c8f73f2ae69535ead72 100644
+--- a/tests/unit/pattern_error_text.npk
++++ b/tests/unit/pattern_error_text.npk
+@@ -7,6 +7,8 @@
+ // text to the letter, so a message changed by accident is a red run. Then every kind,
+ // built by `pattern_error` at byte 7, renders a text that names byte 7 (40), so no
+ // kind is left without a sentence.
++// *(@@DATE@@, cycle 0.1.4 -- and every one cycle 0.1.4's escapes and flags make: 39 and
++// 41-66, RX-203 … RX-208.)*
+ mod:pattern_error_text;
+ 
+ use "../../src/core/core.npk".*;

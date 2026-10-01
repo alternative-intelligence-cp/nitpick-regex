@@ -1,0 +1,187 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index d9018de0f1d948d8224aca618feede3e888bad30..e0b4e31f3e3f17904c4e7319bcb8322f49f3f401 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -4504,6 +4504,9 @@ is one, and the wrapped atom's link undone; **a frame per alternative** — a gr
+ frame per group is what 0.1.2 bounds by `NREGEX_NEST_DEPTH`.
+ 
+ ### RX-183 — a pattern is UTF-8 text checked whole before the grammar, and every character is a literal but the twelve metacharacters
++> **SUPERSEDED IN PART by RX-205 (@@DATE@@)** — *"`\` before ASCII punctuation is that punctuation"*, for `<` and `>`
++> only: Rust's `regex` and GNU `grep` read `\<` and `\>` as word assertions, so each is refused (`SYNTAX.md` Y-40's
++> note). Every other punctuation is as this decision says.
+ 
+ **2026-09-27, cycle 0.1.1 (the plan's PD-27)** — `SYNTAX.md` Y-28, per RFC 3629 (`meta/research/CURRENCY.md`).
+ `parse_check_encoding` runs after the length and before the walk, and refuses the first ill-formed sequence as
+@@ -5127,3 +5130,28 @@ refused naming the one; **`[\b]` as a backspace** — one spelling meaning two t
+ Java refuse it; **a `\` before a space or a control refused, Y-2 as written** — every engine measured reads the byte,
+ and it is how a space is written under `x`; **`\x` and one hex digit** — Rust, Python and Java refuse it; **a UTF-16
+ pair of `\u` escapes joined, as Java and node join it** — Rust refuses each half, and Python reads two lone surrogates.
++
++### RX-205 — `\<` and `\>` are refused: Rust's `regex` and GNU `grep` read word assertions, Perl, PCRE, Python and Java the bytes
++
++**@@DATE@@, cycle 0.1.4 (the plan's PD-49), at compiler `5fbaf4a`** — `SYNTAX.md` Y-2's and Y-40's notes; per
++`meta/research/escape-flag-syntax-reference-engines.md`, as of 2026-10-01. It supersedes in part RX-183 — *"`\`
++before ASCII punctuation is that punctuation"* — for `<` and `>`. Since cycle 0.1.1 `\<` has been `<` here. Rust's
++`regex`, this library's closest neighbour, reads `\<` and `\>` as the start and the end of a word — its 1.13.1
++documentation: *"`\b{start}, \<` start-of-word boundary assertion"* — and regex-syntax 0.8.11 keeps both out of what a `\`
++may escape, *"since the escape sequence is significant"*; GNU `grep` 3.11 reads them as word
++boundaries too. Perl, PCRE2, Python and Java read the bytes, and node refuses both under `u`. Measured on `a <b>`:
++Rust's `\<` matches the empty positions 0 and 3, and Perl's, Python's and Java's the `<` at 2 — as this parser did. A
++pattern written for Rust or `grep` compiled here and matched something else, with no word said.
++
++**The decision.** A `\` before `<` or `>` is `UnknownEscape` at the `\`, spanning both bytes, its detail the byte —
++in a class and out, as Rust refuses `[\<]` too. The sentence names both readings and what to write: *"`\<` is a
++start-of-word assertion in Rust's `regex` and GNU grep, and a `<` in Perl, PCRE, Python and Java, so nregex reads it
++neither way. Write `\b` for a word boundary, or `<` to match a `<`."* (`tests/unit/pattern_error_text.npk` cases 53,
++54). Every other punctuation is itself, as RX-183 says.
++
++*Alternatives declined:* **the bytes, RX-183 as written** — a pattern from Rust or `grep` would match `<` where it
++asked for a word's start, silently; **the assertions, as Rust reads them** — two more boundary kinds and their engine
++work in every later cycle for a spelling the families read two ways, where `\b` exists; refusing keeps the choice open,
++which is why regex-syntax refused `\<` before it read it (its comment: *"we can turn them into something else in the
++future without it being a backwards incompatible change"*); **refused outside a class and the bytes inside** — one
++spelling with two answers by where it stands, and Rust refuses it in a class as well.
+diff --git a/meta/specs/COMPAT.md b/meta/specs/COMPAT.md
+index ed6b0aabcd866bcf17cd60dc734856139e9b431b..752a26a9b5c2b24d5ab85f177322ce9e102424d1 100644
+--- a/meta/specs/COMPAT.md
++++ b/meta/specs/COMPAT.md
+@@ -38,6 +38,7 @@ The closest neighbour, so the list is short and each entry is deliberate.
+ | a class's edge cases | an operator with an empty side is the empty set (`[a&&]`, `[!--]`), and a run of `-` first in a class is members (`[--a]`); `[:` that opens no POSIX class opens a nested class (`[[:alpah:]]`); a `-` after `[…]` or `[:name:]` is a member, and a `[` ending a range is a codepoint | each refused, with the kind and the fix `SYNTAX.md` Y-36 and Y-38 name | a reading the author may not have meant is a refusal that says what to write — RX-197 |
+ | `\e`, `\0` | refused | U+001B and U+0000, as in Perl, PCRE and Python | §1 names them; accepting what Rust refuses changes no pattern Rust accepts — RX-204 |
+ | `\u{41}`, `\U{1F600}` | a codepoint | refused, naming `\x{…}` | one spelling for a codepoint in braces (`SYNTAX.md` Y-40) — RX-204 |
++| `\<`, `\>` | the start and the end of a word | refused, naming `\b`, and `<` or `>` for the byte | Rust and GNU `grep` read a word assertion, Perl, PCRE, Python and Java the byte — RX-205 |
+ | replacement | closures **or** templates | templates and non-capturing function values | no closures (D-018) |
+ | `Match` | a `&str` slice | byte offsets | borrows never pass up (D-004) |
+ | DFA cache | pooled internally | an explicit `Cache` the caller owns | `ENGINES.md` §5 |
+@@ -71,6 +72,7 @@ The list a user migrating from Python, PHP, Java or JavaScript needs.
+ | `\c`, `\h`, `\K`, `\N`, `\R`, `\X` and every other letter no rule names | refused, `UnknownEscape`: a `\` before a letter is never the letter (Y-2) |
+ | Perl's `\u` and `\U`, which change case | `\u` takes four hex digits and `\U` eight, as in Python and Rust (Y-40) |
+ | `\uD83D\uDE00` — a UTF-16 pair, one codepoint in Java and JavaScript | refused at the first half; write `\x{1F600}` (Y-40) |
++| `\<`, `\>` — the bytes in Perl, PCRE, Python and Java | refused, since Rust's `regex` and GNU `grep` read word assertions; write `<` or `>` (Y-40, RX-205) |
+ 
+ **Rule K-1 — every refusal names the alternative in its message**, and where
+ there is none it names the reason. `LookaroundUnsupported` says the pattern
+diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
+index 5a0d8e6d161ddcd88e88e065b7ab8ceb6f520910..ffea239e27eb74222db9285e5f0254d980ed2543 100644
+--- a/meta/specs/SYNTAX.md
++++ b/meta/specs/SYNTAX.md
+@@ -65,6 +65,8 @@ that changes meaning across versions is worse than one that did not compile.
+ *(@@DATE@@, cycle 0.1.4 — RX-204: and a `\` before a space, a control or DEL is that byte too — any ASCII that is
+ neither a letter nor a digit, as every engine measured reads it; `\ ` is a space. A `\` before a codepoint past ASCII
+ escapes nothing and is `UnknownEscape` (Y-40).)*
++*(@@DATE@@, cycle 0.1.4 — RX-205: but `<` and `>`. Rust's `regex` and GNU `grep` read `\<` and `\>` as the start and the
++end of a word, and Perl, PCRE, Python and Java as the bytes, so each is `UnknownEscape`, in a class and out (Y-40).)*
+ 
+ **Rule Y-40 (RX-204) — every escape names a codepoint, a class or an anchor, or is refused.** After a `\`:
+ 
+@@ -89,6 +91,8 @@ escapes nothing and is `UnknownEscape` (Y-40).)*
+ 
+ An escape that names a codepoint is a `Literal` spanning the escape, and inside a class a member, which a `-` may make
+ either end of a range (Y-36). `COMPAT.md` §2 and §3 list where other engines read these otherwise.
++*(@@DATE@@, cycle 0.1.4 — RX-205: ASCII that is neither a letter nor a digit names itself but `<` and `>`: `\<` and
++`\>` are `UnknownEscape` at the `\`, spanning both bytes, their detail the byte (Y-2's note).)*
+ 
+ ---
+ 
+@@ -240,6 +244,7 @@ metacharacters are `\ . ^ $ | ? * + ( ) [ {`; every other character — a bare `
+ punctuation, a `Literal` spanning two bytes (Y-2), and `\` as the last byte is
+ `TrailingBackslash` at it.
+ *(@@DATE@@, cycle 0.1.4 — RX-204: and every other escape as Y-40 reads it.)*
++*(@@DATE@@, cycle 0.1.4 — RX-205: but `\<` and `\>`, which are refused (Y-2's note).)*
+ 
+ **Rule Y-29 (RX-185) — groups.** `(` opens a capturing group, numbered by its `(`
+ (Y-6); `(?:` a non-capturing one; `(?<name>` a capturing one named by
+@@ -635,6 +640,7 @@ RX-197)* *(and, since @@DATE@@, each cycle 0.1.4's escapes make — Y-40, RX-204
+ | `UnknownUnicodeProperty` (cycle 0.1.3) | `\p` or `\P` whose name cannot be read | the `\` | what was read | 1, no letter or `{` after it; 2, no `}`; 3, empty braces — 0 is cycle 0.3's, a name it does not know |
+ | `UnknownEscape` (cycle 0.1.4) | a `\` before a letter or a digit no rule names, or before a codepoint past ASCII; in a class, before `b`, `B`, `A` or `z` | the `\` | the `\` and that codepoint | that codepoint |
+ | `UnknownEscape` (cycle 0.1.4) | `\0` before a digit | the `\` | 3 | 48, the `0` |
++| `UnknownEscape` (cycle 0.1.4, RX-205) | `\<` or `\>`, in a class or out | the `\` | 2 | 60 or 62 |
+ | `BadHexEscape` (cycle 0.1.4) | `\x` not followed by two hex digits, or by hex digits in braces | the `\` | through the byte found; what was read | that byte's codepoint; `NOT_A_CODEPOINT` when the pattern ends |
+ | `BadUnicodeEscape` (cycle 0.1.4) | `\u` not followed by four hex digits, `\U` by eight | the `\` | through the byte found; what was read | that byte's codepoint; `NOT_A_CODEPOINT` when the pattern ends |
+ | `InvalidCodepoint` (cycle 0.1.4) | an escape naming a surrogate or a value past U+10FFFF | the `\` | the escape | the surrogate's value; `NOT_A_CODEPOINT` past U+10FFFF |
+diff --git a/src/syntax/parse.npk b/src/syntax/parse.npk
+index 9115c98162a1e7014754817423db22a02fcf37b1..537fd0460777a5c036892a89636fc175a4e70770 100644
+--- a/src/syntax/parse.npk
++++ b/src/syntax/parse.npk
+@@ -231,9 +231,12 @@ func:is_class_letter = bool(int32:b) never fails {
+ };
+ 
+ // ASCII that is neither a letter nor a digit -- punctuation, a space, a control, DEL -- which a
+-// `\` before it writes literally (Y-2, as RX-204 widens it from punctuation alone).
++// `\` before it writes literally (Y-2, as RX-204 widens it from punctuation alone): all but `<`
++// and `>`, which Rust's `regex` and GNU `grep` read as word assertions and Perl, PCRE, Python and
++// Java as the bytes, so nregex reads them neither way (RX-205).
+ func:is_literal_escape = bool(int32:b) never fails {
+     if ((b < 0i32) || (b > CH_DEL)) { pass false; }
++    if ((b == CH_LT) || (b == CH_GT)) { pass false; }
+     if (raw is_letter(b)) { pass false; }
+     pass !(raw is_digit(b));
+ };
+@@ -861,7 +864,8 @@ func:unknown_escape = PatternError?(uint8[]:pat, int64:at) never fails {
+ // `Escape`); a Perl class or a property is a class, unresolved, here as in a class (Y-37); `\A` and `\z`
+ // are anchors 2 and 3, and `\b` and `\B` word boundaries 0 and 1 (§1's `Anchor`, Y-27); and a `\`
+ // before any other letter or digit, or before a non-ASCII codepoint, is `UnknownEscape` (RX-204) --
+-// §8's escapes among them, until cycle 0.1.5 refuses each by its own kind (Y-30).
++// §8's escapes among them, until cycle 0.1.5 refuses each by its own kind (Y-30) -- and so is a `\`
++// before `<` or `>` (RX-205).
+ func:escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:at) never fails {
+     int32:d = raw cursor_peek(@p.c);
+     if (d == CURSOR_END) {
+@@ -1032,7 +1036,7 @@ func:class_close = PatternError?(Ast->:out, ClassFrame->:cf, uint32:flags, int64
+ // `\` read at `at` inside a class: an escape naming a codepoint is a member, which a `-` may make a
+ // range's first end (Y-36, RX-204); a Perl class or a property is a class member (Y-37); every other
+ // escape is `UnknownEscape` -- `\b`, `\B`, `\A` and `\z` too, since a class holds codepoints and they
+-// name positions.
++// name positions, and `\<` and `\>` (RX-205).
+ func:class_escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame->:cf, int64:at) never fails {
+     int32:d = raw cursor_peek(@p.c);
+     if (d == CURSOR_END) {
+diff --git a/src/syntax/pattern_error.npk b/src/syntax/pattern_error.npk
+index fb5174720b3209ae8b73fe8b33c21481b234679e..3b1122b0549bb1643f621ae4312b7aa9c282cde7 100644
+--- a/src/syntax/pattern_error.npk
++++ b/src/syntax/pattern_error.npk
+@@ -390,6 +390,14 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
+             else if (e.detail == 98u32) {
+                 drop put(@b, ": `\\b` is a word boundary, a position, and a class holds codepoints. Move it out of the class, or write `\\x08` to match a backspace, as Perl and Python read `[\\b]`.");
+             }
++            else if ((e.detail == 60u32) || (e.detail == 62u32)) {
++                drop put(@b, ": `\\"); drop ch(@b, e.detail);
++                if (e.detail == 60u32) { drop put(@b, "` is a start-of-word assertion"); }
++                else { drop put(@b, "` is an end-of-word assertion"); }
++                drop put(@b, " in Rust's `regex` and GNU grep, and a `"); drop ch(@b, e.detail);
++                drop put(@b, "` in Perl, PCRE, Python and Java, so nregex reads it neither way. Write `\\b` for a word boundary, or `");
++                drop ch(@b, e.detail); drop put(@b, "` to match a `"); drop ch(@b, e.detail); drop put(@b, "`.");
++            }
+             else if ((e.detail == 66u32) || (e.detail == 65u32) || (e.detail == 122u32)) {
+                 drop put(@b, ": `\\"); drop ch(@b, e.detail);
+                 drop put(@b, "` matches a position, and a class holds codepoints. Move it out of the class.");
+diff --git a/tests/unit/parse_escape_refusals.npk b/tests/unit/parse_escape_refusals.npk
+index 1d33a7d3258d24f8cacfcfd389fecba44d42e7a9..80878ea7eba35c40978fe59638359d632e4858c1 100644
+--- a/tests/unit/parse_escape_refusals.npk
++++ b/tests/unit/parse_escape_refusals.npk
+@@ -116,6 +116,11 @@ func:run = int32() never fails {
+     if (!(raw refused("\\x{D800}\\q", PatternErrorKind.InvalidCodepoint, 0i64, 8i64, 55296u32))) { pass 71i32; }
+     if (!(raw refused("\\q\\x{D800}", PatternErrorKind.UnknownEscape, 0i64, 2i64, 113u32)))     { pass 72i32; }
+     if (!(raw refused("[\\x{110000}", PatternErrorKind.InvalidCodepoint, 1i64, 10i64, NOT_A_CODEPOINT))) { pass 73i32; }
++    // `\<` and `\>`: word assertions in Rust's `regex` and GNU grep, the bytes elsewhere (RX-205)
++    if (!(raw refused("\\<", PatternErrorKind.UnknownEscape, 0i64, 2i64, 60u32)))            { pass 74i32; }
++    if (!(raw refused("a\\>", PatternErrorKind.UnknownEscape, 1i64, 2i64, 62u32)))           { pass 75i32; }
++    if (!(raw refused("[\\<]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 60u32)))          { pass 76i32; }
++    if (!(raw refused("[!-\\>]", PatternErrorKind.UnknownEscape, 3i64, 2i64, 62u32)))        { pass 77i32; }
+     pass 0i32;
+ };
+ 
+diff --git a/tests/unit/pattern_error_text.npk b/tests/unit/pattern_error_text.npk
+index ca68a3f05eefeb545c8102ed1cdfc87b89da389e..94750a83bfc0cc5a461a7a6afa56f789063e73fa 100644
+--- a/tests/unit/pattern_error_text.npk
++++ b/tests/unit/pattern_error_text.npk
+@@ -144,6 +144,9 @@ func:run = int32() never fails {
+     if (!(raw says("\\u004", "bad Unicode escape at byte 0: the pattern ends inside it. `\\u` takes exactly four hex digits, as in `\\u00E9`, and `\\U` exactly eight, as in `\\U0001F600`; a codepoint in braces is `\\x{1F600}`."))) { pass 50i32; }
+     if (!(raw says("\\uD83D\\uDE00", "invalid codepoint at byte 0: U+D83D is a surrogate, half of a UTF-16 pair, and UTF-8 has no form for it. Write the codepoint the pair stands for, as in `\\x{1F600}` for `\\uD83D\\uDE00`."))) { pass 51i32; }
+     if (!(raw says("\\x{110000}", "invalid codepoint at byte 0: the escape names a value past U+10FFFF, the last codepoint. Write one from U+0000 to U+10FFFF."))) { pass 52i32; }
++    // `\<` and `\>` (RX-205)
++    if (!(raw says("\\<a", "unknown escape at byte 0: `\\<` is a start-of-word assertion in Rust's `regex` and GNU grep, and a `<` in Perl, PCRE, Python and Java, so nregex reads it neither way. Write `\\b` for a word boundary, or `<` to match a `<`."))) { pass 53i32; }
++    if (!(raw says("[a\\>]", "unknown escape at byte 2: `\\>` is an end-of-word assertion in Rust's `regex` and GNU grep, and a `>` in Perl, PCRE, Python and Java, so nregex reads it neither way. Write `\\b` for a word boundary, or `>` to match a `>`."))) { pass 54i32; }
+     pass 0i32;
+ };
+ 

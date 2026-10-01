@@ -1,0 +1,191 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 4109b539d0332e336c49fa4db92f4339bea73245..136cdc03bbaae5970de609435343a6f43a734b08 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -5059,3 +5059,25 @@ the wider widths and the left side as blind as before; **every literal above som
+ compared or not** — another check, the one its own docstring says would be switched off within a week; **the
+ reader in `harness/lexical.py`** — that module finds the spans that are not code and nothing else, and one check
+ reads numbers; **the blindness left to the compiler** — the rule is this library's (S-12), not the language's.
++
++### RX-203 — a detail whose domain is a codepoint says the pattern ended with `NOT_A_CODEPOINT`, U+110000, which no codepoint is — so a NUL in a group name reads right
++
++**@@DATE@@, cycle 0.1.4 (the plan's PD-47), at compiler `5fbaf4a`** — `SYNTAX.md` Y-29 and §9; the cycle 0.1.1 record's
++finding, carried since by every stream-1 dispatch. `BadGroupName`'s detail is the codepoint where a name goes wrong,
++and was 0 where the pattern ended inside the name — and 0 is U+0000's value too. Measured at `5fbaf4a`: `(?<a` NUL
++`>x)` is `BadGroupName` at byte 4, one byte, detail 0, and `(?<a` at the end is `BadGroupName` at byte 3, one byte,
++detail 0; the text reads only the detail, so the NUL read *"the name has no closing `>`"*, at the right byte with the
++wrong reason.
++
++**The decision.** `pattern_error.npk` declares `NOT_A_CODEPOINT`, U+110000, one past the last codepoint, and a detail
++whose domain is a codepoint uses it to say what no codepoint can: that the pattern ended where one was due. An
++unfinished name is `BadGroupName` with it, and a NUL in a name keeps 0 and reads *"a name is ASCII letters, digits
++and `_`, and does not begin with a digit"* (`tests/unit/pattern_error_text.npk` case 39). The kinds this cycle's
++escapes produce take it too. `UnknownUnicodeProperty`'s details are reasons, not codepoints, and do not move: 1, 2
++and 3 cycle 0.1.3's, 0 left for cycle 0.3's unknown name.
++
++*Alternatives declined:* **`0xFFFFFFFF`, the largest detail** — outside the domain as well, but U+110000 is the
++nearest value no codepoint takes, and the one a value past U+10FFFF needs, so one constant serves both;
++**the length to tell them apart** — measured, both are one byte; **a kind of its own for an unfinished name** — a
++kind per sentinel, where one constant serves every kind with a codepoint for a detail; **a NUL refused before the
++name is read** — the name's rule refuses it already, and what was wrong was the field.
+diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
+index ba50aca3ed1b8cf52be76667721eb6e973c3c6b4..c5853dcca459791e399864c142dcc61d3104a8e3 100644
+--- a/meta/specs/SYNTAX.md
++++ b/meta/specs/SYNTAX.md
+@@ -225,6 +225,8 @@ a group is `UnclosedGroup` at the INNERMOST open `(`, its detail how many are op
+ `NREGEX_NEST_DEPTH`. Then it is `NestTooDeep` before anything this rule decides — its
+ number, its name, or a `(?` the pattern ends on — so 251 nested `(` are `NestTooDeep`
+ at byte 250, never `TooManyCaptureGroups` (Y-35).)*
++*(@@DATE@@, cycle 0.1.4 — RX-203: where the pattern ends inside a name, the detail is `NOT_A_CODEPOINT`, U+110000,
++not 0, which is U+0000's value too: a NUL in a name is `BadGroupName` at the NUL, detail 0.)*
+ 
+ **Rule Y-30 (RX-185) — the refusals of §8 that a group head or a quantifier spells
+ are made where they are read**, each at the `(`, spanning the head read, its detail
+@@ -579,7 +581,7 @@ RX-197)*:
+ | `RepeatTooLarge` | a bound above `NREGEX_REPEAT_MAX` | its first digit | its digits | the bound |
+ | `TooManyCaptureGroups` | a group numbered past `NREGEX_CAPTURE_GROUPS` — *not one nested past `NREGEX_NEST_DEPTH`, which is `NestTooDeep` first (Y-35)* | its `(` | 1 | the bound |
+ | `DuplicateGroupName` | a name already used | the second name | its length | the first group's number |
+-| `BadGroupName` | an empty, malformed or unfinished name | the bad character; for an unfinished one the name | the character's bytes; what was read | its codepoint; 62 when empty; 0 when unfinished |
++| `BadGroupName` | an empty, malformed or unfinished name | the bad character; for an unfinished one the name | the character's bytes; what was read | its codepoint; 62 when empty; `NOT_A_CODEPOINT` when unfinished — *0 until cycle 0.1.4, U+0000's value too (RX-203)* |
+ | `WrongNamedGroupSpelling` | `(?P<` or `(?'` | the `(` | the head | 80 or 39 |
+ | `LookaroundUnsupported`, `AtomicGroupUnsupported`, `RecursionUnsupported`, `BackreferenceUnsupported`, `UnsupportedGroup` | Y-30's group heads | the `(` | the head | its last byte |
+ | `AtomicGroupUnsupported` | a quantifier made possessive | the quantifier | through the `+` | 43 |
+@@ -593,6 +595,10 @@ RX-197)*:
+ | `UnknownPosixClass` (cycle 0.1.3, RX-200) | an outermost class whose every member is one codepoint written as itself, the first and the last `:` and another not | its `[` | the class | the name's place in §5.1's list plus one; 0 when the bytes name none |
+ | `UnknownUnicodeProperty` (cycle 0.1.3) | `\p` or `\P` whose name cannot be read | the `\` | what was read | 1, no letter or `{` after it; 2, no `}`; 3, empty braces — 0 is cycle 0.3's, a name it does not know |
+ 
++*(@@DATE@@, cycle 0.1.4 — RX-203: a detail whose domain is a codepoint — the one a refusal found where it wanted
++another — says what no codepoint can with `NOT_A_CODEPOINT`, U+110000, one past the last: that the pattern ended
++where a codepoint was due. `UnknownUnicodeProperty`'s details are reasons, not codepoints, and keep their values.)*
++
+ *(2026-09-27, cycle 0.1.1 — RX-181: thirty-six, `EmptyAlternate` retired.)*
+ *(2026-09-26, cycle 0.1.0 — RX-172: `src/syntax/pattern_error.npk`'s
+ `PatternErrorKind` is this list, all thirty-seven, in this order, declared
+diff --git a/src/syntax/parse.npk b/src/syntax/parse.npk
+index 8407fe14828817398ed6e6e221d6b7dca3ac2c30..9cd7d18929a3d78c475e0222a61ce5243fa1d76d 100644
+--- a/src/syntax/parse.npk
++++ b/src/syntax/parse.npk
+@@ -400,12 +400,14 @@ func:take_cap = PatternError?(Parser->:p, int64:open) never fails {
+     pass NIL;
+ };
+ 
+-// `(?<name>` with `(?<` read: the name, its `>`, and the checks on both (Y-8, Y-29).
++// `(?<name>` with `(?<` read: the name, its `>`, and the checks on both (Y-8, Y-29). A pattern
++// that ends inside the name is `BadGroupName` with `NOT_A_CODEPOINT`, which no codepoint is, so a
++// NUL in the name keeps its own detail, 0 (RX-203).
+ func:named_group = PatternError?(uint8[]:pat, Parser->:p, int64:open) never fails {
+     int64:start = p.c.pos;
+     int32:b = raw cursor_peek(@p.c);
+     if (b == CURSOR_END) {
+-        pass raw pattern_error(PatternErrorKind.BadGroupName, start, 0i64, 0u32);
++        pass raw pattern_error(PatternErrorKind.BadGroupName, start, 0i64, NOT_A_CODEPOINT);
+     }
+     if (b == CH_GT) {
+         pass raw pattern_error(PatternErrorKind.BadGroupName, start, 1i64, CH_GT =>! uint32);
+@@ -420,7 +422,7 @@ func:named_group = PatternError?(uint8[]:pat, Parser->:p, int64:open) never fail
+     int64:len = p.c.pos - start;
+     int32:t = raw cursor_peek(@p.c);
+     if (t == CURSOR_END) {
+-        pass raw pattern_error(PatternErrorKind.BadGroupName, start, len, 0u32);
++        pass raw pattern_error(PatternErrorKind.BadGroupName, start, len, NOT_A_CODEPOINT);
+     }
+     if (t != CH_GT) {
+         pass raw pattern_error(PatternErrorKind.BadGroupName, p.c.pos, raw utf8_len(t => int64),
+diff --git a/src/syntax/pattern_error.npk b/src/syntax/pattern_error.npk
+index eb574d9be8cd9a1215e43f16aa8369f66ff47fc9..6554e7784b144458b269ed81a2eb228887baf97b 100644
+--- a/src/syntax/pattern_error.npk
++++ b/src/syntax/pattern_error.npk
+@@ -118,6 +118,16 @@ pub func:pattern_error = PatternError(PatternErrorKind:kind, int64:offset, int64
+     pass PatternError{ kind: kind, offset: offset, span_len: span_len, detail: detail };
+ };
+ 
++// ---- a detail that names no codepoint (`SYNTAX.md` §9; RX-203) ------------------------
++
++// U+110000, one past the last codepoint, U+10FFFF. A refusal whose detail is a codepoint --
++// the one it found where it wanted another -- says with this what no codepoint can: that the
++// pattern ENDED where one was due (`BadGroupName`, `BadHexEscape`, `BadUnicodeEscape`), or that
++// an escape named a value past the last (`InvalidCodepoint`). Until cycle 0.1.4 `BadGroupName`
++// said the first with 0, which is U+0000's value too, so a NUL in a name read "the name has no
++// closing `>`" (0.1.1's record).
++pub fixed uint32:NOT_A_CODEPOINT = 1114112u32;
++
+ // ---- the POSIX class names (`SYNTAX.md` §5.1, Y-38; RX-197) ----------------------
+ 
+ // How many names §5.1 lists. A `PosixClass` node's `a` is a name's place in that list,
+@@ -332,7 +342,7 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
+         },
+         (PatternErrorKind.BadGroupName) {
+             drop put(@b, "bad group name at byte "); drop num(@b, e.offset);
+-            if (e.detail == 0u32) {
++            if (e.detail == NOT_A_CODEPOINT) {
+                 drop put(@b, ": the name has no closing `>`. End it with `>`, as in `(?<name>...)`.");
+             }
+             else if (e.detail == 62u32) {
+diff --git a/src/syntax/syntax.npk b/src/syntax/syntax.npk
+index bc81fd5559591d21d60edf1b46dd9deba2259d35..9c1148f3781771cedb938eb58703a6d476c0da6a 100644
+--- a/src/syntax/syntax.npk
++++ b/src/syntax/syntax.npk
+@@ -38,6 +38,7 @@ pub use "./pattern_error.npk".PatternErrorKind;
+ pub use "./pattern_error.npk".PatternError;
+ pub use "./pattern_error.npk".pattern_error;
+ pub use "./pattern_error.npk".pattern_error_text;
++pub use "./pattern_error.npk".NOT_A_CODEPOINT;
+ 
+ // ---- the POSIX class names, `SYNTAX.md` §5.1's list (Y-38) -----------------------
+ pub use "./pattern_error.npk".POSIX_CLASS_NAMES;
+diff --git a/tests/unit/parse_refusals.npk b/tests/unit/parse_refusals.npk
+index 1d570df9aef9af24c553a08c21f8c8659eb26cf7..8052589d73f61667694181cf38452ff45459c4ea 100644
+--- a/tests/unit/parse_refusals.npk
++++ b/tests/unit/parse_refusals.npk
+@@ -22,8 +22,13 @@ use "../../src/core/core.npk".*;
+ use "../../src/syntax/syntax.npk".*;
+ 
+ func:refused = bool(string:pattern, PatternErrorKind:kind, int64:off, int64:len, uint32:detail) never fails {
++    pass raw refused_bytes(string_bytes(pattern), kind, off, len, detail);
++};
++
++// The same, for a pattern a string literal cannot hold -- one with a NUL in it.
++func:refused_bytes = bool(uint8[]:pat, PatternErrorKind:kind, int64:off, int64:len, uint32:detail) never fails {
+     Ast:t = raw ast_init(8i64);
+-    PatternError?:r = raw parse_pattern(string_bytes(pattern), @t);
++    PatternError?:r = raw parse_pattern(pat, @t);
+     drop ast_free(@t);
+     if (r == NIL) { pass false; }
+     PatternError:e = r ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
+@@ -72,12 +77,15 @@ func:run = int32() never fails {
+     if (!(raw refused("a{0,1001}", PatternErrorKind.RepeatTooLarge, 4i64, 4i64, 1000u32))) { pass 34i32; }
+     if (!(raw refused("a{99999999999999999999}", PatternErrorKind.RepeatTooLarge, 2i64, 20i64, 1000u32))) { pass 35i32; }
+     if (!(raw refused("a{2000,1}", PatternErrorKind.RepeatTooLarge, 2i64, 4i64, 1000u32))) { pass 36i32; }
+-    // groups (Y-29, Y-30)
++    // groups (Y-29, Y-30) -- and a NUL in a name, its detail 0, U+0000's, since the end of the
++    // pattern is `NOT_A_CODEPOINT` (39; RX-203)
++    uint8[8]:nul = [40u8, 63u8, 60u8, 97u8, 0u8, 62u8, 120u8, 41u8];
++    if (!(raw refused_bytes(nul[0i64...8i64], PatternErrorKind.BadGroupName, 4i64, 1i64, 0u32))) { pass 39i32; }
+     if (!(raw refused("(?<>a)", PatternErrorKind.BadGroupName, 3i64, 1i64, 62u32)))   { pass 40i32; }
+     if (!(raw refused("(?<1a>x)", PatternErrorKind.BadGroupName, 3i64, 1i64, 49u32))) { pass 41i32; }
+     if (!(raw refused("(?<a-b>x)", PatternErrorKind.BadGroupName, 4i64, 1i64, 45u32))) { pass 42i32; }
+-    if (!(raw refused("(?<ab", PatternErrorKind.BadGroupName, 3i64, 2i64, 0u32)))     { pass 43i32; }
+-    if (!(raw refused("(?<", PatternErrorKind.BadGroupName, 3i64, 0i64, 0u32)))       { pass 44i32; }
++    if (!(raw refused("(?<ab", PatternErrorKind.BadGroupName, 3i64, 2i64, NOT_A_CODEPOINT))) { pass 43i32; }
++    if (!(raw refused("(?<", PatternErrorKind.BadGroupName, 3i64, 0i64, NOT_A_CODEPOINT)))   { pass 44i32; }
+     if (!(raw refused("(?<é>x)", PatternErrorKind.BadGroupName, 3i64, 2i64, 233u32))) { pass 45i32; }
+     if (!(raw refused("(?<n>a)(?<n>b)", PatternErrorKind.DuplicateGroupName, 10i64, 1i64, 1u32))) { pass 46i32; }
+     if (!(raw refused("(a)(?<x>b)(?<x>c)", PatternErrorKind.DuplicateGroupName, 13i64, 1i64, 2u32))) { pass 47i32; }
+diff --git a/tests/unit/pattern_error_text.npk b/tests/unit/pattern_error_text.npk
+index 2799500a2da45b6983b3c98735d0de846017004f..1bb0db595375d7a590e8ba8eb5bfe51f8ffcce05 100644
+--- a/tests/unit/pattern_error_text.npk
++++ b/tests/unit/pattern_error_text.npk
+@@ -116,6 +116,13 @@ func:run = int32() never fails {
+     // a whole class in a POSIX class's own form (Y-38, RX-200)
+     if (!(raw says("[:alpha:]", "POSIX class outside a class at byte 0: `[:alpha:]` is the POSIX class alpha only inside a class, and written as a class of its own its bytes are its members, `:` and the letters in `alpha`. Write `[[:alpha:]]` for the POSIX class, `[[:^alpha:]]` for its complement, or `[\\:alpha:]` for its bytes."))) { pass 37i32; }
+     if (!(raw says("[:alhpa:]", "unknown POSIX class at byte 0: a POSIX class is `[:name:]` inside a class, as in `[[:alpha:]]`, and the names are alpha, digit, alnum, space, upper, lower, punct, print, graph, cntrl, xdigit, blank, word and ascii. Write `\\:` to match a `:`."))) { pass 38i32; }
++    // a NUL in a name reads as the malformed name it is, not as an unfinished one (RX-203)
++    uint8[8]:nul = [40u8, 63u8, 60u8, 97u8, 0u8, 62u8, 120u8, 41u8];
++    Ast:tn = raw ast_init(4i64);
++    PatternError?:rn = raw parse_pattern(nul[0i64...8i64], @tn);
++    drop ast_free(@tn);
++    PatternError:en = rn ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
++    if (!(raw same(raw pattern_error_text(en), "bad group name at byte 4: a name is ASCII letters, digits and `_`, and does not begin with a digit."))) { pass 39i32; }
+     // every kind renders a sentence naming its byte
+     int64:k = 0i64;
+     while (k < 36i64) decreases 36i64 - k {

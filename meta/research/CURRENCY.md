@@ -8,6 +8,8 @@ The Unicode data, the corpora and the reference engines join this table at the
 cycles that first depend on them (0.3, 0.5, 0.9).
 *(2026-10-01, cycle 0.1.3's plan: Rust's `regex` joins early, as the reference for a
 class's syntax — its engines are still cycle 0.9's.)*
+*(2026-10-01, cycle 0.1.4's plan: and two properties of the UCD join early too — White_Space and
+Pattern_White_Space, which name the white space `x` skips or refuses; the tables are still cycle 0.3's.)*
 
 | Depends on | Pinned | Checked | Source | Decision |
 |---|---|---|---|---|
@@ -17,3 +19,6 @@ class's syntax — its engines are still cycle 0.9's.)*
 | GNU `grep` — a POSIX class written as a whole bracket expression (`SYNTAX.md` Y-38; `COMPAT.md` §2) | 3.11 | 2026-10-01 | `/usr/bin/grep`, run here on thirty-one shapes; gnulib's `lib/dfa.c`, its `colon_warning_state`, read at master — [`class-syntax-reference-engines.md`](class-syntax-reference-engines.md) | `roadmap/0.1/0.1.3.md` PD-44 |
 | ECMAScript — a `]` first in a class (`SYNTAX.md` Y-36) | node 24.21.0 (V8) | 2026-10-01 | run here — [`class-syntax-reference-engines.md`](class-syntax-reference-engines.md) | `roadmap/0.1/0.1.3.md` PD-41 |
 | Perl, PCRE2, Python, .NET and Java — whether `x` mode reaches inside a class (`COMPAT.md` §3) | Perl 5.44.0, PCRE2 10.49, Python 3.14.8, .NET's options article of 2026-07-08, Java SE 27 | 2026-10-01 | perldoc.perl.org/perlre; pcre2.org; docs.python.org; learn.microsoft.com; docs.oracle.com — [`class-syntax-reference-engines.md`](class-syntax-reference-engines.md) | `roadmap/0.1/0.1.3.md` PD-45 |
+| Rust's `regex` — every escape, the inline flags, `x` outside a class, `(?-u)` (`SYNTAX.md` Y-40 … Y-43; `COMPAT.md` §2) | regex 1.13.1, regex-syntax 0.8.11 | 2026-10-01 | the crates' documentation and source as crates.io serves them (docs.rs/regex/1.13.1); built and run here — [`escape-flag-syntax-reference-engines.md`](escape-flag-syntax-reference-engines.md) | `roadmap/0.1/0.1.4.md` PD-48 … PD-52 |
+| Perl, Python, Java, node and PCRE2 — the same shapes, and GNU `grep`'s `\<` (`COMPAT.md` §3) | Perl 5.38.2, Python 3.12.3, Java 21.0.12.1, node 24.21.0, PCRE2 10.42 through GNU `grep` 3.11 | 2026-10-01 | run here — [`escape-flag-syntax-reference-engines.md`](escape-flag-syntax-reference-engines.md) | `roadmap/0.1/0.1.4.md` PD-48 … PD-52 |
+| Unicode's White_Space and Pattern_White_Space — the white space `x` skips or refuses (`SYNTAX.md` Y-42) | UCD 18.0.0 `PropList.txt`, the latest release; the same in 16.0.0 and 17.0.0 | 2026-10-01 | unicode.org/versions/latest; github.com/unicode-org/unicodetools, the Consortium's own repository, at `unicodetools/data/ucd/<version>/PropList.txt` — [`escape-flag-syntax-reference-engines.md`](escape-flag-syntax-reference-engines.md) | `roadmap/0.1/0.1.4.md` PD-51 |

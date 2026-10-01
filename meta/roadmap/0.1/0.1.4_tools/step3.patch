@@ -1,0 +1,1163 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 136cdc03bbaae5970de609435343a6f43a734b08..d9018de0f1d948d8224aca618feede3e888bad30 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -5081,3 +5081,49 @@ nearest value no codepoint takes, and the one a value past U+10FFFF needs, so on
+ **the length to tell them apart** — measured, both are one byte; **a kind of its own for an unfinished name** — a
+ kind per sentinel, where one constant serves every kind with a codepoint for a detail; **a NUL refused before the
+ name is read** — the name's rule refuses it already, and what was wrong was the field.
++
++### RX-204 — every escape of §1 is read — a codepoint, a class, an anchor, or a refusal saying what to write — in a class and out
++
++**@@DATE@@, cycle 0.1.4 (the plan's PD-48), at compiler `5fbaf4a`** — `SYNTAX.md` Y-40, with Y-2, Y-27, Y-28 and Y-36;
++per `meta/research/escape-flag-syntax-reference-engines.md`, as of 2026-10-01. It completes RX-186 for escapes, whose
++provisional `UnknownEscape` it replaces — all but §8's, which cycle 0.1.5 refuses by their own kinds.
++
++**What chose the rules.** §1 lists what an escape may be. It does not say what ends one, what an escape the pattern
++ends inside is, or what a `\` before a space or a codepoint past ASCII means. Measured in Rust's `regex` 1.13.1, Perl
++5.38.2, Python 3.12.3, Java 21.0.12.1, node 24.21.0 and PCRE2 10.42 (through GNU `grep -P`): where Rust and the
++backtracking engines agree, this library reads the shape so — `\x41` and `\x{1F600}`, `\u0041`, `\U0001F600`, the
++control escapes, `\ ` a space. Where they disagree it refuses, saying what to write: `\0` before a digit, an octal
++escape in Perl, PCRE, Python and Java, refused by Rust, and U+0000 and the digit if §1 were read as written; `\x4`,
++U+0004 in Perl and PCRE, refused by Rust, Python and Java; `[\b]`, a backspace in Perl, Python, PCRE and node,
++refused by Rust and Java; `\uD83D\uDE00`, one codepoint in Java and node, two lone surrogates in Python, refused by
++Rust; `\é`, `é` in Perl and Python, refused by Rust. `\e` and `\0`, which Rust refuses, are §1's, and read as Perl,
++PCRE and Python read them; `\u{41}`, Rust's and node's second spelling of `\x{41}`, is refused naming the first.
++
++**The decision.** Y-40, rule by rule. An escape naming a codepoint is a `Literal` spanning the escape, and in a class
++a member, which a `-` may make either end of a range; `\A`, `\z`, `\b` and `\B` are anchors outside a class, and in
++one `UnknownEscape`, a position a class cannot hold. A `\` before any other letter or digit, or a codepoint past
++ASCII, is `UnknownEscape` — no longer provisional but Y-2's refusal, with a test for each letter no rule assigns:
++`c g h i j l m o q y` and `C F H I J K L M N O R T V X Y`. A `\` before ASCII that is neither a letter nor a digit is
++that byte: Y-2 said punctuation, and every engine measured reads a space, a control and DEL so — Rust's own
++documentation writes a space under `x` as `\ `. The refusals carry the codepoint found, or `NOT_A_CODEPOINT` where
++the pattern ended (RX-203); a value stops growing past U+10FFFF, so `\x{FFFFFFFFFFFFFFFFFFFF}` overflows nothing.
++
++**The text.** Each says what is wrong, at which byte, and what to write instead, held to the letter by
++`tests/unit/pattern_error_text.npk` cases 41–52: an unknown letter says to write the letter, or `\\` for a backslash;
++`\0` before a digit names the hex form, `\x0A` for `\012`; `[\b]` says a class holds codepoints and names `\x08`; a
++bad hex or Unicode escape names the byte found and the forms each escape takes; a surrogate names what the pair
++stands for, `\x{1F600}` for `\uD83D\uDE00`. A codepoint a sentence names is printable ASCII between backticks, or
++`U+` and its hex digits, so no sentence carries a byte a reader cannot see.
++
++**Measured at `5fbaf4a`.** `tests/unit/parse_escapes.npk` and `parse_escape_refusals.npk` pass at −O0 and through
++`opt -O2`, and against the parser before this decision each exits 1; each rule broken in a copy exits as the plan's
++§1.10 records — at its case, or, with the stop past U+10FFFF removed, by the `IntOverflow` trap twenty hex digits make.
++
++*Alternatives declined:* **`\0` and a digit read as octal** — a second way to write a codepoint, which Rust refuses;
++**`\0` and a digit read as U+0000 and the digit, §1 as written** — `\012` would match U+0000, `1`, `2` where five
++engines match a line feed, silently; **`\0` refused altogether, as Rust refuses it** — §1 names it, and Perl, PCRE,
++Python and node read it as U+0000; **`\u{…}` and `\U{…}` accepted** — two spellings for `\x{…}`, Y-7's reasoning, so
++refused naming the one; **`[\b]` as a backspace** — one spelling meaning two things by where it stands, and Rust and
++Java refuse it; **a `\` before a space or a control refused, Y-2 as written** — every engine measured reads the byte,
++and it is how a space is written under `x`; **`\x` and one hex digit** — Rust, Python and Java refuse it; **a UTF-16
++pair of `\u` escapes joined, as Java and node join it** — Rust refuses each half, and Python reads two lone surrogates.
+diff --git a/meta/specs/COMPAT.md b/meta/specs/COMPAT.md
+index 33ec4935db6105113be925c06084c0da0d048cfa..ed6b0aabcd866bcf17cd60dc734856139e9b431b 100644
+--- a/meta/specs/COMPAT.md
++++ b/meta/specs/COMPAT.md
+@@ -36,6 +36,8 @@ The closest neighbour, so the list is short and each entry is deliberate.
+ | `x` mode inside classes | ~~whitespace significant~~ white space and `#` comments ignored (measured, regex 1.13.1) | ~~whitespace significant~~ a white-space byte or a `#` refused (`SYNTAX.md` Y-39) | ~~same (O-Y2)~~ the engines disagree, so neither reading is guessed — RX-201, 2026-10-01; this row said Rust kept white space, and it does not |
+ | a POSIX class as a whole class, `[:alpha:]` | a class of `:`, `a`, `h`, `l`, `p` | refused, saying a POSIX class goes inside a class — as GNU `grep` refuses it | a class of five bytes where every letter was meant — RX-200 |
+ | a class's edge cases | an operator with an empty side is the empty set (`[a&&]`, `[!--]`), and a run of `-` first in a class is members (`[--a]`); `[:` that opens no POSIX class opens a nested class (`[[:alpah:]]`); a `-` after `[…]` or `[:name:]` is a member, and a `[` ending a range is a codepoint | each refused, with the kind and the fix `SYNTAX.md` Y-36 and Y-38 name | a reading the author may not have meant is a refusal that says what to write — RX-197 |
++| `\e`, `\0` | refused | U+001B and U+0000, as in Perl, PCRE and Python | §1 names them; accepting what Rust refuses changes no pattern Rust accepts — RX-204 |
++| `\u{41}`, `\U{1F600}` | a codepoint | refused, naming `\x{…}` | one spelling for a codepoint in braces (`SYNTAX.md` Y-40) — RX-204 |
+ | replacement | closures **or** templates | templates and non-capturing function values | no closures (D-018) |
+ | `Match` | a `&str` slice | byte offsets | borrows never pass up (D-004) |
+ | DFA cache | pooled internally | an explicit `Cache` the caller owns | `ENGINES.md` §5 |
+@@ -63,6 +65,12 @@ The list a user migrating from Python, PHP, Java or JavaScript needs.
+ | `\w` | UTS #18 Annex C, not `[A-Za-z0-9_]` — `UNICODE.md` U-10 |
+ | `x` mode inside a class | a white-space byte or a `#` refused under `x`, where Perl's `/x`, PCRE2's `x`, Python and .NET read them as members and `xx` ignores a space or a tab — write `\x20` or `\#` (`SYNTAX.md` Y-39, RX-201) |
+ | `[` inside a class; `&&`, `--`, `~~` | a nested class, and the class operators of UTS #18 and Rust: `[a[b]]` is `a` or `b`, and `[a--b]` is `a` but not `b` — write `\[` and `\-` for the bytes (`SYNTAX.md` Y-36, RX-197) |
++| `\012`, `\0` and a digit — octal | refused; write the hex form, `\x0A` (`SYNTAX.md` Y-40, RX-204) |
++| `\x4`, `\x` and one hex digit | refused; `\x` takes exactly two, or any number in braces, `\x{4}` (Y-40) |
++| `[\b]` — a backspace | refused; write `\x08` (Y-40) |
++| `\c`, `\h`, `\K`, `\N`, `\R`, `\X` and every other letter no rule names | refused, `UnknownEscape`: a `\` before a letter is never the letter (Y-2) |
++| Perl's `\u` and `\U`, which change case | `\u` takes four hex digits and `\U` eight, as in Python and Rust (Y-40) |
++| `\uD83D\uDE00` — a UTF-16 pair, one codepoint in Java and JavaScript | refused at the first half; write `\x{1F600}` (Y-40) |
+ 
+ **Rule K-1 — every refusal names the alternative in its message**, and where
+ there is none it names the reason. `LookaroundUnsupported` says the pattern
+diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
+index c5853dcca459791e399864c142dcc61d3104a8e3..5a0d8e6d161ddcd88e88e065b7ab8ceb6f520910 100644
+--- a/meta/specs/SYNTAX.md
++++ b/meta/specs/SYNTAX.md
+@@ -53,12 +53,42 @@ punctuation, with `]` and `-` members where Y-36 places them; and a `PosixClass`
+ fourteen (Y-38).)*
+ *(2026-10-01, cycle 0.1.3 — RX-199: `Atom` holds `PerlClass` and `UnicodeClass` too, outside a class as in one — as Y-27
+ already says of `\d`, "in a class or out".)*
++*(@@DATE@@, cycle 0.1.4 — RX-204: `Escape` is read as Y-40 says: its `Punct` is any ASCII that is neither a letter nor
++a digit, `HexPair`, `Hex4` and `Hex8` are exactly two, four and eight hex digits, and `"x" "{" Hex+ "}"` any number of
++them; `\0` before a digit is refused. Inside a class an `Escape` that names a codepoint is a `ClassAtom`.)*
+ 
+ **Rule Y-2 — a `\` before any ASCII punctuation is that punctuation,
+ literally.** `\@` is `@`. A `\` before an ASCII **letter or digit** that this
+ document does not list is a **refusal** (`UnknownEscape`), never a literal:
+ `\q` today meaning `q` is `\q` tomorrow meaning something else, and a pattern
+ that changes meaning across versions is worse than one that did not compile.
++*(@@DATE@@, cycle 0.1.4 — RX-204: and a `\` before a space, a control or DEL is that byte too — any ASCII that is
++neither a letter nor a digit, as every engine measured reads it; `\ ` is a space. A `\` before a codepoint past ASCII
++escapes nothing and is `UnknownEscape` (Y-40).)*
++
++**Rule Y-40 (RX-204) — every escape names a codepoint, a class or an anchor, or is refused.** After a `\`:
++
++- **`a t n v f r e`** name U+0007, U+0009, U+000A, U+000B, U+000C, U+000D and U+001B, and **`0`** names U+0000 —
++  unless a digit follows the `0`, which other engines read as an octal escape and nregex reads not at all:
++  `UnknownEscape` at the `\`, spanning the three bytes, its detail `0` (48).
++- **`x` and two hex digits** name a codepoint up to U+00FF — under `(?-u)`, a byte (Y-13) — and **`x{`, one or more
++  hex digits, `}`** any codepoint; **`u` and exactly four**, **`U` and exactly eight**, a codepoint. Either case;
++  leading zeros are read, and the value stops growing past U+10FFFF, so no run of digits overflows. A byte that is
++  no hex digit where one is due is `BadHexEscape` (after `\x`) or `BadUnicodeEscape` (after `\u` or `\U`) at the
++  `\`, spanning through that byte, its detail the codepoint it begins — or, where the pattern ends first, spanning
++  what was read, its detail `NOT_A_CODEPOINT` (RX-203). So `\u{41}` is `BadUnicodeEscape` at its `{`: braces are
++  `\x`'s. A surrogate, U+D800 … U+DFFF, or a value past U+10FFFF is `InvalidCodepoint` at the `\`, spanning the
++  escape, its detail the surrogate's value, or `NOT_A_CODEPOINT`.
++- **ASCII that is neither a letter nor a digit** names itself (Y-2).
++- **`d D w W s S`, `p` and `P`** name classes (Y-37). **`A` and `z`** are `Anchor` 2 and 3, **`b` and `B`**
++  `WordBoundary` 0 and 1 (§6, Y-27) — outside a class; inside one each is `UnknownEscape`, a position a class cannot
++  hold.
++- **Any other letter or digit, and any codepoint past ASCII,** is `UnknownEscape` at the `\`, spanning it and that
++  codepoint, its detail the codepoint — §8's escapes among them, `\1` … `\9`, `\k`, `\G`, `\Z`, `\Q` and `\E`,
++  until cycle 0.1.5 refuses each by its own kind (Y-30).
++
++An escape that names a codepoint is a `Literal` spanning the escape, and inside a class a member, which a `-` may make
++either end of a range (Y-36). `COMPAT.md` §2 and §3 list where other engines read these otherwise.
+ 
+ ---
+ 
+@@ -191,6 +221,9 @@ first byte to its last member's last; a `ClassOp` spans its left operand's first
+ last. A member that is one codepoint is a `ClassRange` from it to itself, spanning how it is written — `\]` is two
+ bytes. A `PerlClass` spans two bytes, a `UnicodeClass` its `\` through its name's last byte or its `}`, a
+ `PosixClass` its `[` through its `]`.)*
++*(@@DATE@@, cycle 0.1.4 — RX-204: an escape that names a codepoint is a `Literal`, or in a class a `ClassRange`, spanning
++the escape — `\x{1F600}` nine bytes; `\A` and `\z` are `Anchor` 2 and 3, and `\b` and `\B` `WordBoundary` 0 and 1,
++each spanning two bytes (Y-40).)*
+ 
+ **Rule Y-28 (RX-183) — a pattern is UTF-8 text, checked whole before the grammar,
+ and every character is a literal but twelve.** After the length (RX-175), the pattern
+@@ -206,6 +239,7 @@ metacharacters are `\ . ^ $ | ? * + ( ) [ {`; every other character — a bare `
+ `^` an `Anchor` 0 and `$` an `Anchor` 1. `\` before ASCII punctuation is that
+ punctuation, a `Literal` spanning two bytes (Y-2), and `\` as the last byte is
+ `TrailingBackslash` at it.
++*(@@DATE@@, cycle 0.1.4 — RX-204: and every other escape as Y-40 reads it.)*
+ 
+ **Rule Y-29 (RX-185) — groups.** `(` opens a capturing group, numbered by its `(`
+ (Y-6); `(?:` a non-capturing one; `(?<name>` a capturing one named by
+@@ -259,6 +293,8 @@ ends inside an escape, a property's name or a `[:`. Inside a class,
+ but punctuation, is still refused provisionally.)*
+ *(2026-10-01, cycle 0.1.3 — RX-199: outside a class too, `\d \D \w \W \s \S`, `\p` and `\P` are classes (Y-37);
+ every other escape but punctuation is still refused provisionally, until cycle 0.1.4.)*
++*(@@DATE@@, cycle 0.1.4 — RX-204: every escape is read as Y-40 says, and none is provisional but §8's — `\1` … `\9`,
++`\k`, `\G`, `\Z`, `\Q` and `\E` — each `UnknownEscape` until cycle 0.1.5 refuses it by its own kind (Y-30).)*
+ 
+ **Rule Y-32 (RX-184) — quantifiers.** `*`, `+`, `?`, `{n}`, `{n,}` and `{n,m}`, each
+ followed by `?` to be lazy, wrap the atom before them in a `Repeat` — `a` the atom,
+@@ -425,6 +461,9 @@ unions.** `[` outside a class opens one, `[^` a negated one, and the class ends
+ 
+ No class the parser builds is empty, so no pattern reaches `EmptyClass` here (§9; O-Y3). Where Rust's `regex` reads a
+ shape one way and this rule another, this rule refuses it (`COMPAT.md` §2).
++*(@@DATE@@, cycle 0.1.4 — RX-204: "any other escape" above is Y-40's: one that names a codepoint is a member, spanning
++its bytes, and either end of a range — `[\x41-\x5A]`; `\b`, `\B`, `\A` and `\z` name positions, and a class holds
++codepoints, so each is `UnknownEscape` here.)*
+ 
+ **Rule Y-37 (RX-197) — Perl classes and Unicode properties are parsed, never resolved.** `\d`, `\w` and `\s` are
+ `PerlClass` 0, 1 and 2, and `\D`, `\W` and `\S` the same, negated. `\p` names a Unicode property — one ASCII
+@@ -568,7 +607,7 @@ is the compiler's `check_codes_tested` in this library's terms.
+ 
+ **What each refusal cycle 0.1.1 makes carries** — Y-10's offset and length, and the
+ detail a message is built from (Y-29 … Y-32) *(and, since 2026-10-01, each cycle 0.1.3's classes make — Y-36 … Y-38,
+-RX-197)*:
++RX-197)* *(and, since @@DATE@@, each cycle 0.1.4's escapes make — Y-40, RX-204)*:
+ 
+ | Kind | Raised when | Offset | Length | Detail |
+ |---|---|---|---|---|
+@@ -594,6 +633,11 @@ RX-197)*:
+ | `UnknownPosixClass` (cycle 0.1.3) | `[:` inside a class that opens no `[:name:]` or `[:^name:]` with a name of §5.1 | its `[` | what was read | 0 |
+ | `UnknownPosixClass` (cycle 0.1.3, RX-200) | an outermost class whose every member is one codepoint written as itself, the first and the last `:` and another not | its `[` | the class | the name's place in §5.1's list plus one; 0 when the bytes name none |
+ | `UnknownUnicodeProperty` (cycle 0.1.3) | `\p` or `\P` whose name cannot be read | the `\` | what was read | 1, no letter or `{` after it; 2, no `}`; 3, empty braces — 0 is cycle 0.3's, a name it does not know |
++| `UnknownEscape` (cycle 0.1.4) | a `\` before a letter or a digit no rule names, or before a codepoint past ASCII; in a class, before `b`, `B`, `A` or `z` | the `\` | the `\` and that codepoint | that codepoint |
++| `UnknownEscape` (cycle 0.1.4) | `\0` before a digit | the `\` | 3 | 48, the `0` |
++| `BadHexEscape` (cycle 0.1.4) | `\x` not followed by two hex digits, or by hex digits in braces | the `\` | through the byte found; what was read | that byte's codepoint; `NOT_A_CODEPOINT` when the pattern ends |
++| `BadUnicodeEscape` (cycle 0.1.4) | `\u` not followed by four hex digits, `\U` by eight | the `\` | through the byte found; what was read | that byte's codepoint; `NOT_A_CODEPOINT` when the pattern ends |
++| `InvalidCodepoint` (cycle 0.1.4) | an escape naming a surrogate or a value past U+10FFFF | the `\` | the escape | the surrogate's value; `NOT_A_CODEPOINT` past U+10FFFF |
+ 
+ *(@@DATE@@, cycle 0.1.4 — RX-203: a detail whose domain is a codepoint — the one a refusal found where it wanted
+ another — says what no codepoint can with `NOT_A_CODEPOINT`, U+110000, one past the last: that the pattern ended
+diff --git a/src/syntax/parse.npk b/src/syntax/parse.npk
+index 9cd7d18929a3d78c475e0222a61ce5243fa1d76d..9115c98162a1e7014754817423db22a02fcf37b1 100644
+--- a/src/syntax/parse.npk
++++ b/src/syntax/parse.npk
+@@ -47,6 +47,7 @@ use "./ast.npk".*;
+ 
+ // ---- the bytes the grammar names, as the cursor answers them ---------------
+ fixed int32:CH_BANG = 33i32;         // `!`, the first ASCII punctuation
++fixed int32:CH_DEL = 127i32;         // the last ASCII byte (Y-2)
+ fixed int32:CH_HASH = 35i32;         // `#`
+ fixed int32:CH_DOLLAR = 36i32;       // `$`
+ fixed int32:CH_AMP = 38i32;          // `&`
+@@ -58,7 +59,6 @@ fixed int32:CH_PLUS = 43i32;         // `+`
+ fixed int32:CH_COMMA = 44i32;        // `,`
+ fixed int32:CH_MINUS = 45i32;        // `-`
+ fixed int32:CH_DOT = 46i32;          // `.`
+-fixed int32:CH_SLASH = 47i32;        // `/`, the last punctuation before the digits
+ fixed int32:CH_0 = 48i32;
+ fixed int32:CH_9 = 57i32;
+ fixed int32:CH_COLON = 58i32;        // `:`, the first punctuation after the digits
+@@ -66,12 +66,14 @@ fixed int32:CH_LT = 60i32;           // `<`
+ fixed int32:CH_EQ = 61i32;           // `=`
+ fixed int32:CH_GT = 62i32;           // `>`
+ fixed int32:CH_QUESTION = 63i32;     // `?`
+-fixed int32:CH_AT = 64i32;           // `@`, the last punctuation before the capitals
+ fixed int32:CH_UPPER_A = 65i32;
++fixed int32:CH_UPPER_B = 66i32;      // `\B`, not a word boundary (§6)
+ fixed int32:CH_UPPER_D = 68i32;      // `\D`, not a digit (Y-37)
++fixed int32:CH_UPPER_F = 70i32;      // the last capital hex digit
+ fixed int32:CH_UPPER_P = 80i32;
+ fixed int32:CH_UPPER_R = 82i32;
+ fixed int32:CH_UPPER_S = 83i32;      // `\S`, not white space
++fixed int32:CH_UPPER_U = 85i32;      // `\U` and eight hex digits (§1's `Escape`)
+ fixed int32:CH_UPPER_W = 87i32;      // `\W`, not a word codepoint
+ fixed int32:CH_UPPER_Z = 90i32;
+ fixed int32:CH_LBRACKET = 91i32;     // `[`, the first punctuation after the capitals
+@@ -79,12 +81,20 @@ fixed int32:CH_BACKSLASH = 92i32;    // `\`
+ fixed int32:CH_RBRACKET = 93i32;     // `]`
+ fixed int32:CH_CARET = 94i32;        // `^`
+ fixed int32:CH_UNDERSCORE = 95i32;   // `_`
+-fixed int32:CH_BACKTICK = 96i32;     // the last punctuation before the small letters
+-fixed int32:CH_LOWER_A = 97i32;
++fixed int32:CH_LOWER_A = 97i32;      // `\a`, the bell
++fixed int32:CH_LOWER_B = 98i32;      // `\b`, a word boundary (§6)
+ fixed int32:CH_LOWER_D = 100i32;     // `\d`, a digit (Y-37)
++fixed int32:CH_LOWER_E = 101i32;     // `\e`, escape
++fixed int32:CH_LOWER_F = 102i32;     // `\f`, form feed; and the last small hex digit
++fixed int32:CH_LOWER_N = 110i32;     // `\n`, line feed
+ fixed int32:CH_LOWER_P = 112i32;     // `\p`, a Unicode property (Y-37)
++fixed int32:CH_LOWER_R = 114i32;     // `\r`, carriage return
+ fixed int32:CH_LOWER_S = 115i32;     // `\s`, white space
++fixed int32:CH_LOWER_T = 116i32;     // `\t`, tab
++fixed int32:CH_LOWER_U = 117i32;     // `\u` and four hex digits (§1's `Escape`)
++fixed int32:CH_LOWER_V = 118i32;     // `\v`, vertical tab
+ fixed int32:CH_LOWER_W = 119i32;     // `\w`, a word codepoint
++fixed int32:CH_LOWER_X = 120i32;     // `\x` and hex digits (§1's `Escape`)
+ fixed int32:CH_LOWER_Z = 122i32;
+ fixed int32:CH_LBRACE = 123i32;      // `{`, the first punctuation after the small letters
+ fixed int32:CH_PIPE = 124i32;        // `|`
+@@ -108,6 +118,11 @@ fixed int64:U8_F3 = 243i64;          // 0xF1 … 0xF3: four bytes, any continuat
+ fixed int64:U8_F4 = 244i64;          // 0xF4: four bytes, the second 0x80 … 0x8F (no more than U+10FFFF)
+ fixed int64:U8_F4_SECOND = 143i64;   // 0x8F
+ 
++// ---- the codepoints an escape may name (§1's `Escape`; RX-204) ---------------
++fixed int64:CP_SURROGATE_LO = 55296i64;  // U+D800, the first surrogate: half of a UTF-16 pair, no codepoint
++fixed int64:CP_SURROGATE_HI = 57343i64;  // U+DFFF, the last
++fixed int64:CP_MAX = 1114111i64;         // U+10FFFF, the last codepoint
++
+ // ---- the class operators and what a class read last (Y-27, Y-36) ------------
+ fixed int64:CLASS_AND = 0i64;        // `&&`, Y-27's `ClassOp` code
+ fixed int64:CLASS_DIFF = 1i64;       // `--`
+@@ -143,6 +158,14 @@ struct:GroupName = {
+     int64:cap;           // its group's capture index
+ };
+ 
++// What an escape names, once read (Y-2, §1's `Escape`): whether it names a codepoint, which, and
++// whether it was written `\x` and two hex digits -- which names a byte under `(?-u)` (Y-13).
++struct:Esc = {
++    bool:named;          // the escape names the codepoint `cp`; false for every other escape
++    bool:byte;           // written `\xHH`
++    int64:cp;
++};
++
+ // One open class (Y-36): the union of members being read, the operators before it
+ // folded left, and what its `Class` node will carry.
+ #[derive(Copy)]
+@@ -207,12 +230,33 @@ func:is_class_letter = bool(int32:b) never fails {
+     pass (b == CH_LOWER_P) || (b == CH_UPPER_P);
+ };
+ 
+-// ASCII punctuation: `!` … `/`, `:` … `@`, `[` … the backtick, `{` … `~` (Y-2).
+-func:is_ascii_punct = bool(int32:b) never fails {
+-    if ((b >= CH_BANG) && (b <= CH_SLASH)) { pass true; }
+-    if ((b >= CH_COLON) && (b <= CH_AT)) { pass true; }
+-    if ((b >= CH_LBRACKET) && (b <= CH_BACKTICK)) { pass true; }
+-    pass (b >= CH_LBRACE) && (b <= CH_TILDE);
++// ASCII that is neither a letter nor a digit -- punctuation, a space, a control, DEL -- which a
++// `\` before it writes literally (Y-2, as RX-204 widens it from punctuation alone).
++func:is_literal_escape = bool(int32:b) never fails {
++    if ((b < 0i32) || (b > CH_DEL)) { pass false; }
++    if (raw is_letter(b)) { pass false; }
++    pass !(raw is_digit(b));
++};
++
++// A hex digit's value, or -1 for any other byte -- `CURSOR_END` included.
++func:hex_value = int64(int32:b) never fails {
++    if (raw is_digit(b)) { pass (b - CH_0) => int64; }
++    if ((b >= CH_UPPER_A) && (b <= CH_UPPER_F)) { pass ((b - CH_UPPER_A) => int64) + 10i64; }
++    if ((b >= CH_LOWER_A) && (b <= CH_LOWER_F)) { pass ((b - CH_LOWER_A) => int64) + 10i64; }
++    pass -1i64;
++};
++
++// The codepoint a control escape's letter names -- `\a` bell, `\t` tab, `\n` line feed, `\v`
++// vertical tab, `\f` form feed, `\r` carriage return, `\e` escape (§1's `Escape`) -- or -1.
++func:control_cp = int64(int32:d) never fails {
++    if (d == CH_LOWER_A) { pass 7i64; }
++    if (d == CH_LOWER_T) { pass 9i64; }
++    if (d == CH_LOWER_N) { pass 10i64; }
++    if (d == CH_LOWER_V) { pass 11i64; }
++    if (d == CH_LOWER_F) { pass 12i64; }
++    if (d == CH_LOWER_R) { pass 13i64; }
++    if (d == CH_LOWER_E) { pass 27i64; }
++    pass -1i64;
+ };
+ 
+ // The length of the UTF-8 sequence a lead byte begins, in a VALIDATED pattern.
+@@ -683,30 +727,177 @@ func:escape_class_node = AstNode(uint8[]:pat, uint32:flags, int64:at, int32:d, i
+     pass raw node(AstKind.UnicodeClass, bits, at + 2i64, 1i64, 0i64, at, upto - at);
+ };
+ 
+-// `\` read at `at`. ASCII punctuation after it is that punctuation (Y-2); a Perl
+-// class or a property is a class, unresolved, here as in a class (Y-37); every other
+-// escape is cycle 0.1.4's, and until then provisionally `UnknownEscape` (Y-31).
++// ---- escapes that name a codepoint (Y-2, §1's `Escape`; RX-204) --------------------
++
++// The escape at `at` wanted a hex digit and found another byte: `kind` at the `\`, spanning
++// through that byte, its detail the codepoint it begins -- or, where the pattern ended, spanning
++// what was read, its detail `NOT_A_CODEPOINT` (RX-203).
++func:escape_bad_digit = PatternError?(uint8[]:pat, Parser->:p, PatternErrorKind:kind, int64:at) never fails {
++    int32:b = raw cursor_peek(@p.c);
++    if (b == CURSOR_END) {
++        pass raw pattern_error(kind, at, p.c.pos - at, NOT_A_CODEPOINT);
++    }
++    pass raw pattern_error(kind, at, (p.c.pos - at) + raw utf8_len(b => int64),
++                           raw decode_at(pat, p.c.pos) =>! uint32);
++};
++
++// The value `v` an escape read through `p.c.pos` from its `\` at `at` names: a codepoint, or
++// `InvalidCodepoint` spanning the escape -- its detail a surrogate's value, or `NOT_A_CODEPOINT` for
++// any value past U+10FFFF.
++func:escape_value = PatternError?(Parser->:p, int64:at, Esc->:e, int64:v) never fails {
++    if ((v >= CP_SURROGATE_LO) && (v <= CP_SURROGATE_HI)) {
++        pass raw pattern_error(PatternErrorKind.InvalidCodepoint, at, p.c.pos - at, v =>! uint32);
++    }
++    if (v > CP_MAX) {
++        pass raw pattern_error(PatternErrorKind.InvalidCodepoint, at, p.c.pos - at, NOT_A_CODEPOINT);
++    }
++    e.named = true;
++    e.cp = v;
++    pass NIL;
++};
++
++// `\x` read, its `\` at `at`: exactly two hex digits, a codepoint up to U+00FF that under `(?-u)`
++// is a byte (Y-13) -- or one or more in braces, `\x{1F600}`, any codepoint. The value stops growing
++// once it passes U+10FFFF, so no run of digits overflows, as `digits` stops (RX-184).
++func:hex_escape = PatternError?(uint8[]:pat, Parser->:p, int64:at, Esc->:e) never fails {
++    int64:v = 0i64;
++    if (raw cursor_eat(@p.c, CH_LBRACE =>! uint8)) {
++        int64:n = 0i64;
++        while ((raw hex_value(raw cursor_peek(@p.c))) >= 0i64) decreases pat.len - p.c.pos {
++            int64:h = raw hex_value(raw cursor_bump(@p.c));
++            if (v <= CP_MAX) { v = (v * 16i64) + h; }
++            n = n + 1i64;
++        }
++        if ((n == 0i64) || !(raw cursor_eat(@p.c, CH_RBRACE =>! uint8))) {
++            pass raw escape_bad_digit(pat, p, PatternErrorKind.BadHexEscape, at);
++        }
++        pass raw escape_value(p, at, e, v);
++    }
++    int64:k = 0i64;
++    while (k < 2i64) decreases 2i64 - k {
++        int64:h = raw hex_value(raw cursor_peek(@p.c));
++        if (h < 0i64) {
++            pass raw escape_bad_digit(pat, p, PatternErrorKind.BadHexEscape, at);
++        }
++        discard(raw cursor_bump(@p.c));
++        v = (v * 16i64) + h;
++        k = k + 1i64;
++    }
++    e.named = true;
++    e.byte = true;
++    e.cp = v;
++    pass NIL;
++};
++
++// `\u` or `\U` read, its `\` at `at`: exactly `n` hex digits, four or eight (§1) -- a codepoint, not
++// a surrogate and not past U+10FFFF. Braces are `\x{…}`'s: `\u{41}` is a `{` where a digit is due.
++func:unicode_escape = PatternError?(uint8[]:pat, Parser->:p, int64:at, Esc->:e, int64:n) never fails {
++    int64:v = 0i64;
++    int64:k = 0i64;
++    while (k < n) decreases n - k {
++        int64:h = raw hex_value(raw cursor_peek(@p.c));
++        if (h < 0i64) {
++            pass raw escape_bad_digit(pat, p, PatternErrorKind.BadUnicodeEscape, at);
++        }
++        discard(raw cursor_bump(@p.c));
++        if (v <= CP_MAX) { v = (v * 16i64) + h; }
++        k = k + 1i64;
++    }
++    pass raw escape_value(p, at, e, v);
++};
++
++// `\` read at `at`, and the byte after it not yet. If the escape names a codepoint -- `\a \t \n \v
++// \f \r \e`, `\0`, `\x`, `\u`, `\U`, or `\` before ASCII that is neither a letter nor a digit
++// (Y-2) -- it is read and `e` says what it names; any other escape is left unread, `e.named` false,
++// for the caller. `\0` before a digit is `UnknownEscape` at the `\`, spanning the three bytes, its
++// detail `0`: elsewhere it begins an octal escape, and nregex reads none (RX-204).
++func:escape_cp = PatternError?(uint8[]:pat, Parser->:p, int64:at, Esc->:e) never fails {
++    e.named = false;
++    e.byte = false;
++    e.cp = 0i64;
++    int32:d = raw cursor_peek(@p.c);
++    int64:c = raw control_cp(d);
++    if (c >= 0i64) {
++        discard(raw cursor_bump(@p.c));
++        e.named = true;
++        e.cp = c;
++        pass NIL;
++    }
++    if (d == CH_0) {
++        discard(raw cursor_bump(@p.c));
++        if (raw is_digit(raw cursor_peek(@p.c))) {
++            pass raw pattern_error(PatternErrorKind.UnknownEscape, at, 3i64, CH_0 =>! uint32);
++        }
++        e.named = true;
++        pass NIL;
++    }
++    if (d == CH_LOWER_X) {
++        discard(raw cursor_bump(@p.c));
++        pass raw hex_escape(pat, p, at, e);
++    }
++    if ((d == CH_LOWER_U) || (d == CH_UPPER_U)) {
++        discard(raw cursor_bump(@p.c));
++        int64:n = 4i64;
++        if (d == CH_UPPER_U) { n = 8i64; }
++        pass raw unicode_escape(pat, p, at, e, n);
++    }
++    if (raw is_literal_escape(d)) {
++        discard(raw cursor_bump(@p.c));
++        e.named = true;
++        e.cp = d => int64;
++        pass NIL;
++    }
++    pass NIL;
++};
++
++// `UnknownEscape` for the `\` at `at`: spanning it and the codepoint after it, its detail that
++// codepoint (Y-2, Y-31).
++func:unknown_escape = PatternError?(uint8[]:pat, int64:at) never fails {
++    pass raw pattern_error(PatternErrorKind.UnknownEscape, at, 1i64 + raw utf8_len(pat[at + 1i64] => int64),
++                           raw decode_at(pat, at + 1i64) =>! uint32);
++};
++
++// `\` read at `at`, outside a class. An escape naming a codepoint is a `Literal` spanning it (Y-2, §1's
++// `Escape`); a Perl class or a property is a class, unresolved, here as in a class (Y-37); `\A` and `\z`
++// are anchors 2 and 3, and `\b` and `\B` word boundaries 0 and 1 (§1's `Anchor`, Y-27); and a `\`
++// before any other letter or digit, or before a non-ASCII codepoint, is `UnknownEscape` (RX-204) --
++// §8's escapes among them, until cycle 0.1.5 refuses each by its own kind (Y-30).
+ func:escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:at) never fails {
+     int32:d = raw cursor_peek(@p.c);
+     if (d == CURSOR_END) {
+         pass raw pattern_error(PatternErrorKind.TrailingBackslash, at, 1i64, 0u32);
+     }
+-    if (raw is_ascii_punct(d)) {
+-        discard(raw cursor_bump(@p.c));
+-        drop atom(out, @p.f, AstKind.Literal, d => int64, at, 2i64);
++    Esc:e = Esc{ named: false, byte: false, cp: 0i64 };
++    PatternError?:bad = raw escape_cp(pat, p, at, @e);
++    if (bad != NIL) { pass bad; }
++    if (e.named) {
++        drop atom(out, @p.f, AstKind.Literal, e.cp, at, p.c.pos - at);
+         pass NIL;
+     }
+     if (raw is_class_letter(d)) {
+         discard(raw cursor_bump(@p.c));
+         if ((d == CH_LOWER_P) || (d == CH_UPPER_P)) {
+-            PatternError?:bad = raw read_property(p, at);
+-            if (bad != NIL) { pass bad; }
++            PatternError?:prop = raw read_property(p, at);
++            if (prop != NIL) { pass prop; }
+         }
+         drop atom_node(out, @p.f, raw escape_class_node(pat, p.f.flags, at, d, p.c.pos));
+         pass NIL;
+     }
+-    pass raw pattern_error(PatternErrorKind.UnknownEscape, at, 1i64 + raw utf8_len(d => int64),
+-                           raw decode_at(pat, at + 1i64) =>! uint32);
++    if ((d == CH_UPPER_A) || (d == CH_LOWER_Z)) {
++        discard(raw cursor_bump(@p.c));
++        int64:k = 2i64;
++        if (d == CH_LOWER_Z) { k = 3i64; }
++        drop atom(out, @p.f, AstKind.Anchor, k, at, 2i64);
++        pass NIL;
++    }
++    if ((d == CH_LOWER_B) || (d == CH_UPPER_B)) {
++        discard(raw cursor_bump(@p.c));
++        int64:k = 0i64;
++        if (d == CH_UPPER_B) { k = 1i64; }
++        drop atom(out, @p.f, AstKind.WordBoundary, k, at, 2i64);
++        pass NIL;
++    }
++    pass raw unknown_escape(pat, at);
+ };
+ 
+ // A literal whose first byte `lead` was read at `at`: one codepoint, decoded.
+@@ -838,31 +1029,33 @@ func:class_close = PatternError?(Ast->:out, ClassFrame->:cf, uint32:flags, int64
+     pass NIL;
+ };
+ 
+-// `\` read at `at` inside a class: ASCII punctuation is that codepoint (Y-2); a Perl
+-// class or a property is a class member; any other escape is cycle 0.1.4's, and until
+-// then provisionally `UnknownEscape` (Y-31).
++// `\` read at `at` inside a class: an escape naming a codepoint is a member, which a `-` may make a
++// range's first end (Y-36, RX-204); a Perl class or a property is a class member (Y-37); every other
++// escape is `UnknownEscape` -- `\b`, `\B`, `\A` and `\z` too, since a class holds codepoints and they
++// name positions.
+ func:class_escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame->:cf, int64:at) never fails {
+     int32:d = raw cursor_peek(@p.c);
+     if (d == CURSOR_END) {
+         pass raw pattern_error(PatternErrorKind.TrailingBackslash, at, 1i64, 0u32);
+     }
+-    if (raw is_ascii_punct(d)) {
+-        discard(raw cursor_bump(@p.c));
+-        drop class_one(out, cf, p.f.flags, d => int64, at, 2i64);
++    Esc:e = Esc{ named: false, byte: false, cp: 0i64 };
++    PatternError?:bad = raw escape_cp(pat, p, at, @e);
++    if (bad != NIL) { pass bad; }
++    if (e.named) {
++        drop class_one(out, cf, p.f.flags, e.cp, at, p.c.pos - at);
+         pass NIL;
+     }
+     if (raw is_class_letter(d)) {
+         discard(raw cursor_bump(@p.c));
+         if ((d == CH_LOWER_P) || (d == CH_UPPER_P)) {
+-            PatternError?:bad = raw read_property(p, at);
+-            if (bad != NIL) { pass bad; }
++            PatternError?:prop = raw read_property(p, at);
++            if (prop != NIL) { pass prop; }
+         }
+         int64:n = raw ast_push(out, raw escape_class_node(pat, p.f.flags, at, d, p.c.pos));
+         drop class_add(out, cf, n, at, p.c.pos, AFTER_CLASS);
+         pass NIL;
+     }
+-    pass raw pattern_error(PatternErrorKind.UnknownEscape, at, 1i64 + raw utf8_len(d => int64),
+-                           raw decode_at(pat, at + 1i64) =>! uint32);
++    pass raw unknown_escape(pat, at);
+ };
+ 
+ // Does the pattern hold `want` at `off`, `len` bytes long?
+@@ -917,7 +1110,7 @@ func:posix_class = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame-
+ 
+ // The `-` just read joins the member before it -- one codepoint, the frame's last --
+ // to the one after it, which the caller has seen is there and is no `]` (Y-36): a
+-// codepoint or an escaped punctuation, not below the first (`BadClassRange`, detail 0);
++// codepoint or an escape naming one (RX-204), not below the first (`BadClassRange`, detail 0);
+ // a class there is `BadClassRange`, detail 1. Each spans from the range's first byte
+ // through the byte that made it bad.
+ func:class_range = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame->:cf) never fails {
+@@ -939,12 +1132,11 @@ func:class_range = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame-
+             discard(raw cursor_bump(@p.c));
+             pass raw pattern_error(PatternErrorKind.BadClassRange, lo.pos, p.c.pos - lo.pos, 1u32);
+         }
+-        if (!(raw is_ascii_punct(d))) {
+-            pass raw pattern_error(PatternErrorKind.UnknownEscape, at, 1i64 + raw utf8_len(d => int64),
+-                                   raw decode_at(pat, at + 1i64) =>! uint32);
+-        }
+-        discard(raw cursor_bump(@p.c));
+-        hi = d => int64;
++        Esc:e = Esc{ named: false, byte: false, cp: 0i64 };
++        PatternError?:bad = raw escape_cp(pat, p, at, @e);
++        if (bad != NIL) { pass bad; }
++        if (!e.named) { pass raw unknown_escape(pat, at); }
++        hi = e.cp;
+     }
+     else {
+         int64:n = raw utf8_len(b => int64);
+diff --git a/src/syntax/pattern_error.npk b/src/syntax/pattern_error.npk
+index 6554e7784b144458b269ed81a2eb228887baf97b..fb5174720b3209ae8b73fe8b33c21481b234679e 100644
+--- a/src/syntax/pattern_error.npk
++++ b/src/syntax/pattern_error.npk
+@@ -175,6 +175,70 @@ func:ch = NIL(Bytes->:b, uint32:d) never fails {
+     pass NIL;
+ };
+ 
++// ---- codepoints in a sentence (RX-204) -------------------------------------------
++
++// The first codepoint UTF-8 writes in two bytes, in three, in four (RFC 3629 §3).
++fixed int64:UTF8_TWO = 128i64;
++fixed int64:UTF8_THREE = 2048i64;
++fixed int64:UTF8_FOUR = 65536i64;
++
++// `v` in upper-case hex, at least `min` digits -- a shift and a mask a digit, no division
++// (`SAFETY.md` S-25). `v` is at most U+110000 here, six digits; eight bound the loop.
++func:hex = NIL(Bytes->:b, int64:v, int64:min) never fails {
++    uint8[]:digit = string_bytes("0123456789ABCDEF");
++    int64:n = 1i64;
++    while ((n < 8i64) && ((v >> (4i64 * n)) != 0i64)) decreases 8i64 - n {
++        n = n + 1i64;
++    }
++    if (n < min) { n = min; }
++    while (n > 0i64) decreases n {
++        n = n - 1i64;
++        drop bytes_push(b, digit[(v >> (4i64 * n)) & 15i64]);
++    }
++    pass NIL;
++};
++
++// How many bytes UTF-8 writes the codepoint `cp` in.
++func:utf8_count = int64(int64:cp) never fails {
++    if (cp < UTF8_TWO) { pass 1i64; }
++    if (cp < UTF8_THREE) { pass 2i64; }
++    if (cp < UTF8_FOUR) { pass 3i64; }
++    pass 4i64;
++};
++
++// The `k`th byte, from 0, of the codepoint `cp` in UTF-8.
++func:utf8_at = int64(int64:cp, int64:k) never fails {
++    int64:n = raw utf8_count(cp);
++    if (n == 1i64) { pass cp; }
++    if (k > 0i64) { pass 128i64 | ((cp >> (6i64 * (n - 1i64 - k))) & 63i64); }
++    if (n == 2i64) { pass 192i64 | (cp >> 6i64); }
++    if (n == 3i64) { pass 224i64 | (cp >> 12i64); }
++    pass 240i64 | (cp >> 18i64);
++};
++
++// The codepoint `cp`, written as itself.
++func:utf8 = NIL(Bytes->:b, int64:cp) never fails {
++    int64:k = 0i64;
++    int64:n = raw utf8_count(cp);
++    while (k < n) decreases n - k {
++        drop bytes_push(b, (raw utf8_at(cp, k)) =>! uint8);
++        k = k + 1i64;
++    }
++    pass NIL;
++};
++
++// The codepoint a sentence names: printable ASCII as itself between backticks, and a space, a
++// control, a backtick or anything past ASCII as `U+` and four or more hex digits, so no sentence
++// carries a byte a reader cannot see.
++func:shown = NIL(Bytes->:b, uint32:d) never fails {
++    if ((d > 32u32) && (d < 127u32) && (d != 96u32)) {
++        drop put(b, "`"); drop bytes_push(b, d =>! uint8); drop put(b, "`");
++        pass NIL;
++    }
++    drop put(b, "U+"); drop hex(b, d => int64, 4i64);
++    pass NIL;
++};
++
+ // obligation: never fails
+ //
+ // WHAT IS WRONG, WHERE, AND WHAT TO WRITE INSTEAD (Y-34). One sentence naming the
+@@ -320,20 +384,47 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
+         },
+         (PatternErrorKind.UnknownEscape) {
+             drop put(@b, "unknown escape at byte "); drop num(@b, e.offset);
+-            drop put(@b, ": a `\\` before a letter, a digit or a non-ASCII character must be an escape nregex defines. Write `\\\\` to match a backslash.");
++            if (e.detail == 48u32) {
++                drop put(@b, ": `\\0` before a digit begins an octal escape in Perl, PCRE, Python and Java, and nregex reads no octal. Write the codepoint in hex instead, as in `\\x0A` for `\\012`, or `\\x00` and then the digit for a NUL and a digit.");
++            }
++            else if (e.detail == 98u32) {
++                drop put(@b, ": `\\b` is a word boundary, a position, and a class holds codepoints. Move it out of the class, or write `\\x08` to match a backspace, as Perl and Python read `[\\b]`.");
++            }
++            else if ((e.detail == 66u32) || (e.detail == 65u32) || (e.detail == 122u32)) {
++                drop put(@b, ": `\\"); drop ch(@b, e.detail);
++                drop put(@b, "` matches a position, and a class holds codepoints. Move it out of the class.");
++            }
++            else if (e.detail >= 128u32) {
++                drop put(@b, ": a `\\` before a codepoint past ASCII escapes nothing. Write `");
++                drop utf8(@b, e.detail => int64); drop put(@b, "` without it.");
++            }
++            else {
++                drop put(@b, ": `\\"); drop ch(@b, e.detail);
++                drop put(@b, "` is not an escape nregex defines, and a `\\` before a letter or a digit never stands for that letter or digit. Write `");
++                drop ch(@b, e.detail); drop put(@b, "` to match it, or `\\\\` to match a backslash.");
++            }
+         },
+         (PatternErrorKind.BadHexEscape) {
+             drop put(@b, "bad hex escape at byte "); drop num(@b, e.offset);
+-            drop put(@b, ": `\\x` takes two hex digits, or hex digits in braces, `\\x{...}`.");
++            if (e.detail == NOT_A_CODEPOINT) { drop put(@b, ": the pattern ends inside it."); }
++            else { drop put(@b, ": "); drop shown(@b, e.detail); drop put(@b, " is not a hex digit."); }
++            drop put(@b, " `\\x` takes exactly two hex digits, as in `\\x41`, or one or more in braces, as in `\\x{1F600}`.");
+         },
+         (PatternErrorKind.BadUnicodeEscape) {
+             drop put(@b, "bad Unicode escape at byte "); drop num(@b, e.offset);
+-            drop put(@b, ": `\\u` takes four hex digits and `\\U` eight.");
++            if (e.detail == NOT_A_CODEPOINT) { drop put(@b, ": the pattern ends inside it."); }
++            else { drop put(@b, ": "); drop shown(@b, e.detail); drop put(@b, " is not a hex digit."); }
++            drop put(@b, " `\\u` takes exactly four hex digits, as in `\\u00E9`, and `\\U` exactly eight, as in `\\U0001F600`; a codepoint in braces is `\\x{1F600}`.");
+         },
+         (PatternErrorKind.InvalidCodepoint) {
+             drop put(@b, "invalid codepoint at byte "); drop num(@b, e.offset);
+-            drop put(@b, ": "); drop num(@b, e.detail => int64);
+-            drop put(@b, " is a surrogate or above U+10FFFF, and names no character.");
++            if (e.detail == NOT_A_CODEPOINT) {
++                drop put(@b, ": the escape names a value past U+10FFFF, the last codepoint. Write one from U+0000 to U+10FFFF.");
++            }
++            else {
++                drop put(@b, ": "); drop shown(@b, e.detail);
++                drop put(@b, " is a surrogate, half of a UTF-16 pair, and UTF-8 has no form for it. Write the codepoint the pair stands for, as in `\\x{1F600}` for `\\uD83D\\uDE00`.");
++            }
+         },
+         (PatternErrorKind.DuplicateGroupName) {
+             drop put(@b, "duplicate group name at byte "); drop num(@b, e.offset);
+diff --git a/tests/unit/parse_escape_refusals.npk b/tests/unit/parse_escape_refusals.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..1d33a7d3258d24f8cacfcfd389fecba44d42e7a9
+--- /dev/null
++++ b/tests/unit/parse_escape_refusals.npk
+@@ -0,0 +1,143 @@
++// expect-exit: 0
++//
++// ESCAPES, REFUSED: EVERY REFUSAL CYCLE 0.1.4 MAKES AT AN ESCAPE, WITH ITS OFFSET, LENGTH AND
++// DETAIL (`SYNTAX.md` §9's table, Y-2, Y-40; RX-203, RX-204).
++//
++// Each case parses one pattern through `syntax.npk`'s re-exports and requires the refusal to be
++// EXACTLY this kind at this offset, spanning this many bytes, with this detail -- the four fields a
++// message is built from (Y-10, Y-34). A case that differs exits with its number. Each refusal is at
++// the `\`. A detail that is a codepoint is the one found where a hex digit was due, or
++// `NOT_A_CODEPOINT` where the pattern ended (RX-203); `InvalidCodepoint`'s is a surrogate's value,
++// or `NOT_A_CODEPOINT` for any value past U+10FFFF. §8's escapes -- `\1` … `\9`, `\k`, `\G`, `\Z`,
++// `\Q`, `\E` -- are refused PROVISIONALLY as `UnknownEscape` until cycle 0.1.5 refuses each by its
++// own kind (Y-30), and are not pinned here.
++mod:parse_escape_refusals;
++
++use "../../src/core/core.npk".*;
++use "../../src/syntax/syntax.npk".*;
++
++func:refused = bool(string:pattern, PatternErrorKind:kind, int64:off, int64:len, uint32:detail) never fails {
++    Ast:t = raw ast_init(8i64);
++    PatternError?:r = raw parse_pattern(string_bytes(pattern), @t);
++    drop ast_free(@t);
++    if (r == NIL) { pass false; }
++    PatternError:e = r ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
++    if (e.kind != kind)     { pass false; }
++    if (e.offset != off)    { pass false; }
++    if (e.span_len != len)  { pass false; }
++    pass e.detail == detail;
++};
++
++// `\` and the letter `c`: `UnknownEscape` at byte 0, two bytes, its detail the letter?
++func:unknown = bool(string:pattern, uint32:c) never fails {
++    pass raw refused(pattern, PatternErrorKind.UnknownEscape, 0i64, 2i64, c);
++};
++
++func:run = int32() never fails {
++    // `\x`: two hex digits, or one or more in braces -- through the byte that is no digit, or to
++    // the end
++    if (!(raw refused("\\x", PatternErrorKind.BadHexEscape, 0i64, 2i64, NOT_A_CODEPOINT)))       { pass 1i32; }
++    if (!(raw refused("\\x4", PatternErrorKind.BadHexEscape, 0i64, 3i64, NOT_A_CODEPOINT)))      { pass 2i32; }
++    if (!(raw refused("\\xg", PatternErrorKind.BadHexEscape, 0i64, 3i64, 103u32)))              { pass 3i32; }
++    if (!(raw refused("\\x4g", PatternErrorKind.BadHexEscape, 0i64, 4i64, 103u32)))             { pass 4i32; }
++    if (!(raw refused("\\x{", PatternErrorKind.BadHexEscape, 0i64, 3i64, NOT_A_CODEPOINT)))      { pass 5i32; }
++    if (!(raw refused("\\x{}", PatternErrorKind.BadHexEscape, 0i64, 4i64, 125u32)))             { pass 6i32; }
++    if (!(raw refused("\\x{41", PatternErrorKind.BadHexEscape, 0i64, 5i64, NOT_A_CODEPOINT)))    { pass 7i32; }
++    if (!(raw refused("\\x{4G}", PatternErrorKind.BadHexEscape, 0i64, 5i64, 71u32)))            { pass 8i32; }
++    if (!(raw refused("\\x{4 1}", PatternErrorKind.BadHexEscape, 0i64, 5i64, 32u32)))           { pass 9i32; }
++    if (!(raw refused("\\xé", PatternErrorKind.BadHexEscape, 0i64, 4i64, 233u32)))              { pass 10i32; }
++    if (!(raw refused("a\\x41\\x", PatternErrorKind.BadHexEscape, 5i64, 2i64, NOT_A_CODEPOINT))) { pass 11i32; }
++    if (!(raw refused("[\\x]", PatternErrorKind.BadHexEscape, 1i64, 3i64, 93u32)))              { pass 12i32; }
++    if (!(raw refused("[a-\\x4]", PatternErrorKind.BadHexEscape, 3i64, 4i64, 93u32)))           { pass 13i32; }
++    // `\u` and four hex digits, `\U` and eight -- never braces
++    if (!(raw refused("\\u", PatternErrorKind.BadUnicodeEscape, 0i64, 2i64, NOT_A_CODEPOINT)))   { pass 14i32; }
++    if (!(raw refused("\\u004", PatternErrorKind.BadUnicodeEscape, 0i64, 5i64, NOT_A_CODEPOINT))) { pass 15i32; }
++    if (!(raw refused("\\u{41}", PatternErrorKind.BadUnicodeEscape, 0i64, 3i64, 123u32)))       { pass 16i32; }
++    if (!(raw refused("\\U0001F60", PatternErrorKind.BadUnicodeEscape, 0i64, 9i64, NOT_A_CODEPOINT))) { pass 17i32; }
++    if (!(raw refused("\\U1F600", PatternErrorKind.BadUnicodeEscape, 0i64, 7i64, NOT_A_CODEPOINT))) { pass 18i32; }
++    if (!(raw refused("\\u00G0", PatternErrorKind.BadUnicodeEscape, 0i64, 5i64, 71u32)))        { pass 19i32; }
++    if (!(raw refused("[\\u004]", PatternErrorKind.BadUnicodeEscape, 1i64, 6i64, 93u32)))       { pass 20i32; }
++    // a value that is no codepoint: a surrogate, or past U+10FFFF -- spanning the escape
++    if (!(raw refused("\\x{D800}", PatternErrorKind.InvalidCodepoint, 0i64, 8i64, 55296u32)))   { pass 21i32; }
++    if (!(raw refused("\\x{DFFF}", PatternErrorKind.InvalidCodepoint, 0i64, 8i64, 57343u32)))   { pass 22i32; }
++    if (!(raw refused("\\x{110000}", PatternErrorKind.InvalidCodepoint, 0i64, 10i64, NOT_A_CODEPOINT))) { pass 23i32; }
++    if (!(raw refused("\\x{FFFFFFFFFFFFFFFFFFFF}", PatternErrorKind.InvalidCodepoint, 0i64, 24i64, NOT_A_CODEPOINT))) { pass 24i32; }
++    if (!(raw refused("\\x{0000000000110000}", PatternErrorKind.InvalidCodepoint, 0i64, 20i64, NOT_A_CODEPOINT))) { pass 25i32; }
++    if (!(raw refused("\\uD800", PatternErrorKind.InvalidCodepoint, 0i64, 6i64, 55296u32)))     { pass 26i32; }
++    if (!(raw refused("\\uDBFF\\uDC00", PatternErrorKind.InvalidCodepoint, 0i64, 6i64, 56319u32))) { pass 27i32; }
++    if (!(raw refused("\\U00110000", PatternErrorKind.InvalidCodepoint, 0i64, 10i64, NOT_A_CODEPOINT))) { pass 28i32; }
++    if (!(raw refused("\\U0000DFFF", PatternErrorKind.InvalidCodepoint, 0i64, 10i64, 57343u32))) { pass 29i32; }
++    if (!(raw refused("[\\x{D800}]", PatternErrorKind.InvalidCodepoint, 1i64, 8i64, 55296u32))) { pass 30i32; }
++    if (!(raw refused("[a-\\uDFFF]", PatternErrorKind.InvalidCodepoint, 3i64, 6i64, 57343u32))) { pass 31i32; }
++    // a `\` before a letter that names nothing is never the letter (Y-2): every unassigned one
++    if (!(raw unknown("\\c", 99u32)))  { pass 32i32; }
++    if (!(raw unknown("\\g", 103u32))) { pass 33i32; }
++    if (!(raw unknown("\\h", 104u32))) { pass 34i32; }
++    if (!(raw unknown("\\i", 105u32))) { pass 35i32; }
++    if (!(raw unknown("\\j", 106u32))) { pass 36i32; }
++    if (!(raw unknown("\\l", 108u32))) { pass 37i32; }
++    if (!(raw unknown("\\m", 109u32))) { pass 38i32; }
++    if (!(raw unknown("\\o", 111u32))) { pass 39i32; }
++    if (!(raw unknown("\\q", 113u32))) { pass 40i32; }
++    if (!(raw unknown("\\y", 121u32))) { pass 41i32; }
++    if (!(raw unknown("\\C", 67u32)))  { pass 42i32; }
++    if (!(raw unknown("\\F", 70u32)))  { pass 43i32; }
++    if (!(raw unknown("\\H", 72u32)))  { pass 44i32; }
++    if (!(raw unknown("\\I", 73u32)))  { pass 45i32; }
++    if (!(raw unknown("\\J", 74u32)))  { pass 46i32; }
++    if (!(raw unknown("\\K", 75u32)))  { pass 47i32; }
++    if (!(raw unknown("\\L", 76u32)))  { pass 48i32; }
++    if (!(raw unknown("\\M", 77u32)))  { pass 49i32; }
++    if (!(raw unknown("\\N", 78u32)))  { pass 50i32; }
++    if (!(raw unknown("\\O", 79u32)))  { pass 51i32; }
++    if (!(raw unknown("\\R", 82u32)))  { pass 52i32; }
++    if (!(raw unknown("\\T", 84u32)))  { pass 53i32; }
++    if (!(raw unknown("\\V", 86u32)))  { pass 54i32; }
++    if (!(raw unknown("\\X", 88u32)))  { pass 55i32; }
++    if (!(raw unknown("\\Y", 89u32)))  { pass 56i32; }
++    if (!(raw refused("[\\q]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 113u32)))           { pass 57i32; }
++    if (!(raw refused("[a-\\q]", PatternErrorKind.UnknownEscape, 3i64, 2i64, 113u32)))         { pass 58i32; }
++    // `\0` before a digit, which begins an octal escape elsewhere: the three bytes, detail `0`
++    if (!(raw refused("\\01", PatternErrorKind.UnknownEscape, 0i64, 3i64, 48u32)))             { pass 59i32; }
++    if (!(raw refused("a\\012", PatternErrorKind.UnknownEscape, 1i64, 3i64, 48u32)))           { pass 60i32; }
++    if (!(raw refused("\\08", PatternErrorKind.UnknownEscape, 0i64, 3i64, 48u32)))             { pass 61i32; }
++    if (!(raw refused("[\\00]", PatternErrorKind.UnknownEscape, 1i64, 3i64, 48u32)))           { pass 62i32; }
++    // a `\` before a codepoint past ASCII escapes nothing: spanning it, detail the codepoint
++    if (!(raw refused("\\é", PatternErrorKind.UnknownEscape, 0i64, 3i64, 233u32)))             { pass 63i32; }
++    if (!(raw refused("\\😀", PatternErrorKind.UnknownEscape, 0i64, 5i64, 128512u32)))         { pass 64i32; }
++    if (!(raw refused("[\\€]", PatternErrorKind.UnknownEscape, 1i64, 4i64, 8364u32)))          { pass 65i32; }
++    // an anchor in a class, which holds codepoints and no position
++    if (!(raw refused("[\\b]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 98u32)))            { pass 66i32; }
++    if (!(raw refused("[\\B]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 66u32)))            { pass 67i32; }
++    if (!(raw refused("[\\A]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 65u32)))            { pass 68i32; }
++    if (!(raw refused("[\\z]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 122u32)))           { pass 69i32; }
++    if (!(raw refused("[a-\\b]", PatternErrorKind.UnknownEscape, 3i64, 2i64, 98u32)))          { pass 70i32; }
++    // the first refusal wins, left to right
++    if (!(raw refused("\\x{D800}\\q", PatternErrorKind.InvalidCodepoint, 0i64, 8i64, 55296u32))) { pass 71i32; }
++    if (!(raw refused("\\q\\x{D800}", PatternErrorKind.UnknownEscape, 0i64, 2i64, 113u32)))     { pass 72i32; }
++    if (!(raw refused("[\\x{110000}", PatternErrorKind.InvalidCodepoint, 1i64, 10i64, NOT_A_CODEPOINT))) { pass 73i32; }
++    pass 0i32;
++};
++
++func:main = int32(cstring[]:_~argv) {
++    int32:r = raw run();
++    exit r;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/parse_escapes.npk b/tests/unit/parse_escapes.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..f01c4d060acab7dc9599cb0e85004da6b684c3d5
+--- /dev/null
++++ b/tests/unit/parse_escapes.npk
+@@ -0,0 +1,286 @@
++// expect-exit: 0
++//
++// ESCAPES, ACCEPTED: EVERY ESCAPE CYCLE 0.1.4 READS, AS THE TREE IT BUILDS (`SYNTAX.md` §1's
++// `Escape` and `Anchor`, Y-2, Y-27; RX-204) -- outside a class, where an escape naming a codepoint
++// is a `Literal` spanning it and `\A`, `\z`, `\b` and `\B` are anchors (1-48), and inside one, where
++// it is a member and may end a range or begin one (50-62). Each boundary is taken from both sides:
++// U+D7FF and U+E000 beside the surrogates, U+10FFFF the last codepoint, `\0` before a letter.
++//
++// Each case parses one pattern through `syntax.npk`'s re-exports and writes the tree back as
++// text, in `parse_classes`' forms -- `'a'` a codepoint in printable ASCII and `#233` any other,
++// `(cls …)` a class and `'a'-'z'` a range -- with `^`, `$`, `\A`, `\z`, `\b` and `\B` for the
++// anchors. The span form adds `@pos+len` after each head. The dump checks what the text cannot
++// show: a list's length and its last `next`, a held node in no list, a class holding only member
++// kinds, and every node's flags `AST_FLAG_U` (plus `AST_FLAG_LAZY` on a lazy `Repeat`). A case that
++// differs exits with its number.
++//
++// THE DUMP RECURSES; the parser does not. `check_no_recursion` reads `src/` and not `tests/`
++// (RX-192).
++mod:parse_escapes;
++
++use "../../src/core/core.npk".*;
++use "../../src/syntax/syntax.npk".*;
++
++func:put = NIL(Bytes->:b, string:s) never fails {
++    drop bytes_extend_str(b, s);
++    pass NIL;
++};
++
++func:num = NIL(Bytes->:b, int64:n) never fails {
++    drop bytes_put_uint(b, n =>! uint64);
++    pass NIL;
++};
++
++func:span = NIL(Bytes->:b, AstNode:n, bool:spans) never fails {
++    if (!spans) { pass NIL; }
++    drop put(b, "@"); drop num(b, n.pos); drop put(b, "+"); drop num(b, n.len);
++    pass NIL;
++};
++
++func:cp = NIL(Bytes->:b, int64:c) never fails {
++    if ((c > 32i64) && (c < 127i64)) {
++        drop put(b, "'"); drop bytes_push(b, c =>! uint8); drop put(b, "'");
++    }
++    else { drop put(b, "#"); drop num(b, c); }
++    pass NIL;
++};
++
++func:negatable = bool(AstKind:k) never fails {
++    if ((k == AstKind.Class) || (k == AstKind.PerlClass)) { pass true; }
++    pass (k == AstKind.PosixClass) || (k == AstKind.UnicodeClass);
++};
++
++func:member = bool(AstKind:k) never fails {
++    if (raw negatable(k)) { pass true; }
++    pass (k == AstKind.ClassRange) || (k == AstKind.ClassOp);
++};
++
++// A node's list: `count` members from `first`, each dumped after a space.
++func:list = NIL(uint8[]:pat, Ast:t, int64:first, int64:count, Bytes->:b, bool:spans, bool:inclass) never fails {
++    int64:k = 0i64;
++    int64:m = first;
++    while (k < count) decreases count - k {
++        drop put(b, " ");
++        if (m == AST_NONE) { drop put(b, "!short"); k = count; }
++        else {
++            AstNode:x = raw ast_get(t, m);
++            if (inclass && !(raw member(x.kind))) { drop put(b, "!kind"); }
++            drop dump(pat, t, m, b, spans);
++            m = x.next;
++            k = k + 1i64;
++        }
++    }
++    if (m != AST_NONE) { drop put(b, " !long"); }
++    pass NIL;
++};
++
++// A node an operator or a `Repeat` holds, which no list holds.
++func:held = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
++    drop put(b, " ");
++    AstNode:x = raw ast_get(t, i);
++    if (x.next != AST_NONE) { drop put(b, "!next"); }
++    drop dump(pat, t, i, b, spans);
++    pass NIL;
++};
++
++func:dump = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
++    AstNode:n = raw ast_get(t, i);
++    uint32:want = AST_FLAG_U;
++    if ((n.kind == AstKind.Repeat) && (n.flags == AST_FLAG_U + AST_FLAG_LAZY)) { want = n.flags; }
++    if ((raw negatable(n.kind)) && (n.flags == AST_FLAG_U + AST_FLAG_NEGATED)) { want = n.flags; }
++    if (n.flags != want) { drop put(b, "!flags"); }
++    bool:neg = n.flags == AST_FLAG_U + AST_FLAG_NEGATED;
++    if (n.kind == AstKind.Literal) { drop cp(b, n.a); drop span(b, n, spans); }
++    else if (n.kind == AstKind.Anchor) {
++        if (n.a == 0i64) { drop put(b, "^"); }
++        else if (n.a == 1i64) { drop put(b, "$"); }
++        else if (n.a == 2i64) { drop put(b, "\\A"); }
++        else if (n.a == 3i64) { drop put(b, "\\z"); }
++        else { drop put(b, "!anchor"); }
++        drop span(b, n, spans);
++    }
++    else if (n.kind == AstKind.WordBoundary) {
++        if (n.a == 0i64) { drop put(b, "\\b"); }
++        else if (n.a == 1i64) { drop put(b, "\\B"); }
++        else { drop put(b, "!boundary"); }
++        drop span(b, n, spans);
++    }
++    else if (n.kind == AstKind.ClassRange) {
++        drop cp(b, n.a);
++        if (n.b != n.a) { drop put(b, "-"); drop cp(b, n.b); }
++        drop span(b, n, spans);
++    }
++    else if (n.kind == AstKind.PerlClass) {
++        if (n.a == 0i64) { if (neg) { drop put(b, "\\D"); } else { drop put(b, "\\d"); } }
++        else if (n.a == 1i64) { if (neg) { drop put(b, "\\W"); } else { drop put(b, "\\w"); } }
++        else if (n.a == 2i64) { if (neg) { drop put(b, "\\S"); } else { drop put(b, "\\s"); } }
++        else { drop put(b, "!perl"); }
++        drop span(b, n, spans);
++    }
++    else if (n.kind == AstKind.PosixClass) {
++        drop put(b, "[:");
++        if (neg) { drop put(b, "^"); }
++        drop put(b, raw posix_class_name(n.a));
++        drop put(b, ":]");
++        drop span(b, n, spans);
++    }
++    else if (n.kind == AstKind.UnicodeClass) {
++        if (neg) { drop put(b, "\\P{"); } else { drop put(b, "\\p{"); }
++        int64:k = 0i64;
++        while (k < n.b) decreases n.b - k {
++            drop bytes_push(b, pat[n.a + k]);
++            k = k + 1i64;
++        }
++        drop put(b, "}");
++        drop span(b, n, spans);
++    }
++    else if (n.kind == AstKind.Class) {
++        if (neg) { drop put(b, "(cls^"); } else { drop put(b, "(cls"); }
++        drop span(b, n, spans);
++        drop list(pat, t, n.a, n.b, b, spans, true);
++        drop put(b, ")");
++    }
++    else if (n.kind == AstKind.ClassOp) {
++        if (n.c == 0i64) { drop put(b, "(&&"); }
++        else if (n.c == 1i64) { drop put(b, "(--"); }
++        else if (n.c == 2i64) { drop put(b, "(~~"); }
++        else { drop put(b, "(!op"); }
++        drop span(b, n, spans);
++        drop held(pat, t, n.a, b, spans);
++        drop held(pat, t, n.b, b, spans);
++        drop put(b, ")");
++    }
++    else if ((n.kind == AstKind.Concat) || (n.kind == AstKind.Alternate)) {
++        if (n.kind == AstKind.Concat) { drop put(b, "(cat"); } else { drop put(b, "(alt"); }
++        drop span(b, n, spans);
++        drop list(pat, t, n.a, n.b, b, spans, false);
++        drop put(b, ")");
++    }
++    else if (n.kind == AstKind.Repeat) {
++        if (n.flags == AST_FLAG_U + AST_FLAG_LAZY) { drop put(b, "(rep?"); } else { drop put(b, "(rep"); }
++        drop span(b, n, spans);
++        drop put(b, " "); drop num(b, n.b); drop put(b, " ");
++        if (n.c == AST_NONE) { drop put(b, "-"); } else { drop num(b, n.c); }
++        drop held(pat, t, n.a, b, spans);
++        drop put(b, ")");
++    }
++    else if (n.kind == AstKind.Group) {
++        drop put(b, "(grp");
++        drop span(b, n, spans);
++        if (n.b > 0i64) { drop put(b, " "); drop num(b, n.b); }
++        drop held(pat, t, n.a, b, spans);
++        drop put(b, ")");
++    }
++    else { drop put(b, "?"); }
++    pass NIL;
++};
++
++func:same = bool(Bytes->:b, string:want) never fails {
++    uint8[]:w = string_bytes(want);
++    if ((raw bytes_len(b)) != w.len) { pass false; }
++    int64:i = 0i64;
++    while (i < w.len) decreases w.len - i {
++        if ((raw bytes_get(b, i)) != w[i]) { pass false; }
++        i = i + 1i64;
++    }
++    pass true;
++};
++
++// Parses `pattern`, dumps its tree, and compares the text with `want`.
++func:tree = bool(string:pattern, string:want, bool:spans) never fails {
++    uint8[]:pat = string_bytes(pattern);
++    Ast:t = raw ast_init(8i64);
++    PatternError?:e = raw parse_pattern(pat, @t);
++    Bytes:b = raw bytes_init(64i64);
++    if (e != NIL) { drop put(@b, "!refused"); }
++    else {
++        AstNode:r = raw ast_get(t, t.root);
++        if (r.next != AST_NONE) { drop put(@b, "!next"); }
++        drop dump(pat, t, t.root, @b, spans);
++    }
++    drop ast_free(@t);
++    pass raw same(@b, want);
++};
++
++func:run = int32() never fails {
++    // the control escapes, and `\0` (§1's `Escape`)
++    if (!(raw tree("\\n", "#10@0+2", true)))                                  { pass 1i32; }
++    if (!(raw tree("\\r\\t\\f\\v", "(cat #13 #9 #12 #11)", false)))            { pass 2i32; }
++    if (!(raw tree("\\a\\e", "(cat #7 #27)", false)))                          { pass 3i32; }
++    if (!(raw tree("\\0", "#0@0+2", true)))                                   { pass 4i32; }
++    if (!(raw tree("\\0a", "(cat #0 'a')", false)))                           { pass 5i32; }
++    if (!(raw tree("a\\nb", "(cat@0+4 'a'@0+1 #10@1+2 'b'@3+1)", true)))       { pass 6i32; }
++    // `\x` and two hex digits, either case
++    if (!(raw tree("\\x41", "'A'@0+4", true)))                                { pass 10i32; }
++    if (!(raw tree("\\xff\\xFF\\x00", "(cat #255 #255 #0)", false)))           { pass 11i32; }
++    if (!(raw tree("\\x7e", "'~'", false)))                                   { pass 12i32; }
++    // `\x` and hex digits in braces: any codepoint, the last included, leading zeros read
++    if (!(raw tree("\\x{41}", "'A'@0+6", true)))                              { pass 13i32; }
++    if (!(raw tree("\\x{1F600}", "#128512@0+9", true)))                       { pass 14i32; }
++    if (!(raw tree("\\x{10FFFF}", "#1114111", false)))                        { pass 15i32; }
++    if (!(raw tree("\\x{0000000000000041}", "'A'@0+20", true)))               { pass 16i32; }
++    if (!(raw tree("\\x{D7FF}\\x{E000}", "(cat #55295 #57344)", false)))       { pass 17i32; }
++    if (!(raw tree("\\x{0}", "#0", false)))                                   { pass 18i32; }
++    // `\u` and four, `\U` and eight
++    if (!(raw tree("\\u0041", "'A'@0+6", true)))                              { pass 20i32; }
++    if (!(raw tree("\\u00e9\\uFFFF", "(cat #233 #65535)", false)))            { pass 21i32; }
++    if (!(raw tree("\\uD7FF\\uE000", "(cat #55295 #57344)", false)))           { pass 22i32; }
++    if (!(raw tree("\\U0001F600", "#128512@0+10", true)))                     { pass 23i32; }
++    if (!(raw tree("\\U0010FFFF", "#1114111", false)))                        { pass 24i32; }
++    // a `\` before ASCII that is neither a letter nor a digit is that byte (Y-2): punctuation, a
++    // space, a tab, DEL
++    if (!(raw tree("\\#\\'\\@", "(cat '#' ''' '@')", false)))                  { pass 30i32; }
++    if (!(raw tree("\\ ", "#32@0+2", true)))                                  { pass 31i32; }
++    if (!(raw tree("a\\\tb", "(cat 'a' #9 'b')", false)))                     { pass 32i32; }
++    if (!(raw tree("\\\x7f", "#127", false)))                                 { pass 33i32; }
++    // the anchors (§1's `Anchor`, §6) -- each an atom a quantifier may repeat (Y-22)
++    if (!(raw tree("\\A", "\\A@0+2", true)))                                  { pass 40i32; }
++    if (!(raw tree("\\z", "\\z@0+2", true)))                                  { pass 41i32; }
++    if (!(raw tree("\\b", "\\b@0+2", true)))                                  { pass 42i32; }
++    if (!(raw tree("\\B", "\\B@0+2", true)))                                  { pass 43i32; }
++    if (!(raw tree("^\\Aa\\z$", "(cat ^ \\A 'a' \\z $)", false)))             { pass 44i32; }
++    if (!(raw tree("\\bfoo\\B", "(cat \\b 'f' 'o' 'o' \\B)", false)))         { pass 45i32; }
++    if (!(raw tree("\\b*\\A+", "(cat (rep 0 - \\b) (rep 1 - \\A))", false)))   { pass 46i32; }
++    if (!(raw tree("(\\z|\\B)", "(grp 1 (alt \\z \\B))", false)))             { pass 47i32; }
++    if (!(raw tree("\\b{2}", "(rep@0+5 2 2 \\b@0+2)", true)))                 { pass 48i32; }
++    // inside a class: a member, which may end a range or begin one (Y-36)
++    if (!(raw tree("[\\n]", "(cls@0+4 #10@1+2)", true)))                      { pass 50i32; }
++    if (!(raw tree("[\\x41-\\x5A]", "(cls@0+11 'A'-'Z'@1+9)", true)))         { pass 51i32; }
++    if (!(raw tree("[\\x{1F600}-\\x{1F602}]", "(cls #128512-#128514)", false))) { pass 52i32; }
++    if (!(raw tree("[\\t-\\r]", "(cls #9-#13)", false)))                      { pass 53i32; }
++    if (!(raw tree("[a-\\x{63}]", "(cls 'a'-'c')", false)))                   { pass 54i32; }
++    if (!(raw tree("[\\n-a]", "(cls #10-'a')", false)))                       { pass 55i32; }
++    if (!(raw tree("[\\u0041\\e\\0\\ ]", "(cls 'A' #27 #0 #32)", false)))      { pass 56i32; }
++    if (!(raw tree("[\\x{D7FF}\\x{E000}\\U0010FFFF]", "(cls #55295 #57344 #1114111)", false))) { pass 57i32; }
++    if (!(raw tree("[^\\x00-\\x1F]", "(cls^ #0-#31)", false)))                { pass 58i32; }
++    if (!(raw tree("[\\x41-]", "(cls 'A' '-')", false)))                      { pass 59i32; }
++    if (!(raw tree("[\\-\\x2D]", "(cls '-' '-')", false)))                    { pass 60i32; }
++    if (!(raw tree("[a&&\\x61]", "(cls (&& (cls 'a') (cls 'a')))", false)))  { pass 61i32; }
++    // an escaped member is not written as itself, so a class holding one is a class written as one
++    // (Y-38's note, RX-200): `[:\x61lpha:]` is a class of its codepoints
++    if (!(raw tree("[:\\x61lpha:]", "(cls ':' 'a' 'l' 'p' 'h' 'a' ':')", false))) { pass 62i32; }
++    pass 0i32;
++};
++
++func:main = int32(cstring[]:_~argv) {
++    int32:r = raw run();
++    exit r;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/pattern_error_text.npk b/tests/unit/pattern_error_text.npk
+index 1bb0db595375d7a590e8ba8eb5bfe51f8ffcce05..ca68a3f05eefeb545c8102ed1cdfc87b89da389e 100644
+--- a/tests/unit/pattern_error_text.npk
++++ b/tests/unit/pattern_error_text.npk
+@@ -131,6 +131,19 @@ func:run = int32() never fails {
+         if (!(raw has(s, " at byte 7"))) { pass 40i32; }
+         k = k + 1i64;
+     }
++    // cycle 0.1.4's escapes (Y-40), each sentence to the letter
++    if (!(raw says("\\q", "unknown escape at byte 0: `\\q` is not an escape nregex defines, and a `\\` before a letter or a digit never stands for that letter or digit. Write `q` to match it, or `\\\\` to match a backslash."))) { pass 41i32; }
++    if (!(raw says("a\\012", "unknown escape at byte 1: `\\0` before a digit begins an octal escape in Perl, PCRE, Python and Java, and nregex reads no octal. Write the codepoint in hex instead, as in `\\x0A` for `\\012`, or `\\x00` and then the digit for a NUL and a digit."))) { pass 42i32; }
++    if (!(raw says("[\\b]", "unknown escape at byte 1: `\\b` is a word boundary, a position, and a class holds codepoints. Move it out of the class, or write `\\x08` to match a backspace, as Perl and Python read `[\\b]`."))) { pass 43i32; }
++    if (!(raw says("[\\A]", "unknown escape at byte 1: `\\A` matches a position, and a class holds codepoints. Move it out of the class."))) { pass 44i32; }
++    if (!(raw says("\\é", "unknown escape at byte 0: a `\\` before a codepoint past ASCII escapes nothing. Write `é` without it."))) { pass 45i32; }
++    if (!(raw says("\\x4g", "bad hex escape at byte 0: `g` is not a hex digit. `\\x` takes exactly two hex digits, as in `\\x41`, or one or more in braces, as in `\\x{1F600}`."))) { pass 46i32; }
++    if (!(raw says("\\x{41", "bad hex escape at byte 0: the pattern ends inside it. `\\x` takes exactly two hex digits, as in `\\x41`, or one or more in braces, as in `\\x{1F600}`."))) { pass 47i32; }
++    if (!(raw says("\\x{4 1}", "bad hex escape at byte 0: U+0020 is not a hex digit. `\\x` takes exactly two hex digits, as in `\\x41`, or one or more in braces, as in `\\x{1F600}`."))) { pass 48i32; }
++    if (!(raw says("\\u{41}", "bad Unicode escape at byte 0: `{` is not a hex digit. `\\u` takes exactly four hex digits, as in `\\u00E9`, and `\\U` exactly eight, as in `\\U0001F600`; a codepoint in braces is `\\x{1F600}`."))) { pass 49i32; }
++    if (!(raw says("\\u004", "bad Unicode escape at byte 0: the pattern ends inside it. `\\u` takes exactly four hex digits, as in `\\u00E9`, and `\\U` exactly eight, as in `\\U0001F600`; a codepoint in braces is `\\x{1F600}`."))) { pass 50i32; }
++    if (!(raw says("\\uD83D\\uDE00", "invalid codepoint at byte 0: U+D83D is a surrogate, half of a UTF-16 pair, and UTF-8 has no form for it. Write the codepoint the pair stands for, as in `\\x{1F600}` for `\\uD83D\\uDE00`."))) { pass 51i32; }
++    if (!(raw says("\\x{110000}", "invalid codepoint at byte 0: the escape names a value past U+10FFFF, the last codepoint. Write one from U+0000 to U+10FFFF."))) { pass 52i32; }
+     pass 0i32;
+ };
+ 
