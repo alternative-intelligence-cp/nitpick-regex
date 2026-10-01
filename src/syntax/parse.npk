@@ -400,12 +400,14 @@ func:take_cap = PatternError?(Parser->:p, int64:open) never fails {
     pass NIL;
 };
 
-// `(?<name>` with `(?<` read: the name, its `>`, and the checks on both (Y-8, Y-29).
+// `(?<name>` with `(?<` read: the name, its `>`, and the checks on both (Y-8, Y-29). A pattern
+// that ends inside the name is `BadGroupName` with `NOT_A_CODEPOINT`, which no codepoint is, so a
+// NUL in the name keeps its own detail, 0 (RX-203).
 func:named_group = PatternError?(uint8[]:pat, Parser->:p, int64:open) never fails {
     int64:start = p.c.pos;
     int32:b = raw cursor_peek(@p.c);
     if (b == CURSOR_END) {
-        pass raw pattern_error(PatternErrorKind.BadGroupName, start, 0i64, 0u32);
+        pass raw pattern_error(PatternErrorKind.BadGroupName, start, 0i64, NOT_A_CODEPOINT);
     }
     if (b == CH_GT) {
         pass raw pattern_error(PatternErrorKind.BadGroupName, start, 1i64, CH_GT =>! uint32);
@@ -420,7 +422,7 @@ func:named_group = PatternError?(uint8[]:pat, Parser->:p, int64:open) never fail
     int64:len = p.c.pos - start;
     int32:t = raw cursor_peek(@p.c);
     if (t == CURSOR_END) {
-        pass raw pattern_error(PatternErrorKind.BadGroupName, start, len, 0u32);
+        pass raw pattern_error(PatternErrorKind.BadGroupName, start, len, NOT_A_CODEPOINT);
     }
     if (t != CH_GT) {
         pass raw pattern_error(PatternErrorKind.BadGroupName, p.c.pos, raw utf8_len(t => int64),

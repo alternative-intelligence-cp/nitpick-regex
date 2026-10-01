@@ -5059,3 +5059,25 @@ the wider widths and the left side as blind as before; **every literal above som
 compared or not** — another check, the one its own docstring says would be switched off within a week; **the
 reader in `harness/lexical.py`** — that module finds the spans that are not code and nothing else, and one check
 reads numbers; **the blindness left to the compiler** — the rule is this library's (S-12), not the language's.
+
+### RX-203 — a detail whose domain is a codepoint says the pattern ended with `NOT_A_CODEPOINT`, U+110000, which no codepoint is — so a NUL in a group name reads right
+
+**2026-10-01, cycle 0.1.4 (the plan's PD-47), at compiler `5fbaf4a`** — `SYNTAX.md` Y-29 and §9; the cycle 0.1.1 record's
+finding, carried since by every stream-1 dispatch. `BadGroupName`'s detail is the codepoint where a name goes wrong,
+and was 0 where the pattern ended inside the name — and 0 is U+0000's value too. Measured at `5fbaf4a`: `(?<a` NUL
+`>x)` is `BadGroupName` at byte 4, one byte, detail 0, and `(?<a` at the end is `BadGroupName` at byte 3, one byte,
+detail 0; the text reads only the detail, so the NUL read *"the name has no closing `>`"*, at the right byte with the
+wrong reason.
+
+**The decision.** `pattern_error.npk` declares `NOT_A_CODEPOINT`, U+110000, one past the last codepoint, and a detail
+whose domain is a codepoint uses it to say what no codepoint can: that the pattern ended where one was due. An
+unfinished name is `BadGroupName` with it, and a NUL in a name keeps 0 and reads *"a name is ASCII letters, digits
+and `_`, and does not begin with a digit"* (`tests/unit/pattern_error_text.npk` case 39). The kinds this cycle's
+escapes produce take it too. `UnknownUnicodeProperty`'s details are reasons, not codepoints, and do not move: 1, 2
+and 3 cycle 0.1.3's, 0 left for cycle 0.3's unknown name.
+
+*Alternatives declined:* **`0xFFFFFFFF`, the largest detail** — outside the domain as well, but U+110000 is the
+nearest value no codepoint takes, and the one a value past U+10FFFF needs, so one constant serves both;
+**the length to tell them apart** — measured, both are one byte; **a kind of its own for an unfinished name** — a
+kind per sentinel, where one constant serves every kind with a codepoint for a detail; **a NUL refused before the
+name is read** — the name's rule refuses it already, and what was wrong was the field.

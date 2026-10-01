@@ -38,6 +38,7 @@ pub use "./pattern_error.npk".PatternErrorKind;
 pub use "./pattern_error.npk".PatternError;
 pub use "./pattern_error.npk".pattern_error;
 pub use "./pattern_error.npk".pattern_error_text;
+pub use "./pattern_error.npk".NOT_A_CODEPOINT;
 
 // ---- the POSIX class names, `SYNTAX.md` §5.1's list (Y-38) -----------------------
 pub use "./pattern_error.npk".POSIX_CLASS_NAMES;

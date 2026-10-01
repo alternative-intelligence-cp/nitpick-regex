@@ -225,6 +225,8 @@ a group is `UnclosedGroup` at the INNERMOST open `(`, its detail how many are op
 `NREGEX_NEST_DEPTH`. Then it is `NestTooDeep` before anything this rule decides — its
 number, its name, or a `(?` the pattern ends on — so 251 nested `(` are `NestTooDeep`
 at byte 250, never `TooManyCaptureGroups` (Y-35).)*
+*(2026-10-01, cycle 0.1.4 — RX-203: where the pattern ends inside a name, the detail is `NOT_A_CODEPOINT`, U+110000,
+not 0, which is U+0000's value too: a NUL in a name is `BadGroupName` at the NUL, detail 0.)*
 
 **Rule Y-30 (RX-185) — the refusals of §8 that a group head or a quantifier spells
 are made where they are read**, each at the `(`, spanning the head read, its detail
@@ -579,7 +581,7 @@ RX-197)*:
 | `RepeatTooLarge` | a bound above `NREGEX_REPEAT_MAX` | its first digit | its digits | the bound |
 | `TooManyCaptureGroups` | a group numbered past `NREGEX_CAPTURE_GROUPS` — *not one nested past `NREGEX_NEST_DEPTH`, which is `NestTooDeep` first (Y-35)* | its `(` | 1 | the bound |
 | `DuplicateGroupName` | a name already used | the second name | its length | the first group's number |
-| `BadGroupName` | an empty, malformed or unfinished name | the bad character; for an unfinished one the name | the character's bytes; what was read | its codepoint; 62 when empty; 0 when unfinished |
+| `BadGroupName` | an empty, malformed or unfinished name | the bad character; for an unfinished one the name | the character's bytes; what was read | its codepoint; 62 when empty; `NOT_A_CODEPOINT` when unfinished — *0 until cycle 0.1.4, U+0000's value too (RX-203)* |
 | `WrongNamedGroupSpelling` | `(?P<` or `(?'` | the `(` | the head | 80 or 39 |
 | `LookaroundUnsupported`, `AtomicGroupUnsupported`, `RecursionUnsupported`, `BackreferenceUnsupported`, `UnsupportedGroup` | Y-30's group heads | the `(` | the head | its last byte |
 | `AtomicGroupUnsupported` | a quantifier made possessive | the quantifier | through the `+` | 43 |
@@ -592,6 +594,10 @@ RX-197)*:
 | `UnknownPosixClass` (cycle 0.1.3) | `[:` inside a class that opens no `[:name:]` or `[:^name:]` with a name of §5.1 | its `[` | what was read | 0 |
 | `UnknownPosixClass` (cycle 0.1.3, RX-200) | an outermost class whose every member is one codepoint written as itself, the first and the last `:` and another not | its `[` | the class | the name's place in §5.1's list plus one; 0 when the bytes name none |
 | `UnknownUnicodeProperty` (cycle 0.1.3) | `\p` or `\P` whose name cannot be read | the `\` | what was read | 1, no letter or `{` after it; 2, no `}`; 3, empty braces — 0 is cycle 0.3's, a name it does not know |
+
+*(2026-10-01, cycle 0.1.4 — RX-203: a detail whose domain is a codepoint — the one a refusal found where it wanted
+another — says what no codepoint can with `NOT_A_CODEPOINT`, U+110000, one past the last: that the pattern ended
+where a codepoint was due. `UnknownUnicodeProperty`'s details are reasons, not codepoints, and keep their values.)*
 
 *(2026-09-27, cycle 0.1.1 — RX-181: thirty-six, `EmptyAlternate` retired.)*
 *(2026-09-26, cycle 0.1.0 — RX-172: `src/syntax/pattern_error.npk`'s

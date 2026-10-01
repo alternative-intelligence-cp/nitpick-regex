@@ -116,6 +116,13 @@ func:run = int32() never fails {
     // a whole class in a POSIX class's own form (Y-38, RX-200)
     if (!(raw says("[:alpha:]", "POSIX class outside a class at byte 0: `[:alpha:]` is the POSIX class alpha only inside a class, and written as a class of its own its bytes are its members, `:` and the letters in `alpha`. Write `[[:alpha:]]` for the POSIX class, `[[:^alpha:]]` for its complement, or `[\\:alpha:]` for its bytes."))) { pass 37i32; }
     if (!(raw says("[:alhpa:]", "unknown POSIX class at byte 0: a POSIX class is `[:name:]` inside a class, as in `[[:alpha:]]`, and the names are alpha, digit, alnum, space, upper, lower, punct, print, graph, cntrl, xdigit, blank, word and ascii. Write `\\:` to match a `:`."))) { pass 38i32; }
+    // a NUL in a name reads as the malformed name it is, not as an unfinished one (RX-203)
+    uint8[8]:nul = [40u8, 63u8, 60u8, 97u8, 0u8, 62u8, 120u8, 41u8];
+    Ast:tn = raw ast_init(4i64);
+    PatternError?:rn = raw parse_pattern(nul[0i64...8i64], @tn);
+    drop ast_free(@tn);
+    PatternError:en = rn ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
+    if (!(raw same(raw pattern_error_text(en), "bad group name at byte 4: a name is ASCII letters, digits and `_`, and does not begin with a digit."))) { pass 39i32; }
     // every kind renders a sentence naming its byte
     int64:k = 0i64;
     while (k < 36i64) decreases 36i64 - k {

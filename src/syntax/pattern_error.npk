@@ -118,6 +118,16 @@ pub func:pattern_error = PatternError(PatternErrorKind:kind, int64:offset, int64
     pass PatternError{ kind: kind, offset: offset, span_len: span_len, detail: detail };
 };
 
+// ---- a detail that names no codepoint (`SYNTAX.md` §9; RX-203) ------------------------
+
+// U+110000, one past the last codepoint, U+10FFFF. A refusal whose detail is a codepoint --
+// the one it found where it wanted another -- says with this what no codepoint can: that the
+// pattern ENDED where one was due (`BadGroupName`, `BadHexEscape`, `BadUnicodeEscape`), or that
+// an escape named a value past the last (`InvalidCodepoint`). Until cycle 0.1.4 `BadGroupName`
+// said the first with 0, which is U+0000's value too, so a NUL in a name read "the name has no
+// closing `>`" (0.1.1's record).
+pub fixed uint32:NOT_A_CODEPOINT = 1114112u32;
+
 // ---- the POSIX class names (`SYNTAX.md` §5.1, Y-38; RX-197) ----------------------
 
 // How many names §5.1 lists. A `PosixClass` node's `a` is a name's place in that list,
@@ -332,7 +342,7 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
         },
         (PatternErrorKind.BadGroupName) {
             drop put(@b, "bad group name at byte "); drop num(@b, e.offset);
-            if (e.detail == 0u32) {
+            if (e.detail == NOT_A_CODEPOINT) {
                 drop put(@b, ": the name has no closing `>`. End it with `>`, as in `(?<name>...)`.");
             }
             else if (e.detail == 62u32) {

@@ -22,8 +22,13 @@ use "../../src/core/core.npk".*;
 use "../../src/syntax/syntax.npk".*;
 
 func:refused = bool(string:pattern, PatternErrorKind:kind, int64:off, int64:len, uint32:detail) never fails {
+    pass raw refused_bytes(string_bytes(pattern), kind, off, len, detail);
+};
+
+// The same, for a pattern a string literal cannot hold -- one with a NUL in it.
+func:refused_bytes = bool(uint8[]:pat, PatternErrorKind:kind, int64:off, int64:len, uint32:detail) never fails {
     Ast:t = raw ast_init(8i64);
-    PatternError?:r = raw parse_pattern(string_bytes(pattern), @t);
+    PatternError?:r = raw parse_pattern(pat, @t);
     drop ast_free(@t);
     if (r == NIL) { pass false; }
     PatternError:e = r ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
@@ -72,12 +77,15 @@ func:run = int32() never fails {
     if (!(raw refused("a{0,1001}", PatternErrorKind.RepeatTooLarge, 4i64, 4i64, 1000u32))) { pass 34i32; }
     if (!(raw refused("a{99999999999999999999}", PatternErrorKind.RepeatTooLarge, 2i64, 20i64, 1000u32))) { pass 35i32; }
     if (!(raw refused("a{2000,1}", PatternErrorKind.RepeatTooLarge, 2i64, 4i64, 1000u32))) { pass 36i32; }
-    // groups (Y-29, Y-30)
+    // groups (Y-29, Y-30) -- and a NUL in a name, its detail 0, U+0000's, since the end of the
+    // pattern is `NOT_A_CODEPOINT` (39; RX-203)
+    uint8[8]:nul = [40u8, 63u8, 60u8, 97u8, 0u8, 62u8, 120u8, 41u8];
+    if (!(raw refused_bytes(nul[0i64...8i64], PatternErrorKind.BadGroupName, 4i64, 1i64, 0u32))) { pass 39i32; }
     if (!(raw refused("(?<>a)", PatternErrorKind.BadGroupName, 3i64, 1i64, 62u32)))   { pass 40i32; }
     if (!(raw refused("(?<1a>x)", PatternErrorKind.BadGroupName, 3i64, 1i64, 49u32))) { pass 41i32; }
     if (!(raw refused("(?<a-b>x)", PatternErrorKind.BadGroupName, 4i64, 1i64, 45u32))) { pass 42i32; }
-    if (!(raw refused("(?<ab", PatternErrorKind.BadGroupName, 3i64, 2i64, 0u32)))     { pass 43i32; }
-    if (!(raw refused("(?<", PatternErrorKind.BadGroupName, 3i64, 0i64, 0u32)))       { pass 44i32; }
+    if (!(raw refused("(?<ab", PatternErrorKind.BadGroupName, 3i64, 2i64, NOT_A_CODEPOINT))) { pass 43i32; }
+    if (!(raw refused("(?<", PatternErrorKind.BadGroupName, 3i64, 0i64, NOT_A_CODEPOINT)))   { pass 44i32; }
     if (!(raw refused("(?<é>x)", PatternErrorKind.BadGroupName, 3i64, 2i64, 233u32))) { pass 45i32; }
     if (!(raw refused("(?<n>a)(?<n>b)", PatternErrorKind.DuplicateGroupName, 10i64, 1i64, 1u32))) { pass 46i32; }
     if (!(raw refused("(a)(?<x>b)(?<x>c)", PatternErrorKind.DuplicateGroupName, 13i64, 1i64, 2u32))) { pass 47i32; }
