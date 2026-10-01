@@ -24,14 +24,24 @@ Cycle 0.0.2 picks them up as the harness's first `program`-stage entries.
 
 | Directory | Files | Declared as | Judged by |
 |---|---|---|---|
-| `tests/probe/` | **24**, each `// expect-exit: N` | `probe`, stage `program` | it compiles, links, runs, and exits with that code — at −O0 and again under `opt -O2` |
+| `tests/probe/` | **25**, each `// expect-exit: N` | `probe`, stage `program` | it compiles, links, runs, and exits with that code — at −O0 and again under `opt -O2` |
 | `tests/probe/refused/` | **8**, each `// expect-error: CODE` | `probe-refused`, stage `compile`, kind `negative` | `npkc` exits **1** and reports **exactly** that code set (B-7, D-237) |
 
-> **The split is 24 / 8, and 32 is the count of probes in this repository.** It
+> **The split is 25 / 8, and 33 is the count of probes in this repository.** It
 > was 16 / 7, then 17 / 6, then 19 / 6, then 22 / 5, then 22 / 6, then 24 / 7, then
-> 25 / 7, and
+> 25 / 7, then 24 / 8, and
 > every move was a probe changing directory or name because the compiler changed its
 > answer — not a probe being deleted, which P-5 forbids — or a probe ADDED.
+>
+> **2026-10-01, cycle 0.1.2 (RX-191).** `probe19_native_recursion_traps.npk` (exit
+> 106) is new: a recursive descent of the parser's frame size, handed 2^20 levels,
+> leaves through `failsafe`'s `StackExhausted` arm at both legs — since `c3bdae2`
+> every emitted function checks its stack before its frame exists (the compiler's
+> D-305), so a stack overflow is a controlled trap and not the segfault RX-032 and
+> `SAFETY.md` S-18 gave as their reason. The rule stands — a trap ends the whole
+> program, where probe 05's explicit stack refuses and returns — and this probe
+> re-measures the language's answer on every run. Its header has the depths each leg
+> stops at, and says what to do when it reddens.
 >
 > **2026-09-27, cycle 0.1.0b, at the re-pin to `5fbaf4a` (RX-176).**
 > `probe18_impl_adds_move.npk` moved INTO `refused/`: an impl declaring `move` on a

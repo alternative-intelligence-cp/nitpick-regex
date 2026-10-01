@@ -1,0 +1,111 @@
+// expect-exit: 106
+//
+// PROBE 19 — a native recursion deeper than its stack, and what the program does.
+//
+// ASKS: a recursive descent over nested `(` -- one native frame per level, each
+// carrying a frame the size of `src/syntax/parse.npk`'s `Frame` -- handed
+// 1 048 576 levels, far past what any thread's stack holds. Does the program die
+// of a signal, run on past its stack in silence, or stop under control?
+//
+// DEPENDS ON THE ANSWER: `SAFETY.md` S-18 and RX-032 -- a pattern's nesting is held
+// on an explicit stack, never on native recursion -- and RX-191, which restates
+// their reason. Until cycle 0.1.2 both said "the language has no stack-depth guard
+// -- the failure is a segfault", which was true of the compiler RX-032 was written
+// against and has not been since `c3bdae2`.
+//
+// THE ANSWER AT `5fbaf4a`: A CONTROLLED TRAP, `StackExhausted`. Every function the
+// compiler emits checks in its prologue, BEFORE its frame exists, that the frame
+// fits under its thread's stack limit (the compiler's D-305) -- only a leaf with no
+// frame skips the check, and a recursive function is no leaf; the floor's
+// `__morestack` enters the trap route, and `failsafe` runs on a stack of its own.
+// So this program leaves through `failsafe`'s `StackExhausted` arm, 106, at -O0 and
+// through `opt -O2` alike -- never on a signal.
+//
+// AND THE DEPTH IT STOPS AT IS NOT THE LIBRARY'S TO KNOW. Measured at `5fbaf4a`
+// with this file, `LEVELS` set by `sed`: it runs 16 911 levels and traps at
+// 16 912 at -O0, and runs 52 425 and traps at 52 426 through `opt -O2` -- so 10 000
+// trap at neither leg, and 65 536, the longest pattern `NREGEX_PATTERN_BYTES`
+// admits, all `(`, at both. Each edge is the same on every run, because the main
+// thread runs on the floor's own 8 MiB stack whatever the shell's `ulimit` (D-305
+// (3)); but a spawned thread has 2 MiB, and the frame is the optimiser's to size.
+//
+// WHY THE RULE STANDS ON THIS ANSWER (RX-191). A trap is a controlled stop, but of
+// the WHOLE PROGRAM: `failsafe` does not return, so a consumer handed a hostile
+// pattern would lose its process where it is owed a `PatternError`. Probe 05 is the
+// other half: an explicit stack refuses at depth 251 and returns.
+//
+// A NEGATIVE VERDICT is a finding for the compiler seat, and changes nothing in
+// S-18: exit 1 means the recursion ran all 1 048 576 levels -- a stack or a frame
+// changed by a factor of twenty -- and `-11` means D-305's check is gone and a
+// stack overflow is a SIGSEGV again.
+mod:probe19_native_recursion_traps;
+
+// How deep the recursion is asked to go: 2^20 levels.
+fixed int64:LEVELS = 1048576i64;
+
+// Thirteen fields, as `src/syntax/parse.npk`'s `Frame` -- copied, since a probe
+// imports nothing from `src/` (P-1).
+#[derive(Copy)]
+struct:Fr = {
+    int64:a0; int64:a1; int64:a2; int64:a3; int64:a4; int64:a5; int64:a6;
+    int64:a7; int64:a8; int64:a9; int64:a10; int64:a11; uint32:fl;
+};
+
+// RECURSIVE DESCENT, THE SHAPE RX-032 FORBIDS. At `pat[i]`, a `(`: the index after
+// its `)`, or -1 when the pattern ends first. One native frame per level of nesting,
+// each holding a copy of the frame above it. The call sits inside the loop, so no
+// optimiser can turn it into a jump.
+func:rd = int64(uint8[]:pat, int64:i, Fr:outer) never fails {
+    Fr:f = outer;
+    f.a0 = i;
+    int64:j = i + 1i64;
+    while (j < pat.len) decreases pat.len - j {
+        if (pat[j] == 40u8) {
+            int64:k = raw rd(pat, j, f);
+            if (k < 0i64) { pass k; }
+            j = k;
+        }
+        else if (pat[j] == 41u8) { pass j + 1i64; }
+        else { j = j + 1i64; }
+    }
+    pass 0i64 - 1i64;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    // `(` doubled until there are `LEVELS` of them, then viewed `LEVELS` long. Every
+    // intermediate is BOUND (probe 05's note): reassigning `t` frees its old body, so
+    // this peaks at the final size.
+    string:t = string_concat("(", "");
+    int64:n = 1i64;
+    int64:k = 0i64;
+    while (n < LEVELS) decreases 64i64 - k {
+        t = string_concat(t, t);
+        n = n * 2i64;
+        k = k + 1i64;
+    }
+    uint8[]:all = string_bytes(t);
+    uint8[]:pat = all[0i64...LEVELS];
+    Fr:z = Fr{ a0: 0i64, a1: 0i64, a2: 0i64, a3: 0i64, a4: 0i64, a5: 0i64, a6: 0i64,
+               a7: 0i64, a8: 0i64, a9: 0i64, a10: 0i64, a11: 0i64, fl: 0u32 };
+    int64:r = raw rd(pat, 0i64, z);
+    // Reached only if the recursion held every level: the pattern has no `)`, so it
+    // answers -1.
+    if (r < 0i64) { exit 1i32; }
+    exit 2i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

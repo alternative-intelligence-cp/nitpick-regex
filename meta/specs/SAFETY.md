@@ -860,6 +860,17 @@ controls.** The pattern parser uses an **explicit stack** with
 `((((((…` blows the call stack, and the language has no stack-depth guard —
 the failure is a segfault, not a controlled stop, which is precisely what this
 ecosystem exists to prevent.
+*(2026-10-01, cycle 0.1.2 — RX-191: the reason above has been false since
+`c3bdae2`. Every function the compiler emits checks its stack before its frame
+exists (the compiler's D-305), so a recursion deeper than its stack traps
+`StackExhausted` and leaves through `failsafe` — a controlled stop, never a
+segfault: `tests/probe/probe19_native_recursion_traps.npk`, exit 106 at both legs
+at `5fbaf4a`. The rule stands for what remains true: a trap ends the consumer's
+whole program where it is owed a `PatternError`, and the depth a recursion
+survives is the frame the optimiser sizes and the stack the caller's thread was
+given — a recursion of the parser's frame size runs 16 911 levels at −O0 and
+52 425 through `opt -O2` on the main thread's 8 MiB, neither the library's to
+know.)*
 
 **Rule S-19 — the same rule applies to every HIR and program walk.** Desugaring,
 literal extraction and program emission all walk a tree that a pattern

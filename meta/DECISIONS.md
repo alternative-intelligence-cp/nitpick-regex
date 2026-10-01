@@ -256,6 +256,10 @@ change a visible diff rather than behaviour nobody can inspect. The alternative
 string, and would dangle on the first `Vec` growth in any case.
 
 ### RX-032 — the parser uses an explicit stack, never native recursion
+> **SUPERSEDED IN PART by RX-191 (2026-10-01)** — its reason, *"the language has no stack-depth
+> guard — the failure is a segfault"*: since `c3bdae2` every emitted function checks its stack
+> before its frame exists (the compiler's D-305), so a recursion deeper than its stack traps
+> `StackExhausted`, a controlled stop of the whole program. The rule stands, for RX-191's reasons.
 **2026-09-03.** A recursive-descent parser on `((((((…` blows the call stack,
 and the language has no stack-depth guard — the failure is a segfault, not a
 controlled stop, which is precisely what this ecosystem exists to prevent. The
@@ -4672,3 +4676,38 @@ struct would then pass the run, the second half of S-23a unchecked; **narrowing 
 `Vec` of pointers is a `Vec` of blocks some other owner must free, which is the orphaning RX-155 measured, one
 level down; **teaching the check the compiler's `Copy` rule** — a second copy of a rule the compiler already
 enforces, which is what a belt is for and a rule is not.
+
+## The explicit stack's bound — cycle 0.1.2
+
+### RX-191 — RX-032's reason, measured: a recursion deeper than its stack traps `StackExhausted` since `c3bdae2`, and the explicit stack stands because a trap ends the whole program
+
+**2026-10-01, cycle 0.1.2 (the plan's PD-35), at compiler `5fbaf4a`.** It supersedes in part RX-032 — its reason,
+*"the language has no stack-depth guard — the failure is a segfault, not a controlled stop"* — and the same reason
+restated in `SAFETY.md` S-18, `src/core/limits.npk` and probe 05. Each was true of the compiler RX-032 was written
+against. Since `c3bdae2` every function the compiler emits carries LLVM's split-stack prologue, which compares the
+stack against its thread's limit before the function's frame exists — only a leaf with no frame skips it, and a
+recursive function is no leaf — and `failsafe` runs on a stack of its own (the compiler's D-305).
+
+**Measured at `5fbaf4a`.** A recursive descent over nested `(` — one native frame per level, each holding a copy
+of a frame the size of `parse.npk`'s `Frame` — handed more levels than its stack holds leaves through `failsafe`'s
+`StackExhausted` arm, at −O0 and through `opt -O2`, never on a signal: `tests/probe/probe19_native_recursion_traps.npk`,
+2^20 levels, exit 106 at both legs. The depth it stops at, the probe's `LEVELS` set by `sed`: it runs 16 911
+levels and traps at 16 912 at −O0, and runs 52 425 and traps at 52 426 through `opt -O2`, each edge the same on
+twenty runs of each side, because the main thread runs on the floor's own 8 MiB stack whatever the shell's
+`ulimit` (D-305 (3)). So 10 000 levels trap at neither leg, and 65 536 — the longest pattern
+`NREGEX_PATTERN_BYTES` admits, all `(` — traps at both.
+
+**The decision.** RX-032 and S-18 stand, and their reason is restated. A trap is a controlled stop of the WHOLE
+PROGRAM — `failsafe` does not return — so a consumer handed a hostile pattern would lose its process where S-9
+owes it a `PatternError`. And the depth a recursion survives is the frame the optimiser sizes and the stack the
+caller's thread was given — a spawned thread has 2 MiB (D-305 (3)) — and differs threefold between two legs of
+one program, so the library cannot know it. The parser holds its nesting on an explicit stack and refuses at
+`NREGEX_NEST_DEPTH`. Probe 19 records the language's answer and re-derives it on every run.
+
+*Alternatives declined:* **leave RX-032's reason as written** — a rule whose stated reason is false is argued
+with on that reason, and the next reader to meet the trap would take the rule for obsolete; **retire the explicit
+stack because the language now stops a runaway recursion** — the stop is the process's and not the parse's, and
+S-18 is about adversarial input, which is owed a refusal; **record the measured depths as the library's bound** —
+they are the optimiser's and the thread's, a factor of three apart between the two legs; **a dated note on RX-032
+without a probe** — a pin-dependent measurement recorded as a permanent property is RX-120's lesson, and a probe
+re-measures it on every run.

@@ -38,6 +38,9 @@ pub fixed int64:NREGEX_PATTERN_BYTES = 65536i64;
 // would be a segfault rather than a controlled stop. Probe 05 measured the
 // shape at exactly this bound: 250 parses, 251 is refused at byte 250, and
 // 10 000 is refused at depth 251 with the program surviving.
+// *(2026-10-01, cycle 0.1.2 — RX-191: since `c3bdae2` the language has that guard —
+// a recursion deeper than its stack traps `StackExhausted` (the compiler's D-305;
+// probe 19) — and a trap ends the whole program, so the explicit stack stands.)*
 pub fixed int64:NREGEX_NEST_DEPTH = 250i64;
 
 // ---- the compiled program --------------------------------------------------

@@ -34,6 +34,14 @@
 // So the assertion below is not "10 000 works". It is **"10 000 is REFUSED, by
 // name, having consumed bounded memory, and the program is still running
 // afterwards to say so"** -- which is only observable because nothing crashed.
+// *(2026-10-01, cycle 0.1.2 -- RX-191, measured at `5fbaf4a`: not a SIGSEGV since
+// `c3bdae2`. A recursion deeper than its stack traps `StackExhausted` and leaves
+// through `failsafe` (the compiler's D-305; probe 19). And 10 000 levels do not
+// exhaust it: a recursive descent of the parser's frame size runs 16 911 levels at
+// -O0 and 52 425 through `opt -O2` on the main thread's 8 MiB, so this probe's
+// 10 000 shows the bound stopping the parser, not the hazard -- 65 536, the longest
+// pattern, traps at both legs. The rule stands: a trap ends the whole program, where
+// this probe's refusal returns.)*
 //
 // ==========================================================================
 // `stack` IS A RESERVED WORD, AND IT IS THE OBVIOUS NAME FOR THIS PROBE
@@ -264,6 +272,8 @@ func:main = int32(cstring[]:_~argv) {
 
     // THE PROBE'S REASON FOR EXISTING. A recursive-descent parser dies here
     // with a SIGSEGV, which no `failsafe` can catch and no bound can prevent.
+    // *(Not at `5fbaf4a`: it runs 10 000 levels, and deeper it traps
+    // `StackExhausted` -- the header's note of 2026-10-01, RX-191.)*
     // This one refuses at depth 251 and returns, and the fact that the next
     // line executes at all IS the result.
     string:huge = raw nest_of(10000i64);
@@ -277,7 +287,8 @@ func:main = int32(cstring[]:_~argv) {
     if (rh.at != 250i64)                                { exit 42i32; }
     if (rh.max_depth != 250i64)                         { exit 43i32; }
 
-    // And the program is still running, which a segfault would have prevented.
+    // And the program is still running, which a segfault would have prevented
+    // (a `StackExhausted` trap since `c3bdae2`, RX-191).
     exit 0i32;
 };
 
