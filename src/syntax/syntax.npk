@@ -18,6 +18,10 @@
 // punctuation, and flags are the subcycles' after it (Y-31).
 // SINCE CYCLE 0.1.2 ITS STACK IS BOUNDED: a `(` that would nest groups deeper than
 // `NREGEX_NEST_DEPTH` is `NestTooDeep` at that `(` (Y-35, RX-193).
+// SINCE CYCLE 0.1.3 IT PARSES CLASSES -- members, ranges, nested classes, the
+// operators, Perl classes, properties and POSIX classes inside a class, unresolved
+// (Y-36 … Y-38, RX-197) -- groups and classes nesting at most `NREGEX_NEST_DEPTH` deep
+// together (RX-198).
 //
 // EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1
 // and 3): `use` is not transitive, a plain `use` re-exports nothing, and one
@@ -34,6 +38,10 @@ pub use "./pattern_error.npk".PatternErrorKind;
 pub use "./pattern_error.npk".PatternError;
 pub use "./pattern_error.npk".pattern_error;
 pub use "./pattern_error.npk".pattern_error_text;
+
+// ---- the POSIX class names, `SYNTAX.md` §5.1's list (Y-38) -----------------------
+pub use "./pattern_error.npk".POSIX_CLASS_NAMES;
+pub use "./pattern_error.npk".posix_class_name;
 
 // ---- the byte cursor (RX-173) ----------------------------------------------
 pub use "./cursor.npk".CURSOR_END;

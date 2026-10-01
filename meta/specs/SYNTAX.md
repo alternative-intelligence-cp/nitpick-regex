@@ -46,6 +46,12 @@ Escape       ::= "\" (Punct | "n" | "r" | "t" | "f" | "v" | "0" | "a" | "e"
 Name         ::= [A-Za-z_][A-Za-z0-9_]*
 ```
 
+*(2026-10-01, cycle 0.1.3 — RX-197: a `Class` is read as Y-36 says. Its operators stand between unions —
+`Class ::= "[" "^"? Union (ClassOp Union)* "]"`, `Union ::= ClassItem+` — never as an item among the members;
+`ClassAtom`, which the grammar leaves undefined, is one codepoint: any but `\`, `[` and `]`, or `\` and ASCII
+punctuation, with `]` and `-` members where Y-36 places them; and a `PosixClass`'s name is lowercase, one of §5.1's
+fourteen (Y-38).)*
+
 **Rule Y-2 — a `\` before any ASCII punctuation is that punctuation,
 literally.** `\@` is `@`. A `\` before an ASCII **letter or digit** that this
 document does not list is a **refusal** (`UnknownEscape`), never a literal:
@@ -107,6 +113,8 @@ pointer to anything that pushes or pops (`SAFETY.md` S-23b).)*
 the bound; until then the pattern's length bounds the stack.)*
 *(2026-10-01, cycle 0.1.2 — RX-193: bounded, and decided at the `(` before a byte
 after it is read — Y-35.)*
+*(2026-10-01, cycle 0.1.3 — RX-198: and a class's frames on a `Vec<ClassFrame>`, bounded with it: groups and classes
+together nest at most `NREGEX_NEST_DEPTH` deep, and a `[` that would go deeper is `NestTooDeep` at that `[` — Y-35.)*
 
 **Rule Y-10 — every error carries a byte offset into the pattern**, and a
 length where the construct spans more than a point. A user gets "unclosed
@@ -173,6 +181,14 @@ A list's members — a `Concat`'s pieces, an `Alternate`'s alternatives, a
 `Class`'s items — are its first member and each member's `next`, in the order
 written. The subcycle that parses a construct produces its kind; the operands
 are this table's until a decision says otherwise.
+*(2026-10-01, cycle 0.1.3 — RX-197: what a class's nodes hold, as the parser builds them (Y-36). A `Class` with no
+operator holds its members in order; with operators it holds one item, the last `ClassOp`. A `ClassOp`'s `a` is
+everything before its operator — the first union, or the `ClassOp` before it — and its `b` the union after it, so
+operators fold left; each union an operator takes is a `Class` of its members, never negated, from its first member's
+first byte to its last member's last; a `ClassOp` spans its left operand's first byte through its right operand's
+last. A member that is one codepoint is a `ClassRange` from it to itself, spanning how it is written — `\]` is two
+bytes. A `PerlClass` spans two bytes, a `UnicodeClass` its `\` through its name's last byte or its `}`, a
+`PosixClass` its `[` through its `]`.)*
 
 **Rule Y-28 (RX-183) — a pattern is UTF-8 text, checked whole before the grammar,
 and every character is a literal but twelve.** After the length (RX-175), the pattern
@@ -232,6 +248,11 @@ byte Y-29 and Y-30 do not name is `UnknownFlag` at the `P`, detail `P` (80), in
 every cycle, since `P` is no flag (`parse_refusals.npk` case 64).
 *(2026-10-01, cycle 0.1.2 — RX-193: not at a `(` past `NREGEX_NEST_DEPTH`, which is
 `NestTooDeep` before what follows it is read (Y-35).)*
+*(2026-10-01, cycle 0.1.3 — RX-197: `[` is no longer provisional: Y-36 reads a class and says what a pattern that ends
+inside one is — `UnclosedClass` at the innermost open `[`, its detail telling a `]` first in the class apart, unless it
+ends inside an escape, a property's name or a `[:`. Inside a class,
+`\d \D \w \W \s \S`, `\p` and `\P` are classes (Y-37); any other escape there, and every one outside a class
+but punctuation, is still refused provisionally.)*
 
 **Rule Y-32 (RX-184) — quantifiers.** `*`, `+`, `?`, `{n}`, `{n,}` and `{n,m}`, each
 followed by `?` to be lazy, wrap the atom before them in a `Repeat` — `a` the atom,
@@ -262,6 +283,9 @@ its `(` through its `)`. Every node's `flags` are the flags in force — `AST_FL
 until cycle 0.1.4 parses flags — with `AST_FLAG_LAZY` on a lazy `Repeat`. The first
 refusal, left to right, is the answer; the tree's nodes are then partial, its root is
 unchanged, and the caller frees them.
+*(2026-10-01, cycle 0.1.3 — RX-197: a class is read by a `while` of its own, `parse_class`'s, which the walk's `while`
+calls at a `[` and which returns at the class's `]` — still once over the pattern, no byte read twice and no function
+calling itself, its frames on an explicit stack of their own, a `Vec<ClassFrame>` (Y-36).)*
 
 **Rule Y-35 (RX-193) — groups nest at most `NREGEX_NEST_DEPTH` deep, and the bound
 is decided at the `(`.** A `(` read while `NREGEX_NEST_DEPTH` groups — 250 — are open
@@ -273,6 +297,11 @@ past `NREGEX_CAPTURE_GROUPS` (Y-29; 251 nested `(` are `NestTooDeep` at byte 250
 head §8 refuses (Y-30), a construct refused provisionally (Y-31), or the end of the
 pattern. 250 nested groups parse. The bound counts groups, the one construct that
 nests here; a class nests too from cycle 0.1.3, which bounds it.
+*(2026-10-01, cycle 0.1.3 — RX-198: classes nest, and count with groups. A `[` that would open a class while groups and
+classes — `NREGEX_NEST_DEPTH`, 250, together — are open around it is `NestTooDeep` at that `[`, length 1, detail the
+bound, before a byte after it is read; a POSIX class's `[:` opens no class and nests nothing. So 250 nested classes
+parse and the 251st `[` is `NestTooDeep` at byte 250, and so is a `[` inside 250 groups, or the 126th `[` inside 125.
+The refusal's sentence names both: *"the `(` or `[` here would nest groups and classes 251 deep"*.)*
 
 ---
 
@@ -353,6 +382,53 @@ then `--`, then `~~`, then `&&`.** Stated because it differs between engines,
 and a parenthesised nested class is always available where a reader would have
 to think.
 
+### 5.4 How a class is read
+
+*(2026-10-01, cycle 0.1.3 — RX-197.)*
+
+**Rule Y-36 (RX-197) — a class is read once, left to right: its members, its ranges, and the operators between
+unions.** `[` outside a class opens one, `[^` a negated one, and the class ends at its `]`.
+
+- **Its members are codepoints and classes.** A codepoint is written as itself — any but `\`, `[` and `]`, decoded
+  from UTF-8 (Y-11), white space and every metacharacter of Y-28 included — or as `\` and ASCII punctuation (Y-2). A
+  class is `\d \D \w \W \s \S` or `\p…` `\P…` (Y-37), `[:name:]` (Y-38), or a nested class: `[`, its own
+  members, its own `]`. Any other escape is cycle 0.1.4's (Y-31).
+- **`]` straight after `[` or `[^` is a member**, not the end, and so is a `-` straight after that `]`. So `[]a]`
+  holds `]` and `a`, and `[]` and `[^]` never end. A pattern that ends inside a class — not inside an escape
+  (`TrailingBackslash`, Y-28), a property's name (Y-37) or a `[:` (Y-38) — is `UnclosedClass` at the innermost open
+  `[`, length 1, its detail `]` (93) when that class's first member is a `]`, else 0.
+- **A range** is a codepoint, `-` and a codepoint: `a-z`. Both ends must be codepoints, the first not above the second
+  — else `BadClassRange` at the range's first byte, spanning through the byte that made it bad, its detail 0 for an
+  end below its start (`[z-a]`) and 1 for a class at either end (`[\w-.]`, `[a-\d]`, `[[a]-z]`, `[a-[b]]`). The end
+  is read whatever it is: `[!-&&a]` is the range `!-&` and the members `&` and `a`.
+- **A `-` is a member** where a member would start — first in the class, straight after the first `]`, after a range,
+  after an operator — and straight before the class's `]`. `[-a]`, `[]-a]`, `[a-]` and `[a-c-e]` each hold a `-`.
+- **`&&`, `--` and `~~` are its operators** (Y-16): two of those bytes together, read where a member would start or
+  straight after one; a lone `&` or `~` is a member. Members side by side are a union, and an operator takes the
+  union before it and the one after it, each of which must hold a member — else `ClassOpMismatch` at the operator,
+  length 2, its detail the operator's byte (`[&&a]`, `[a--]`, `[a&&&&b]`, `[--a]`). The operators apply left to
+  right at one precedence, and `^` complements the result (RX-196).
+- **The tree** is Y-27's, as its note says: a `Class` from `[` through `]`, `AST_FLAG_NEGATED` for `[^`.
+- **The nesting** is bounded with groups' (Y-35).
+
+No class the parser builds is empty, so no pattern reaches `EmptyClass` here (§9; O-Y3). Where Rust's `regex` reads a
+shape one way and this rule another, this rule refuses it (`COMPAT.md` §2).
+
+**Rule Y-37 (RX-197) — Perl classes and Unicode properties are parsed, never resolved.** `\d`, `\w` and `\s` are
+`PerlClass` 0, 1 and 2, and `\D`, `\W` and `\S` the same, negated. `\p` names a Unicode property — one ASCII
+letter, `\pL`, or a name in braces up to the first `}`, `\p{Script=Greek}` — kept as text: a `UnicodeClass` holding
+the name's offset and length, negated for `\P`. Cycle 0.3 resolves both (`UNICODE.md` §2, §3), and the parser reads
+no table. A name that cannot be read is `UnknownUnicodeProperty` at the `\`, spanning what was read: detail 1 when
+neither an ASCII letter nor `{` follows the `p`, 2 when the braces never close, 3 when they hold nothing. Each is a
+member of a class (Y-36).
+
+**Rule Y-38 (RX-197) — POSIX classes, inside a class only.** Where a member would start inside a class, `[:` begins
+a POSIX class: `[:name:]`, or `[:^name:]` for its complement, its name lowercase and one of §5.1's fourteen — a
+`PosixClass` holding the name's place in that list. Anything else after `[:` — a name not on the list, no `:]`, a
+capital — is `UnknownPosixClass` at the `[`, spanning what was read, detail 0: never a nested class instead, as Rust
+reads one, because the cursor does not go back (RX-173). Outside a class, `[:` opens a class whose first member is
+`:`.
+
 ---
 
 ## 6. Anchors and boundaries
@@ -431,6 +507,9 @@ The closed list. Normative; `SAFETY.md` §4.1 references it.
 2026-09-27, cycle 0.1.1 (RX-181): an empty alternative is Y-27's `Empty`, accepted, as
 in every engine this document compares against (`COMPAT.md`), so no pattern could
 provoke the kind, and Y-25 forbids a kind nothing produces.*
+*(2026-10-01, cycle 0.1.3 — RX-197: no pattern reaches `EmptyClass` in the parser: a `]` straight after `[` or `[^` is a
+member (Y-36), so every class it builds holds one. Whether a class that RESOLVES to nothing is `EmptyClass`, or the
+kind retires as `EmptyAlternate` did, is open question O-Y3, for cycle 0.3.4.)*
 
 **Quantifiers**: `NothingToRepeat`, `DoubleRepeat`, `BadRepeatBounds`
 (`{3,1}`), `RepeatTooLarge`, `RepeatProductTooLarge`.
@@ -469,7 +548,8 @@ diffs the enum against the tests, so a kind nothing can produce is caught. This
 is the compiler's `check_codes_tested` in this library's terms.
 
 **What each refusal cycle 0.1.1 makes carries** — Y-10's offset and length, and the
-detail a message is built from (Y-29 … Y-32):
+detail a message is built from (Y-29 … Y-32) *(and, since 2026-10-01, each cycle 0.1.3's classes make — Y-36 … Y-38,
+RX-197)*:
 
 | Kind | Raised when | Offset | Length | Detail |
 |---|---|---|---|---|
@@ -488,7 +568,12 @@ detail a message is built from (Y-29 … Y-32):
 | `AtomicGroupUnsupported` | a quantifier made possessive | the quantifier | through the `+` | 43 |
 | `InvalidPatternEncoding` | ill-formed UTF-8 | the sequence's first byte | through the byte that broke it | that byte; 0 when cut short |
 | `PatternTooLong` (cycle 0.1.0) | over `NREGEX_PATTERN_BYTES` | the first byte past the bound | the bytes over it | the bound |
-| `NestTooDeep` (cycle 0.1.2) | a `(` that would nest groups deeper than `NREGEX_NEST_DEPTH` (Y-35) | that `(` | 1 | the bound |
+| `NestTooDeep` (cycle 0.1.2) | a `(` that would nest groups deeper than `NREGEX_NEST_DEPTH` (Y-35) — *and since cycle 0.1.3 a `[` that would nest groups and classes deeper, counted together (RX-198)* | that `(` *or `[`* | 1 | the bound |
+| `UnclosedClass` (cycle 0.1.3) | the pattern ends inside a class — not inside an escape, a property's name or a `[:` | the innermost open `[` | 1 | 93 when that class's first member is a `]`; 0 |
+| `BadClassRange` (cycle 0.1.3) | a range's end below its start; a class at either end | the range's first byte | through the byte that made it bad | 0; 1 |
+| `ClassOpMismatch` (cycle 0.1.3) | `&&`, `--` or `~~` with no member before it or after it | the operator | 2 | its byte: 38, 45 or 126 |
+| `UnknownPosixClass` (cycle 0.1.3) | `[:` inside a class that opens no `[:name:]` or `[:^name:]` with a name of §5.1 | its `[` | what was read | 0 |
+| `UnknownUnicodeProperty` (cycle 0.1.3) | `\p` or `\P` whose name cannot be read | the `\` | what was read | 1, no letter or `{` after it; 2, no `}`; 3, empty braces — 0 is cycle 0.3's, a name it does not know |
 
 *(2026-09-27, cycle 0.1.1 — RX-181: thirty-six, `EmptyAlternate` retired.)*
 *(2026-09-26, cycle 0.1.0 — RX-172: `src/syntax/pattern_error.npk`'s
@@ -506,3 +591,5 @@ cycle 0.1.6's.)*
 - **O-Y2 — whether `x` mode should ignore whitespace inside classes.** Rust
   does not; Perl does with `xx`. Recommendation: do not, matching Rust, and
   refuse `xx` with a message naming the escape. Decide at cycle 0.1.
+- **O-Y3 — what `EmptyClass` names, now that no pattern reaches it in the parser** (Y-36). Recommendation: a class
+  that resolves to no codepoint, refused at its `[`. Decide at cycle 0.3.4. `../OPEN_QUESTIONS.md` has the argument.

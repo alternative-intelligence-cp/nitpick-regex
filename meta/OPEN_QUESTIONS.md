@@ -918,6 +918,16 @@ movemask intrinsic, which is a better request than a speculative one.
 - **O-Y2 — whether `x` mode ignores whitespace inside classes.** Rust does not;
   Perl does with `xx`. **Recommendation:** do not, matching Rust, and refuse
   `xx` with a message naming the escape. **Decide at cycle 0.1.**
+- **O-Y3 — what `EmptyClass` names, now that no pattern reaches it in the parser.** A `]` straight after `[` or
+  `[^` is a member (`SYNTAX.md` Y-36, RX-197), as Rust, Perl and Python read it, so every class the parser builds
+  holds one, and `EmptyClass` is a kind nothing produces — the shape Y-25 forbids. Two ways out: give it a trigger
+  where a class's set is computed — a class whose operators leave it matching nothing, as `[a&&b]` does, refused at
+  its `[` rather than compiled to a class that never matches, by `UNICODE.md` U-7's reasoning (Rust accepts `[a&&b]`
+  as a class that matches nothing) — or retire it, as RX-181 retired `EmptyAlternate`. **Recommendation:** the
+  trigger, refused at its `[`: a class that can never match is a mistake far more often than an intent, and only
+  resolution can see one. **Decide at cycle 0.3.4**, where a class's set is first computed; until then cycle
+  0.1.6's `check_error_kinds_tested` must count it among the kinds a later cycle provokes, as it must
+  `ClassTooLarge`.
 
 ### Unicode
 

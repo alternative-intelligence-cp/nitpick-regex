@@ -11,6 +11,8 @@
 // are not pinned here: cycles 0.1.3 and 0.1.4 change them. Case 64 is not one of
 // them: `(?P` before a byte no head names is `UnknownFlag` at the `P` in every
 // cycle, since `P` is no flag (Y-31).
+// *(2026-10-01, cycle 0.1.3 -- RX-197: a class is no longer provisional, and
+// `parse_classes` and `parse_class_refusals` hold it.)*
 mod:parse_refusals;
 
 use "../../src/core/core.npk".*;

@@ -370,7 +370,7 @@ nowhere else.** A tree check enforces it. Exceeding one at compile time is a
 | Constant | Default | Bounds |
 |---|---|---|
 | `NREGEX_PATTERN_BYTES` | 65536 | the pattern text |
-| `NREGEX_NEST_DEPTH` | 250 | group and alternation nesting — the parser's explicit stack (§8). *Counted in groups, since an alternation nests only inside one, and refused at the `(` that goes too deep — `SYNTAX.md` Y-35, RX-193, 2026-10-01* |
+| `NREGEX_NEST_DEPTH` | 250 | group and alternation nesting — the parser's explicit stack (§8). *Counted in groups, since an alternation nests only inside one, and refused at the `(` that goes too deep — `SYNTAX.md` Y-35, RX-193, 2026-10-01. And classes since cycle 0.1.3, counted together with groups and refused at the `[` that goes too deep — Y-35, RX-198, 2026-10-01* |
 | `NREGEX_PROGRAM_INSTRUCTIONS` | 100000 | the compiled program |
 | `NREGEX_REPEAT_MAX` | 1000 | a single `{n,m}` bound |
 | `NREGEX_REPEAT_PRODUCT` | 100000 | the **product** across nested repetitions — §5.1 |
@@ -871,6 +871,12 @@ survives is the frame the optimiser sizes and the stack the caller's thread was
 given — a recursion of the parser's frame size runs 16 911 levels at −O0 and
 52 425 through `opt -O2` on the main thread's 8 MiB, neither the library's to
 know.)*
+*(2026-10-01, cycle 0.1.3 — RX-198: a class nests too, read on an explicit stack of its
+own, a `Vec<ClassFrame>`, and groups and classes together nest at most
+`NREGEX_NEST_DEPTH` deep, refused at the `(` or `[` that would go deeper (`SYNTAX.md`
+Y-35). A class's operators fold into a chain one node deeper per operator (Y-27's
+note), which the pattern's length bounds and this bound does not: a walk over a class
+(S-19) holds its explicit stack for that depth too.)*
 
 **Rule S-19 — the same rule applies to every HIR and program walk.** Desugaring,
 literal extraction and program emission all walk a tree that a pattern

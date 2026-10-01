@@ -34,6 +34,7 @@ The closest neighbour, so the list is short and each entry is deliberate.
 | Unicode blocks | not supported | refused, naming `Script` | `UNICODE.md` §2.1 |
 | case folding | simple | simple | same |
 | `x` mode inside classes | whitespace significant | whitespace significant | same (O-Y2) |
+| a class's edge cases | an operator with an empty side is the empty set (`[a&&]`, `[!--]`), and a run of `-` first in a class is members (`[--a]`); `[:` that opens no POSIX class opens a nested class (`[[:alpah:]]`); a `-` after `[…]` or `[:name:]` is a member, and a `[` ending a range is a codepoint | each refused, with the kind and the fix `SYNTAX.md` Y-36 and Y-38 name | a reading the author may not have meant is a refusal that says what to write — RX-197 |
 | replacement | closures **or** templates | templates and non-capturing function values | no closures (D-018) |
 | `Match` | a `&str` slice | byte offsets | borrows never pass up (D-004) |
 | DFA cache | pooled internally | an explicit `Cache` the caller owns | `ENGINES.md` §5 |
@@ -59,6 +60,7 @@ The list a user migrating from Python, PHP, Java or JavaScript needs.
 | `\p{InGreek}` | refused, naming `\p{Script=Greek}` |
 | case folding of `ß`, `ﬁ` | **simple folding only** — `UNICODE.md` U-12 |
 | `\w` | UTS #18 Annex C, not `[A-Za-z0-9_]` — `UNICODE.md` U-10 |
+| `[` inside a class; `&&`, `--`, `~~` | a nested class, and the class operators of UTS #18 and Rust: `[a[b]]` is `a` or `b`, and `[a--b]` is `a` but not `b` — write `\[` and `\-` for the bytes (`SYNTAX.md` Y-36, RX-197) |
 
 **Rule K-1 — every refusal names the alternative in its message**, and where
 there is none it names the reason. `LookaroundUnsupported` says the pattern

@@ -4481,6 +4481,9 @@ trigger** — none is in §1's grammar, and a kind held for a construct nobody h
 **leave it to cycle 0.1.6** — the decision is the grammar's, and 0.1.1 is where the grammar is written.
 
 ### RX-182 — the parse is one explicit-stack walk that builds the arena bottom-up, the last atom held pending for a quantifier
+> **SUPERSEDED IN PART by RX-197 (2026-10-01)** — *"then one `while` over the cursor"*: a class is read by a `while` of
+> its own, `parse_class`'s, which the walk's calls at a `[` — still once over the pattern, on an explicit stack of
+> its own (`SYNTAX.md` Y-33's note). The walk, its stack and its pending atom are as this decision says.
 
 **2026-09-27, cycle 0.1.1 (the plan's PD-26), at compiler `5fbaf4a`** — `SYNTAX.md` Y-33. `parse_pattern(uint8[]:pat,
 Ast->:out)` answers `PatternError?` (RX-175's shape): the length, the encoding (RX-183), then one `while` over the
@@ -4751,6 +4754,9 @@ at a compile per root; **the gate unit alone** — it shows the
 parser refusing on the patterns it builds, and nothing about a function it never calls.
 
 ### RX-193 — `NREGEX_NEST_DEPTH` is decided at the `(`: a `(` that would nest groups deeper than 250 is `NestTooDeep` there, before a byte after it is read
+> **SUPERSEDED IN PART by RX-198 (2026-10-01)** — the sentence it quotes, which named a `(` and groups alone: a `[` is
+> refused at the same bound, counted with the groups around it, and the sentence names both (`SYNTAX.md` Y-35). Every
+> `(` is as this decision says.
 
 **2026-10-01, cycle 0.1.2 (the plan's PD-37), at compiler `5fbaf4a`** — `SYNTAX.md` Y-35, Y-9's bound. It supersedes in
 part RX-185 and RX-186, for a `(` past the bound only, and completes RX-182's *"the stack is unbounded until cycle
@@ -4861,3 +4867,83 @@ in one class without brackets** — UTS #18's advice to users, but Rust's own do
 **every operator and union at one level, UTS #18's illustrative syntax** — `[ab&&cd]` would be `[[[ab]&&c]d]`, where
 Rust and every engine that has the operators read `[[ab]&&[cd]]`; **decide at cycle 0.3.4, where the sets are
 computed** — the parser builds the tree the precedence shapes, so the parser's subcycle is where it is fixed.
+
+### RX-197 — a class is read once, left to right: members, ranges and the operators between unions, each shape read as Rust reads it or refused
+
+**2026-10-01, cycle 0.1.3 (the plan's PD-41), at compiler `5fbaf4a`** — `SYNTAX.md` Y-36, Y-37 and Y-38, with Y-16 and
+RX-196's order; per `meta/research/class-syntax-reference-engines.md`. It completes RX-186 for `[`, whose provisional
+`UnclosedClass` it replaces, and supersedes in part RX-182 — *"one `while` over the cursor"*.
+
+**What chose the rules.** `SYNTAX.md` §1 says what a class may hold and §5 what it means; neither says how `]`, `-` or
+a doubled `&`, `-` or `~` is read where it could be two things. Where Rust's `regex`, the closest neighbour (`COMPAT.md`
+§1), reads a shape one way and the backtracking engines agree, this library reads it so: `]` straight after `[` or `[^`
+is a member — so `[]` and `[^]` never close, as Rust, Perl and Python read them — and `-` first, last, after a range or
+after an operator is a member; `X-Y` between two codepoints is a range. Where the engines disagree, or where Rust reads
+a likely mistake in silence, it refuses with a sentence saying what to write: an operator with an empty side (`[a&&]`,
+`[--a]`, `[!--]` — Rust takes the empty set or a run of members, Perl and Python read the last two as ranges); a class
+at either end of a range (`[\w-.]`, which Rust and Python refuse and Perl reads as members; `[[a]-z]`, which Rust reads
+as members), and a `[` ending a range (`[!-[]`, which Rust reads as the range `!`–`[`), since a `[` inside a class always
+opens one; and `[:` that opens no known POSIX class (`[[:alpah:]]`, which Rust reads as a nested class of its bytes,
+and which this parser could not read so without going back, which its cursor does not — RX-173). Measured with regex
+1.13.1: Rust accepts every pattern `tests/unit/parse_classes.npk` accepts, and over 774 codepoints reads alike each of
+its classes whose set needs no Unicode table (49 of 54); of the patterns `parse_class_refusals.npk` refuses, Rust
+accepts those an operator's empty side, a bracketed class before a `-` or a `[:` makes, and refuses every other.
+
+**The tree, and the walk.** Y-27's kinds, as its note says: a class's members in order under its `Class`, or one
+`ClassOp` chain folded left, each union a `Class` of its own. Perl classes and properties stay unresolved (Y-37), so the
+parser reads no table and cycle 0.1 needs nothing of cycle 0.3. `parse_class`, a `while` of its own that the walk's
+calls at a `[`, reads the class to its `]`: a nested `[` saves the class being read on `Parser.classes`, a
+`Vec<ClassFrame>`, and its `]` takes it back — the groups' shape one level down, with no function calling itself
+(`check_no_recursion`: 110 functions, no cycle). `ClassFrame` owns nothing and derives `Copy`. The stack's bound is
+RX-198's.
+
+**The text.** Each refusal says what is wrong, at which byte, and what to write instead, held to the letter by
+`tests/unit/pattern_error_text.npk` (cases 24–34): `UnclosedClass` says, when the class began with one, that the `]`
+after `[` was a member; `BadClassRange` says to put a `-` first or last or write `\-`; `ClassOpMismatch` names its
+operator, with an example and the escape; `UnknownPosixClass` gives the form, the fourteen names — which now live in
+one place, `posix_class_name`, that the parser matches and the text renders — and `\:` for a `:`;
+`UnknownUnicodeProperty` names the forms a name takes.
+
+**Measured at `5fbaf4a`.** `parse_classes.npk` and `parse_class_refusals.npk` pass at −O0 and through `opt -O2`, and
+against the parser before this decision exit 1 and 3; each rule broken in a copy exits as the plan's §1.11 records —
+at the case written for it, or, with the test that keeps a `-` the pattern ends on out of a range removed, by the
+`OutOfBounds` trap a read past the pattern makes. No pattern reaches `EmptyClass`: every class the parser builds holds a
+member — open question O-Y3.
+
+*Alternatives declined:* **a class read inside the walk's own `while`, by a mode** — every byte of the walk would ask
+which mode it is in, where a class is a sub-language that never meets a group; **recursive descent for a nested
+class** — RX-032; **`[:` read as a nested class when it opens no POSIX class, as Rust reads it** — the cursor would have
+to go back over the name, which nothing else asks (RX-173), and a misspelt name would be a class of its bytes; **`]`
+never a member, so `[]` is `EmptyClass`** — ECMAScript's reading, which takes `[]` for a class that matches nothing
+(measured, node 24), where Rust, Perl and Python read `[]a]` as `]` and `a`; **an empty side of an operator taken as
+the empty set, as Rust takes it** — `[a&&]` would match nothing with no word said, and UTS #18 notes it is "common … to
+require a CHARACTER_CLASS on both sides"; **a run of `-` first in a class read as members, as Rust reads `[--a]`** —
+Perl and Python read the same bytes as the range `-`–`a`, so either reading surprises someone; **a `-` after a range,
+or before `]`, refused** — Rust, Perl and Python read both as a `-`.
+
+### RX-198 — groups and classes nest at most `NREGEX_NEST_DEPTH` deep together, decided at the `(` or `[` that would go deeper
+
+**2026-10-01, cycle 0.1.3 (the plan's PD-42), at compiler `5fbaf4a`** — `SYNTAX.md` Y-35's last sentence, *"a class
+nests too from cycle 0.1.3, which bounds it"*, and `SAFETY.md` S-18. It supersedes in part RX-193 — the sentence that
+decision quotes, held by `tests/unit/pattern_error_text.npk` case 23, which named a `(` and groups alone.
+
+**The decision.** A `[` that would open a class while groups and classes — 250 together — are open around it is
+`NestTooDeep` at that `[`, length 1, detail the bound, before a byte after it is read. The count is one sum: the groups
+open, `p.stack.count`, and the classes open, the enclosing ones on `Parser.classes` and the one being read. A `(` is
+checked as RX-193 checks it, since no class is open where a `(` opens a group, and a POSIX class's `[:` opens no class.
+So the tree cycle 0.2 walks nests at most 250 groups and classes deep. The sentence names both: *"nesting too deep at
+byte 250: the `(` or `[` here would nest groups and classes 251 deep, and they may nest at most 250 deep
+(NREGEX_NEST_DEPTH). Nest fewer: write `(?:a)` as `a`, and `[[a]]` as `[a]`."*
+
+**Measured at `5fbaf4a`.** 250 nested classes parse and the 251st `[` is `NestTooDeep` at byte 250; so is a `[` inside
+250 groups, and the 126th `[` inside 125; 249 groups around a class parse (`parse_limits` cases 19–24). The gate,
+forty runs a leg: `[` 10 000 times with 10 000 closers, `[` 65 536 times, and 200 groups then `[` 10 000 times, each
+`NestTooDeep` at byte 250 (`parse_nest_deep` cases 7–12).
+
+*Alternatives declined:* **a bound of its own for classes** — a second number for one hazard, and 250 groups could then
+hold 250 classes, 500 levels where every walk was promised 250; **the two counted apart under one constant** — the same
+500; **the sentence left naming a `(`** — false for every refusal at a `[`, and the text is built from the four fields,
+none of which says which byte it was (Y-34); **a detail that says which** — a sentinel inside the bound's own domain,
+where `RegexOptions` may set the bound (`SAFETY.md` S-12); **each operator counted as a level, as Rust's nest limit
+counts every node** — a class's operators fold into a chain one node deeper per operator, which the pattern's length
+already bounds, and a flat `[a--b--c…]` would be refused for its length; S-19's walks hold their own stacks for it.

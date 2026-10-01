@@ -1,0 +1,117 @@
+// expect-exit: 0
+//
+// CLASSES, REFUSED: EVERY REFUSAL CYCLE 0.1.3 MAKES INSIDE A CLASS, WITH ITS OFFSET,
+// LENGTH AND DETAIL (`SYNTAX.md` §9's table, Y-36 … Y-38).
+//
+// Each case parses one pattern through `syntax.npk`'s re-exports and requires the
+// refusal to be EXACTLY this kind at this offset, spanning this many bytes, with this
+// detail -- the four fields a message is built from (Y-10, Y-34). A case that differs
+// exits with its number. An escape other than punctuation, a Perl class or a property
+// is refused PROVISIONALLY inside a class as outside it (Y-31) and is not pinned here:
+// cycle 0.1.4 changes it. `NestTooDeep` at a `[` is `parse_limits`' and
+// `parse_nest_deep`'s.
+mod:parse_class_refusals;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+
+func:refused = bool(string:pattern, PatternErrorKind:kind, int64:off, int64:len, uint32:detail) never fails {
+    Ast:t = raw ast_init(8i64);
+    PatternError?:r = raw parse_pattern(string_bytes(pattern), @t);
+    drop ast_free(@t);
+    if (r == NIL) { pass false; }
+    PatternError:e = r ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
+    if (e.kind != kind)     { pass false; }
+    if (e.offset != off)    { pass false; }
+    if (e.span_len != len)  { pass false; }
+    pass e.detail == detail;
+};
+
+func:run = int32() never fails {
+    // unclosed: at the innermost open `[`; detail `]` when its first member is a `]`
+    if (!(raw refused("[", PatternErrorKind.UnclosedClass, 0i64, 1i64, 0u32)))              { pass 1i32; }
+    if (!(raw refused("[a", PatternErrorKind.UnclosedClass, 0i64, 1i64, 0u32)))             { pass 2i32; }
+    if (!(raw refused("[]", PatternErrorKind.UnclosedClass, 0i64, 1i64, 93u32)))            { pass 3i32; }
+    if (!(raw refused("[^]", PatternErrorKind.UnclosedClass, 0i64, 1i64, 93u32)))           { pass 4i32; }
+    if (!(raw refused("[^]a", PatternErrorKind.UnclosedClass, 0i64, 1i64, 93u32)))          { pass 5i32; }
+    if (!(raw refused("[a[b]", PatternErrorKind.UnclosedClass, 0i64, 1i64, 0u32)))          { pass 6i32; }
+    if (!(raw refused("[a[b", PatternErrorKind.UnclosedClass, 2i64, 1i64, 0u32)))           { pass 7i32; }
+    if (!(raw refused("a[b-", PatternErrorKind.UnclosedClass, 1i64, 1i64, 0u32)))           { pass 8i32; }
+    if (!(raw refused("[[:alpha:]", PatternErrorKind.UnclosedClass, 0i64, 1i64, 0u32)))     { pass 9i32; }
+    if (!(raw refused("[\\]", PatternErrorKind.UnclosedClass, 0i64, 1i64, 0u32)))           { pass 10i32; }
+    if (!(raw refused("[a&&", PatternErrorKind.UnclosedClass, 0i64, 1i64, 0u32)))           { pass 11i32; }
+    if (!(raw refused("[[]", PatternErrorKind.UnclosedClass, 1i64, 1i64, 93u32)))           { pass 12i32; }
+    // ranges: an end above the other (detail 0), or a class at either end (detail 1)
+    if (!(raw refused("[z-a]", PatternErrorKind.BadClassRange, 1i64, 3i64, 0u32)))          { pass 13i32; }
+    if (!(raw refused("[é-a]", PatternErrorKind.BadClassRange, 1i64, 4i64, 0u32)))          { pass 14i32; }
+    if (!(raw refused("[\\--!]", PatternErrorKind.BadClassRange, 1i64, 4i64, 0u32)))        { pass 15i32; }
+    if (!(raw refused("[\\w-.]", PatternErrorKind.BadClassRange, 1i64, 3i64, 1u32)))        { pass 16i32; }
+    if (!(raw refused("[a-\\d]", PatternErrorKind.BadClassRange, 1i64, 4i64, 1u32)))        { pass 17i32; }
+    if (!(raw refused("[a-[b]]", PatternErrorKind.BadClassRange, 1i64, 3i64, 1u32)))        { pass 18i32; }
+    if (!(raw refused("[[:alpha:]-z]", PatternErrorKind.BadClassRange, 1i64, 10i64, 1u32))) { pass 19i32; }
+    if (!(raw refused("[[a]-z]", PatternErrorKind.BadClassRange, 1i64, 4i64, 1u32)))        { pass 20i32; }
+    if (!(raw refused("[\\pL-z]", PatternErrorKind.BadClassRange, 1i64, 4i64, 1u32)))       { pass 21i32; }
+    if (!(raw refused("[a-\\pL]", PatternErrorKind.BadClassRange, 1i64, 4i64, 1u32)))       { pass 22i32; }
+    // an operator with no member on one side: at the operator, detail its byte
+    if (!(raw refused("[&&a]", PatternErrorKind.ClassOpMismatch, 1i64, 2i64, 38u32)))       { pass 23i32; }
+    if (!(raw refused("[a&&]", PatternErrorKind.ClassOpMismatch, 2i64, 2i64, 38u32)))       { pass 24i32; }
+    if (!(raw refused("[a&&&&b]", PatternErrorKind.ClassOpMismatch, 4i64, 2i64, 38u32)))    { pass 25i32; }
+    if (!(raw refused("[--a]", PatternErrorKind.ClassOpMismatch, 1i64, 2i64, 45u32)))       { pass 26i32; }
+    if (!(raw refused("[a--]", PatternErrorKind.ClassOpMismatch, 2i64, 2i64, 45u32)))       { pass 27i32; }
+    if (!(raw refused("[~~a]", PatternErrorKind.ClassOpMismatch, 1i64, 2i64, 126u32)))      { pass 28i32; }
+    if (!(raw refused("[a~~]", PatternErrorKind.ClassOpMismatch, 2i64, 2i64, 126u32)))      { pass 29i32; }
+    if (!(raw refused("[!--]", PatternErrorKind.ClassOpMismatch, 2i64, 2i64, 45u32)))       { pass 30i32; }
+    if (!(raw refused("[a&&--b]", PatternErrorKind.ClassOpMismatch, 4i64, 2i64, 45u32)))    { pass 31i32; }
+    if (!(raw refused("[^&&a]", PatternErrorKind.ClassOpMismatch, 2i64, 2i64, 38u32)))      { pass 32i32; }
+    if (!(raw refused("[]&&]", PatternErrorKind.ClassOpMismatch, 2i64, 2i64, 38u32)))       { pass 33i32; }
+    if (!(raw refused("[a&&b~~]", PatternErrorKind.ClassOpMismatch, 5i64, 2i64, 126u32)))   { pass 34i32; }
+    // `[:` inside a class is a POSIX class or nothing: at its `[`, spanning what was read
+    if (!(raw refused("[[:foo:]]", PatternErrorKind.UnknownPosixClass, 1i64, 7i64, 0u32)))  { pass 35i32; }
+    if (!(raw refused("[[:alpha]]", PatternErrorKind.UnknownPosixClass, 1i64, 7i64, 0u32))) { pass 36i32; }
+    if (!(raw refused("[[:alpha:", PatternErrorKind.UnknownPosixClass, 1i64, 8i64, 0u32)))  { pass 37i32; }
+    if (!(raw refused("[[:]]", PatternErrorKind.UnknownPosixClass, 1i64, 2i64, 0u32)))      { pass 38i32; }
+    if (!(raw refused("[[:ALPHA:]]", PatternErrorKind.UnknownPosixClass, 1i64, 2i64, 0u32))) { pass 39i32; }
+    if (!(raw refused("[[:^:]]", PatternErrorKind.UnknownPosixClass, 1i64, 5i64, 0u32)))    { pass 40i32; }
+    if (!(raw refused("[[:alpha1:]]", PatternErrorKind.UnknownPosixClass, 1i64, 7i64, 0u32))) { pass 41i32; }
+    // a property's name that cannot be read: at the `\`; 1 nothing usable, 2 no `}`, 3 empty
+    if (!(raw refused("[\\p]", PatternErrorKind.UnknownUnicodeProperty, 1i64, 2i64, 1u32))) { pass 42i32; }
+    if (!(raw refused("[\\p", PatternErrorKind.UnknownUnicodeProperty, 1i64, 2i64, 1u32)))  { pass 43i32; }
+    if (!(raw refused("[\\p{", PatternErrorKind.UnknownUnicodeProperty, 1i64, 3i64, 2u32))) { pass 44i32; }
+    if (!(raw refused("[\\p{Greek", PatternErrorKind.UnknownUnicodeProperty, 1i64, 8i64, 2u32))) { pass 45i32; }
+    if (!(raw refused("[\\p{}]", PatternErrorKind.UnknownUnicodeProperty, 1i64, 4i64, 3u32))) { pass 46i32; }
+    if (!(raw refused("[\\p1]", PatternErrorKind.UnknownUnicodeProperty, 1i64, 2i64, 1u32))) { pass 47i32; }
+    if (!(raw refused("[\\pé]", PatternErrorKind.UnknownUnicodeProperty, 1i64, 2i64, 1u32))) { pass 48i32; }
+    if (!(raw refused("[\\P]", PatternErrorKind.UnknownUnicodeProperty, 1i64, 2i64, 1u32))) { pass 49i32; }
+    // a class that ends inside an escape
+    if (!(raw refused("[\\", PatternErrorKind.TrailingBackslash, 1i64, 1i64, 0u32)))        { pass 50i32; }
+    if (!(raw refused("[a-\\", PatternErrorKind.TrailingBackslash, 3i64, 1i64, 0u32)))      { pass 51i32; }
+    // the first refusal wins, left to right
+    if (!(raw refused("[z-a", PatternErrorKind.BadClassRange, 1i64, 3i64, 0u32)))           { pass 52i32; }
+    if (!(raw refused("[[:foo:]", PatternErrorKind.UnknownPosixClass, 1i64, 7i64, 0u32)))   { pass 53i32; }
+    if (!(raw refused("[\\p{}", PatternErrorKind.UnknownUnicodeProperty, 1i64, 4i64, 3u32))) { pass 54i32; }
+    if (!(raw refused("[\\d-", PatternErrorKind.UnclosedClass, 0i64, 1i64, 0u32)))        { pass 55i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:r = raw run();
+    exit r;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

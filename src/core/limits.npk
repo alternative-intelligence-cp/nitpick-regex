@@ -43,6 +43,8 @@ pub fixed int64:NREGEX_PATTERN_BYTES = 65536i64;
 // probe 19) — and a trap ends the whole program, so the explicit stack stands.)*
 // *(2026-10-01, cycle 0.1.2 — RX-193: `parse.npk`'s `open_group` refuses at it, at the
 // `(`, before a byte after it is read — `SYNTAX.md` Y-35.)*
+// *(2026-10-01, cycle 0.1.3 — RX-198: and classes, counted together with groups, refused
+// at the `[` that would go deeper — `parse_class`; Y-35.)*
 pub fixed int64:NREGEX_NEST_DEPTH = 250i64;
 
 // ---- the compiled program --------------------------------------------------

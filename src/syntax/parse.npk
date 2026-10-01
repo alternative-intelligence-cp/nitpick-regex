@@ -1,6 +1,7 @@
 // `src/syntax/parse.npk` — THE PARSER: PATTERN TEXT TO AN AST. Cycle 0.1.0 wrote
 // its entry's first refusal (RX-175); cycle 0.1.1 writes the core grammar
-// (RX-182 … RX-186; `meta/specs/SYNTAX.md` §1 and Y-28 … Y-33).
+// (RX-182 … RX-186; `meta/specs/SYNTAX.md` §1 and Y-28 … Y-33); cycle 0.1.3 its
+// classes (RX-197, RX-198; Y-35 … Y-38).
 //
 // HOW `syntax` SAYS A PATTERN IS WRONG: WITH A VALUE. The library's one `error:`
 // identity, `ERegexPattern`, is `api`'s (`SAFETY.md` S-8), and `syntax` sits
@@ -20,6 +21,11 @@
 // says so on every run (RX-192). `NREGEX_NEST_DEPTH` bounds the stack since cycle
 // 0.1.2: a `(` that would nest groups deeper is `NestTooDeep` at that `(`, before
 // a byte after it is read (Y-35, RX-193). Until then the pattern's length bounded it.
+// *(2026-10-01, cycle 0.1.3 -- RX-197, RX-198: a class is read by a `while` of its own,
+// `parse_class`'s, which the walk's calls at a `[` -- still once over the pattern, on
+// an explicit stack of its own, `Vec<ClassFrame>` -- and groups and classes nest at
+// most `NREGEX_NEST_DEPTH` deep together, refused at the `(` or `[` that would go
+// deeper.)*
 //
 // THE TREE IS BUILT BOTTOM-UP INTO THE ARENA (Y-26, Y-27, Y-33). A frame keeps two
 // lists: the alternatives closed so far, and the pieces of the current one. A
@@ -62,15 +68,23 @@ fixed int32:CH_GT = 62i32;           // `>`
 fixed int32:CH_QUESTION = 63i32;     // `?`
 fixed int32:CH_AT = 64i32;           // `@`, the last punctuation before the capitals
 fixed int32:CH_UPPER_A = 65i32;
+fixed int32:CH_UPPER_D = 68i32;      // `\D`, not a digit (Y-37)
 fixed int32:CH_UPPER_P = 80i32;
 fixed int32:CH_UPPER_R = 82i32;
+fixed int32:CH_UPPER_S = 83i32;      // `\S`, not white space
+fixed int32:CH_UPPER_W = 87i32;      // `\W`, not a word codepoint
 fixed int32:CH_UPPER_Z = 90i32;
 fixed int32:CH_LBRACKET = 91i32;     // `[`, the first punctuation after the capitals
 fixed int32:CH_BACKSLASH = 92i32;    // `\`
+fixed int32:CH_RBRACKET = 93i32;     // `]`
 fixed int32:CH_CARET = 94i32;        // `^`
 fixed int32:CH_UNDERSCORE = 95i32;   // `_`
 fixed int32:CH_BACKTICK = 96i32;     // the last punctuation before the small letters
 fixed int32:CH_LOWER_A = 97i32;
+fixed int32:CH_LOWER_D = 100i32;     // `\d`, a digit (Y-37)
+fixed int32:CH_LOWER_P = 112i32;     // `\p`, a Unicode property (Y-37)
+fixed int32:CH_LOWER_S = 115i32;     // `\s`, white space
+fixed int32:CH_LOWER_W = 119i32;     // `\w`, a word codepoint
 fixed int32:CH_LOWER_Z = 122i32;
 fixed int32:CH_LBRACE = 123i32;      // `{`, the first punctuation after the small letters
 fixed int32:CH_PIPE = 124i32;        // `|`
@@ -93,6 +107,14 @@ fixed int64:U8_F0_SECOND = 144i64;   // 0x90
 fixed int64:U8_F3 = 243i64;          // 0xF1 … 0xF3: four bytes, any continuation
 fixed int64:U8_F4 = 244i64;          // 0xF4: four bytes, the second 0x80 … 0x8F (no more than U+10FFFF)
 fixed int64:U8_F4_SECOND = 143i64;   // 0x8F
+
+// ---- the class operators and what a class read last (Y-27, Y-36) ------------
+fixed int64:CLASS_AND = 0i64;        // `&&`, Y-27's `ClassOp` code
+fixed int64:CLASS_DIFF = 1i64;       // `--`
+fixed int64:CLASS_XOR = 2i64;        // `~~`
+fixed int64:AFTER_START = 0i64;      // a member may start: the class's start, after its first `]`, a range or an operator
+fixed int64:AFTER_ONE = 1i64;        // one codepoint, which a `-` joins to the next in a range
+fixed int64:AFTER_CLASS = 2i64;      // a class -- `\d`, `\p{…}`, `[:name:]`, `[…]` -- which no `-` may join
 
 // One open group, or the pattern itself at the bottom of the stack: the two
 // lists being built at its level, and what its `Group` node will carry.
@@ -121,7 +143,25 @@ struct:GroupName = {
     int64:cap;           // its group's capture index
 };
 
-// The whole state of one parse. MOVE-ONLY, because it holds two `Vec`s
+// One open class (Y-36): the union of members being read, the operators before it
+// folded left, and what its `Class` node will carry.
+#[derive(Copy)]
+struct:ClassFrame = {
+    int64:open;          // its `[`
+    uint32:neg;          // AST_FLAG_NEGATED for `[^`, else 0
+    bool:lead;           // its first member is a `]`, which an unclosed class's message names
+    int64:expr;          // the unions and operators before the current union, folded left; AST_NONE before the first operator
+    int64:op;            // the operator after `expr`: CLASS_AND, CLASS_DIFF or CLASS_XOR
+    int64:op_at;         // that operator's first byte
+    int64:first;         // the union being read: its first member, its last, how many
+    int64:last;
+    int64:count;
+    int64:upos;          // where the union starts
+    int64:uend;          // where its last member ends
+    int64:after;         // AFTER_START, AFTER_ONE or AFTER_CLASS
+};
+
+// The whole state of one parse. MOVE-ONLY, because it holds three `Vec`s
 // (`SAFETY.md` S-23b): built by `parse_pattern`, lent by pointer, freed there.
 struct:Parser = {
     Cursor:c;                  // the pattern, read once, left to right
@@ -129,6 +169,7 @@ struct:Parser = {
     int64:next_cap;            // the next capture index to hand out, from 1
     Vec<Frame>:stack;          // the frames of the enclosing groups, innermost last
     Vec<GroupName>:names;      // every named group so far
+    Vec<ClassFrame>:classes;   // the classes enclosing the one being read, innermost last
 };
 
 // ---- characters --------------------------------------------------------------
@@ -147,6 +188,23 @@ func:is_name_start = bool(int32:b) never fails {
 func:is_name_char = bool(int32:b) never fails {
     if (raw is_digit(b)) { pass true; }
     pass raw is_name_start(b);
+};
+
+func:is_lower = bool(int32:b) never fails {
+    pass (b >= CH_LOWER_A) && (b <= CH_LOWER_Z);
+};
+
+func:is_letter = bool(int32:b) never fails {
+    if (raw is_lower(b)) { pass true; }
+    pass (b >= CH_UPPER_A) && (b <= CH_UPPER_Z);
+};
+
+// The letters after `\` that make a class rather than a codepoint: `\d \D \w \W
+// \s \S` and `\p \P` (Y-37).
+func:is_class_letter = bool(int32:b) never fails {
+    if ((b == CH_LOWER_D) || (b == CH_UPPER_D) || (b == CH_LOWER_W) || (b == CH_UPPER_W)) { pass true; }
+    if ((b == CH_LOWER_S) || (b == CH_UPPER_S)) { pass true; }
+    pass (b == CH_LOWER_P) || (b == CH_UPPER_P);
 };
 
 // ASCII punctuation: `!` … `/`, `:` … `@`, `[` … the backtick, `{` … `~` (Y-2).
@@ -568,6 +626,53 @@ func:quantify = PatternError?(Ast->:out, Parser->:p, int64:at, int32:b) never fa
 
 // ---- escapes and literals (Y-2, Y-28) --------------------------------------
 
+// `\p` or `\P` read, its `\` at `at`: the name -- one ASCII letter, or everything up to
+// the first `}` after a `{` -- read past and kept as text for cycle 0.3 to resolve
+// (Y-37). `UnknownUnicodeProperty` at the `\` when the name cannot be read: detail 1,
+// neither an ASCII letter nor `{` after the `p`; 2, a `{` with no `}`; 3, braces with
+// nothing between.
+func:read_property = PatternError?(Parser->:p, int64:at) never fails {
+    int32:b = raw cursor_peek(@p.c);
+    if (b == CH_LBRACE) {
+        discard(raw cursor_bump(@p.c));
+        int64:start = p.c.pos;
+        while ((!(raw cursor_at_end(@p.c))) && ((raw cursor_peek(@p.c)) != CH_RBRACE)) decreases p.c.src.len - p.c.pos {
+            discard(raw cursor_bump(@p.c));
+        }
+        if (raw cursor_at_end(@p.c)) {
+            pass raw pattern_error(PatternErrorKind.UnknownUnicodeProperty, at, p.c.pos - at, 2u32);
+        }
+        bool:empty = p.c.pos == start;
+        discard(raw cursor_bump(@p.c));
+        if (empty) {
+            pass raw pattern_error(PatternErrorKind.UnknownUnicodeProperty, at, p.c.pos - at, 3u32);
+        }
+        pass NIL;
+    }
+    if (raw is_letter(b)) {
+        discard(raw cursor_bump(@p.c));
+        pass NIL;
+    }
+    pass raw pattern_error(PatternErrorKind.UnknownUnicodeProperty, at, 2i64, 1u32);
+};
+
+// `\d \D \w \W \s \S` or `\p…` `\P…` (Y-37), its `\` at `at` and its name read
+// up to `upto`: the node, unresolved -- which class a Perl letter names, or where a
+// property's name is in the pattern; cycle 0.3 resolves both. A capital negates.
+func:escape_class_node = AstNode(uint8[]:pat, uint32:flags, int64:at, int32:d, int64:upto) never fails {
+    uint32:bits = flags;
+    if ((d == CH_UPPER_D) || (d == CH_UPPER_W) || (d == CH_UPPER_S) || (d == CH_UPPER_P)) {
+        bits = bits + AST_FLAG_NEGATED;
+    }
+    if ((d == CH_LOWER_D) || (d == CH_UPPER_D)) { pass raw node(AstKind.PerlClass, bits, 0i64, 0i64, 0i64, at, 2i64); }
+    if ((d == CH_LOWER_W) || (d == CH_UPPER_W)) { pass raw node(AstKind.PerlClass, bits, 1i64, 0i64, 0i64, at, 2i64); }
+    if ((d == CH_LOWER_S) || (d == CH_UPPER_S)) { pass raw node(AstKind.PerlClass, bits, 2i64, 0i64, 0i64, at, 2i64); }
+    if ((pat[at + 2i64] => int32) == CH_LBRACE) {
+        pass raw node(AstKind.UnicodeClass, bits, at + 3i64, upto - at - 4i64, 0i64, at, upto - at);
+    }
+    pass raw node(AstKind.UnicodeClass, bits, at + 2i64, 1i64, 0i64, at, upto - at);
+};
+
 // `\` read at `at`. ASCII punctuation after it is that punctuation (Y-2); every
 // other escape is cycle 0.1.4's, and until then provisionally `UnknownEscape` (Y-31).
 func:escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:at) never fails {
@@ -596,6 +701,314 @@ func:literal = NIL(uint8[]:pat, Ast->:out, Parser->:p, int64:at, int32:lead) nev
     pass NIL;
 };
 
+// ---- classes (Y-36 … Y-38) ------------------------------------------------------
+//
+// A CLASS IS READ BY ITS OWN `while`, ON ITS OWN EXPLICIT STACK. `[` outside a class
+// hands the walk to `parse_class`, which reads to the `]` that closes it: a nested
+// `[` saves the class being read on `p.classes` and starts the inner one, and its `]`
+// takes the saved one back, the inner `Class` a member of it -- `p.stack`'s shape for
+// groups, one level down. Nothing here calls `parse_run`, `open_group` or itself, and
+// `check_no_recursion` says so (RX-192). Groups and classes nest at most
+// `NREGEX_NEST_DEPTH` deep together, decided at the `(` or `[` that would go deeper
+// (Y-35, RX-198).
+//
+// MEMBERS SIDE BY SIDE ARE A UNION, AND THE OPERATORS FOLD THE UNIONS LEFT TO RIGHT
+// (Y-36). A frame holds the union being read and, once an operator has been read,
+// everything before it folded into one node: the first union, then a `ClassOp` of that
+// and the next, and so on -- so `[a--b&&c]` is `((a -- b) && c)`. Each union an
+// operator takes is a `Class` node of its own; a class with no operator holds its
+// members directly.
+
+func:class_frame = ClassFrame(int64:open, uint32:neg, int64:upos) never fails {
+    pass ClassFrame{ open: open, neg: neg, lead: false, expr: AST_NONE, op: CLASS_AND, op_at: open,
+                     first: AST_NONE, last: AST_NONE, count: 0i64, upos: upos, uend: upos,
+                     after: AFTER_START };
+};
+
+// Links member `n`, which starts at `at` and ends at `upto`, into the union; `after`
+// says what the next `-` may do (Y-36).
+func:class_add = NIL(Ast->:out, ClassFrame->:cf, int64:n, int64:at, int64:upto, int64:after) never fails {
+    if (cf.last == AST_NONE) {
+        cf.first = n;
+        cf.upos = at;
+    }
+    else { drop link(out, cf.last, n); }
+    cf.last = n;
+    cf.count = cf.count + 1i64;
+    cf.uend = upto;
+    cf.after = after;
+    pass NIL;
+};
+
+// A member that is one codepoint, `cp`, written in `len` bytes at `at`: a `ClassRange`
+// from it to itself, which a `-` may yet widen (Y-27).
+func:class_one = NIL(Ast->:out, ClassFrame->:cf, uint32:flags, int64:cp, int64:at, int64:len) never fails {
+    int64:n = raw ast_push(out, raw node(AstKind.ClassRange, flags, cp, cp, 0i64, at, len));
+    drop class_add(out, cf, n, at, at + len, AFTER_ONE);
+    pass NIL;
+};
+
+// The `[` read at `open` begins a class: `^` negates it, and a `]` straight after
+// either is its first member, after which a `-` is a member too (Y-36).
+func:class_start = ClassFrame(Ast->:out, Parser->:p, int64:open) never fails {
+    uint32:neg = 0u32;
+    if (raw cursor_eat(@p.c, CH_CARET =>! uint8)) { neg = AST_FLAG_NEGATED; }
+    ClassFrame:cf = raw class_frame(open, neg, p.c.pos);
+    if (raw cursor_peek(@p.c) == CH_RBRACKET) {
+        int64:at = p.c.pos;
+        discard(raw cursor_bump(@p.c));
+        drop class_one(out, @cf, p.f.flags, CH_RBRACKET => int64, at, 1i64);
+        cf.lead = true;
+        cf.after = AFTER_START;
+    }
+    pass cf;
+};
+
+// The union read so far as an operator's operand: a `Class` of its members, never
+// negated (Y-27). At least one member is there: the caller has checked.
+func:class_union = int64(Ast->:out, ClassFrame->:cf, uint32:flags) never fails {
+    pass raw ast_push(out, raw node(AstKind.Class, flags, cf.first, cf.count, 0i64, cf.upos, cf.uend - cf.upos));
+};
+
+// `expr`, the operator after it and the union just read, folded into one `ClassOp`.
+func:class_fold = int64(Ast->:out, ClassFrame->:cf, uint32:flags) never fails {
+    int64:u = raw class_union(out, cf, flags);
+    if (cf.expr == AST_NONE) { pass u; }
+    AstNode:x = raw ast_get(<-out, cf.expr);
+    pass raw ast_push(out, raw node(AstKind.ClassOp, flags, cf.expr, u, cf.op, x.pos, cf.uend - x.pos));
+};
+
+// An operator, `&&`, `--` or `~~`, its first byte `b` read at `at` and its second just
+// eaten: the union before it is its left operand, so it must have a member
+// (`ClassOpMismatch` otherwise, detail the operator's byte); then a new union starts.
+func:class_op = PatternError?(Ast->:out, ClassFrame->:cf, uint32:flags, int64:at, int32:b) never fails {
+    if (cf.count == 0i64) {
+        pass raw pattern_error(PatternErrorKind.ClassOpMismatch, at, 2i64, b =>! uint32);
+    }
+    cf.expr = raw class_fold(out, cf, flags);
+    cf.op = CLASS_AND;
+    if (b == CH_MINUS) { cf.op = CLASS_DIFF; }
+    if (b == CH_TILDE) { cf.op = CLASS_XOR; }
+    cf.op_at = at;
+    cf.first = AST_NONE;
+    cf.last = AST_NONE;
+    cf.count = 0i64;
+    cf.upos = at + 2i64;
+    cf.uend = at + 2i64;
+    cf.after = AFTER_START;
+    pass NIL;
+};
+
+// The class's `]` read, `upto` just past it: its node -- its members, or the operators
+// folded with the last union -- negated if it began `[^` (Y-27). The last operator, if
+// any, must have a member after it.
+func:class_close = PatternError?(Ast->:out, ClassFrame->:cf, uint32:flags, int64:upto) never fails {
+    if (cf.expr != AST_NONE) {
+        if (cf.count == 0i64) {
+            int32:b = CH_AMP;
+            if (cf.op == CLASS_DIFF) { b = CH_MINUS; }
+            if (cf.op == CLASS_XOR) { b = CH_TILDE; }
+            pass raw pattern_error(PatternErrorKind.ClassOpMismatch, cf.op_at, 2i64, b =>! uint32);
+        }
+        cf.first = raw class_fold(out, cf, flags);
+        cf.count = 1i64;
+    }
+    cf.expr = raw ast_push(out, raw node(AstKind.Class, flags + cf.neg, cf.first, cf.count, 0i64,
+                                         cf.open, upto - cf.open));
+    pass NIL;
+};
+
+// `\` read at `at` inside a class: ASCII punctuation is that codepoint (Y-2); a Perl
+// class or a property is a class member; any other escape is cycle 0.1.4's, and until
+// then provisionally `UnknownEscape` (Y-31).
+func:class_escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame->:cf, int64:at) never fails {
+    int32:d = raw cursor_peek(@p.c);
+    if (d == CURSOR_END) {
+        pass raw pattern_error(PatternErrorKind.TrailingBackslash, at, 1i64, 0u32);
+    }
+    if (raw is_ascii_punct(d)) {
+        discard(raw cursor_bump(@p.c));
+        drop class_one(out, cf, p.f.flags, d => int64, at, 2i64);
+        pass NIL;
+    }
+    if (raw is_class_letter(d)) {
+        discard(raw cursor_bump(@p.c));
+        if ((d == CH_LOWER_P) || (d == CH_UPPER_P)) {
+            PatternError?:bad = raw read_property(p, at);
+            if (bad != NIL) { pass bad; }
+        }
+        int64:n = raw ast_push(out, raw escape_class_node(pat, p.f.flags, at, d, p.c.pos));
+        drop class_add(out, cf, n, at, p.c.pos, AFTER_CLASS);
+        pass NIL;
+    }
+    pass raw pattern_error(PatternErrorKind.UnknownEscape, at, 1i64 + raw utf8_len(d => int64),
+                           raw decode_at(pat, at + 1i64) =>! uint32);
+};
+
+// Does the pattern hold `want` at `off`, `len` bytes long?
+func:holds = bool(uint8[]:pat, int64:off, int64:len, string:want) never fails {
+    uint8[]:w = string_bytes(want);
+    if (w.len != len) { pass false; }
+    int64:k = 0i64;
+    while (k < len) decreases len - k {
+        if (pat[off + k] != w[k]) { pass false; }
+        k = k + 1i64;
+    }
+    pass true;
+};
+
+// The place in `SYNTAX.md` §5.1's list of the POSIX name at `off`, `len` bytes long, or
+// AST_NONE when it is none of them.
+func:posix_index = int64(uint8[]:pat, int64:off, int64:len) never fails {
+    int64:k = 0i64;
+    while (k < POSIX_CLASS_NAMES) decreases POSIX_CLASS_NAMES - k {
+        if (raw holds(pat, off, len, raw posix_class_name(k))) { pass k; }
+        k = k + 1i64;
+    }
+    pass AST_NONE;
+};
+
+// `[:` read inside a class, its `[` at `at`: a POSIX class, `[:name:]` or `[:^name:]`,
+// the name one of §5.1's (Y-38). Anything else is `UnknownPosixClass` at the `[`,
+// spanning what was read, detail 0 -- never a nested class, since the cursor does not
+// go back.
+func:posix_class = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame->:cf, int64:at) never fails {
+    uint32:bits = p.f.flags;
+    if (raw cursor_eat(@p.c, CH_CARET =>! uint8)) { bits = bits + AST_FLAG_NEGATED; }
+    int64:name = p.c.pos;
+    while (raw is_lower(raw cursor_peek(@p.c))) decreases pat.len - p.c.pos {
+        discard(raw cursor_bump(@p.c));
+    }
+    int64:len = p.c.pos - name;
+    if (!(raw cursor_eat(@p.c, CH_COLON =>! uint8))) {
+        pass raw pattern_error(PatternErrorKind.UnknownPosixClass, at, p.c.pos - at, 0u32);
+    }
+    if (!(raw cursor_eat(@p.c, CH_RBRACKET =>! uint8))) {
+        pass raw pattern_error(PatternErrorKind.UnknownPosixClass, at, p.c.pos - at, 0u32);
+    }
+    int64:k = raw posix_index(pat, name, len);
+    if (k == AST_NONE) {
+        pass raw pattern_error(PatternErrorKind.UnknownPosixClass, at, p.c.pos - at, 0u32);
+    }
+    int64:n = raw ast_push(out, raw node(AstKind.PosixClass, bits, k, 0i64, 0i64, at, p.c.pos - at));
+    drop class_add(out, cf, n, at, p.c.pos, AFTER_CLASS);
+    pass NIL;
+};
+
+// The `-` just read joins the member before it -- one codepoint, the frame's last --
+// to the one after it, which the caller has seen is there and is no `]` (Y-36): a
+// codepoint or an escaped punctuation, not below the first (`BadClassRange`, detail 0);
+// a class there is `BadClassRange`, detail 1. Each spans from the range's first byte
+// through the byte that made it bad.
+func:class_range = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame->:cf) never fails {
+    AstNode:lo = raw ast_get(<-out, cf.last);
+    int64:at = p.c.pos;
+    int32:b = raw cursor_peek(@p.c);
+    int64:hi = 0i64;
+    if (b == CH_LBRACKET) {
+        discard(raw cursor_bump(@p.c));
+        pass raw pattern_error(PatternErrorKind.BadClassRange, lo.pos, p.c.pos - lo.pos, 1u32);
+    }
+    if (b == CH_BACKSLASH) {
+        discard(raw cursor_bump(@p.c));
+        int32:d = raw cursor_peek(@p.c);
+        if (d == CURSOR_END) {
+            pass raw pattern_error(PatternErrorKind.TrailingBackslash, at, 1i64, 0u32);
+        }
+        if (raw is_class_letter(d)) {
+            discard(raw cursor_bump(@p.c));
+            pass raw pattern_error(PatternErrorKind.BadClassRange, lo.pos, p.c.pos - lo.pos, 1u32);
+        }
+        if (!(raw is_ascii_punct(d))) {
+            pass raw pattern_error(PatternErrorKind.UnknownEscape, at, 1i64 + raw utf8_len(d => int64),
+                                   raw decode_at(pat, at + 1i64) =>! uint32);
+        }
+        discard(raw cursor_bump(@p.c));
+        hi = d => int64;
+    }
+    else {
+        int64:n = raw utf8_len(b => int64);
+        int64:k = 0i64;
+        while (k < n) decreases n - k {
+            discard(raw cursor_bump(@p.c));
+            k = k + 1i64;
+        }
+        hi = raw decode_at(pat, at);
+    }
+    if (hi < lo.a) {
+        pass raw pattern_error(PatternErrorKind.BadClassRange, lo.pos, p.c.pos - lo.pos, 0u32);
+    }
+    lo.b = hi;
+    lo.len = p.c.pos - lo.pos;
+    drop ast_set(out, cf.last, lo);
+    cf.uend = p.c.pos;
+    cf.after = AFTER_START;
+    pass NIL;
+};
+
+// `[` read at `open`, outside any class: the class, every class nested in it and
+// every member, in one `while` (Y-36); its node becomes the frame's pending atom. A
+// class needs no `(` and no `)`, so nothing in here meets a group.
+func:parse_class = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:open) never fails {
+    if (p.stack.count >= NREGEX_NEST_DEPTH) {
+        pass raw pattern_error(PatternErrorKind.NestTooDeep, open, 1i64, NREGEX_NEST_DEPTH =>! uint32);
+    }
+    ClassFrame:cf = raw class_start(out, p, open);
+    while (!(raw cursor_at_end(@p.c))) decreases pat.len - p.c.pos {
+        int64:at = p.c.pos;
+        int32:b = raw cursor_bump(@p.c);
+        PatternError?:e = NIL;
+        if (b == CH_RBRACKET) {
+            e = raw class_close(out, @cf, p.f.flags, p.c.pos);
+            if (e != NIL) { pass e; }
+            if (p.classes.count == 0i64) {
+                drop commit(out, @p.f);
+                p.f.pending = cf.expr;
+                pass NIL;
+            }
+            int64:inner = cf.expr;
+            int64:inner_at = cf.open;
+            cf = raw vec_pop(@p.classes);
+            drop class_add(out, @cf, inner, inner_at, p.c.pos, AFTER_CLASS);
+        }
+        else if (b == CH_LBRACKET) {
+            if (raw cursor_eat(@p.c, CH_COLON =>! uint8)) { e = raw posix_class(pat, out, p, @cf, at); }
+            else if ((p.stack.count + p.classes.count + 1i64) >= NREGEX_NEST_DEPTH) {
+                e = raw pattern_error(PatternErrorKind.NestTooDeep, at, 1i64, NREGEX_NEST_DEPTH =>! uint32);
+            }
+            else {
+                drop vec_push(@p.classes, cf);
+                cf = raw class_start(out, p, at);
+            }
+        }
+        else if (b == CH_BACKSLASH) { e = raw class_escape(pat, out, p, @cf, at); }
+        else if (((b == CH_AMP) || (b == CH_TILDE) || (b == CH_MINUS)) && (raw cursor_eat(@p.c, b =>! uint8))) {
+            e = raw class_op(out, @cf, p.f.flags, at, b);
+        }
+        else if ((b == CH_MINUS) && (cf.after != AFTER_START) && ((raw cursor_peek(@p.c)) != CH_RBRACKET)
+                 && ((raw cursor_peek(@p.c)) != CURSOR_END)) {
+            if (cf.after == AFTER_CLASS) {
+                AstNode:x = raw ast_get(<-out, cf.last);
+                e = raw pattern_error(PatternErrorKind.BadClassRange, x.pos, p.c.pos - x.pos, 1u32);
+            }
+            else { e = raw class_range(pat, out, p, @cf); }
+        }
+        else {
+            int64:n = raw utf8_len(b => int64);
+            int64:k = 1i64;
+            while (k < n) decreases n - k {
+                discard(raw cursor_bump(@p.c));
+                k = k + 1i64;
+            }
+            drop class_one(out, @cf, p.f.flags, raw decode_at(pat, at), at, n);
+        }
+        if (e != NIL) { pass e; }
+    }
+    uint32:why = 0u32;
+    if (cf.lead) { why = CH_RBRACKET =>! uint32; }
+    pass raw pattern_error(PatternErrorKind.UnclosedClass, cf.open, 1i64, why);
+};
+
 // ---- the walk --------------------------------------------------------------
 
 func:parse_run = PatternError?(uint8[]:pat, Ast->:out, Parser->:p) never fails {
@@ -616,10 +1029,7 @@ func:parse_run = PatternError?(uint8[]:pat, Ast->:out, Parser->:p) never fails {
         else if (b == CH_CARET) { drop atom(out, @p.f, AstKind.Anchor, 0i64, at, 1i64); }
         else if (b == CH_DOLLAR) { drop atom(out, @p.f, AstKind.Anchor, 1i64, at, 1i64); }
         else if (b == CH_BACKSLASH) { e = raw escape(pat, out, p, at); }
-        else if (b == CH_LBRACKET) {
-            // cycle 0.1.3's: until then, provisionally unclosed (Y-31)
-            e = raw pattern_error(PatternErrorKind.UnclosedClass, at, 1i64, 0u32);
-        }
+        else if (b == CH_LBRACKET) { e = raw parse_class(pat, out, p, at); }
         else { drop literal(pat, out, p, at, b); }
         if (e != NIL) { pass e; }
     }
@@ -646,9 +1056,11 @@ pub func:parse_pattern = PatternError?(uint8[]:pat, Ast->:out) never fails {
     if (bad != NIL) { pass bad; }
     Parser:p = Parser{ c: raw cursor_init(pat), f: raw frame(AST_NONE, 0i64, 0i64, 0i64, AST_FLAG_U),
                        next_cap: 1i64, stack: raw vec_init::<Frame>(8i64),
-                       names: raw vec_init::<GroupName>(4i64) };
+                       names: raw vec_init::<GroupName>(4i64),
+                       classes: raw vec_init::<ClassFrame>(4i64) };
     PatternError?:e = raw parse_run(pat, out, @p);
     drop vec_free(@p.stack);
     drop vec_free(@p.names);
+    drop vec_free(@p.classes);
     pass e;
 };

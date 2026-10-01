@@ -2,10 +2,11 @@
 //
 // WHAT A PERSON READS (`SYNTAX.md` Y-34; RX-187): `pattern_error_text` says what
 // is wrong, at which byte, and what to write instead, for every refusal cycle
-// 0.1.1 makes, and cycle 0.1.2's `NestTooDeep` (23; RX-193) -- each case parses a
-// pattern and holds the text to the letter, so a message changed by accident is a
-// red run. Then every kind, built by `pattern_error` at byte 7, renders a text that
-// names byte 7 (40), so no kind is left without a sentence.
+// 0.1.1 makes, cycle 0.1.2's `NestTooDeep` (23; RX-193), and every one cycle 0.1.3's
+// classes make (24-35; RX-197, RX-198) -- each case parses a pattern and holds the
+// text to the letter, so a message changed by accident is a red run. Then every kind,
+// built by `pattern_error` at byte 7, renders a text that names byte 7 (40), so no
+// kind is left without a sentence.
 mod:pattern_error_text;
 
 use "../../src/core/core.npk".*;
@@ -88,7 +89,28 @@ func:run = int32() never fails {
         n = n + 1i64;
     }
     string:ds = raw bytes_copy_string(@deep);
-    if (!(raw says(ds, "nesting too deep at byte 250: this `(` would nest groups 251 deep, and they may nest at most 250 deep (NREGEX_NEST_DEPTH). Nest fewer groups: a non-capturing group around one item, as in `(?:a)`, can be written without it."))) { pass 23i32; }
+    if (!(raw says(ds, "nesting too deep at byte 250: the `(` or `[` here would nest groups and classes 251 deep, and they may nest at most 250 deep (NREGEX_NEST_DEPTH). Nest fewer: write `(?:a)` as `a`, and `[[a]]` as `[a]`."))) { pass 23i32; }
+    // cycle 0.1.3's classes (Y-36 … Y-38), each sentence to the letter
+    if (!(raw says("[a", "unclosed class at byte 0: this `[` has no matching `]`. Add a `]`, or write `\\[` to match a bracket."))) { pass 24i32; }
+    if (!(raw says("[]", "unclosed class at byte 0: this `[` has no matching `]` -- a `]` straight after `[` or `[^` is a member of the class, not its end. Add a `]`, as in `[]]` for a class of `]`, or write `\\[` to match a bracket."))) { pass 25i32; }
+    if (!(raw says("[z-a]", "bad class range at byte 1: a range must not end before it starts. Write the lower bound first."))) { pass 26i32; }
+    if (!(raw says("[\\w-.]", "bad class range at byte 1: a range joins two codepoints, and an end of this one is a class. To match `-` itself, put it first or last in the class, or write `\\-`."))) { pass 27i32; }
+    if (!(raw says("[a&&]", "class operator at byte 2 is missing an operand: `&&` needs members on both sides, as in `[a-z&&aeiou]`. Write `\\&` to match `&` itself."))) { pass 28i32; }
+    if (!(raw says("[--a]", "class operator at byte 1 is missing an operand: `--` needs members on both sides, as in `[a-z--aeiou]`. Write `\\-` to match `-` itself."))) { pass 29i32; }
+    if (!(raw says("[a~~]", "class operator at byte 2 is missing an operand: `~~` needs members on both sides, as in `[a-z~~aeiou]`. Write `\\~` to match `~` itself."))) { pass 30i32; }
+    if (!(raw says("[[:alpah:]]", "unknown POSIX class at byte 1: a POSIX class is `[:name:]` inside a class, as in `[[:alpha:]]`, and the names are alpha, digit, alnum, space, upper, lower, punct, print, graph, cntrl, xdigit, blank, word and ascii. Write `\\:` to match a `:`."))) { pass 31i32; }
+    if (!(raw says("[\\p]", "unknown Unicode property at byte 1: `\\p` and `\\P` take a one-letter name, as in `\\pL`, or a name in braces, as in `\\p{Greek}`."))) { pass 32i32; }
+    if (!(raw says("[\\p{Greek", "unknown Unicode property at byte 1: the name in braces has no closing `}`. End it with `}`, as in `\\p{Greek}`."))) { pass 33i32; }
+    if (!(raw says("[\\p{}]", "unknown Unicode property at byte 1: the braces hold no name. Write one between them, as in `\\p{Greek}`."))) { pass 34i32; }
+    // 251 classes nested: the 251st `[`, byte 250 (Y-35)
+    Bytes:cdeep = raw bytes_init(256i64);
+    int64:cn = 0i64;
+    while (cn < 251i64) decreases 251i64 - cn {
+        drop bytes_extend_str(@cdeep, "[");
+        cn = cn + 1i64;
+    }
+    string:cds = raw bytes_copy_string(@cdeep);
+    if (!(raw says(cds, "nesting too deep at byte 250: the `(` or `[` here would nest groups and classes 251 deep, and they may nest at most 250 deep (NREGEX_NEST_DEPTH). Nest fewer: write `(?:a)` as `a`, and `[[a]]` as `[a]`."))) { pass 35i32; }
     // every kind renders a sentence naming its byte
     int64:k = 0i64;
     while (k < 36i64) decreases 36i64 - k {

@@ -1,0 +1,296 @@
+// expect-exit: 0
+//
+// CLASSES, ACCEPTED: EVERY SHAPE CYCLE 0.1.3 PARSES, AS THE TREE IT BUILDS
+// (`SYNTAX.md` Y-27, Y-36 … Y-38).
+//
+// Each case parses one pattern through `syntax.npk`'s re-exports and writes the tree
+// back as text -- `(cls …)` a class and `(cls^ …)` a negated one; `'a'` a member that is
+// one codepoint and `'a'-'z'` a range, a codepoint outside printable ASCII as `#233`;
+// `\d` `\w` `\s` a Perl class, a capital when negated; `[:alpha:]` and `[:^alpha:]` a
+// POSIX class, named from `posix_class_name`; `\p{…}` and `\P{…}` a property, its text
+// as the pattern holds it, braces or not; `(&& L R)`, `(-- L R)` and `(~~ L R)` an
+// operator. Outside a class, parse_grammar's forms: `(cat …)`, `(alt …)`, `(rep MIN MAX
+// X)`, `(grp N …)`. The span form adds `@pos+len` after each head. The dump also checks
+// what the text cannot show: a list holds exactly `b` members and its last one's `next`
+// is `AST_NONE` (`!short`, `!long`); a node an operator or a `Repeat` holds is in no
+// list (`!next`); a class holds only member kinds (`!kind`); and every node's flags are
+// `AST_FLAG_U`, plus `AST_FLAG_NEGATED` on the four kinds a `^`, a capital or a `\P`
+// negates and `AST_FLAG_LAZY` on a lazy `Repeat` (`!flags`). A case that differs exits
+// with its number.
+//
+// THE DUMP RECURSES; the parser does not. `check_no_recursion` reads `src/` and not
+// `tests/` (RX-192).
+mod:parse_classes;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+
+func:put = NIL(Bytes->:b, string:s) never fails {
+    drop bytes_extend_str(b, s);
+    pass NIL;
+};
+
+func:num = NIL(Bytes->:b, int64:n) never fails {
+    drop bytes_put_uint(b, n =>! uint64);
+    pass NIL;
+};
+
+func:span = NIL(Bytes->:b, AstNode:n, bool:spans) never fails {
+    if (!spans) { pass NIL; }
+    drop put(b, "@"); drop num(b, n.pos); drop put(b, "+"); drop num(b, n.len);
+    pass NIL;
+};
+
+func:cp = NIL(Bytes->:b, int64:c) never fails {
+    if ((c > 32i64) && (c < 127i64)) {
+        drop put(b, "'"); drop bytes_push(b, c =>! uint8); drop put(b, "'");
+    }
+    else { drop put(b, "#"); drop num(b, c); }
+    pass NIL;
+};
+
+func:negatable = bool(AstKind:k) never fails {
+    if ((k == AstKind.Class) || (k == AstKind.PerlClass)) { pass true; }
+    pass (k == AstKind.PosixClass) || (k == AstKind.UnicodeClass);
+};
+
+func:member = bool(AstKind:k) never fails {
+    if (raw negatable(k)) { pass true; }
+    pass (k == AstKind.ClassRange) || (k == AstKind.ClassOp);
+};
+
+// A node's list: `count` members from `first`, each dumped after a space.
+func:list = NIL(uint8[]:pat, Ast:t, int64:first, int64:count, Bytes->:b, bool:spans, bool:inclass) never fails {
+    int64:k = 0i64;
+    int64:m = first;
+    while (k < count) decreases count - k {
+        drop put(b, " ");
+        if (m == AST_NONE) { drop put(b, "!short"); k = count; }
+        else {
+            AstNode:x = raw ast_get(t, m);
+            if (inclass && !(raw member(x.kind))) { drop put(b, "!kind"); }
+            drop dump(pat, t, m, b, spans);
+            m = x.next;
+            k = k + 1i64;
+        }
+    }
+    if (m != AST_NONE) { drop put(b, " !long"); }
+    pass NIL;
+};
+
+// A node an operator or a `Repeat` holds, which no list holds.
+func:held = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
+    drop put(b, " ");
+    AstNode:x = raw ast_get(t, i);
+    if (x.next != AST_NONE) { drop put(b, "!next"); }
+    drop dump(pat, t, i, b, spans);
+    pass NIL;
+};
+
+func:dump = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
+    AstNode:n = raw ast_get(t, i);
+    uint32:want = AST_FLAG_U;
+    if ((n.kind == AstKind.Repeat) && (n.flags == AST_FLAG_U + AST_FLAG_LAZY)) { want = n.flags; }
+    if ((raw negatable(n.kind)) && (n.flags == AST_FLAG_U + AST_FLAG_NEGATED)) { want = n.flags; }
+    if (n.flags != want) { drop put(b, "!flags"); }
+    bool:neg = n.flags == AST_FLAG_U + AST_FLAG_NEGATED;
+    if (n.kind == AstKind.Literal) { drop cp(b, n.a); drop span(b, n, spans); }
+    else if (n.kind == AstKind.ClassRange) {
+        drop cp(b, n.a);
+        if (n.b != n.a) { drop put(b, "-"); drop cp(b, n.b); }
+        drop span(b, n, spans);
+    }
+    else if (n.kind == AstKind.PerlClass) {
+        if (n.a == 0i64) { if (neg) { drop put(b, "\\D"); } else { drop put(b, "\\d"); } }
+        else if (n.a == 1i64) { if (neg) { drop put(b, "\\W"); } else { drop put(b, "\\w"); } }
+        else if (n.a == 2i64) { if (neg) { drop put(b, "\\S"); } else { drop put(b, "\\s"); } }
+        else { drop put(b, "!perl"); }
+        drop span(b, n, spans);
+    }
+    else if (n.kind == AstKind.PosixClass) {
+        drop put(b, "[:");
+        if (neg) { drop put(b, "^"); }
+        drop put(b, raw posix_class_name(n.a));
+        drop put(b, ":]");
+        drop span(b, n, spans);
+    }
+    else if (n.kind == AstKind.UnicodeClass) {
+        if (neg) { drop put(b, "\\P{"); } else { drop put(b, "\\p{"); }
+        int64:k = 0i64;
+        while (k < n.b) decreases n.b - k {
+            drop bytes_push(b, pat[n.a + k]);
+            k = k + 1i64;
+        }
+        drop put(b, "}");
+        drop span(b, n, spans);
+    }
+    else if (n.kind == AstKind.Class) {
+        if (neg) { drop put(b, "(cls^"); } else { drop put(b, "(cls"); }
+        drop span(b, n, spans);
+        drop list(pat, t, n.a, n.b, b, spans, true);
+        drop put(b, ")");
+    }
+    else if (n.kind == AstKind.ClassOp) {
+        if (n.c == 0i64) { drop put(b, "(&&"); }
+        else if (n.c == 1i64) { drop put(b, "(--"); }
+        else if (n.c == 2i64) { drop put(b, "(~~"); }
+        else { drop put(b, "(!op"); }
+        drop span(b, n, spans);
+        drop held(pat, t, n.a, b, spans);
+        drop held(pat, t, n.b, b, spans);
+        drop put(b, ")");
+    }
+    else if ((n.kind == AstKind.Concat) || (n.kind == AstKind.Alternate)) {
+        if (n.kind == AstKind.Concat) { drop put(b, "(cat"); } else { drop put(b, "(alt"); }
+        drop span(b, n, spans);
+        drop list(pat, t, n.a, n.b, b, spans, false);
+        drop put(b, ")");
+    }
+    else if (n.kind == AstKind.Repeat) {
+        if (n.flags == AST_FLAG_U + AST_FLAG_LAZY) { drop put(b, "(rep?"); } else { drop put(b, "(rep"); }
+        drop span(b, n, spans);
+        drop put(b, " "); drop num(b, n.b); drop put(b, " ");
+        if (n.c == AST_NONE) { drop put(b, "-"); } else { drop num(b, n.c); }
+        drop held(pat, t, n.a, b, spans);
+        drop put(b, ")");
+    }
+    else if (n.kind == AstKind.Group) {
+        drop put(b, "(grp");
+        drop span(b, n, spans);
+        if (n.b > 0i64) { drop put(b, " "); drop num(b, n.b); }
+        drop held(pat, t, n.a, b, spans);
+        drop put(b, ")");
+    }
+    else { drop put(b, "?"); }
+    pass NIL;
+};
+
+func:same = bool(Bytes->:b, string:want) never fails {
+    uint8[]:w = string_bytes(want);
+    if ((raw bytes_len(b)) != w.len) { pass false; }
+    int64:i = 0i64;
+    while (i < w.len) decreases w.len - i {
+        if ((raw bytes_get(b, i)) != w[i]) { pass false; }
+        i = i + 1i64;
+    }
+    pass true;
+};
+
+// Parses `pattern`, dumps its tree, and compares the text with `want`.
+func:tree = bool(string:pattern, string:want, bool:spans) never fails {
+    uint8[]:pat = string_bytes(pattern);
+    Ast:t = raw ast_init(8i64);
+    PatternError?:e = raw parse_pattern(pat, @t);
+    Bytes:b = raw bytes_init(64i64);
+    if (e != NIL) { drop put(@b, "!refused"); }
+    else {
+        AstNode:r = raw ast_get(t, t.root);
+        if (r.next != AST_NONE) { drop put(@b, "!next"); }
+        drop dump(pat, t, t.root, @b, spans);
+    }
+    drop ast_free(@t);
+    pass raw same(@b, want);
+};
+
+func:run = int32() never fails {
+    // members and ranges (Y-36)
+    if (!(raw tree("[a]", "(cls 'a')", false)))                              { pass 1i32; }
+    if (!(raw tree("[abc]", "(cls 'a' 'b' 'c')", false)))                    { pass 2i32; }
+    if (!(raw tree("[aa]", "(cls 'a' 'a')", false)))                         { pass 3i32; }
+    if (!(raw tree("[a-z]", "(cls 'a'-'z')", false)))                        { pass 4i32; }
+    if (!(raw tree("[a-zA-Z0-9_]", "(cls 'a'-'z' 'A'-'Z' '0'-'9' '_')", false))) { pass 5i32; }
+    if (!(raw tree("[^a]", "(cls^ 'a')", false)))                            { pass 6i32; }
+    if (!(raw tree("[!-/]", "(cls '!'-'/')", false)))                        { pass 7i32; }
+    if (!(raw tree("[(){}|*+?.$^]", "(cls '(' ')' '{' '}' '|' '*' '+' '?' '.' '$' '^')", false))) { pass 8i32; }
+    if (!(raw tree("[a b]", "(cls 'a' #32 'b')", false)))                    { pass 9i32; }
+    if (!(raw tree("[é]", "(cls #233)", false)))                             { pass 10i32; }
+    if (!(raw tree("[à-ÿ€]", "(cls #224-#255 #8364)", false)))               { pass 11i32; }
+    if (!(raw tree("[😀-😂]", "(cls #128512-#128514)", false)))              { pass 12i32; }
+    // `]` and `-` where they are members (Y-36)
+    if (!(raw tree("[]]", "(cls ']')", false)))                              { pass 13i32; }
+    if (!(raw tree("[]a]", "(cls ']' 'a')", false)))                         { pass 14i32; }
+    if (!(raw tree("[^]]", "(cls^ ']')", false)))                            { pass 15i32; }
+    if (!(raw tree("[-]", "(cls '-')", false)))                              { pass 16i32; }
+    if (!(raw tree("[-a]", "(cls '-' 'a')", false)))                         { pass 17i32; }
+    if (!(raw tree("[a-]", "(cls 'a' '-')", false)))                         { pass 18i32; }
+    if (!(raw tree("[^-]", "(cls^ '-')", false)))                            { pass 19i32; }
+    if (!(raw tree("[]-a]", "(cls ']' '-' 'a')", false)))                    { pass 20i32; }
+    if (!(raw tree("[a-c-e]", "(cls 'a'-'c' '-' 'e')", false)))              { pass 21i32; }
+    if (!(raw tree("[a-c-e-g]", "(cls 'a'-'c' '-' 'e'-'g')", false)))        { pass 22i32; }
+    if (!(raw tree("[a&b~c]", "(cls 'a' '&' 'b' '~' 'c')", false)))          { pass 23i32; }
+    if (!(raw tree("[!-&&a]", "(cls '!'-'&' '&' 'a')", false)))              { pass 24i32; }
+    if (!(raw tree("[a-~~]", "(cls 'a'-'~' '~')", false)))                   { pass 25i32; }
+    // escapes in a class: punctuation (Y-2), Perl classes and properties (Y-37)
+    if (!(raw tree("[\\]\\-\\[\\\\\\^]", "(cls ']' '-' '[' '\\' '^')", false))) { pass 26i32; }
+    if (!(raw tree("[\\--\\]]", "(cls '-'-']')", false)))                   { pass 27i32; }
+    if (!(raw tree("[\\d\\D\\w\\W\\s\\S]", "(cls \\d \\D \\w \\W \\s \\S)", false))) { pass 28i32; }
+    if (!(raw tree("[\\d-]", "(cls \\d '-')", false)))                       { pass 29i32; }
+    if (!(raw tree("[\\pL\\PN]", "(cls \\p{L} \\P{N})", false)))             { pass 30i32; }
+    if (!(raw tree("[\\p{Greek}\\P{Script=Greek}]", "(cls \\p{Greek} \\P{Script=Greek})", false))) { pass 31i32; }
+    if (!(raw tree("[\\p{ Old Italic }]", "(cls \\p{ Old Italic })", false))) { pass 32i32; }
+    // POSIX classes, inside a class only (Y-38)
+    if (!(raw tree("[[:alpha:]]", "(cls [:alpha:])", false)))                { pass 33i32; }
+    if (!(raw tree("[[:^digit:]x]", "(cls [:^digit:] 'x')", false)))         { pass 34i32; }
+    if (!(raw tree("[[:alpha:][:digit:][:alnum:][:space:][:upper:][:lower:][:punct:][:print:][:graph:][:cntrl:][:xdigit:][:blank:][:word:][:ascii:]]",
+                   "(cls [:alpha:] [:digit:] [:alnum:] [:space:] [:upper:] [:lower:] [:punct:] [:print:] [:graph:] [:cntrl:] [:xdigit:] [:blank:] [:word:] [:ascii:])", false))) { pass 35i32; }
+    // nested classes (Y-36; bounded by Y-35)
+    if (!(raw tree("[a[b-c]]", "(cls 'a' (cls 'b'-'c'))", false)))           { pass 36i32; }
+    if (!(raw tree("[[a]]", "(cls (cls 'a'))", false)))                      { pass 37i32; }
+    if (!(raw tree("[a[^b]c]", "(cls 'a' (cls^ 'b') 'c')", false)))          { pass 38i32; }
+    if (!(raw tree("[[[a]]]", "(cls (cls (cls 'a')))", false)))              { pass 39i32; }
+    if (!(raw tree("[[]]]", "(cls (cls ']'))", false)))                      { pass 40i32; }
+    // the operators, left to right, union tighter, negation last (Y-36)
+    if (!(raw tree("[a&&b]", "(cls (&& (cls 'a') (cls 'b')))", false)))     { pass 41i32; }
+    if (!(raw tree("[a--b]", "(cls (-- (cls 'a') (cls 'b')))", false)))     { pass 42i32; }
+    if (!(raw tree("[a~~b]", "(cls (~~ (cls 'a') (cls 'b')))", false)))     { pass 43i32; }
+    if (!(raw tree("[a-z&&[^aeiou]]", "(cls (&& (cls 'a'-'z') (cls (cls^ 'a' 'e' 'i' 'o' 'u'))))", false))) { pass 44i32; }
+    if (!(raw tree("[ab&&cd]", "(cls (&& (cls 'a' 'b') (cls 'c' 'd')))", false))) { pass 45i32; }
+    if (!(raw tree("[a--b&&c]", "(cls (&& (-- (cls 'a') (cls 'b')) (cls 'c')))", false))) { pass 46i32; }
+    if (!(raw tree("[a&&b~~c]", "(cls (~~ (&& (cls 'a') (cls 'b')) (cls 'c')))", false))) { pass 47i32; }
+    if (!(raw tree("[a~~b--c]", "(cls (-- (~~ (cls 'a') (cls 'b')) (cls 'c')))", false))) { pass 48i32; }
+    if (!(raw tree("[^a&&b]", "(cls^ (&& (cls 'a') (cls 'b')))", false)))   { pass 49i32; }
+    if (!(raw tree("[a-c--e]", "(cls (-- (cls 'a'-'c') (cls 'e')))", false))) { pass 50i32; }
+    if (!(raw tree("[a---b]", "(cls (-- (cls 'a') (cls '-' 'b')))", false))) { pass 51i32; }
+    if (!(raw tree("[a&&-]", "(cls (&& (cls 'a') (cls '-')))", false)))     { pass 52i32; }
+    if (!(raw tree("[]--a]", "(cls (-- (cls ']') (cls 'a')))", false)))     { pass 53i32; }
+    if (!(raw tree("[\\w&&[:ascii:]--\\d]", "(cls (-- (&& (cls \\w) (cls [:ascii:])) (cls \\d)))", false))) { pass 54i32; }
+    // a class is an atom (Y-36)
+    if (!(raw tree("[a-z]+", "(rep 1 - (cls 'a'-'z'))", false)))             { pass 55i32; }
+    if (!(raw tree("a[bc]d", "(cat 'a' (cls 'b' 'c') 'd')", false)))         { pass 56i32; }
+    if (!(raw tree("([a])|[b]*?", "(alt (grp 1 (cls 'a')) (rep? 0 - (cls 'b')))", false))) { pass 57i32; }
+    // the spans (Y-27's `pos` and `len`)
+    if (!(raw tree("[a-z]", "(cls@0+5 'a'-'z'@1+3)", true)))                 { pass 60i32; }
+    if (!(raw tree("[a-a]", "(cls@0+5 'a'@1+3)", true)))                     { pass 61i32; }
+    if (!(raw tree("[^]a]", "(cls^@0+5 ']'@2+1 'a'@3+1)", true)))            { pass 62i32; }
+    if (!(raw tree("[a&&bc]", "(cls@0+7 (&&@1+5 (cls@1+1 'a'@1+1) (cls@4+2 'b'@4+1 'c'@5+1)))", true))) { pass 63i32; }
+    if (!(raw tree("[a--b&&c]", "(cls@0+9 (&&@1+7 (--@1+4 (cls@1+1 'a'@1+1) (cls@4+1 'b'@4+1)) (cls@7+1 'c'@7+1)))", true))) { pass 64i32; }
+    if (!(raw tree("[\\p{Greek}\\pL\\D]", "(cls@0+16 \\p{Greek}@1+9 \\p{L}@10+3 \\D@13+2)", true))) { pass 65i32; }
+    if (!(raw tree("[[:alpha:]\\]]", "(cls@0+13 [:alpha:]@1+9 ']'@10+2)", true))) { pass 66i32; }
+    if (!(raw tree("[é-ü]", "(cls@0+7 #233-#252@1+5)", true)))               { pass 67i32; }
+    if (!(raw tree("[a[b]]", "(cls@0+6 'a'@1+1 (cls@2+3 'b'@3+1))", true)))  { pass 68i32; }
+    if (!(raw tree("x[y]+", "(cat@0+5 'x'@0+1 (rep@1+4 1 - (cls@1+3 'y'@2+1)))", true))) { pass 69i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:r = raw run();
+    exit r;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

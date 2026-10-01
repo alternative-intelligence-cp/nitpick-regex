@@ -12,6 +12,11 @@
 //   3. `(?:` 21 845 times and `a` -- 65 536 bytes, no group capturing, so the
 //      capture bound plays no part -- byte 750.
 //
+// *(2026-10-01, cycle 0.1.3 -- RX-198: and classes, which nest too and count with groups
+// (Y-35): `[` 10 000 times and `]` 10 000 times, and `[` 65 536 times, each `NestTooDeep`
+// at the 251st `[`, byte 250; and `(` 200 times then `[` 10 000 times, at the 51st `[`,
+// byte 250 (cases 7-12).)*
+//
 // WHY 65 536 AND NOT 10 000 ALONE. At `5fbaf4a` a recursive descent of the parser's
 // frame size runs 10 000 levels at both legs without exhausting the main thread's
 // stack, and traps `StackExhausted` at 65 536 at both (probe 19, RX-191). So 10 000
@@ -80,6 +85,24 @@ func:run = int32() never fails {
     uint8[]:vc = string_bytes(sc);
     if (vc.len != 65536i64) { pass 5i32; }
     if (!(raw refused_at(sc, 750i64))) { pass 6i32; }
+    // 4. 10 000 nested classes, and their 10 000 closers
+    Bytes:d = raw pattern("[", 10000i64, "]", 10000i64);
+    string:sd = raw bytes_copy_string(@d);
+    uint8[]:vd = string_bytes(sd);
+    if (vd.len != 20000i64) { pass 7i32; }
+    if (!(raw refused_at(sd, 250i64))) { pass 8i32; }
+    // 5. the longest pattern there is, every byte a `[`
+    Bytes:f = raw pattern("[", 65536i64, "", 0i64);
+    string:sf = raw bytes_copy_string(@f);
+    uint8[]:vf = string_bytes(sf);
+    if (vf.len != 65536i64) { pass 9i32; }
+    if (!(raw refused_at(sf, 250i64))) { pass 10i32; }
+    // 6. groups and classes together: 200 groups, then the 51st `[` is the 251st level
+    Bytes:g = raw pattern("(", 200i64, "[", 10000i64);
+    string:sg = raw bytes_copy_string(@g);
+    uint8[]:vg = string_bytes(sg);
+    if (vg.len != 10200i64) { pass 11i32; }
+    if (!(raw refused_at(sg, 250i64))) { pass 12i32; }
     pass 0i32;
 };
 

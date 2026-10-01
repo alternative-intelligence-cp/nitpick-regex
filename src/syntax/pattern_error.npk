@@ -118,6 +118,35 @@ pub func:pattern_error = PatternError(PatternErrorKind:kind, int64:offset, int64
     pass PatternError{ kind: kind, offset: offset, span_len: span_len, detail: detail };
 };
 
+// ---- the POSIX class names (`SYNTAX.md` §5.1, Y-38; RX-197) ----------------------
+
+// How many names §5.1 lists. A `PosixClass` node's `a` is a name's place in that list,
+// from 0 (Y-27), and these are the only names a class may write as `[:name:]`.
+pub fixed int64:POSIX_CLASS_NAMES = 14i64;
+
+// obligation: never fails
+//
+// The `k`th name of `SYNTAX.md` §5.1's list, in its order -- `""` for a `k` outside it.
+// The ONE home of the list: the parser matches a written name against it and the text
+// below renders from it, so the two cannot disagree.
+pub func:posix_class_name = string(int64:k) never fails {
+    if (k == 0i64)  { pass "alpha"; }
+    if (k == 1i64)  { pass "digit"; }
+    if (k == 2i64)  { pass "alnum"; }
+    if (k == 3i64)  { pass "space"; }
+    if (k == 4i64)  { pass "upper"; }
+    if (k == 5i64)  { pass "lower"; }
+    if (k == 6i64)  { pass "punct"; }
+    if (k == 7i64)  { pass "print"; }
+    if (k == 8i64)  { pass "graph"; }
+    if (k == 9i64)  { pass "cntrl"; }
+    if (k == 10i64) { pass "xdigit"; }
+    if (k == 11i64) { pass "blank"; }
+    if (k == 12i64) { pass "word"; }
+    if (k == 13i64) { pass "ascii"; }
+    pass "";
+};
+
 // ---- the text a person reads (RX-187; `SYNTAX.md` Y-34) -------------------------
 
 func:put = NIL(Bytes->:b, string:s) never fails {
@@ -164,7 +193,12 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
         },
         (PatternErrorKind.UnclosedClass) {
             drop put(@b, "unclosed class at byte "); drop num(@b, e.offset);
-            drop put(@b, ": this `[` has no matching `]`. Add a `]`, or write `\\[` to match a bracket.");
+            if (e.detail == 93u32) {
+                drop put(@b, ": this `[` has no matching `]` -- a `]` straight after `[` or `[^` is a member of the class, not its end. Add a `]`, as in `[]]` for a class of `]`, or write `\\[` to match a bracket.");
+            }
+            else {
+                drop put(@b, ": this `[` has no matching `]`. Add a `]`, or write `\\[` to match a bracket.");
+            }
         },
         (PatternErrorKind.EmptyClass) {
             drop put(@b, "empty class at byte "); drop num(@b, e.offset);
@@ -172,9 +206,9 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
         },
         (PatternErrorKind.NestTooDeep) {
             drop put(@b, "nesting too deep at byte "); drop num(@b, e.offset);
-            drop put(@b, ": this `(` would nest groups "); drop num(@b, (e.detail => int64) + 1i64);
+            drop put(@b, ": the `(` or `[` here would nest groups and classes "); drop num(@b, (e.detail => int64) + 1i64);
             drop put(@b, " deep, and they may nest at most "); drop num(@b, e.detail => int64);
-            drop put(@b, " deep (NREGEX_NEST_DEPTH). Nest fewer groups: a non-capturing group around one item, as in `(?:a)`, can be written without it.");
+            drop put(@b, " deep (NREGEX_NEST_DEPTH). Nest fewer: write `(?:a)` as `a`, and `[[a]]` as `[a]`.");
         },
         (PatternErrorKind.TrailingBackslash) {
             drop put(@b, "trailing backslash at byte "); drop num(@b, e.offset);
@@ -212,19 +246,48 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
         },
         (PatternErrorKind.BadClassRange) {
             drop put(@b, "bad class range at byte "); drop num(@b, e.offset);
-            drop put(@b, ": a range must not end before it starts. Write the lower bound first.");
+            if (e.detail == 1u32) {
+                drop put(@b, ": a range joins two codepoints, and an end of this one is a class. To match `-` itself, put it first or last in the class, or write `\\-`.");
+            }
+            else {
+                drop put(@b, ": a range must not end before it starts. Write the lower bound first.");
+            }
         },
         (PatternErrorKind.UnknownPosixClass) {
             drop put(@b, "unknown POSIX class at byte "); drop num(@b, e.offset);
-            drop put(@b, ": the names are alpha, digit, alnum, space, upper, lower, punct, print, graph, cntrl, xdigit, blank, word and ascii.");
+            drop put(@b, ": a POSIX class is `[:name:]` inside a class, as in `[[:alpha:]]`, and the names are ");
+            int64:k = 0i64;
+            while (k < POSIX_CLASS_NAMES) decreases POSIX_CLASS_NAMES - k {
+                if (k > 0i64) {
+                    if ((k + 1i64) == POSIX_CLASS_NAMES) { drop put(@b, " and "); }
+                    else { drop put(@b, ", "); }
+                }
+                drop put(@b, raw posix_class_name(k));
+                k = k + 1i64;
+            }
+            drop put(@b, ". Write `\\:` to match a `:`.");
         },
         (PatternErrorKind.UnknownUnicodeProperty) {
             drop put(@b, "unknown Unicode property at byte "); drop num(@b, e.offset);
-            drop put(@b, ": nregex does not know this property.");
+            if (e.detail == 1u32) {
+                drop put(@b, ": `\\p` and `\\P` take a one-letter name, as in `\\pL`, or a name in braces, as in `\\p{Greek}`.");
+            }
+            else if (e.detail == 2u32) {
+                drop put(@b, ": the name in braces has no closing `}`. End it with `}`, as in `\\p{Greek}`.");
+            }
+            else if (e.detail == 3u32) {
+                drop put(@b, ": the braces hold no name. Write one between them, as in `\\p{Greek}`.");
+            }
+            else {
+                drop put(@b, ": nregex does not know this property.");
+            }
         },
         (PatternErrorKind.ClassOpMismatch) {
             drop put(@b, "class operator at byte "); drop num(@b, e.offset);
-            drop put(@b, " is missing an operand: `&&`, `--` and `~~` each need a class on both sides.");
+            drop put(@b, " is missing an operand: `"); drop ch(@b, e.detail); drop ch(@b, e.detail);
+            drop put(@b, "` needs members on both sides, as in `[a-z"); drop ch(@b, e.detail); drop ch(@b, e.detail);
+            drop put(@b, "aeiou]`. Write `\\"); drop ch(@b, e.detail);
+            drop put(@b, "` to match `"); drop ch(@b, e.detail); drop put(@b, "` itself.");
         },
         (PatternErrorKind.ClassTooLarge) {
             drop put(@b, "class too large at byte "); drop num(@b, e.offset);
