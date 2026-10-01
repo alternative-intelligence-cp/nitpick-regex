@@ -623,6 +623,52 @@ def _case29(d):
     return None                                   # handled by `_run_case29`
 
 
+_SELF = ("mod:zz;\n\nfunc:zz_self = int64(int64:n) never fails {\n"
+         "    if (n <= 0i64) { pass 0i64; }\n    pass raw zz_self(n - 1i64);\n};\n")
+
+
+def _run_case30(case):
+    """Case 30, on the instrument: `check_no_recursion` over five planted recursions,
+    each alone, and a clean control (RX-192). The plants are the shapes the check's
+    reader must see -- a self-call; a mutual pair; a pair across two modules, which
+    may import each other; a generic self-call through its turbofish; and a self-call
+    whose name and `(` a comment and a line break split -- and the control is the shape
+    a by-name reader must not invent a cycle from: one name declared in two files, each
+    call resolved in its own file first."""
+    return _run_plants(case, "check_no_recursion", [
+        ("a self-call", {"src/core/zz.npk": _SELF},
+         ["src/core/zz.npk:3:1", "`zz_self` calls itself"]),
+        ("a mutual pair",
+         {"src/core/zz.npk": "mod:zz;\n\nfunc:zz_even = bool(int64:n) never fails {\n"
+                             "    if (n <= 0i64) { pass true; }\n    pass raw zz_odd(n - 1i64);\n};\n\n"
+                             "func:zz_odd = bool(int64:n) never fails {\n"
+                             "    if (n <= 0i64) { pass false; }\n    pass raw zz_even(n - 1i64);\n};\n"},
+         ["`zz_even` (src/core/zz.npk:3:1)", "`zz_odd` (src/core/zz.npk:8:1)"]),
+        ("a pair across two modules",
+         {"src/core/za.npk": "mod:za;\nuse \"../syntax/zb.npk\".*;\n\npub func:za_f = int64(int64:n) never fails {\n"
+                             "    if (n <= 0i64) { pass 0i64; }\n    pass raw zb_g(n - 1i64);\n};\n",
+          "src/syntax/zb.npk": "mod:zb;\nuse \"../core/za.npk\".*;\n\npub func:zb_g = int64(int64:n) never fails {\n"
+                               "    if (n <= 0i64) { pass 1i64; }\n    pass raw za_f(n - 1i64);\n};\n"},
+         ["`za_f` (src/core/za.npk:4:5)", "`zb_g` (src/syntax/zb.npk:4:5)"]),
+        ("a generic self-call through its turbofish",
+         {"src/core/zz.npk": "mod:zz;\n\nfunc:zz_gen<T: Copy> = int64(int64:n, T:x) never fails {\n"
+                             "    if (n <= 0i64) { pass 0i64; }\n    pass raw zz_gen::<T>(n - 1i64, x);\n};\n"},
+         ["`zz_gen` calls itself"]),
+        ("a self-call split by a comment and a line break",
+         {"src/core/zz.npk": "mod:zz;\n\nfunc:zz_self = int64(int64:n) never fails {\n"
+                             "    if (n <= 0i64) { pass 0i64; }\n    pass raw zz_self /* again */\n        (n - 1i64);\n};\n"},
+         ["`zz_self` calls itself, at src/core/zz.npk:5:14"]),
+    ], {"src/core/za.npk": "mod:za;\n\n// zz_put(x) here would recurse, and \"zz_put(1)\" is a string\n"
+                           "func:zz_put = int64(int64:n) never fails {\n    pass raw zz_num(n);\n};\n\n"
+                           "func:zz_num = int64(int64:n) never fails {\n    pass n;\n};\n",
+        "src/syntax/zb.npk": "mod:zb;\nuse \"../core/za.npk\".*;\n\n"
+                             "func:zz_num = int64(int64:n) never fails {\n    pass raw zz_put(n);\n};\n"})
+
+
+def _case30(d):
+    return None                                   # handled by `_run_case30`
+
+
 def _case19(d):
     """A RED UNIT HIDDEN BY TWO LONE CARRIAGE RETURNS -- the fifth audit's BL-9 (a).
 
@@ -1014,6 +1060,11 @@ CASES = [
          "RX-179: the ecosystem audit's EC5 -- 'the only bounds check this library has' "
          "passed all four",
          _case29, ()),
+    Case(30, "a function on a call cycle: a self-call, a mutual pair, a pair across two "
+             "modules, a generic self-call, a self-call split by a comment",
+         "RX-192: `SAFETY.md` S-18's explicit stack has a belt -- no function under src/ "
+         "recurses -- and a by-name reader must neither miss a cycle nor invent one",
+         _case30, ()),
 ]
 
 
@@ -1115,6 +1166,8 @@ def _run_case(case, keep):
         return _run_case28(case)
     if case.num == 29:
         return _run_case29(case)
+    if case.num == 30:
+        return _run_case30(case)
     d = tempfile.mkdtemp(prefix=f"nregex-selfcheck-{case.num}-")
     try:
         toml = case.build_tree(d)

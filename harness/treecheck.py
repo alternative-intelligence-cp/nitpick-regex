@@ -831,6 +831,171 @@ def check_vec_elements_own_nothing(root):
                   f"`vec_...::<...>` -- in {len(files)} file(s) under src/", fl, notes)
 
 
+# --- check_no_recursion ---------------------------------------------------------------
+
+# A function's declaration, `pub` or not, generic or not. Its body is the first `{`
+# after the name: a signature's `( … )` and a bound's `< … >` hold no brace.
+_FUNC_DECL = re.compile(r"(?<![A-Za-z0-9_])func\s*:\s*([A-Za-z_]\w*)")
+# A call: a name, an optional turbofish, then `(` -- `f(x)`, `raw f(x)`,
+# `vec_init::<Frame>(8i64)`, and any of them split by blanks, a comment or a line
+# break, which the blanked text holds as whitespace. A name after `.` is a field and
+# after `:` a declaration or a binding; neither is a call.
+_CALL = re.compile(r"(?<![A-Za-z0-9_.:])([A-Za-z_]\w*)\s*(?:::\s*<[^(){};]*?>\s*)?\(")
+
+
+def _function_bodies(code):
+    """Every `func:` in blanked text, as `(name, declaration offset, body start, body
+    end)`, the body's braces matched."""
+    out = []
+    for m in _FUNC_DECL.finditer(code):
+        i = code.find("{", m.end())
+        if i < 0:
+            continue
+        depth, j = 0, i
+        while j < len(code):
+            if code[j] == "{":
+                depth += 1
+            elif code[j] == "}":
+                depth -= 1
+                if depth == 0:
+                    break
+            j += 1
+        out.append((m.group(1), m.start(), i, j))
+    return out
+
+
+def _at(code, off):
+    """`line:column` of an offset, both from 1."""
+    return f"{code.count(chr(10), 0, off) + 1}:{off - (code.rfind(chr(10), 0, off) + 1) + 1}"
+
+
+def _cyclic_groups(nodes, edges):
+    """Tarjan's strongly connected components, ITERATIVELY -- a recursion check that
+    recursed would be its own counter-example. Returns each component holding a
+    cycle: more than one member, or one member that calls itself."""
+    index, low, on, stack, out = {}, {}, set(), [], []
+    for start in nodes:
+        if start in index:
+            continue
+        index[start] = low[start] = len(index)
+        stack.append(start)
+        on.add(start)
+        work = [(start, iter(edges.get(start, ())))]
+        while work:
+            v, it = work[-1]
+            for w in it:
+                if w not in index:
+                    index[w] = low[w] = len(index)
+                    stack.append(w)
+                    on.add(w)
+                    work.append((w, iter(edges.get(w, ()))))
+                    break
+                if w in on:
+                    low[v] = min(low[v], index[w])
+            else:
+                work.pop()
+                if work:
+                    u = work[-1][0]
+                    low[u] = min(low[u], low[v])
+                if low[v] == index[v]:
+                    comp = []
+                    while True:
+                        w = stack.pop()
+                        on.discard(w)
+                        comp.append(w)
+                        if w == v:
+                            break
+                    if len(comp) > 1 or v in edges.get(v, ()):
+                        out.append(sorted(comp))
+    return out
+
+
+def check_no_recursion(root):
+    """No function under `src/` on a call cycle -- `SAFETY.md` S-18 and S-19 (RX-032,
+    RX-192).
+
+    THE RULE IS THE EXPLICIT STACK, AND THIS IS ITS BELT. A pattern controls how deep
+    the parser nests, and later how deep the HIR and program walks go (S-19), so every
+    such depth is held on an explicit stack -- a `Vec` of frames and one `while`, as
+    `src/syntax/parse.npk`'s walk holds it -- and refused at a bound before a frame
+    past it exists. A recursion deeper than its thread's stack does not refuse: it
+    traps `StackExhausted` and ends the whole program (RX-191, probe 19), at a depth
+    set by the optimiser's frame and the caller's thread. The gate unit
+    `parse_nest_deep` shows the parser refusing; this shows no function anywhere under
+    `src/` can recurse at all, at any depth, whatever a test happens to reach.
+
+    ALL OF `src/`, AND EVERY CYCLE, NOT A SELF-CALL IN `src/syntax/` ALONE. The cycle
+    0.1 README asked for a grep of `src/syntax/` for a function that calls itself.
+    A mutual pair recurses as deep as a self-call does; two modules may import each
+    other, so a pair may sit in two files (measured at `5fbaf4a`); and S-19's walks
+    are written in `src/hir/` and `src/compile/`, where a check over `src/syntax/`
+    would never look. So the call graph is every function under `src/`, and any
+    strongly connected component with a cycle fails, named with each member's place.
+
+    BY NAME, AND WHAT THAT CANNOT SEE. A call is a name, an optional turbofish, and
+    `(`, read in the blanked text (`lexical.py`); it resolves to its own file's
+    function of that name, else to every function of that name under `src/` -- so a
+    name declared in two files does not join their callers into a cycle that is not
+    there (self-check case 30's clean control). A call through a `dyn` receiver or a
+    function value names no function and is no edge here, as it is no edge in the
+    compiler's own recursion analysis (its D-304 (5)); `src/` holds no `dyn`, no
+    trait, no `impl` and no `func` as a type, and every one of its functions has a name
+    of its own (measured at cycle 0.1.2), so today the graph is exact.
+
+    IT CANNOT TELL A DEPTH AN INPUT CONTROLS FROM ONE IT DOES NOT, so it refuses
+    both. A recursion that needs to exist is a decision that says so, not an edit to
+    this check."""
+    files = npk_files(root, "src")
+    owners = {}             # a function's name -> the files declaring it
+    sites = {}              # (file, name) -> its declaration's `line:column`
+    calls = []              # (file, caller, callee name, call's `line:column`)
+    for path in files:
+        rel = os.path.relpath(path, root).replace(os.sep, "/")
+        code = lexical.blank(_read(path))
+        for name, at, b0, b1 in _function_bodies(code):
+            owners.setdefault(name, []).append(rel)
+            sites[(rel, name)] = _at(code, at)
+            for m in _CALL.finditer(code, b0, b1):
+                calls.append((rel, name, m.group(1), _at(code, m.start(1))))
+    edges, first_call, n_calls = {}, {}, 0
+    for rel, name, callee, where in calls:
+        if callee not in owners:
+            continue            # a builtin, a type, a keyword: nothing under src/
+        n_calls += 1
+        targets = [rel] if rel in owners[callee] else owners[callee]
+        for t in targets:
+            edges.setdefault((rel, name), set()).add((t, callee))
+            first_call.setdefault(((rel, name), (t, callee)), f"{rel}:{where}")
+    fl = []
+    why = ("-- native recursion under src/, which SAFETY.md S-18 and S-19 forbid "
+           "(RX-032, RX-192): a depth an input controls is held on an explicit "
+           "stack, a `Vec` of frames and one `while` as `src/syntax/parse.npk`'s "
+           "walk holds it, and refused at a bound -- because a recursion deeper "
+           "than its thread's stack traps `StackExhausted` and ends the whole "
+           "program (RX-191).")
+    for comp in _cyclic_groups(sorted(sites), edges):
+        if len(comp) == 1:
+            node = comp[0]
+            fl.append(f"{node[0]}:{sites[node]}: `{node[1]}` calls itself, at "
+                      f"{first_call[(node, node)]} {why}")
+        else:
+            members = ", ".join(f"`{n}` ({f}:{sites[(f, n)]})" for f, n in comp)
+            fl.append(f"{comp[0][0]}:{sites[comp[0]]}: {len(comp)} functions call "
+                      f"one another in a cycle -- {members} {why}")
+    shared = sorted(n for n, fs in owners.items() if len(fs) > 1)
+    notes = ["by name: a call resolves to its own file's function of that name, else "
+             "to every function of that name under src/, so a cycle across two "
+             "modules is seen and a name two files share invents none."]
+    if shared:
+        notes.append(f"{len(shared)} name(s) declared in more than one file, each "
+                     f"call resolved in its own file first: "
+                     + ", ".join(f"`{n}`" for n in shared))
+    return Result("check_no_recursion", "SAFETY.md S-18, S-19 (RX-032, RX-192)",
+                  f"{len(sites)} function(s) in {len(files)} file(s) under src/, "
+                  f"{n_calls} call(s) of one by another, "
+                  f"{sum(len(v) for v in edges.values())} distinct edge(s)", fl, notes)
+
+
 # --- check_specs_current --------------------------------------------------------------
 
 _SPEC_LINK = re.compile(r'\[[^\]]*\]\(([^)]+\.md)(?:#[^)]*)?\)')
@@ -1051,7 +1216,7 @@ def check_dated_measurements(root):
 
 ALL = [check_layering, check_error_budget, check_constants_named,
        check_no_division, check_accessor_confinement,
-       check_vec_elements_own_nothing,
+       check_vec_elements_own_nothing, check_no_recursion,
        check_dated_measurements, check_specs_current]
 REPORTING_ONLY = {"check_specs_current"}
 

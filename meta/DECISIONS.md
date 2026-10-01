@@ -4711,3 +4711,35 @@ S-18 is about adversarial input, which is owed a refusal; **record the measured 
 they are the optimiser's and the thread's, a factor of three apart between the two legs; **a dated note on RX-032
 without a probe** — a pin-dependent measurement recorded as a permanent property is RX-120's lesson, and a probe
 re-measures it on every run.
+
+### RX-192 — `check_no_recursion`: no function under `src/` is on a call cycle — every cycle, across files, over all of `src/`
+
+**2026-10-01, cycle 0.1.2 (the plan's PD-36), at compiler `5fbaf4a`** — `SAFETY.md` S-18 and S-19's belt. The cycle
+README asked for "a tree check that greps `src/syntax/` for a function that calls itself". The check built reads
+wider on three counts, each measured: a mutual pair recurses as deep as a self-call does; two modules may import
+each other, so a pair may span two files — a call cycle through `use` in both directions compiles and runs at
+`5fbaf4a`; and S-19's walks will be written in `src/hir/` and `src/compile/`, where a check over `src/syntax/`
+would never look.
+
+**The check.** Every `func:` under `src/`, read in the blanked text (`lexical.py`); a call is a name, an optional
+turbofish and `(`, resolved to its own file's function of that name, else to every function of that name under
+`src/`; Tarjan's components, computed iteratively; a component holding a cycle fails, each member named at its
+declaration. At this commit: 90 functions in 17 files, 135 distinct edges, no cycle. **And the compiler agrees,**
+asked through its own recursion analysis — a `decreases` on a function in no recursive group is
+`NITPICK-TYPE-075` (its D-304 (5)): with `decreases 0i64` written on every function of a copy of `src/`, all 90 are
+TYPE-075, while a planted self-call and a planted mutual pair are not. Self-check case 30 plants five recursions
+and a clean control; it goes red against a check that reads self-calls alone, and against one that resolves a
+call to every function of its name rather than to its own file's first.
+
+**What it cannot see,** stated in its docstring: a call through a `dyn` receiver or a function value, which the
+compiler's analysis cannot see either — `src/` holds no `dyn`, no trait, no `impl` and no `func` as a type, and its
+90 functions have 90 names (measured), so the graph is exact today; and whether a recursion's depth is one an input
+controls, so it refuses every recursion — one that must exist is a decision, not an edit to the check.
+
+*Alternatives declined:* **the README's grep of `src/syntax/` for a self-call** — blind to a mutual pair, to a pair
+across files and to every directory but one, while S-19's walks come next; **the compiler's own analysis as the
+check** — exact, but it rewrites the source it judges and costs a compile per module where every other tree check
+reads text; it stays the plan's cross-check; **the call graph in the emitted IR** — `irscan.py` reads only the calls
+to the floor (B-2's second layer), and widened it would give the emitter's names rather than the source's places,
+at a compile per root; **the gate unit alone** — it shows the
+parser refusing on the patterns it builds, and nothing about a function it never calls.

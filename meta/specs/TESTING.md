@@ -204,6 +204,7 @@ framing that let both be wrong. The framing is the column.
 | `check_no_division` | **yes** | no `/` or `%` under `src/` — `SAFETY.md` S-25 (RX-132), because a division arms two `failsafe` arms in every importer |
 | `check_accessor_confinement` | **yes** | no `.items[` outside `src/core/vec.npk`, no `.ptr[` outside `src/core/bytes.npk`, **within `src/`** — `SAFETY.md` S-23, **the only bounds check this library has** (RX-136). *Since cycle 0.0.4c `Vec`'s half is the compiler's too — `items` is `hidden`, so `.items` outside `vec.npk` is `NITPICK-TYPE-080` in every module; `Bytes`' half is not, because a sealed `buf` admits a write THROUGH `.ptr` (RX-153). The check stays for both, and for the owning files' own use of their accessors. Since cycle 0.0.4d `Bytes`' half is the compiler's too: `buf` is `hidden` (RX-163). Since cycle 0.1.0b the spaced forms too — `. items [`, and either split across a line break (RX-179)* |
 | `check_vec_elements_own_nothing` | **yes** | every `Vec` element named under `src/` — in a `Vec<…>`, with or without a space, and in a `vec_…::<…>` turbofish — is CLEARED as owning nothing, **default-deny** (RX-158): each name in it is one of the language's non-owning scalars or a struct or enum declared under `src/` whose fields and payloads clear the same way, every declaration of that name judged; a pointer, a slice, `wild` storage, a prelude type, a bare type parameter or an unresolved name fails — `SAFETY.md` S-23a (RX-155). The language accepts an owning element and `vec_get` then MOVES it out; this is what makes the restriction a rule. Only `vec.npk`'s own `Vec<T>` over its type parameter is exempt, and `tests/` is out of scope because the owning units measure the verbs there. *Since cycle 0.1.1b (RX-188, RX-190) the compiler refuses an element that drops, at the type, and this check is the belt there; it stays the rule for an element that holds a block — a `Copy` struct may hold a pointer or a slice. The declaration `Vec<T: Copy>` is exempt as its parameter, and `tests/` stays out because it ships nothing.* *It was a denylist of nine words until the fourth cycle 0.0 audit walked twelve shapes past it (N-18)* |
+| `check_no_recursion` | **yes** | no function under `src/` on a call cycle — a self-call, a mutual pair, a cycle across files — `SAFETY.md` S-18 and S-19 (RX-032, RX-192): calls read by name in the blanked text, each resolved in its own file first, Tarjan's components computed iteratively, every member of a cycle named at its declaration. A call through a `dyn` receiver or a function value is no edge, as in the compiler's own analysis, and `src/` holds neither. *Built at cycle 0.1.2, where the cycle README asked for a grep of `src/syntax/` for a function that calls itself: a mutual pair, a pair across two files and S-19's walks outside `src/syntax/` are why it reads every cycle in every file* |
 | `check_dated_measurements` | **yes** | any live document dating a measurement to "the pin" rather than to a commit — RX-142, built by the cycle 0.0 audit triage after a phrase-level sweep left a class thirteen times its size. **It declared `.yml` and could not reach the one `.yml` in the tree**, because it pruned directories by leading dot and the workflow lives in `.github/`: it now prunes by NAME and reports its denominator PER EXTENSION, so a declared class the walk never opens shows a zero instead of vanishing into a healthy total — RX-145. **And it never walks into another repository**: a directory holding a `.git` entry, or named `.nitpick` (where CI checks the compiler out, inside the workspace), is pruned and named in the check's first note, because CI was red from `ab93eae` on the compiler's own roadmap — RX-147 |
 | `check_specs_current` | **yes**, reports rather than fails | spec citations that no longer resolve |
 | `check_no_syscalls` | **yes**, as a BUILD STEP and not a tree check | the object's undefined symbols, **and the IR's floor call edges**, against the committed baseline — RX-116 and RX-120, §2 |
@@ -225,6 +226,9 @@ and the roadmap's checklists, which are what a worker runs, say 0.6.1 and 0.4.3.
 is a build step rather than a tree check, because a failure there invalidates
 what every suite below it means. Take the count from the runner's summary, never
 from this table: the count moved *inside* the subcycle that last corrected it.
+*(2026-10-01, cycle 0.1.2 — RX-192: **nine** run on every full invocation since
+`check_no_recursion` joined `ALL`, eight of which can fail the run; `check_no_syscalls`
+stays the build step beside them.)*
 
 **Rule V-22 — A CHECK IS A RULE ONLY OVER THE FILES IT OPENS, so every check
 here reports what it examined and not merely its verdict.** This module's own
@@ -320,6 +324,11 @@ requires it to report every one as a failure. The list is `harness/selfcheck.py`
     passing (RX-179). On the instrument;
 29. `check_accessor_confinement` over EC5's four spaced forms, each alone, each
     failing by name, a clean tree passing (RX-179). On the instrument.
+30. `check_no_recursion` over five planted recursions — a self-call, a mutual
+    pair, a pair across two modules, a generic self-call through its turbofish,
+    and a self-call whose name and `(` a comment and a line break split — each
+    failing by name, and a clean tree passing: one name declared in two files,
+    each call resolved in its own file first (RX-192). On the instrument.
 
 *(Reconciled 2026-09-25 by the third cycle 0.0 audit's triage, RX-154. This list
 had eight bullets and `CASES` eleven entries, and they disagreed in BOTH
@@ -347,6 +356,13 @@ all three of BL-9's fixes reverted together, 23 alone with only the second
 defence deleted or asked of the reader again, 19 only with both defences gone —
 and 22 against `range(exp.stress)` narrowed to one run. **24 cases, 20 live, 4
 pending** on the day they were written.)*
+
+*(Extended 2026-10-01 by cycle 0.1.2, RX-192: 30. It was seen to fail against a copy
+of the check that read self-calls alone — the mutual pair and the pair across two
+modules passed — and against one that resolved each call to every function of its
+name rather than to its own file's first, whose clean control then failed on a cycle
+that is not there.
+**31 cases, 27 live, 4 pending** on the day it was written.)*
 
 **Rule V-21 — the self-check runs first in every full invocation.** A harness
 that has not proven it can fail has not proven anything.

@@ -17,6 +17,8 @@
 // THE DUMP RECURSES. The parser may not (RX-032, `SAFETY.md` S-18) and does not;
 // a test's patterns are a few levels deep, and cycle 0.1.2's check reads
 // `src/syntax/` only. Every loop is a `while` over an `int64`.
+// *(2026-10-01, cycle 0.1.2 -- RX-192: `check_no_recursion` reads every file under
+// `src/`, and nothing under `tests/`, so the dump stays legal.)*
 mod:parse_grammar;
 
 use "../../src/core/core.npk".*;

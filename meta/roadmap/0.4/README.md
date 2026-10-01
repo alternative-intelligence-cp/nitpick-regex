@@ -68,3 +68,5 @@ every corpus program.
   range halves), so it is one of the few places native recursion would be
   defensible — and it still uses an explicit stack, because a tree check greps
   for self-calls and an exception would have to be argued.
+  *(2026-10-01, cycle 0.1.2 — RX-192: that check is `check_no_recursion`, over every
+  file under `src/` and every call cycle; an exception would be a decision.)*

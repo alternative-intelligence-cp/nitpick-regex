@@ -875,6 +875,9 @@ know.)*
 **Rule S-19 — the same rule applies to every HIR and program walk.** Desugaring,
 literal extraction and program emission all walk a tree that a pattern
 controls the depth of, and all three use an explicit stack.
+*(2026-10-01, cycle 0.1.2 — RX-192: this rule and S-18 have a belt,
+`check_no_recursion`: no function under `src/` may sit on a call cycle, read by
+name over every file — a self-call, a mutual pair, or a pair across two modules.)*
 
 **Rule S-20 — the haystack is never validated as UTF-8.** It is `uint8[]`.
 Matching over invalid UTF-8 is defined (`UNICODE.md` §6) rather than refused,

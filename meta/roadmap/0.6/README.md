@@ -28,6 +28,9 @@ RX-030, RX-031, RX-032. Settled. **No open questions.**
 
 ### 0.6.1 — emission
 - [ ] an explicit stack (RX-032, C-13); a tree check greps for self-calls in `src/compile/`
+  *(2026-10-01, cycle 0.1.2 — RX-192: the check exists already, `check_no_recursion`, and
+  reads every file under `src/` for a call cycle, `src/compile/` included; the explicit
+  stack stays this cycle's.)*
 - [ ] every `HirKind` emitted
 - [ ] `check_inst_kinds_total` live: every `InstKind` emitted by the compiler and handled by the oracle — the engines' half goes live per engine cycle
 - [ ] `check_hir_kinds_total`'s compiler half now green
