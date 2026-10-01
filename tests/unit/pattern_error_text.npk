@@ -158,6 +158,10 @@ func:run = int32() never fails {
     if (!(raw says("(?x)[a\tb]", "white space in a class at byte 6 under `x`: Rust's `regex` and Java skip it here, and Perl, Python and .NET match it, so nregex refuses it. Write `\\t` to match it, or remove it."))) { pass 61i32; }
     if (!(raw says("(?x)[a#b]", "`#` in a class at byte 6 under `x`: Rust's `regex` and Java begin a comment here, and Perl, Python and .NET match a `#`, so nregex refuses it. Write `\\#` to match a `#`."))) { pass 62i32; }
     if (!(raw says("(?x)a\u{A0}b", "white space past ASCII at byte 5 under `x`: U+00A0 is skipped there by some engines and matched by others -- Rust's `regex` skips Unicode's White_Space, Perl its Pattern_White_Space, and Python and Java ASCII white space alone -- so nregex refuses it. Write `\\x{A0}` to match it, or remove it."))) { pass 63i32; }
+    // cycle 0.1.4's `(?-u)` (Y-43)
+    if (!(raw says("(?-u)é", "non-ASCII literal at byte 5 under `(?-u)`: U+00E9 takes 2 bytes in UTF-8, and in byte mode a literal is one byte. Write its UTF-8 bytes as `\\xC3\\xA9`, the byte E9 as `\\xE9`, or turn `u` back on around it, as in `(?u:...)`."))) { pass 64i32; }
+    if (!(raw says("(?-u)\\x{20AC}", "non-ASCII literal at byte 5 under `(?-u)`: U+20AC takes 3 bytes in UTF-8, and in byte mode a literal is one byte. Write its UTF-8 bytes as `\\xE2\\x82\\xAC`, or turn `u` back on around it, as in `(?u:...)`."))) { pass 65i32; }
+    if (!(raw says("(?-u)\\pL", "Unicode property at byte 5 under `(?-u)`: a property names codepoints, and byte mode matches bytes. Turn `u` back on around it, as in `(?u:\\p{Greek})`, or write the bytes it should match as a class."))) { pass 66i32; }
     pass 0i32;
 };
 

@@ -42,6 +42,7 @@ The closest neighbour, so the list is short and each entry is deliberate.
 | flags `U` and `R` | swap greed; CRLF mode | `(?U)` refused, `UnknownFlag`; `(?R)` refused as PCRE's recursion (`SYNTAX.md` Y-30) | flags nregex does not have — RX-206 |
 | `x` mode inside a construct | white space skipped inside escapes, bounds and group heads — `\x4 1`, `a{2, 3}`, `( ?:a)` — and before a lazy `?` | read as without `x`, so each refused | Perl, Python and Java read each of these otherwise (`SYNTAX.md` Y-42) — RX-207 |
 | white space past ASCII under `x` | Unicode's White_Space skipped | refused, `ExtendedAmbiguity` | Perl skips Pattern_White_Space, Python and Java ASCII white space alone (Y-42) — RX-207 |
+| a codepoint past ASCII under `(?-u)` | `é` and `\x{E9}` are é's UTF-8 bytes, `\xE9` the byte E9; `[é]` refused | each refused but `\xE9`, the sentence naming the codepoint and its bytes | two escapes of one value naming different bytes is a difference no pattern should carry in silence (`SYNTAX.md` Y-43) — RX-208 |
 | replacement | closures **or** templates | templates and non-capturing function values | no closures (D-018) |
 | `Match` | a `&str` slice | byte offsets | borrows never pass up (D-004) |
 | DFA cache | pooled internally | an explicit `Cache` the caller owns | `ENGINES.md` §5 |

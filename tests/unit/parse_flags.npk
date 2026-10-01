@@ -277,6 +277,19 @@ func:run = int32() never fails {
     if (!(raw tree("(?x)a#", "(cat{xu} (flags +x) 'a'{xu})", false)))                      { pass 45i32; }
     if (!(raw tree("(?x)a b", "(cat{xu}@0+7 (flags@0+4 +x) 'a'{xu}@4+1 'b'{xu}@6+1)", true))) { pass 46i32; }
     if (!(raw tree("(?-x)[a b]", "(cat (flags -x) (cls 'a' #32 'b'))", false)))             { pass 47i32; }
+    // `(?-u)` (Y-13, Y-43): every literal a byte, `AST_FLAG_BYTE` on it; `\xHH` any byte
+    if (!(raw tree("(?-u)a", "(cat{} (flags -u) 'a'b{})", false)))                       { pass 50i32; }
+    if (!(raw tree("(?-u)\\xE9", "(cat{}@0+9 (flags@0+5 -u) #233b{}@5+4)", true)))         { pass 51i32; }
+    if (!(raw tree("(?-u)\\xFF\\x80\\x7F", "(cat{} (flags -u) #255b{} #128b{} #127b{})", false))) { pass 52i32; }
+    if (!(raw tree("(?-u:\\xFF)é", "(cat (grp #255b{}) #233)", false)))                    { pass 53i32; }
+    if (!(raw tree("(?-u)[\\xE9-\\xFF]", "(cat{} (flags -u) (cls{} #233-#255{}))", false))) { pass 54i32; }
+    if (!(raw tree("(?-u)[a-\\xFF]", "(cat{} (flags -u) (cls{} 'a'-#255{}))", false)))     { pass 55i32; }
+    if (!(raw tree("(?-u)\\x{41}\\u0042\\x{7F}", "(cat{} (flags -u) 'A'b{} 'B'b{} #127b{})", false))) { pass 56i32; }
+    if (!(raw tree("(?-u)\\w.[[:alpha:]\\d]", "(cat{} (flags -u) \\w{} .{} (cls{} [:alpha:]{} \\d{}))", false))) { pass 57i32; }
+    if (!(raw tree("(?-u)\\(\\n", "(cat{} (flags -u) '('b{} #10b{})", false)))              { pass 58i32; }
+    if (!(raw tree("(?-u)(?u)é", "(cat (flags -u) (flags{} +u) #233)", false)))            { pass 59i32; }
+    if (!(raw tree("(?i-u)k", "(cat{i} (flags +i -u) 'k'b{i})", false)))                   { pass 60i32; }
+    if (!(raw tree("(?x-u)a # é\nb", "(cat{x} (flags +x -u) 'a'b{x} 'b'b{x})", false)))    { pass 61i32; }
     pass 0i32;
 };
 

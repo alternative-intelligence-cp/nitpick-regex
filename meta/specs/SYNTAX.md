@@ -192,6 +192,8 @@ on a `Repeat`, `AST_FLAG_NEGATED` 512 on a `Class`, `PerlClass`, `PosixClass` or
 `(?-u)` (Y-13). `#size_of<AstNode>()` is 56, measured, with no padding.
 *(2026-10-01, cycle 0.1.4 — RX-206: "the flags in force at the node" are its frame's when it is built — a `Group`'s its
 parent's, a `Flags` node's before its change (Y-41).)*
+*(2026-10-01, cycle 0.1.4 — RX-208: `AST_FLAG_BYTE` is on every `Literal` read under `(?-u)`, its `a` a byte; a class
+member there is a byte too, with no bit, since its node's flags lack `u` (Y-43).)*
 
 **Rule Y-27 (RX-174) — the node kinds are a closed list of sixteen**, one for
 each construct of §1 that survives parsing; a refusal (§8) produces none.
@@ -389,11 +391,15 @@ performance hint.** With Unicode off, `.` matches one **byte**, `\w` is ASCII,
 a class is a byte class, and offsets may land inside a UTF-8 sequence. It
 exists because searching binary data is a real thing a systems library is asked
 to do. `UNICODE.md` §6 states the interaction with an invalid-UTF-8 haystack.
+*(2026-10-01, cycle 0.1.4 — RX-208: parsed as Y-43 says.)*
 
 **Rule Y-14 — `(?-u)` with a pattern containing a non-ASCII literal is
 refused** (`ByteModeNonAscii`). In byte mode a literal `é` would be two byte
 literals, and `[é]` would be a class of two unrelated bytes — a silent
 nonsense. The refusal names the codepoint.
+*(2026-10-01, cycle 0.1.4 — RX-208: made — `ByteModeNonAscii` at the codepoint, written as itself or by any escape but
+`\xHH`, in a class or out, a range's end included; its detail the codepoint, and its sentence names the codepoint and
+its UTF-8 bytes (Y-43).)*
 
 **Rule Y-39 (RX-201) — under `x`, a class holds no unescaped white space and no `#`.** Outside a class, `x` ignores
 white space and `#`-to-end-of-line (the table above). Inside one the engines disagree — Rust and Java ignore both,
@@ -428,6 +434,15 @@ each two ways. A codepoint past ASCII that Unicode names white space — White_S
 `x`, or Pattern_White_Space, which Perl skips: U+0085, U+00A0, U+1680, U+2000 … U+200A, U+200E, U+200F, U+2028,
 U+2029, U+202F, U+205F and U+3000 — is `ExtendedAmbiguity` under `x`, in a class or out, at it, spanning its bytes,
 its detail the codepoint; Python and Java read each as itself. `\ ` and `\x{A0}` write white space under `x`.
+
+**Rule Y-43 (RX-208) — `(?-u)`, the byte mode.** Under `(?-u)` a literal is one byte: every `Literal` carries
+`AST_FLAG_BYTE`, its `a` the byte. A codepoint past ASCII is `ByteModeNonAscii` at it, spanning it, its detail the
+codepoint — written as itself, as `\x{…}`, `\u…` or `\U…`, in a class or out, a member or a range's end — but `\x`
+and two hex digits, which name a byte whatever its value: `(?-u)\xE9` is the byte E9, and `(?-u)\x{E9}` refused.
+`\p` and `\P` are `ByteModeNonAscii` at the `\`, spanning both bytes, their detail the letter — `p`, 112, or `P`, 80,
+which no codepoint past ASCII is — since a property names codepoints. `\d`, `\w`, `\s`, the POSIX classes, `.`, `\b`
+and `\B` keep their ASCII meanings (`UNICODE.md` U-9), which the nodes' flags carry. `(?u)` and `(?u:…)` turn Unicode
+back on.
 
 ---
 
@@ -692,6 +707,7 @@ RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-2
 | `UnknownFlag` (cycle 0.1.4) | a byte that is no flag where one may be — a `)` or `:` where one is due, and a second `-`, among them | that byte | its bytes | its codepoint |
 | `DuplicateFlag` (cycle 0.1.4) | a flag named twice in one head, set or cleared | the second | 1 | the letter |
 | `ExtendedAmbiguity` (cycle 0.1.4) | under `x`, white space or `#` in a class; white space past ASCII anywhere | that codepoint | its bytes | its codepoint: 9 … 13, 32, 35, or one of Y-42's |
+| `ByteModeNonAscii` (cycle 0.1.4) | under `(?-u)`, a codepoint past ASCII written as itself or by an escape but `\xHH`; `\p` or `\P` | that codepoint; the `\` | its bytes or the escape; 2 | the codepoint; 112 or 80 |
 
 *(2026-10-01, cycle 0.1.4 — RX-203: a detail whose domain is a codepoint — the one a refusal found where it wanted
 another — says what no codepoint can with `NOT_A_CODEPOINT`, U+110000, one past the last: that the pattern ended

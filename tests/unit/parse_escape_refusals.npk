@@ -121,6 +121,21 @@ func:run = int32() never fails {
     if (!(raw refused("a\\>", PatternErrorKind.UnknownEscape, 1i64, 2i64, 62u32)))           { pass 75i32; }
     if (!(raw refused("[\\<]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 60u32)))          { pass 76i32; }
     if (!(raw refused("[!-\\>]", PatternErrorKind.UnknownEscape, 3i64, 2i64, 62u32)))        { pass 77i32; }
+    // under `(?-u)`, a codepoint past ASCII written as itself or by an escape other than `\xHH`, and
+    // a property, which names codepoints (Y-43; RX-208)
+    if (!(raw refused("(?-u)é", PatternErrorKind.ByteModeNonAscii, 5i64, 2i64, 233u32)))        { pass 78i32; }
+    if (!(raw refused("(?-u)a€", PatternErrorKind.ByteModeNonAscii, 6i64, 3i64, 8364u32)))      { pass 79i32; }
+    if (!(raw refused("(?-u)\\x{E9}", PatternErrorKind.ByteModeNonAscii, 5i64, 6i64, 233u32)))  { pass 80i32; }
+    if (!(raw refused("(?-u)\\u00E9", PatternErrorKind.ByteModeNonAscii, 5i64, 6i64, 233u32)))  { pass 81i32; }
+    if (!(raw refused("(?-u)\\U0001F600", PatternErrorKind.ByteModeNonAscii, 5i64, 10i64, 128512u32))) { pass 82i32; }
+    if (!(raw refused("(?-u)[é]", PatternErrorKind.ByteModeNonAscii, 6i64, 2i64, 233u32)))      { pass 83i32; }
+    if (!(raw refused("(?-u)[a-é]", PatternErrorKind.ByteModeNonAscii, 8i64, 2i64, 233u32)))    { pass 84i32; }
+    if (!(raw refused("(?-u)[\\x{100}]", PatternErrorKind.ByteModeNonAscii, 6i64, 7i64, 256u32))) { pass 85i32; }
+    if (!(raw refused("(?-u)\\pL", PatternErrorKind.ByteModeNonAscii, 5i64, 2i64, 112u32)))     { pass 86i32; }
+    if (!(raw refused("(?-u)[\\P{Greek}]", PatternErrorKind.ByteModeNonAscii, 6i64, 2i64, 80u32))) { pass 87i32; }
+    if (!(raw refused("(?-u:\\x{80})", PatternErrorKind.ByteModeNonAscii, 5i64, 6i64, 128u32))) { pass 88i32; }
+    if (!(raw refused("(?-u)\\x{D800}", PatternErrorKind.InvalidCodepoint, 5i64, 8i64, 55296u32))) { pass 89i32; }
+    if (!(raw refused("(?u)é(?-u)é", PatternErrorKind.ByteModeNonAscii, 11i64, 2i64, 233u32)))  { pass 90i32; }
     pass 0i32;
 };
 

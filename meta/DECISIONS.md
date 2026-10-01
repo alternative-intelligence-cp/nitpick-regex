@@ -5236,3 +5236,33 @@ past ASCII read as itself** — Python's and Java's reading, and a silent differ
 for U+2028; **skipped, as Rust skips it** — a silent difference from Perl, Python and Java; **a kind for each case —
 white space in a class, `#` in a class, white space past ASCII** — three kinds for one ambiguity, which the detail
 tells apart; **`UnknownFlag` or `ByteModeNonAscii` reused** — kinds named for something else.
+
+### RX-208 — `(?-u)`: every literal a byte, `\xHH` any byte, and a codepoint past ASCII written any other way refused, naming its UTF-8 bytes
+
+**2026-10-01, cycle 0.1.4 (the plan's PD-52), at compiler `5fbaf4a`** — `SYNTAX.md` Y-43, with Y-13, Y-14 and Y-26; per
+`meta/research/escape-flag-syntax-reference-engines.md`, as of 2026-10-01. Y-14 refuses a non-ASCII literal under
+`(?-u)` and asks the refusal to name the codepoint; it does not say what an escape names there. Measured in Rust's
+`regex` 1.13.1 (regex-syntax 0.8.11, with `utf8` off, as for a search over bytes): `(?-u)é` and `(?-u)\x{E9}` are é's
+two UTF-8 bytes, C3 A9, and `(?-u)\xE9` the one byte E9 — two escapes of one value naming different bytes; `(?-u)[é]`
+and `(?-u)\pL` are refused, *"Unicode not allowed here"*.
+
+**The decision.** Y-43. Under `(?-u)` a literal is one byte, and every `Literal` carries `AST_FLAG_BYTE` — Y-26 named
+the bit for "a `Literal` that is a byte under `(?-u)`", and each is. `\x` and two hex digits name a byte whatever its
+value; any other way to write a codepoint past ASCII — as itself, `\x{…}`, `\u…`, `\U…` — is `ByteModeNonAscii`, in a
+class or out, as a member or a range's end, so the two readings of Rust's that disagree are each a refusal here. `\p`
+and `\P` are refused at the `\`, their detail the letter, which no codepoint past ASCII is, so one kind carries both
+cases. The sentence names the codepoint, as Y-14 asks, and its UTF-8 bytes as escapes, and the one byte when the
+codepoint is below U+0100: *"non-ASCII literal at byte 5 under `(?-u)`: U+00E9 takes 2 bytes in UTF-8, and in byte
+mode a literal is one byte. Write its UTF-8 bytes as `\xC3\xA9`, the byte E9 as `\xE9`, or turn `u` back on around
+it, as in `(?u:...)`."*
+
+**Measured at `5fbaf4a`.** `tests/unit/parse_flags.npk` cases 50–61, `parse_escape_refusals.npk` cases 78–90 and
+`pattern_error_text.npk` cases 64–66 pass at −O0 and through `opt -O2`, and against the parser before this decision
+the first two exit 50 and 78; each rule broken in a copy exits as the plan's §1.10 records.
+
+*Alternatives declined:* **`\x{E9}` as the byte E9, one rule for every hex escape** — Rust reads it as two bytes, so a
+pattern would change meaning between the two, silently; **a codepoint past ASCII as its UTF-8 bytes, as Rust reads
+`é`** — Y-14 calls that silent nonsense in a class, and a literal and a class member would differ; **`\p` under
+`(?-u)` left to cycle 0.3, which resolves properties** — the parser knows the flags, no reading of a property is a
+byte class, and Rust refuses it when it parses; **`AST_FLAG_BYTE` on a byte past ASCII only** — every literal under
+`(?-u)` is a byte, and a bit on some would leave a reader asking the flags for the rest.

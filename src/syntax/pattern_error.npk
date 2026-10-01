@@ -565,8 +565,30 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
             drop put(@b, ": a pattern is UTF-8 text, and this sequence is not well-formed.");
         },
         (PatternErrorKind.ByteModeNonAscii) {
-            drop put(@b, "non-ASCII literal at byte "); drop num(@b, e.offset);
-            drop put(@b, " under `(?-u)`: in byte mode a literal is one byte. Write the bytes as `\\xHH` escapes, or leave `u` on.");
+            if ((e.detail == 112u32) || (e.detail == 80u32)) {
+                drop put(@b, "Unicode property at byte "); drop num(@b, e.offset);
+                drop put(@b, " under `(?-u)`: a property names codepoints, and byte mode matches bytes. Turn `u` back on around it, as in `(?u:\\");
+                drop ch(@b, e.detail); drop put(@b, "{Greek})`, or write the bytes it should match as a class.");
+            }
+            else {
+                int64:cp = e.detail => int64;
+                int64:n = raw utf8_count(cp);
+                drop put(@b, "non-ASCII literal at byte "); drop num(@b, e.offset);
+                drop put(@b, " under `(?-u)`: "); drop shown(@b, e.detail);
+                drop put(@b, " takes "); drop num(@b, n);
+                drop put(@b, " bytes in UTF-8, and in byte mode a literal is one byte. Write its UTF-8 bytes as `");
+                int64:k = 0i64;
+                while (k < n) decreases n - k {
+                    drop put(@b, "\\x"); drop hex(@b, raw utf8_at(cp, k), 2i64);
+                    k = k + 1i64;
+                }
+                drop put(@b, "`");
+                if (cp < 256i64) {
+                    drop put(@b, ", the byte "); drop hex(@b, cp, 2i64);
+                    drop put(@b, " as `\\x"); drop hex(@b, cp, 2i64); drop put(@b, "`");
+                }
+                drop put(@b, ", or turn `u` back on around it, as in `(?u:...)`.");
+            }
         }
     }
     pass raw bytes_copy_string(@b);
