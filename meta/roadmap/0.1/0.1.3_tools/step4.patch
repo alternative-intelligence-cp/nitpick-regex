@@ -1,5 +1,5 @@
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index 6d7c9a29e212394cde02e3dabcce4e684aea881a..0bf7e57bece7c57bdf6c3a1e433e734f7a4b3d33 100644
+index 6d7c9a29e212394cde02e3dabcce4e684aea881a..cd5d9a2650f75eaa6d42811e37de592ac25aba5d 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
 @@ -4966,3 +4966,41 @@ anchors, and these two are read by the code the class parser already holds; **in
@@ -24,13 +24,13 @@ index 6d7c9a29e212394cde02e3dabcce4e684aea881a..0bf7e57bece7c57bdf6c3a1e433e734f
 +operator in it makes it a class written as one. When the bytes between the colons, less a leading `^`, are one of §5.1's
 +names, the detail is that name's place plus one and the sentence names the POSIX class: *"POSIX class outside a class at
 +byte 0: `[:alpha:]` is the POSIX class alpha only inside a class, and written as a class of its own its bytes are its
-+members, `:` and the letters in `alpha`. Write `[[:alpha:]]` for the POSIX class, or `[[:^alpha:]]` for its
-+complement."* Otherwise the detail is 0 and the sentence is the one a misspelt name inside a class gets, which ends
-+*"Write `\:` to match a `:`"* — and a `\:` at either end makes a class written as one, as every escape does. `[::]`,
-+`[:::]`, `[:alpha]`, `[a:alpha:]`, `[:a-z:]` and `[:[:digit:]:]` are read as their members, as GNU `grep` reads them;
-+inside a class, `[:alpha:]` is the POSIX class. `grep`'s brackets have no escape, nested class or operator — a `\` is a
-+member there, so it refuses `[:foo\:]` and `[:\d:]`, and `&&` is two members — and a class holding one is read here as
-+Rust reads it.
++members, `:` and the letters in `alpha`. Write `[[:alpha:]]` for the POSIX class, `[[:^alpha:]]` for its complement, or
++`[\:alpha:]` for its bytes."* Otherwise the detail is 0 and the sentence is the one a misspelt name inside a class gets,
++which ends *"Write `\:` to match a `:`"* — and a `\:` at either end makes a class written as one, as every escape does.
++`[::]`, `[:::]`, `[:alpha]`, `[a:alpha:]`, `[:a-z:]` and `[:[:digit:]:]` are read as their members, as GNU `grep` reads
++them; inside a class, `[:alpha:]` is the POSIX class. `grep`'s brackets have no escape, nested class or operator — a `\`
++is a member there, so it refuses `[:foo\:]` and `[:\d:]`, and `&&` is two members — and a class holding one is read here
++as Rust reads it.
 +
 +**Measured at `5fbaf4a`.** `parse_class_refusals.npk` cases 62–75, `parse_classes.npk` cases 78–90 and
 +`pattern_error_text.npk` cases 37 and 38 pass at −O0 and through `opt -O2`; against the parser before this decision the
@@ -135,10 +135,10 @@ index a6faaed4d2625219bec159c5f4cba410c655e8e9..33382156eef796fa41d8cf9914ca32bf
                  p.f.pending = cf.expr;
                  pass NIL;
 diff --git a/src/syntax/pattern_error.npk b/src/syntax/pattern_error.npk
-index e7ad781a2a6d1df49ea12da15b79d051cf0645b4..2b81bf2bb025acf8acdf4d714ed638a93c83660f 100644
+index e7ad781a2a6d1df49ea12da15b79d051cf0645b4..eb574d9be8cd9a1215e43f16aa8369f66ff47fc9 100644
 --- a/src/syntax/pattern_error.npk
 +++ b/src/syntax/pattern_error.npk
-@@ -254,18 +254,31 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
+@@ -254,18 +254,32 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
              }
          },
          (PatternErrorKind.UnknownPosixClass) {
@@ -157,8 +157,9 @@ index e7ad781a2a6d1df49ea12da15b79d051cf0645b4..2b81bf2bb025acf8acdf4d714ed638a9
 +                drop put(@b, " only inside a class, and written as a class of its own its bytes are its members, `:` and the letters in `");
 +                drop put(@b, name);
 +                drop put(@b, "`. Write `[[:"); drop put(@b, name);
-+                drop put(@b, ":]]` for the POSIX class, or `[[:^"); drop put(@b, name);
-+                drop put(@b, ":]]` for its complement.");
++                drop put(@b, ":]]` for the POSIX class, `[[:^"); drop put(@b, name);
++                drop put(@b, ":]]` for its complement, or `[\\:"); drop put(@b, name);
++                drop put(@b, ":]` for its bytes.");
 +            }
 +            else {
 +                drop put(@b, "unknown POSIX class at byte "); drop num(@b, e.offset);
@@ -255,15 +256,24 @@ index 3c3e32170e7bbf2ea2097f27d41375f103b3e9fe..8834576c4e8ce6efefadb302105bb6f8
  };
  
 diff --git a/tests/unit/pattern_error_text.npk b/tests/unit/pattern_error_text.npk
-index 858c592f8fb941736d37d1f50734512525706e87..9a6bd6ceb5bee8e105a2f9b1282340c44e3ab979 100644
+index cec3aa9b5ce7fac71c55cf1046d679b1850bb5b5..2799500a2da45b6983b3c98735d0de846017004f 100644
 --- a/tests/unit/pattern_error_text.npk
 +++ b/tests/unit/pattern_error_text.npk
+@@ -3,7 +3,7 @@
+ // WHAT A PERSON READS (`SYNTAX.md` Y-34; RX-187): `pattern_error_text` says what
+ // is wrong, at which byte, and what to write instead, for every refusal cycle
+ // 0.1.1 makes, cycle 0.1.2's `NestTooDeep` (23; RX-193), and every one cycle 0.1.3's
+-// classes make (24-36; RX-197 … RX-199) -- each case parses a pattern and holds the
++// classes make (24-38; RX-197 … RX-200) -- each case parses a pattern and holds the
+ // text to the letter, so a message changed by accident is a red run. Then every kind,
+ // built by `pattern_error` at byte 7, renders a text that names byte 7 (40), so no
+ // kind is left without a sentence.
 @@ -113,6 +113,9 @@ func:run = int32() never fails {
      if (!(raw says(cds, "nesting too deep at byte 250: the `(` or `[` here would nest groups and classes 251 deep, and they may nest at most 250 deep (NREGEX_NEST_DEPTH). Nest fewer: write `(?:a)` as `a`, and `[[a]]` as `[a]`."))) { pass 35i32; }
      // outside a class, the same sentence (Y-37, RX-199)
      if (!(raw says("\\p", "unknown Unicode property at byte 0: `\\p` and `\\P` take a one-letter name, as in `\\pL`, or a name in braces, as in `\\p{Greek}`."))) { pass 36i32; }
 +    // a whole class in a POSIX class's own form (Y-38, RX-200)
-+    if (!(raw says("[:alpha:]", "POSIX class outside a class at byte 0: `[:alpha:]` is the POSIX class alpha only inside a class, and written as a class of its own its bytes are its members, `:` and the letters in `alpha`. Write `[[:alpha:]]` for the POSIX class, or `[[:^alpha:]]` for its complement."))) { pass 37i32; }
++    if (!(raw says("[:alpha:]", "POSIX class outside a class at byte 0: `[:alpha:]` is the POSIX class alpha only inside a class, and written as a class of its own its bytes are its members, `:` and the letters in `alpha`. Write `[[:alpha:]]` for the POSIX class, `[[:^alpha:]]` for its complement, or `[\\:alpha:]` for its bytes."))) { pass 37i32; }
 +    if (!(raw says("[:alhpa:]", "unknown POSIX class at byte 0: a POSIX class is `[:name:]` inside a class, as in `[[:alpha:]]`, and the names are alpha, digit, alnum, space, upper, lower, punct, print, graph, cntrl, xdigit, blank, word and ascii. Write `\\:` to match a `:`."))) { pass 38i32; }
      // every kind renders a sentence naming its byte
      int64:k = 0i64;

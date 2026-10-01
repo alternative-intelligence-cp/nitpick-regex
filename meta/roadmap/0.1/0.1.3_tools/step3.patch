@@ -161,9 +161,18 @@ index 70287dd29530d137671d2a54d02b023b0c96ab62..3c3e32170e7bbf2ea2097f27d41375f1
  };
  
 diff --git a/tests/unit/pattern_error_text.npk b/tests/unit/pattern_error_text.npk
-index 8f2225f6e28342f349aeca6c0a22143bdc89bd4e..858c592f8fb941736d37d1f50734512525706e87 100644
+index 8f2225f6e28342f349aeca6c0a22143bdc89bd4e..cec3aa9b5ce7fac71c55cf1046d679b1850bb5b5 100644
 --- a/tests/unit/pattern_error_text.npk
 +++ b/tests/unit/pattern_error_text.npk
+@@ -3,7 +3,7 @@
+ // WHAT A PERSON READS (`SYNTAX.md` Y-34; RX-187): `pattern_error_text` says what
+ // is wrong, at which byte, and what to write instead, for every refusal cycle
+ // 0.1.1 makes, cycle 0.1.2's `NestTooDeep` (23; RX-193), and every one cycle 0.1.3's
+-// classes make (24-35; RX-197, RX-198) -- each case parses a pattern and holds the
++// classes make (24-36; RX-197 … RX-199) -- each case parses a pattern and holds the
+ // text to the letter, so a message changed by accident is a red run. Then every kind,
+ // built by `pattern_error` at byte 7, renders a text that names byte 7 (40), so no
+ // kind is left without a sentence.
 @@ -111,6 +111,8 @@ func:run = int32() never fails {
      }
      string:cds = raw bytes_copy_string(@cdeep);
