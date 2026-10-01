@@ -10,9 +10,10 @@ byte offset on every error.**
 > the core grammar, is DONE (2026-09-27)** — RX-181 … RX-187 in four work commits, `34b2801` … `1953d72`, 260/260 at
 > `5fbaf4a` and in CI run 36347047570 — **and [`0.1.1b`](0.1.1b.md), open question O-R3 — `Vec<T: Copy>`, the
 > bound on the type — is DONE (2026-09-28)** — RX-188 … RX-190 in four work commits, `3baefa6` … `975bdc8`, 238/238
-> at `5fbaf4a` and in CI run 36426481012 — **next, 0.1.2**, the explicit stack, its file a planner's to write.
-> *(Until 0.1.1b's record this banner said 0.1.1b "is PLANNED (2026-09-27, rehearsed at `5fbaf4a`), then
-> 0.1.2".)* *(Until 0.1.1b's plan this
+> at `5fbaf4a` and in CI run 36426481012 — **and [`0.1.2`](0.1.2.md), the explicit stack's bound, is PLANNED**
+> (2026-10-01, rehearsed at `5fbaf4a`). *(Until 0.1.2's plan this banner said "next, 0.1.2, the explicit stack, its
+> file a planner's to write".)* *(Until 0.1.1b's record it said 0.1.1b "is PLANNED (2026-09-27, rehearsed at
+> `5fbaf4a`), then 0.1.2".)* *(Until 0.1.1b's plan this
 > banner said "Next, open question O-R3 as a subcycle of its own, then 0.1.2" (the board, 2026-09-27).)* *(Until
 > 0.1.1's record it said 0.1.1 "is next, planned and rehearsed at `5fbaf4a`".)*
 > *(Until 0.1.0b's record this banner said
@@ -53,7 +54,7 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
 | [0.1.0b](0.1.0b.md) | **The adoption of `5fbaf4a`, and the ecosystem audit's items** — probe 18 refused, `Pod` into `Copy`, the target pins held, D-332's count, EC4 EC5 EC11 ED1 ED3 ES4 EK2 | `250/250` at `5fbaf4a`, and CI asserting the emission |
 | [0.1.1](0.1.1.md) | **The core grammar** — literals, concatenation, alternation, groups, quantifiers — and the error text | `SYNTAX.md` §1's grammar minus classes, escapes and flags; every refusal at its byte, with a sentence saying what to write |
 | [0.1.1b](0.1.1b.md) | **`Vec<T: Copy>`** — open question O-R3: the bound on the type and every verb, the owning units and `vec_free_owning` retired, the element check restated | `Vec<string>` refused at the type and at each verb; `238/238` at `5fbaf4a` |
-| 0.1.2 | **The explicit stack** — nesting, `NREGEX_NEST_DEPTH`, and the refusal | 10 000 levels deep is a `NestTooDeep`, not a segfault |
+| [0.1.2](0.1.2.md) | **The explicit stack** — nesting, `NREGEX_NEST_DEPTH`, and the refusal | 10 000 levels deep is a `NestTooDeep`, not a segfault |
 | 0.1.3 | **Classes** — items, ranges, Perl and POSIX classes, nesting, `&&`/`--`/`~~` | every class form in §5, parsed to unresolved items |
 | 0.1.4 | **Escapes and flags** — every escape in §1, flag scoping, `(?-u)` | the escape table, and `(?i)` scoped correctly |
 | 0.1.5 | **The refusals** — every construct in §8, by name, with its offset | `BackreferenceUnsupported` names the guarantee, not "unsupported" |

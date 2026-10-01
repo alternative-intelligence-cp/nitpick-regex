@@ -1,0 +1,244 @@
+diff --git a/harness/selfcheck.py b/harness/selfcheck.py
+index afdd07caa8feda4f252acc11c734e8ae92fe18e0..4152a7047d79fbd8b5dc33017b35752a170f0ddf 100644
+--- a/harness/selfcheck.py
++++ b/harness/selfcheck.py
+@@ -669,6 +669,46 @@ def _case30(d):
+     return None                                   # handled by `_run_case30`
+ 
+ 
++def _run_case31(case):
++    """Case 31, on the instrument: `stages.run_binary` over stand-in executables that
++    kill themselves -- by SIGSEGV, the crash a stack overflow was until the compiler's
++    `c3bdae2`, and by SIGKILL, which a timeout or `earlyoom` sends -- three runs each,
++    each required red with its `0 - signal` named, and a control exiting 0 required to
++    pass (RX-194). `tests/unit/parse_nest_deep.npk`'s "not on a signal" is this reading:
++    no other wrapper confirms how a unit ended."""
++    import stages
++    d = tempfile.mkdtemp(prefix="nregex-selfcheck-31-")
++    wrong, said = [], []
++    try:
++        for name, body, want in (("segv", "kill -SEGV $$", "segv.npk: exited -11 (3x), expected 0"),
++                                 ("killed", "kill -KILL $$", "killed.npk: exited -9 (3x), expected 0"),
++                                 ("control", "exit 0", None)):
++            path = os.path.join(d, name)
++            with open(path, "w", encoding="utf-8", newline="") as fh:
++                fh.write("#!/bin/sh\nulimit -c 0\n" + body + "\n")
++            os.chmod(path, 0o755)
++            r = stages.run_binary(path, [], 3, 0, f"{name}.npk", "")
++            if want is None:
++                if r:
++                    wrong.append(f"the control, exiting 0, was red: {r!r}")
++                else:
++                    said.append("the control passed")
++            elif len(r) != 1 or want not in r[0]:
++                wrong.append(f"{name} was not red as `{want}`: {r!r}")
++            else:
++                said.append(want)
++    finally:
++        shutil.rmtree(d, ignore_errors=True)
++    if wrong:
++        return Outcome(case, False, "a unit killed by a signal is not reported as one: "
++                       + "; ".join(wrong))
++    return Outcome(case, True, "; ".join(said))
++
++
++def _case31(d):
++    return None                                   # handled by `_run_case31`
++
++
+ def _case19(d):
+     """A RED UNIT HIDDEN BY TWO LONE CARRIAGE RETURNS -- the fifth audit's BL-9 (a).
+ 
+@@ -1065,6 +1105,10 @@ CASES = [
+          "RX-192: `SAFETY.md` S-18's explicit stack has a belt -- no function under src/ "
+          "recurses -- and a by-name reader must neither miss a cycle nor invent one",
+          _case30, ()),
++    Case(31, "a unit killed by a signal: SIGSEGV and SIGKILL, three runs each",
++         "RX-194: the gate's 'not on a signal' is the runner reading a killed process "
++         "as `0 - signal` -- shown red here, so `expect-exit: 0` is met by a normal exit alone",
++         _case31, ()),
+ ]
+ 
+ 
+@@ -1168,6 +1212,8 @@ def _run_case(case, keep):
+         return _run_case29(case)
+     if case.num == 30:
+         return _run_case30(case)
++    if case.num == 31:
++        return _run_case31(case)
+     d = tempfile.mkdtemp(prefix=f"nregex-selfcheck-{case.num}-")
+     try:
+         toml = case.build_tree(d)
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 2e37768aaf9dc0088448b4e6028f61052764387a..d4d814d4b038ac2bd9bef034353047a4177d263b 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -4775,3 +4775,29 @@ is taken** — a head refused at depth 251 would answer for its head and an acce
+ where one serves; **at the `)` or at the pattern's end** — the stack would hold every level first, which is what
+ the bound exists to prevent (probe 05: checked before the push); **a bound on the stack's bytes rather than its
+ frames** — `SAFETY.md` §5 names the count, and the count is what a pattern's author can read and act on.
++
++### RX-194 — the gate: 10 000 levels, and the deepest pattern the length bound admits, are `NestTooDeep` at the 251st `(`, forty runs a leg; "not on a signal" is the runner's reading, shown red by self-check case 31
++
++**@@DATE@@, cycle 0.1.2 (the plan's PD-38), at compiler `5fbaf4a`.** The cycle README's gate — *"a 10 000-level
++pattern produces a clean refusal, and a wrapper script confirms the process exited normally rather than on a
++signal"*, with `// stress: 40` *"because a stack overflow is timing-shaped"* — is `tests/unit/parse_nest_deep.npk`,
++and two of its premises were measured otherwise (RX-191). A recursive descent of the parser's frame size runs 10 000
++levels at both legs and returns, so the unit adds the deepest pattern there is: `(` 65 536 times, the whole of
++`NREGEX_PATTERN_BYTES`, where such a recursion traps at both legs; and `(?:` 21 845 times and `a`, where no capture
++bound plays a part. Each is `NestTooDeep` at the 251st `(` — bytes 250, 250 and 750 — one byte long, its detail the
++bound, with no node built. Against the unbounded parser the unit exits 2: the first pattern answered
++`TooManyCaptureGroups`. And the depth a recursion traps at is the same on every run, so `stress: 40` holds the parse
++itself to one answer, forty runs a leg — about half a second in all, measured.
++
++**The wrapper is the runner.** `stages.run_binary` runs every program, reads a killed process as `0 - signal` and
++requires the expected exit on every run, so `expect-exit: 0` is met by a normal exit alone. What nothing showed was
++that the reading works: self-check case 31 runs stand-ins killed by SIGSEGV and by SIGKILL, three runs each, and
++requires each red with its `0 - signal` named and a control exiting 0 to pass; against a runner that read a killed
++process as a clean exit it fails.
++
++*Alternatives declined:* **10 000 levels alone, as the README asked** — a recursive parser would pass it too, so it
++could not tell the explicit stack from recursion; **a separate wrapper script** — a second runner judging one unit
++by rules of its own, where the runner's reading needed a case, not a twin; **dropping `stress: 40` when its reason
++was measured false** — the forty runs cost half a second and hold the parse to one answer; **the deep patterns in
++`parse_limits.npk`** — `stress: 40` would then rerun every bound's cases, its two 65 536-byte length cases among
++them, forty times a leg.
+diff --git a/meta/specs/TESTING.md b/meta/specs/TESTING.md
+index 9e8ad055bf369ad1da06f80d32be8014fb9b32e3..86122218e1167ddc025c3a3a829db846afc1bb86 100644
+--- a/meta/specs/TESTING.md
++++ b/meta/specs/TESTING.md
+@@ -329,6 +329,10 @@ requires it to report every one as a failure. The list is `harness/selfcheck.py`
+     and a self-call whose name and `(` a comment and a line break split — each
+     failing by name, and a clean tree passing: one name declared in two files,
+     each call resolved in its own file first (RX-192). On the instrument.
++31. a unit killed by a signal — SIGSEGV and SIGKILL, three runs each — must be
++    red, the runner reading each as `0 - signal`, and a control exiting 0 must
++    pass (RX-194): `tests/unit/parse_nest_deep.npk`'s "not on a signal" is this
++    reading. On the instrument, with stand-in executables, as 22 is.
+ 
+ *(Reconciled 2026-09-25 by the third cycle 0.0 audit's triage, RX-154. This list
+ had eight bullets and `CASES` eleven entries, and they disagreed in BOTH
+@@ -364,6 +368,10 @@ name rather than to its own file's first, whose clean control then failed on a c
+ that is not there.
+ **31 cases, 27 live, 4 pending** on the day it was written.)*
+ 
++*(Extended @@DATE@@ by cycle 0.1.2, RX-194: 31. It was seen to fail against a runner
++that read a killed process as a clean exit. **32 cases, 28 live, 4 pending** on the
++day it was written.)*
++
+ **Rule V-21 — the self-check runs first in every full invocation.** A harness
+ that has not proven it can fail has not proven anything.
+ 
+diff --git a/tests/unit/parse_nest_deep.npk b/tests/unit/parse_nest_deep.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..53479f4504f76fcfc07ddb01060dc117116934b5
+--- /dev/null
++++ b/tests/unit/parse_nest_deep.npk
+@@ -0,0 +1,107 @@
++// expect-exit: 0
++// stress: 40
++//
++// THE GATE OF CYCLE 0.1.2 (RX-194): A PATTERN NESTED FAR PAST THE BOUND IS A
++// REFUSAL, AND THE PROGRAM IS STILL RUNNING TO SAY SO. Three patterns, each
++// `NestTooDeep` at the 251st `(`, one byte long, its detail the bound, with no node
++// built -- the parse stopped where the bound is (`SYNTAX.md` Y-35, RX-193):
++//
++//   1. `(` 10 000 times, then `)` 10 000 times -- the cycle README's gate -- byte 250;
++//   2. `(` 65 536 times -- the whole of `NREGEX_PATTERN_BYTES`, the deepest any
++//      pattern can ask -- byte 250;
++//   3. `(?:` 21 845 times and `a` -- 65 536 bytes, no group capturing, so the
++//      capture bound plays no part -- byte 750.
++//
++// WHY 65 536 AND NOT 10 000 ALONE. At `5fbaf4a` a recursive descent of the parser's
++// frame size runs 10 000 levels at both legs without exhausting the main thread's
++// stack, and traps `StackExhausted` at 65 536 at both (probe 19, RX-191). So 10 000
++// shows the bound stopping the parser, and 65 536 is the input a recursive parser
++// would not survive. `check_no_recursion` is the half that sees a recursion at any
++// depth, and in any function (RX-192).
++//
++// WHY `stress: 40`. The runner requires the same exit on all forty runs of each leg.
++// The cycle README asked for it because "a stack overflow is timing-shaped"; at
++// `5fbaf4a` it is not -- the depth a recursion traps at is the same on every run
++// (RX-191) -- and the forty runs hold the parse itself to one answer.
++//
++// "NOT ON A SIGNAL" IS THE RUNNER'S READING. It reads a killed process as
++// `0 - signal`, so `expect-exit: 0` is met by a normal exit alone; self-check case 31
++// shows it red for a unit killed by SIGSEGV and for one killed by SIGKILL (RX-194).
++mod:parse_nest_deep;
++
++use "../../src/core/core.npk".*;
++use "../../src/syntax/syntax.npk".*;
++
++// `piece` `n` times, then `tail` `m` times.
++func:pattern = Bytes(string:piece, int64:n, string:tail, int64:m) never fails {
++    Bytes:b = raw bytes_init(8i64);
++    int64:i = 0i64;
++    while (i < n) decreases n - i {
++        drop bytes_extend_str(@b, piece);
++        i = i + 1i64;
++    }
++    i = 0i64;
++    while (i < m) decreases m - i {
++        drop bytes_extend_str(@b, tail);
++        i = i + 1i64;
++    }
++    pass move(b);
++};
++
++// `NestTooDeep` at byte `at`, one byte long, its detail the bound, and no node built?
++func:refused_at = bool(string:pat, int64:at) never fails {
++    Ast:t = raw ast_init(8i64);
++    PatternError?:r = raw parse_pattern(string_bytes(pat), @t);
++    int64:nodes = raw ast_len(t);
++    drop ast_free(@t);
++    if (r == NIL) { pass false; }
++    PatternError:e = r ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
++    if (e.kind != PatternErrorKind.NestTooDeep) { pass false; }
++    if ((e.offset != at) || (e.span_len != 1i64) || (e.detail != 250u32)) { pass false; }
++    pass nodes == 0i64;
++};
++
++func:run = int32() never fails {
++    // 1. 10 000 levels, and their 10 000 closers
++    Bytes:a = raw pattern("(", 10000i64, ")", 10000i64);
++    string:sa = raw bytes_copy_string(@a);
++    uint8[]:va = string_bytes(sa);
++    if (va.len != 20000i64) { pass 1i32; }
++    if (!(raw refused_at(sa, 250i64))) { pass 2i32; }
++    // 2. the longest pattern there is, every byte a `(`
++    Bytes:b = raw pattern("(", 65536i64, "", 0i64);
++    string:sb = raw bytes_copy_string(@b);
++    uint8[]:vb = string_bytes(sb);
++    if (vb.len != 65536i64) { pass 3i32; }
++    if (!(raw refused_at(sb, 250i64))) { pass 4i32; }
++    // 3. the longest pattern there is, nested without capturing
++    Bytes:c = raw pattern("(?:", 21845i64, "a", 1i64);
++    string:sc = raw bytes_copy_string(@c);
++    uint8[]:vc = string_bytes(sc);
++    if (vc.len != 65536i64) { pass 5i32; }
++    if (!(raw refused_at(sc, 750i64))) { pass 6i32; }
++    pass 0i32;
++};
++
++func:main = int32(cstring[]:_~argv) {
++    int32:r = raw run();
++    exit r;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};

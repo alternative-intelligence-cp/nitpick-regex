@@ -1,0 +1,402 @@
+diff --git a/harness/selfcheck.py b/harness/selfcheck.py
+index 81469875486e59ffb9a54722387b77ac85539144..afdd07caa8feda4f252acc11c734e8ae92fe18e0 100644
+--- a/harness/selfcheck.py
++++ b/harness/selfcheck.py
+@@ -623,6 +623,52 @@ def _case29(d):
+     return None                                   # handled by `_run_case29`
+ 
+ 
++_SELF = ("mod:zz;\n\nfunc:zz_self = int64(int64:n) never fails {\n"
++         "    if (n <= 0i64) { pass 0i64; }\n    pass raw zz_self(n - 1i64);\n};\n")
++
++
++def _run_case30(case):
++    """Case 30, on the instrument: `check_no_recursion` over five planted recursions,
++    each alone, and a clean control (RX-192). The plants are the shapes the check's
++    reader must see -- a self-call; a mutual pair; a pair across two modules, which
++    may import each other; a generic self-call through its turbofish; and a self-call
++    whose name and `(` a comment and a line break split -- and the control is the shape
++    a by-name reader must not invent a cycle from: one name declared in two files, each
++    call resolved in its own file first."""
++    return _run_plants(case, "check_no_recursion", [
++        ("a self-call", {"src/core/zz.npk": _SELF},
++         ["src/core/zz.npk:3:1", "`zz_self` calls itself"]),
++        ("a mutual pair",
++         {"src/core/zz.npk": "mod:zz;\n\nfunc:zz_even = bool(int64:n) never fails {\n"
++                             "    if (n <= 0i64) { pass true; }\n    pass raw zz_odd(n - 1i64);\n};\n\n"
++                             "func:zz_odd = bool(int64:n) never fails {\n"
++                             "    if (n <= 0i64) { pass false; }\n    pass raw zz_even(n - 1i64);\n};\n"},
++         ["`zz_even` (src/core/zz.npk:3:1)", "`zz_odd` (src/core/zz.npk:8:1)"]),
++        ("a pair across two modules",
++         {"src/core/za.npk": "mod:za;\nuse \"../syntax/zb.npk\".*;\n\npub func:za_f = int64(int64:n) never fails {\n"
++                             "    if (n <= 0i64) { pass 0i64; }\n    pass raw zb_g(n - 1i64);\n};\n",
++          "src/syntax/zb.npk": "mod:zb;\nuse \"../core/za.npk\".*;\n\npub func:zb_g = int64(int64:n) never fails {\n"
++                               "    if (n <= 0i64) { pass 1i64; }\n    pass raw za_f(n - 1i64);\n};\n"},
++         ["`za_f` (src/core/za.npk:4:5)", "`zb_g` (src/syntax/zb.npk:4:5)"]),
++        ("a generic self-call through its turbofish",
++         {"src/core/zz.npk": "mod:zz;\n\nfunc:zz_gen<T: Copy> = int64(int64:n, T:x) never fails {\n"
++                             "    if (n <= 0i64) { pass 0i64; }\n    pass raw zz_gen::<T>(n - 1i64, x);\n};\n"},
++         ["`zz_gen` calls itself"]),
++        ("a self-call split by a comment and a line break",
++         {"src/core/zz.npk": "mod:zz;\n\nfunc:zz_self = int64(int64:n) never fails {\n"
++                             "    if (n <= 0i64) { pass 0i64; }\n    pass raw zz_self /* again */\n        (n - 1i64);\n};\n"},
++         ["`zz_self` calls itself, at src/core/zz.npk:5:14"]),
++    ], {"src/core/za.npk": "mod:za;\n\n// zz_put(x) here would recurse, and \"zz_put(1)\" is a string\n"
++                           "func:zz_put = int64(int64:n) never fails {\n    pass raw zz_num(n);\n};\n\n"
++                           "func:zz_num = int64(int64:n) never fails {\n    pass n;\n};\n",
++        "src/syntax/zb.npk": "mod:zb;\nuse \"../core/za.npk\".*;\n\n"
++                             "func:zz_num = int64(int64:n) never fails {\n    pass raw zz_put(n);\n};\n"})
++
++
++def _case30(d):
++    return None                                   # handled by `_run_case30`
++
++
+ def _case19(d):
+     """A RED UNIT HIDDEN BY TWO LONE CARRIAGE RETURNS -- the fifth audit's BL-9 (a).
+ 
+@@ -1014,6 +1060,11 @@ CASES = [
+          "RX-179: the ecosystem audit's EC5 -- 'the only bounds check this library has' "
+          "passed all four",
+          _case29, ()),
++    Case(30, "a function on a call cycle: a self-call, a mutual pair, a pair across two "
++             "modules, a generic self-call, a self-call split by a comment",
++         "RX-192: `SAFETY.md` S-18's explicit stack has a belt -- no function under src/ "
++         "recurses -- and a by-name reader must neither miss a cycle nor invent one",
++         _case30, ()),
+ ]
+ 
+ 
+@@ -1115,6 +1166,8 @@ def _run_case(case, keep):
+         return _run_case28(case)
+     if case.num == 29:
+         return _run_case29(case)
++    if case.num == 30:
++        return _run_case30(case)
+     d = tempfile.mkdtemp(prefix=f"nregex-selfcheck-{case.num}-")
+     try:
+         toml = case.build_tree(d)
+diff --git a/harness/treecheck.py b/harness/treecheck.py
+index 2372c046fac5babd61d4c44024b824009269bf37..4f9ffb0e40c09e830f0b6f4c81c877741aff0493 100644
+--- a/harness/treecheck.py
++++ b/harness/treecheck.py
+@@ -831,6 +831,171 @@ def check_vec_elements_own_nothing(root):
+                   f"`vec_...::<...>` -- in {len(files)} file(s) under src/", fl, notes)
+ 
+ 
++# --- check_no_recursion ---------------------------------------------------------------
++
++# A function's declaration, `pub` or not, generic or not. Its body is the first `{`
++# after the name: a signature's `( … )` and a bound's `< … >` hold no brace.
++_FUNC_DECL = re.compile(r"(?<![A-Za-z0-9_])func\s*:\s*([A-Za-z_]\w*)")
++# A call: a name, an optional turbofish, then `(` -- `f(x)`, `raw f(x)`,
++# `vec_init::<Frame>(8i64)`, and any of them split by blanks, a comment or a line
++# break, which the blanked text holds as whitespace. A name after `.` is a field and
++# after `:` a declaration or a binding; neither is a call.
++_CALL = re.compile(r"(?<![A-Za-z0-9_.:])([A-Za-z_]\w*)\s*(?:::\s*<[^(){};]*?>\s*)?\(")
++
++
++def _function_bodies(code):
++    """Every `func:` in blanked text, as `(name, declaration offset, body start, body
++    end)`, the body's braces matched."""
++    out = []
++    for m in _FUNC_DECL.finditer(code):
++        i = code.find("{", m.end())
++        if i < 0:
++            continue
++        depth, j = 0, i
++        while j < len(code):
++            if code[j] == "{":
++                depth += 1
++            elif code[j] == "}":
++                depth -= 1
++                if depth == 0:
++                    break
++            j += 1
++        out.append((m.group(1), m.start(), i, j))
++    return out
++
++
++def _at(code, off):
++    """`line:column` of an offset, both from 1."""
++    return f"{code.count(chr(10), 0, off) + 1}:{off - (code.rfind(chr(10), 0, off) + 1) + 1}"
++
++
++def _cyclic_groups(nodes, edges):
++    """Tarjan's strongly connected components, ITERATIVELY -- a recursion check that
++    recursed would be its own counter-example. Returns each component holding a
++    cycle: more than one member, or one member that calls itself."""
++    index, low, on, stack, out = {}, {}, set(), [], []
++    for start in nodes:
++        if start in index:
++            continue
++        index[start] = low[start] = len(index)
++        stack.append(start)
++        on.add(start)
++        work = [(start, iter(edges.get(start, ())))]
++        while work:
++            v, it = work[-1]
++            for w in it:
++                if w not in index:
++                    index[w] = low[w] = len(index)
++                    stack.append(w)
++                    on.add(w)
++                    work.append((w, iter(edges.get(w, ()))))
++                    break
++                if w in on:
++                    low[v] = min(low[v], index[w])
++            else:
++                work.pop()
++                if work:
++                    u = work[-1][0]
++                    low[u] = min(low[u], low[v])
++                if low[v] == index[v]:
++                    comp = []
++                    while True:
++                        w = stack.pop()
++                        on.discard(w)
++                        comp.append(w)
++                        if w == v:
++                            break
++                    if len(comp) > 1 or v in edges.get(v, ()):
++                        out.append(sorted(comp))
++    return out
++
++
++def check_no_recursion(root):
++    """No function under `src/` on a call cycle -- `SAFETY.md` S-18 and S-19 (RX-032,
++    RX-192).
++
++    THE RULE IS THE EXPLICIT STACK, AND THIS IS ITS BELT. A pattern controls how deep
++    the parser nests, and later how deep the HIR and program walks go (S-19), so every
++    such depth is held on an explicit stack -- a `Vec` of frames and one `while`, as
++    `src/syntax/parse.npk`'s walk holds it -- and refused at a bound before a frame
++    past it exists. A recursion deeper than its thread's stack does not refuse: it
++    traps `StackExhausted` and ends the whole program (RX-191, probe 19), at a depth
++    set by the optimiser's frame and the caller's thread. The gate unit
++    `parse_nest_deep` shows the parser refusing; this shows no function anywhere under
++    `src/` can recurse at all, at any depth, whatever a test happens to reach.
++
++    ALL OF `src/`, AND EVERY CYCLE, NOT A SELF-CALL IN `src/syntax/` ALONE. The cycle
++    0.1 README asked for a grep of `src/syntax/` for a function that calls itself.
++    A mutual pair recurses as deep as a self-call does; two modules may import each
++    other, so a pair may sit in two files (measured at `5fbaf4a`); and S-19's walks
++    are written in `src/hir/` and `src/compile/`, where a check over `src/syntax/`
++    would never look. So the call graph is every function under `src/`, and any
++    strongly connected component with a cycle fails, named with each member's place.
++
++    BY NAME, AND WHAT THAT CANNOT SEE. A call is a name, an optional turbofish, and
++    `(`, read in the blanked text (`lexical.py`); it resolves to its own file's
++    function of that name, else to every function of that name under `src/` -- so a
++    name declared in two files does not join their callers into a cycle that is not
++    there (self-check case 30's clean control). A call through a `dyn` receiver or a
++    function value names no function and is no edge here, as it is no edge in the
++    compiler's own recursion analysis (its D-304 (5)); `src/` holds no `dyn`, no
++    trait, no `impl` and no `func` as a type, and every one of its functions has a name
++    of its own (measured at cycle 0.1.2), so today the graph is exact.
++
++    IT CANNOT TELL A DEPTH AN INPUT CONTROLS FROM ONE IT DOES NOT, so it refuses
++    both. A recursion that needs to exist is a decision that says so, not an edit to
++    this check."""
++    files = npk_files(root, "src")
++    owners = {}             # a function's name -> the files declaring it
++    sites = {}              # (file, name) -> its declaration's `line:column`
++    calls = []              # (file, caller, callee name, call's `line:column`)
++    for path in files:
++        rel = os.path.relpath(path, root).replace(os.sep, "/")
++        code = lexical.blank(_read(path))
++        for name, at, b0, b1 in _function_bodies(code):
++            owners.setdefault(name, []).append(rel)
++            sites[(rel, name)] = _at(code, at)
++            for m in _CALL.finditer(code, b0, b1):
++                calls.append((rel, name, m.group(1), _at(code, m.start(1))))
++    edges, first_call, n_calls = {}, {}, 0
++    for rel, name, callee, where in calls:
++        if callee not in owners:
++            continue            # a builtin, a type, a keyword: nothing under src/
++        n_calls += 1
++        targets = [rel] if rel in owners[callee] else owners[callee]
++        for t in targets:
++            edges.setdefault((rel, name), set()).add((t, callee))
++            first_call.setdefault(((rel, name), (t, callee)), f"{rel}:{where}")
++    fl = []
++    why = ("-- native recursion under src/, which SAFETY.md S-18 and S-19 forbid "
++           "(RX-032, RX-192): a depth an input controls is held on an explicit "
++           "stack, a `Vec` of frames and one `while` as `src/syntax/parse.npk`'s "
++           "walk holds it, and refused at a bound -- because a recursion deeper "
++           "than its thread's stack traps `StackExhausted` and ends the whole "
++           "program (RX-191).")
++    for comp in _cyclic_groups(sorted(sites), edges):
++        if len(comp) == 1:
++            node = comp[0]
++            fl.append(f"{node[0]}:{sites[node]}: `{node[1]}` calls itself, at "
++                      f"{first_call[(node, node)]} {why}")
++        else:
++            members = ", ".join(f"`{n}` ({f}:{sites[(f, n)]})" for f, n in comp)
++            fl.append(f"{comp[0][0]}:{sites[comp[0]]}: {len(comp)} functions call "
++                      f"one another in a cycle -- {members} {why}")
++    shared = sorted(n for n, fs in owners.items() if len(fs) > 1)
++    notes = ["by name: a call resolves to its own file's function of that name, else "
++             "to every function of that name under src/, so a cycle across two "
++             "modules is seen and a name two files share invents none."]
++    if shared:
++        notes.append(f"{len(shared)} name(s) declared in more than one file, each "
++                     f"call resolved in its own file first: "
++                     + ", ".join(f"`{n}`" for n in shared))
++    return Result("check_no_recursion", "SAFETY.md S-18, S-19 (RX-032, RX-192)",
++                  f"{len(sites)} function(s) in {len(files)} file(s) under src/, "
++                  f"{n_calls} call(s) of one by another, "
++                  f"{sum(len(v) for v in edges.values())} distinct edge(s)", fl, notes)
++
++
+ # --- check_specs_current --------------------------------------------------------------
+ 
+ _SPEC_LINK = re.compile(r'\[[^\]]*\]\(([^)]+\.md)(?:#[^)]*)?\)')
+@@ -1051,7 +1216,7 @@ def check_dated_measurements(root):
+ 
+ ALL = [check_layering, check_error_budget, check_constants_named,
+        check_no_division, check_accessor_confinement,
+-       check_vec_elements_own_nothing,
++       check_vec_elements_own_nothing, check_no_recursion,
+        check_dated_measurements, check_specs_current]
+ REPORTING_ONLY = {"check_specs_current"}
+ 
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 6f48047400d86475139854bb3a556d2d4aadedb2..669503c677e5b767aaa3a85a797c2bd5cb6e3f04 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -4711,3 +4711,35 @@ S-18 is about adversarial input, which is owed a refusal; **record the measured
+ they are the optimiser's and the thread's, a factor of three apart between the two legs; **a dated note on RX-032
+ without a probe** — a pin-dependent measurement recorded as a permanent property is RX-120's lesson, and a probe
+ re-measures it on every run.
++
++### RX-192 — `check_no_recursion`: no function under `src/` is on a call cycle — every cycle, across files, over all of `src/`
++
++**@@DATE@@, cycle 0.1.2 (the plan's PD-36), at compiler `5fbaf4a`** — `SAFETY.md` S-18 and S-19's belt. The cycle
++README asked for "a tree check that greps `src/syntax/` for a function that calls itself". The check built reads
++wider on three counts, each measured: a mutual pair recurses as deep as a self-call does; two modules may import
++each other, so a pair may span two files — a call cycle through `use` in both directions compiles and runs at
++`5fbaf4a`; and S-19's walks will be written in `src/hir/` and `src/compile/`, where a check over `src/syntax/`
++would never look.
++
++**The check.** Every `func:` under `src/`, read in the blanked text (`lexical.py`); a call is a name, an optional
++turbofish and `(`, resolved to its own file's function of that name, else to every function of that name under
++`src/`; Tarjan's components, computed iteratively; a component holding a cycle fails, each member named at its
++declaration. At this commit: 90 functions in 17 files, 135 distinct edges, no cycle. **And the compiler agrees,**
++asked through its own recursion analysis — a `decreases` on a function in no recursive group is
++`NITPICK-TYPE-075` (its D-304 (5)): with `decreases 0i64` written on every function of a copy of `src/`, all 90 are
++TYPE-075, while a planted self-call and a planted mutual pair are not. Self-check case 30 plants five recursions
++and a clean control; it goes red against a check that reads self-calls alone, and against one that resolves a
++call to every function of its name rather than to its own file's first.
++
++**What it cannot see,** stated in its docstring: a call through a `dyn` receiver or a function value, which the
++compiler's analysis cannot see either — `src/` holds no `dyn`, no trait, no `impl` and no `func` as a type, and its
++90 functions have 90 names (measured), so the graph is exact today; and whether a recursion's depth is one an input
++controls, so it refuses every recursion — one that must exist is a decision, not an edit to the check.
++
++*Alternatives declined:* **the README's grep of `src/syntax/` for a self-call** — blind to a mutual pair, to a pair
++across files and to every directory but one, while S-19's walks come next; **the compiler's own analysis as the
++check** — exact, but it rewrites the source it judges and costs a compile per module where every other tree check
++reads text; it stays the plan's cross-check; **the call graph in the emitted IR** — `irscan.py` reads only the calls
++to the floor (B-2's second layer), and widened it would give the emitter's names rather than the source's places,
++at a compile per root; **the gate unit alone** — it shows the
++parser refusing on the patterns it builds, and nothing about a function it never calls.
+diff --git a/meta/roadmap/0.4/README.md b/meta/roadmap/0.4/README.md
+index 76df4186092ec0ff5bb86c6cdddfdf7b722aef40..56e69985dc88a8afdbc0a38bc7f92c4734540ef9 100644
+--- a/meta/roadmap/0.4/README.md
++++ b/meta/roadmap/0.4/README.md
+@@ -68,3 +68,5 @@ every corpus program.
+   range halves), so it is one of the few places native recursion would be
+   defensible — and it still uses an explicit stack, because a tree check greps
+   for self-calls and an exception would have to be argued.
++  *(@@DATE@@, cycle 0.1.2 — RX-192: that check is `check_no_recursion`, over every
++  file under `src/` and every call cycle; an exception would be a decision.)*
+diff --git a/meta/roadmap/0.6/README.md b/meta/roadmap/0.6/README.md
+index e192fe5bc17351493827f1c5c6c98fc024c1f954..c69e40893f21bc2aa4400ed9162f6f5284130a39 100644
+--- a/meta/roadmap/0.6/README.md
++++ b/meta/roadmap/0.6/README.md
+@@ -28,6 +28,9 @@ RX-030, RX-031, RX-032. Settled. **No open questions.**
+ 
+ ### 0.6.1 — emission
+ - [ ] an explicit stack (RX-032, C-13); a tree check greps for self-calls in `src/compile/`
++  *(@@DATE@@, cycle 0.1.2 — RX-192: the check exists already, `check_no_recursion`, and
++  reads every file under `src/` for a call cycle, `src/compile/` included; the explicit
++  stack stays this cycle's.)*
+ - [ ] every `HirKind` emitted
+ - [ ] `check_inst_kinds_total` live: every `InstKind` emitted by the compiler and handled by the oracle — the engines' half goes live per engine cycle
+ - [ ] `check_hir_kinds_total`'s compiler half now green
+diff --git a/meta/specs/SAFETY.md b/meta/specs/SAFETY.md
+index 6ffd12345d2535f386f9781be21faeab7f2b70e5..8c8f614571f3069bbe3f72e96e6a1676957968f8 100644
+--- a/meta/specs/SAFETY.md
++++ b/meta/specs/SAFETY.md
+@@ -875,6 +875,9 @@ know.)*
+ **Rule S-19 — the same rule applies to every HIR and program walk.** Desugaring,
+ literal extraction and program emission all walk a tree that a pattern
+ controls the depth of, and all three use an explicit stack.
++*(@@DATE@@, cycle 0.1.2 — RX-192: this rule and S-18 have a belt,
++`check_no_recursion`: no function under `src/` may sit on a call cycle, read by
++name over every file — a self-call, a mutual pair, or a pair across two modules.)*
+ 
+ **Rule S-20 — the haystack is never validated as UTF-8.** It is `uint8[]`.
+ Matching over invalid UTF-8 is defined (`UNICODE.md` §6) rather than refused,
+diff --git a/meta/specs/TESTING.md b/meta/specs/TESTING.md
+index e2a03c06209e36b4c5e66856cb2e89de04883bad..9e8ad055bf369ad1da06f80d32be8014fb9b32e3 100644
+--- a/meta/specs/TESTING.md
++++ b/meta/specs/TESTING.md
+@@ -204,6 +204,7 @@ framing that let both be wrong. The framing is the column.
+ | `check_no_division` | **yes** | no `/` or `%` under `src/` — `SAFETY.md` S-25 (RX-132), because a division arms two `failsafe` arms in every importer |
+ | `check_accessor_confinement` | **yes** | no `.items[` outside `src/core/vec.npk`, no `.ptr[` outside `src/core/bytes.npk`, **within `src/`** — `SAFETY.md` S-23, **the only bounds check this library has** (RX-136). *Since cycle 0.0.4c `Vec`'s half is the compiler's too — `items` is `hidden`, so `.items` outside `vec.npk` is `NITPICK-TYPE-080` in every module; `Bytes`' half is not, because a sealed `buf` admits a write THROUGH `.ptr` (RX-153). The check stays for both, and for the owning files' own use of their accessors. Since cycle 0.0.4d `Bytes`' half is the compiler's too: `buf` is `hidden` (RX-163). Since cycle 0.1.0b the spaced forms too — `. items [`, and either split across a line break (RX-179)* |
+ | `check_vec_elements_own_nothing` | **yes** | every `Vec` element named under `src/` — in a `Vec<…>`, with or without a space, and in a `vec_…::<…>` turbofish — is CLEARED as owning nothing, **default-deny** (RX-158): each name in it is one of the language's non-owning scalars or a struct or enum declared under `src/` whose fields and payloads clear the same way, every declaration of that name judged; a pointer, a slice, `wild` storage, a prelude type, a bare type parameter or an unresolved name fails — `SAFETY.md` S-23a (RX-155). The language accepts an owning element and `vec_get` then MOVES it out; this is what makes the restriction a rule. Only `vec.npk`'s own `Vec<T>` over its type parameter is exempt, and `tests/` is out of scope because the owning units measure the verbs there. *Since cycle 0.1.1b (RX-188, RX-190) the compiler refuses an element that drops, at the type, and this check is the belt there; it stays the rule for an element that holds a block — a `Copy` struct may hold a pointer or a slice. The declaration `Vec<T: Copy>` is exempt as its parameter, and `tests/` stays out because it ships nothing.* *It was a denylist of nine words until the fourth cycle 0.0 audit walked twelve shapes past it (N-18)* |
++| `check_no_recursion` | **yes** | no function under `src/` on a call cycle — a self-call, a mutual pair, a cycle across files — `SAFETY.md` S-18 and S-19 (RX-032, RX-192): calls read by name in the blanked text, each resolved in its own file first, Tarjan's components computed iteratively, every member of a cycle named at its declaration. A call through a `dyn` receiver or a function value is no edge, as in the compiler's own analysis, and `src/` holds neither. *Built at cycle 0.1.2, where the cycle README asked for a grep of `src/syntax/` for a function that calls itself: a mutual pair, a pair across two files and S-19's walks outside `src/syntax/` are why it reads every cycle in every file* |
+ | `check_dated_measurements` | **yes** | any live document dating a measurement to "the pin" rather than to a commit — RX-142, built by the cycle 0.0 audit triage after a phrase-level sweep left a class thirteen times its size. **It declared `.yml` and could not reach the one `.yml` in the tree**, because it pruned directories by leading dot and the workflow lives in `.github/`: it now prunes by NAME and reports its denominator PER EXTENSION, so a declared class the walk never opens shows a zero instead of vanishing into a healthy total — RX-145. **And it never walks into another repository**: a directory holding a `.git` entry, or named `.nitpick` (where CI checks the compiler out, inside the workspace), is pruned and named in the check's first note, because CI was red from `ab93eae` on the compiler's own roadmap — RX-147 |
+ | `check_specs_current` | **yes**, reports rather than fails | spec citations that no longer resolve |
+ | `check_no_syscalls` | **yes**, as a BUILD STEP and not a tree check | the object's undefined symbols, **and the IR's floor call edges**, against the committed baseline — RX-116 and RX-120, §2 |
+@@ -225,6 +226,9 @@ and the roadmap's checklists, which are what a worker runs, say 0.6.1 and 0.4.3.
+ is a build step rather than a tree check, because a failure there invalidates
+ what every suite below it means. Take the count from the runner's summary, never
+ from this table: the count moved *inside* the subcycle that last corrected it.
++*(@@DATE@@, cycle 0.1.2 — RX-192: **nine** run on every full invocation since
++`check_no_recursion` joined `ALL`, eight of which can fail the run; `check_no_syscalls`
++stays the build step beside them.)*
+ 
+ **Rule V-22 — A CHECK IS A RULE ONLY OVER THE FILES IT OPENS, so every check
+ here reports what it examined and not merely its verdict.** This module's own
+@@ -320,6 +324,11 @@ requires it to report every one as a failure. The list is `harness/selfcheck.py`
+     passing (RX-179). On the instrument;
+ 29. `check_accessor_confinement` over EC5's four spaced forms, each alone, each
+     failing by name, a clean tree passing (RX-179). On the instrument.
++30. `check_no_recursion` over five planted recursions — a self-call, a mutual
++    pair, a pair across two modules, a generic self-call through its turbofish,
++    and a self-call whose name and `(` a comment and a line break split — each
++    failing by name, and a clean tree passing: one name declared in two files,
++    each call resolved in its own file first (RX-192). On the instrument.
+ 
+ *(Reconciled 2026-09-25 by the third cycle 0.0 audit's triage, RX-154. This list
+ had eight bullets and `CASES` eleven entries, and they disagreed in BOTH
+@@ -348,6 +357,13 @@ defence deleted or asked of the reader again, 19 only with both defences gone 
+ and 22 against `range(exp.stress)` narrowed to one run. **24 cases, 20 live, 4
+ pending** on the day they were written.)*
+ 
++*(Extended @@DATE@@ by cycle 0.1.2, RX-192: 30. It was seen to fail against a copy
++of the check that read self-calls alone — the mutual pair and the pair across two
++modules passed — and against one that resolved each call to every function of its
++name rather than to its own file's first, whose clean control then failed on a cycle
++that is not there.
++**31 cases, 27 live, 4 pending** on the day it was written.)*
++
+ **Rule V-21 — the self-check runs first in every full invocation.** A harness
+ that has not proven it can fail has not proven anything.
+ 
+diff --git a/tests/unit/parse_grammar.npk b/tests/unit/parse_grammar.npk
+index 62dab58eda2c6e3286ab064a7a56f03a69e1a995..d9975cacdcafafa5cacb4c81214342eb2ed9382a 100644
+--- a/tests/unit/parse_grammar.npk
++++ b/tests/unit/parse_grammar.npk
+@@ -17,6 +17,8 @@
+ // THE DUMP RECURSES. The parser may not (RX-032, `SAFETY.md` S-18) and does not;
+ // a test's patterns are a few levels deep, and cycle 0.1.2's check reads
+ // `src/syntax/` only. Every loop is a `while` over an `int64`.
++// *(@@DATE@@, cycle 0.1.2 -- RX-192: `check_no_recursion` reads every file under
++// `src/`, and nothing under `tests/`, so the dump stays legal.)*
+ mod:parse_grammar;
+ 
+ use "../../src/core/core.npk".*;

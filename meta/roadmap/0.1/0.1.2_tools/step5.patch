@@ -1,0 +1,125 @@
+diff --git a/harness/README.md b/harness/README.md
+index ceb8226e85e3e6f822fcdf102d054d979613ce41..09952e1c25e473032a7100756c4e89eb0dd98441 100644
+--- a/harness/README.md
++++ b/harness/README.md
+@@ -51,7 +51,10 @@ reporting it.
+ - no object gained an undefined symbol the baseline lacks, and no function
+   outside the baseline called a floor symbol this library may not (B-2, B-2a);
+ - the same tree built from two different working directories produced
+-  byte-identical IR (B-4);
++  byte-identical IR (B-4) — each copy carrying the manifest, so its paths render
++  as the tree's own, and one below a decoy manifest, so `TMPDIR` may sit anywhere,
++  inside this repository included *(since cycle 0.1.2, RX-195; until then a
++  `TMPDIR` inside it failed this step on an unchanged tree)*;
+ - **every `.npk` in the tree was swept as a root** by the `parse` stage, which
+   is what re-checks the six `src/` files `src/lib.npk` does not reach;
+ - the live **tree checks** (`treecheck.ALL`; the runner prints each one and what it examined) agreed with the specifications they diff against;
+diff --git a/harness/build.py b/harness/build.py
+index 2333ead0ac9d413ba9a5edad907dc3dd2b9db608..5404f505e896fc079f25fe79e6b64309c336e8b4 100644
+--- a/harness/build.py
++++ b/harness/build.py
+@@ -47,6 +47,11 @@ COMPILE_TIMEOUT = 300
+ TOOL_TIMEOUT = 300
+ RUN_TIMEOUT = 30
+ 
++# The manifest, which is also the compiler's ROOT MARKER (D-236): every source path
++# an emission records is rendered relative to the directory holding it. `repro`
++# copies it with the tree (RX-195).
++MANIFEST = "nitpick.toml"
++
+ 
+ def _as_limit(mib):
+     """A `preexec_fn` capping the child's ADDRESS SPACE, for `mem-cap-mib:`.
+@@ -585,7 +590,25 @@ def repro(c, entry):
+     Compiling one absolute path twice would compare a build with itself; the
+     property D-078 and D-236 state is about the build's environment, so the tree
+     is copied to two roots with different names and different depths and the
+-    SAME RELATIVE command is run in each."""
++    SAME RELATIVE command is run in each.
++
++    EACH COPY CARRIES THE MANIFEST, SO EACH IS A TREE OF ITS OWN -- RX-195. The
++    compiler renders every source path relative to the MANIFEST ROOT, the first
++    directory holding `nitpick.toml` above the main file (D-236; B-4c). Until
++    cycle 0.1.2 the copies held `src/` and the entry's directory and no manifest,
++    so the compiler's walk went on past them: under `/tmp` it found none and each
++    copy's entry directory was its root, but with `TMPDIR` anywhere inside this
++    repository it found the REPOSITORY's manifest, the copies' own directory names
++    entered every path, and the step failed on an unchanged tree -- in each of the
++    nineteen self-check cases whose inner run reaches it, so no suite ran; measured
++    at `5fbaf4a`. With the manifest
++    copied, each copy renders its paths as the tree it came from does, wherever the
++    scratch directory is.
++
++    AND COPY B SITS BELOW A DECOY MANIFEST ON EVERY RUN, as a scratch directory
++    inside a project does: a copy that lacked its own would take the decoy for its
++    root and render `deeper/repro-b-with-a-longer-name/...`, so the step goes red on
++    every run, whatever `TMPDIR` is, the day the copy is forgotten again."""
+     a = os.path.join(c.tmp, "repro-a")
+     b = os.path.join(c.tmp, "repro", "deeper", "repro-b-with-a-longer-name")
+     for d in (a, b):
+@@ -596,6 +619,9 @@ def repro(c, entry):
+             s = os.path.join(c.root, sub)
+             if os.path.isdir(s):
+                 shutil.copytree(s, os.path.join(d, sub), dirs_exist_ok=True)
++        shutil.copy(os.path.join(c.root, MANIFEST), os.path.join(d, MANIFEST))
++    with open(os.path.join(c.tmp, "repro", MANIFEST), "w", encoding="utf-8") as fh:
++        fh.write("# a decoy: repro's copy B sits below it, and must not take it for its root (RX-195)\n")
+     outs = []
+     for d in (a, b):
+         out = os.path.join(d, "repro.ll")
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index d4d814d4b038ac2bd9bef034353047a4177d263b..47d9042585b0fa650042726dc56cb46d8eef54a0 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -4801,3 +4801,35 @@ by rules of its own, where the runner's reading needed a case, not a twin; **dro
+ was measured false** — the forty runs cost half a second and hold the parse to one answer; **the deep patterns in
+ `parse_limits.npk`** — `stress: 40` would then rerun every bound's cases, its two 65 536-byte length cases among
+ them, forty times a leg.
++
++### RX-195 — B-4's two copies each carry the manifest, and one sits below a decoy: a `TMPDIR` inside a project no longer fails the step, and a copy that forgets its manifest fails on every run
++
++**@@DATE@@, cycle 0.1.2 (the plan's PD-39), at compiler `5fbaf4a`** — `BUILD.md` B-4. The cause of what cycle 0.1.1b
++measured and left unestablished (its plan's §4 and §6): with `TMPDIR` inside this repository the `repro` step failed
++on an unchanged tree in each of the nineteen self-check cases whose inner run reaches it — the other seven test an
++instrument directly or, as case 24 does, stop at the toolchain check first — 57 472 against 57 792 bytes with the
++scratch at `.internal/n12/tmp`, the sizes moving with its name; so the self-check failed and no suite ran, while
++under `/tmp` it passed. The
++compiler renders every source path relative to its manifest root, the first directory holding `nitpick.toml` above
++the main file, or the main file's directory where there is none (its D-236, read in `front_set_root` at
++`5fbaf4a`; this repository's B-4c). `repro` copied `src/` and the entry's directory and no manifest, so the walk
++went on past each copy: under `/tmp` it found none and each copy's entry directory was its root, alike; inside
++this repository it found the repository's own, and the copies' two directory names, 32 characters apart, entered
++every path. No directory above this repository holds a manifest (measured), which is why only a `TMPDIR` inside a
++library met it.
++
++**The decision.** Each copy carries the tree's `nitpick.toml`, so each is its own manifest root and renders its
++paths as the tree it came from — a copy's emission is the in-tree build's, byte for byte (measured), where before
++it rendered paths no build of this library ever makes. And the second copy sits below a decoy manifest on every
++run, so a copy that forgot its own would take the decoy for its root and fail the step every time, whatever
++`TMPDIR` is. Measured: without the copy, under the decoy, the step fails under `/tmp` (57 250 against 57 822
++bytes); with it, the two copies are byte-identical under `/tmp` and inside the repository, and the full run is
++`242/242` GREEN with `TMPDIR` inside it. So a session needs no rule about `TMPDIR`: it may sit anywhere.
++
++*Alternatives declined:* **refuse a `TMPDIR` inside a project, by name** — a clear message, and B-4 would still test
++only the no-manifest branch, a configuration this library is never built in; **state the cause and a rule, `TMPDIR`
++left at its default** — a trap for every session that keeps its scratch inside its write boundary, as the workbench
++asks; **mask the site paths in the comparison** — B-4 exists to see a path in the emission, and a mask would hide a
++real one; **build the copies under a fixed `/tmp`** — it overrides the environment the session chose and still
++tests the no-manifest branch; **a self-check case that sets `TMPDIR` inside a project** — one environment, tested
++in one case; the decoy puts the failing shape inside every run's own scratch.
+diff --git a/meta/specs/BUILD.md b/meta/specs/BUILD.md
+index 34d4b545b9677295cc396dd3907d61376fbec585..fd556ec28ffe22853ae1574b493b313c867dc880 100644
+--- a/meta/specs/BUILD.md
++++ b/meta/specs/BUILD.md
+@@ -211,6 +211,11 @@ true of every program but those. B-5b says what it is held to.)*
+ working directories produce byte-identical IR. `nregex` inherits this from the
+ compiler (D-078, D-204, D-236) and the harness has a `repro` stage that
+ measures it.
++*(@@DATE@@, cycle 0.1.2 — RX-195: each of the two copies carries the manifest, so
++each is a tree of its own and renders its paths as the tree it came from does (B-4c),
++and the second sits below a decoy manifest on every run. Until then a `TMPDIR`
++inside this repository failed the stage on an unchanged tree: the compiler's walk to
++its manifest root (D-236) went past the copies to the repository's own.)*
+ 
+ **Rule B-4c (RX-133) — an emission depends on a file's POSITION IN ITS TREE and
+ not on how the compiler was invoked, and CI records the compiler's own digest

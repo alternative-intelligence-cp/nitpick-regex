@@ -1,0 +1,84 @@
+// meta/roadmap/0.1/0.1.2_tools/unbounded.npk.txt -- block 0b copies this into a scratch
+// copy of the tree as `tests/unit/zz_unbounded.npk` and runs it: what the parser answers
+// for the gate's deep patterns BEFORE cycle 0.1.2 bounds it. It exits with the number of
+// the first answer that differs, or 0. Kept as `.txt` so the harness's sweep of every
+// `.npk` in the tree does not take it for a root.
+mod:zz_unbounded;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+
+func:pattern = Bytes(string:piece, int64:n, string:tail, int64:m) never fails {
+    Bytes:b = raw bytes_init(8i64);
+    int64:i = 0i64;
+    while (i < n) decreases n - i {
+        drop bytes_extend_str(@b, piece);
+        i = i + 1i64;
+    }
+    i = 0i64;
+    while (i < m) decreases m - i {
+        drop bytes_extend_str(@b, tail);
+        i = i + 1i64;
+    }
+    pass move(b);
+};
+
+func:refused = bool(Bytes->:b, PatternErrorKind:k, int64:at, uint32:detail) never fails {
+    string:s = raw bytes_copy_string(b);
+    Ast:t = raw ast_init(8i64);
+    PatternError?:r = raw parse_pattern(string_bytes(s), @t);
+    drop ast_free(@t);
+    if (r == NIL) { pass false; }
+    PatternError:e = r ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
+    pass (e.kind == k) && (e.offset == at) && (e.detail == detail);
+};
+
+func:run = int32() never fails {
+    Bytes:a = raw pattern("(", 251i64, "", 0i64);
+    if (!(raw refused(@a, PatternErrorKind.TooManyCaptureGroups, 250i64, 250u32))) { pass 1i32; }
+    Bytes:b = raw pattern("(", 10000i64, ")", 10000i64);
+    if (!(raw refused(@b, PatternErrorKind.TooManyCaptureGroups, 250i64, 250u32))) { pass 2i32; }
+    Bytes:c = raw pattern("(", 65536i64, "", 0i64);
+    if (!(raw refused(@c, PatternErrorKind.TooManyCaptureGroups, 250i64, 250u32))) { pass 3i32; }
+    Bytes:d = raw pattern("(?:", 21845i64, "a", 1i64);
+    if (!(raw refused(@d, PatternErrorKind.UnclosedGroup, 65532i64, 21845u32))) { pass 4i32; }
+    Bytes:e = raw pattern("(?:", 16383i64, "a", 1i64);
+    int64:k = 0i64;
+    while (k < 16383i64) decreases 16383i64 - k {
+        drop bytes_extend_str(@e, ")");
+        k = k + 1i64;
+    }
+    string:es = raw bytes_copy_string(@e);
+    uint8[]:ev = string_bytes(es);
+    if (ev.len != 65533i64) { pass 5i32; }
+    Ast:t = raw ast_init(8i64);
+    PatternError?:r = raw parse_pattern(ev, @t);
+    int64:nodes = raw ast_len(t);
+    drop ast_free(@t);
+    if (r != NIL) { pass 6i32; }
+    if (nodes != 16384i64) { pass 7i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:r = raw run();
+    exit r;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

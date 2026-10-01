@@ -1,0 +1,189 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 2de30d7cefd8c762b3a585bb26ad4a53fc4a6e91..101f541475fd529f62477985e47113bfeb991ab6 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -28,13 +28,14 @@
+ # it said: it names the exit it excuses, every pending unit is a line in
+ # `harness/baseline/PENDING.txt` checked both ways, and its commit is a label
+ # the harness never resolves.
+-# EIGHT tree checks run on every invocation — seven that can fail the run and
+-# `check_specs_current`, which reports. AND SINCE 0.0.3 IT IS ALSO EVIDENCE
++# NINE tree checks run on every invocation — eight that can fail the run and
++# `check_specs_current`, which reports (eight, seven of which could fail, until
++# cycle 0.1.2's `check_no_recursion`). AND SINCE 0.0.3 IT IS ALSO EVIDENCE
+ # THAT THE RUNNER CAN FAIL: the self-check runs FIRST and feeds it every live
+-# kind of wrong expectation, requiring a red for each -- 26 live and 4 PENDING
+-# on stages that do not exist until 0.3, 0.5 and 0.8, 30 cases in V-20's list
+-# since cycle 0.1.0b (24 at the cycle 0.0 close's fifth triage, 15 and 19 at the
+-# fourth), and the run prints the counts itself, so
++# kind of wrong expectation, requiring a red for each -- 28 live and 4 PENDING
++# on stages that do not exist until 0.3, 0.5 and 0.8, 32 cases in V-20's list
++# since cycle 0.1.2 (30 at cycle 0.1.0b, 24 at the cycle 0.0 close's fifth triage,
++# 15 and 19 at the fourth), and the run prints the counts itself, so
+ # the green says how much of the list it covers. It is still NOT evidence about this library's BEHAVIOUR: `src/core/`
+ # is real and carries its own suites, but nothing matches yet.
+ #
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 6a98b106242a6f6579eea54af7fae78a0f41f68b..0975fce46907ea99bee92c10a8b8532e11e81608 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -6,18 +6,21 @@ Guidance for Claude Code sessions working in this repository.
+ 
+ `nregex` — a regular-expression library for **Nitpick**, the safety-critical
+ systems language at `../../nitpick`. **Status: cycle 0.1, the pattern parser, is
+-open, and its 0.1.0, 0.1.0b, 0.1.1 and 0.1.1b are done** — the pieces the parser is written
++open, and its 0.1.0, 0.1.0b, 0.1.1, 0.1.1b and 0.1.2 are done** — the pieces the parser is written
+ in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/0.1/0.1.0.md`); the adoption of
+ compiler `5fbaf4a` (RX-176 … RX-180, `0.1.0b.md`); and the core grammar —
+ `parse_pattern` builds the AST for literals, `.`, `^`, `$`, groups, alternation and
+ quantifiers, refuses what is wrong with the byte it is at, and
+ `pattern_error_text` says what to write instead (RX-181 … RX-187, `0.1.1.md`); and
+ the bound on `Vec`'s type — `Vec<T: Copy>`, an owning element refused wherever it is
+-written (RX-188 … RX-190, `0.1.1b.md`).
++written (RX-188 … RX-190, `0.1.1b.md`); and the explicit stack's bound — a `(` that would
++nest groups past `NREGEX_NEST_DEPTH` is `NestTooDeep` at it, 10 000 levels and the longest
++pattern refused so, no function under `src/` on a call cycle, and the reason restated: a
++recursion deeper than its stack traps (RX-191 … RX-195, `0.1.2.md`).
+ Cycle 0.0, foundations, CLOSED on 2026-09-26 — the sixth audit accepted it, and
+ it is archived in `meta/roadmap/done/0.0/`. The
+ specifications, the decisions and the roadmap are complete; `tests/probe/` holds
+-**32** language probes with recorded verdicts, split **24 / 8** by kind (16 / 7,
++**33** language probes with recorded verdicts, split **25 / 8** by kind (16 / 7,
+ then 17 / 6 when the `94874ce` re-pin discharged O-N10 and `probe02b` stopped
+ being refused — RX-125; then 19 / 6 when the `3d15ac9` re-pin made
+ `limit<Rules>` live and `probe13b` stopped being refused — RX-127; then 22 / 5
+@@ -30,7 +33,8 @@ parameter shows — RX-161, RX-162; then 25 / 7 when cycle 0.0.4e moved probe 15
+ of `refused/` and probe 17 into it — the compiler's lexer and its loan rule fixed —
+ and added probe 18, a compiler defect an impl's `move` shows — RX-168 … RX-170;
+ then 24 / 8 when cycle 0.1.0b moved probe 18 into `refused/`, refused
+-`NITPICK-TYPE-014` at `5fbaf4a` — RX-176);
++`NITPICK-TYPE-014` at `5fbaf4a` — RX-176; then 25 / 8 when cycle 0.1.2 added probe 19,
++a recursion deeper than its stack trapping `StackExhausted` — RX-191);
+ `tests/rejection/` holds twenty-four consumer-facing refusals (five of them the
+ containers' seal, since 0.0.4c; one a `Bytes` copy refused `TYPE-046`, since the
+ fourth triage; since 0.0.4d five `Vec` and `SparseSet` copies refused
+@@ -55,11 +59,14 @@ parser's pieces** — `pattern_error.npk`, `cursor.npk`, `ast.npk` and `parse.np
+ behind its layer entry, with ten unit programs and three refusals of their own —
+ **and since 0.1.1 it parses the core grammar**, with five unit programs more:
+ `parse_grammar`, `parse_refusals`, `parse_encoding`, `parse_limits` and
+-`pattern_error_text`. A class, an escape other than punctuation, and a flag are
++`pattern_error_text` — **and since 0.1.2 its stack is bounded**: a `(` that would nest
++groups past `NREGEX_NEST_DEPTH` is `NestTooDeep` at it, before a byte after it is read
++(`SYNTAX.md` Y-35), with one unit program more, `parse_nest_deep`, the gate at 10 000
++levels and at the longest pattern, forty runs a leg. A class, an escape other than punctuation, and a flag are
+ refused provisionally until 0.1.3 and 0.1.4 (`SYNTAX.md` Y-31). **No matching happens yet**: `src/hir/`,
+ `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are still one
+ placeholder module each. A full green run at compiler `5fbaf4a` is
+-**238 units** (after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus eight tree checks; take those numbers from the runner's
++**242 units** (after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus nine tree checks (eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
+ summary rather than from here. **Nothing is PENDING any more**:
+ `tests/unit/bytes_copy_string_empty.npk` was committed red under
+ `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
+@@ -368,6 +375,15 @@ evidence.
+   reported SITE, not once per code (D-332, B-7b, RX-178); and CI asserts the emission's
+   digest (RX-180). Landing 78's move-only `cstring` refuses nothing here: every
+   `cstring` in the tree is `main`'s `argv`.
++- **A recursion deeper than its stack is a `StackExhausted` trap, not a segfault — and
++  the explicit stack stands** (cycle 0.1.2, RX-191, measured at `5fbaf4a`). Since
++  `c3bdae2` every emitted function checks its stack before its frame exists (the
++  compiler's D-305), so the reason RX-032 and `SAFETY.md` S-18 gave — *"no stack-depth
++  guard … a segfault"* — is false: `tests/probe/probe19_native_recursion_traps.npk` leaves
++  through `failsafe`'s arm, 106, at both legs. A recursion of the parser's frame size runs
++  16 911 levels at −O0 and 52 425 through `opt -O2`, the same on every run, so 10 000
++  levels trap at neither leg and the gate asks the length bound's 65 536 too. The rule
++  stands because a trap ends the whole program, where a refusal returns.
+ - **A sealed field is read anywhere and written only by its own module; a
+   hidden one is not even read outside it** (the compiler's D-313 and D-314,
+   measured here at `c3bdae2`, cycle 0.0.4c, RX-153). `Vec.items` is hidden and
+@@ -433,7 +449,9 @@ PENDING on stages that do not exist until 0.3, 0.5 and 0.8 — the runner prints
+ many of each, from `harness/selfcheck.py`'s own list. Three of its cases are the
+ `pending-until:` marker's reds, because a marker takes a unit out of the denominator
+ and must name the exit it excuses and a line in `harness/baseline/PENDING.txt`
+-(RX-154). `harness/README.md` states the boundary. CI (`.github/workflows/ci.yml`) pins the
++(RX-154). `harness/README.md` states the boundary. `TMPDIR` may sit anywhere, this
++repository's `.internal/` included: the `repro` step's two copies each carry the manifest
++since cycle 0.1.2 (RX-195). CI (`.github/workflows/ci.yml`) pins the
+ compiler by full commit sha and LLVM by exact patch release, and **asserts**
+ both rather than reporting them.
+ 
+diff --git a/README.md b/README.md
+index da8833d8e61f95052daadc5c0ec23955ba4c7c29..a66ec39e5cb542707e4d11723de7fb6672030067 100644
+--- a/README.md
++++ b/README.md
+@@ -17,7 +17,9 @@ makes the guarantee below possible.
+ > alternation and quantifiers — into an AST, refusing a bad pattern with the byte
+ > it is at and a sentence saying what to write instead. Cycle 0.1.1b bounded `Vec`'s
+ > element type by the prelude's `Copy`, so the compiler refuses an owning element
+-> wherever one is written. Nothing matches a pattern yet.
++> wherever one is written. Cycle 0.1.2 bounded the parser's nesting: a pattern nested
++> more than 250 groups deep is refused at the `(` that goes too deep, never a blown
++> stack, and no function in the library calls itself. Nothing matches a pattern yet.
+ > The specification set is in [`meta/specs/`](meta/specs/) and the plan in
+ > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
+ > discipline the compiler used — specs first, then a cycle map, then
+diff --git a/meta/roadmap/0.1/README.md b/meta/roadmap/0.1/README.md
+index 5670eae2848c75c7d189f865764ecb60a2107343..cbb36bd12515b6fd2111fc5d48f9fe90483d5725 100644
+--- a/meta/roadmap/0.1/README.md
++++ b/meta/roadmap/0.1/README.md
+@@ -119,6 +119,7 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
+ - [ ] POSIX bracket classes, **inside a class only**
+ - [ ] `\p{…}` / `\P{…}` parsed with the property spec kept as text, resolved at 0.3
+ - [ ] nested classes `[a[b-c]]`
++- [ ] a class's nesting held on an explicit stack and bounded, refused at the `[` that goes too deep (`SAFETY.md` S-18; `SYNTAX.md` Y-35's last sentence) — *added @@DATE@@ by cycle 0.1.2*
+ - [ ] `&&`, `--`, `~~` with the precedence in Y-17, and `ClassOpMismatch`
+ - [ ] O-Y2 decided and recorded
+ 
+diff --git a/meta/roadmap/ROADMAP.md b/meta/roadmap/ROADMAP.md
+index 98da104eff55e1ff8415503f9d72eb002e42e9e9..66c8a1c248887fc983647a644b484e1afb347cf4 100644
+--- a/meta/roadmap/ROADMAP.md
++++ b/meta/roadmap/ROADMAP.md
+@@ -53,7 +53,7 @@ cycle 0.0.
+ | Cycle | Topic | Gated on |
+ |---|---|---|
+ | **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **DONE 2026-09-26, archived to [`done/0.0/`](done/0.0/README.md).** The sixth W-22 audit ACCEPTED the close at compiler `c970483`, after five refusals — three on 2026-09-06, two on 2026-09-25 — and two inserted subcycles, 0.0.4d (`Vec` move-only) and 0.0.4e (the re-pin that refused the loan). The close is [`done/0.0/0.0.5.md`](done/0.0/0.0.5.md) §13 | — |
+-| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **OPEN: [`0.1.0`](0.1/0.1.0.md), the cursor and the AST, done; [`0.1.0b`](0.1/0.1.0b.md), the adoption of `5fbaf4a` and the ecosystem audit's items, done; [`0.1.1`](0.1/0.1.1.md), the core grammar, done; [`0.1.1b`](0.1/0.1.1b.md), open question O-R3 — `Vec<T: Copy>` — done; next, 0.1.2, the explicit stack's bound** | 0.0 |
++| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **OPEN: [`0.1.0`](0.1/0.1.0.md), the cursor and the AST, done; [`0.1.0b`](0.1/0.1.0b.md), the adoption of `5fbaf4a` and the ecosystem audit's items, done; [`0.1.1`](0.1/0.1.1.md), the core grammar, done; [`0.1.1b`](0.1/0.1.1b.md), open question O-R3 — `Vec<T: Copy>` — done; [`0.1.2`](0.1/0.1.2.md), the explicit stack's bound, done; next, 0.1.3, classes** | 0.0 |
+ | **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction | 0.1 |
+ | **0.3** | **Unicode** — generated tables, properties, scripts, simple case folding | 0.0 |
+ | **0.4** | **UTF-8 automata** — codepoint ranges to byte ranges, alphabet compression | 0.3 |
+@@ -185,6 +185,10 @@ thirty-six; decisions through RX-187.)*
+ *(After cycle 0.1.1b, the same compiler: **238** units — the ten owning-element units and
+ `vec_oob_free_owning_after_free` retired with `Vec<T: Copy>`, and the parse sweep's eleven
+ fewer files — `src/core/` with **37** unit programs; decisions through RX-190.)*
++*(After cycle 0.1.2, the same compiler: **242** units — probe 19 and `parse_nest_deep`, each
++run as a program and swept as a root — **33** probes, split 25 / 8; **nine** tree checks,
++`check_no_recursion` the ninth; a self-check of **32** cases, 28 live; decisions through
++RX-195.)*
+ 
+ **Two probes refuted their own hypothesis**, which is the cycle's best return:
+ `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler
+diff --git a/src/syntax/README.md b/src/syntax/README.md
+index 29fe4f33947d5290e79c8efb2ef62b19ca8290ab..015fb905b373ffd9399c730d91a77f84bf796095 100644
+--- a/src/syntax/README.md
++++ b/src/syntax/README.md
+@@ -8,8 +8,10 @@ offset into the pattern. Governed by `meta/specs/SYNTAX.md`. Built in cycle
+ Since cycle 0.1.0 it holds the pieces every later subcycle is written in, and
+ since cycle 0.1.1 it parses the core grammar — literals, `.`, `^`, `$`, groups,
+ alternation and quantifiers (`SYNTAX.md` Y-28 … Y-33) — and says what each
+-refusal means (Y-34). A class, an escape other than punctuation, and a flag are
+-refused provisionally until cycles 0.1.3 and 0.1.4 (Y-31):
++refusal means (Y-34). Since cycle 0.1.2 its stack is bounded: a `(` that would nest
++groups past `NREGEX_NEST_DEPTH` is `NestTooDeep` at it, before a byte after it is read
++(Y-35). A class, an escape other than punctuation, and a flag are refused
++provisionally until cycles 0.1.3 and 0.1.4 (Y-31):
+ 
+ | File | What |
+ |---|---|
+@@ -17,9 +19,10 @@ refused provisionally until cycles 0.1.3 and 0.1.4 (Y-31):
+ | `pattern_error.npk` | `PatternErrorKind` (`SYNTAX.md` §9), `PatternError` (`SAFETY.md` S-9), and `pattern_error`, the only way to build one — RX-172; and `pattern_error_text`, what is wrong, at which byte, and what to write instead — RX-187 |
+ | `cursor.npk` | the byte cursor: one byte of lookahead, moved by nothing outside it — RX-173 |
+ | `ast.npk` | the AST arena: sixteen kinds of 56-byte node that own nothing (`SYNTAX.md` Y-26, Y-27) — RX-174 |
+-| `parse.npk` | the parser: `parse_check_length`, the first refusal — RX-175; `parse_check_encoding`, the pattern checked whole as UTF-8 — RX-183; and `parse_pattern`, one explicit-stack walk that builds the AST — RX-182, RX-184 … RX-186 |
++| `parse.npk` | the parser: `parse_check_length`, the first refusal — RX-175; `parse_check_encoding`, the pattern checked whole as UTF-8 — RX-183; and `parse_pattern`, one explicit-stack walk that builds the AST — RX-182, RX-184 … RX-186 — its stack bounded at the `(`, RX-193 |
+ 
+ `tests/unit/syntax_skeleton.npk` composes the pieces through `syntax.npk` alone,
+ and `parse_grammar`, `parse_refusals`, `parse_encoding`, `parse_limits` and
+ `pattern_error_text` hold the parse and its text to the specification the same
+-way.
++way; `parse_nest_deep` holds the bound at 10 000 levels and at the longest pattern,
++forty runs a leg (RX-194).

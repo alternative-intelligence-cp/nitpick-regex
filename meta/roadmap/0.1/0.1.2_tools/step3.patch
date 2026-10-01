@@ -1,0 +1,325 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 669503c677e5b767aaa3a85a797c2bd5cb6e3f04..2e37768aaf9dc0088448b4e6028f61052764387a 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -4530,6 +4530,10 @@ rule; **a possessive `+` read as `DoubleRepeat` until 0.1.5** — a kind 0.1.5 w
+ writes; **`RepeatTooLarge` at the `{`** — the number is what is wrong.
+ 
+ ### RX-185 — groups: numbered at the `(`, named by §1's `Name`, closed innermost-first — and the refusals of §8 a group head spells are made at the head
++> **SUPERSEDED IN PART by RX-193 (@@DATE@@)** — for a `(` that would nest groups deeper than
++> `NREGEX_NEST_DEPTH` only: *"the 251st is `TooManyCaptureGroups` at its `(`"*, and a head's refusal *"made
++> where the head is read"* — that `(` is `NestTooDeep` before its number is taken or its head read (`SYNTAX.md`
++> Y-35). Every other group is as this decision says.
+ 
+ **2026-09-27, cycle 0.1.1 (the plan's PD-29)** — `SYNTAX.md` Y-29 and Y-30, with Y-6, Y-7 and Y-8. The capture index
+ is handed out at the `(`, named groups included; the 251st is `TooManyCaptureGroups` at its `(` (detail the bound,
+@@ -4546,6 +4550,8 @@ the bound is what the author can act on, and the number is one more; **§8's hea
+ 0.1.1 writes the dispatch, and a provisional branch there would be rewritten.
+ 
+ ### RX-186 — until its parser exists, a class, an escape and a flag are refused provisionally, with the kind their parser gives an unknown member
++> **SUPERSEDED IN PART by RX-193 (@@DATE@@)** — for a `(` that would nest groups deeper than
++> `NREGEX_NEST_DEPTH` only: it is `NestTooDeep` before the flag or other head it opens is read (`SYNTAX.md` Y-35).
+ 
+ **2026-09-27, cycle 0.1.1 (the plan's PD-30)** — `SYNTAX.md` Y-31. `[` is `UnclosedClass` until 0.1.3; `\` before
+ anything but ASCII punctuation is `UnknownEscape` until 0.1.4; `(?` before a flag, or anything Y-29 and Y-30 do not
+@@ -4743,3 +4749,29 @@ reads text; it stays the plan's cross-check; **the call graph in the emitted IR*
+ to the floor (B-2's second layer), and widened it would give the emitter's names rather than the source's places,
+ at a compile per root; **the gate unit alone** — it shows the
+ parser refusing on the patterns it builds, and nothing about a function it never calls.
++
++### RX-193 — `NREGEX_NEST_DEPTH` is decided at the `(`: a `(` that would nest groups deeper than 250 is `NestTooDeep` there, before a byte after it is read
++
++**@@DATE@@, cycle 0.1.2 (the plan's PD-37), at compiler `5fbaf4a`** — `SYNTAX.md` Y-35, Y-9's bound. It supersedes in
++part RX-185 and RX-186, for a `(` past the bound only, and completes RX-182's *"the stack is unbounded until cycle
++0.1.2"*. `open_group`'s first line refuses a `(` read while the stack holds `NREGEX_NEST_DEPTH` frames:
++`NestTooDeep` at that `(`, length 1, detail the bound. So no frame past the bound is pushed, nothing past that `(` is
++read, and the parse stops where the bound is rather than where the pattern ends — probe 05's property, in the
++parser. `pattern_error_text` says what to do, held to the letter by `tests/unit/pattern_error_text.npk` case 23:
++*"nesting too deep at byte 250: this `(` would nest groups 251 deep, and they may nest at most 250 deep
++(NREGEX_NEST_DEPTH). Nest fewer groups: a non-capturing group around one item, as in `(?:a)`, can be written without
++it."*
++
++**Measured at `5fbaf4a`** (`tests/unit/parse_limits.npk` cases 15–18). 250 nested groups parse, as before; 251
++nested `(?:` are `NestTooDeep` at byte 750; 251 nested `(` are `NestTooDeep` at byte 250 — where the unbounded
++parser answered `TooManyCaptureGroups` at the same byte, the capture bound being 250 too, so the deep pattern an
++attacker writes first was refused for a reason that was not its own; and a lookahead, or a `(?` the pattern ends
++on, opened by the 251st `(` is `NestTooDeep` at that `(`. No node is built in any of the four.
++
++*Alternatives declined:* **the check in `push_group`, as 0.1.1's §8 suggested** — it runs after the head is read
++and after the capture number is taken, so `(` repeated 10 000 times would answer `TooManyCaptureGroups` and never
++its depth, and a named group's name would be read and judged first; **after the head is read and before the number
++is taken** — a head refused at depth 251 would answer for its head and an accepted one for its depth, two rules
++where one serves; **at the `)` or at the pattern's end** — the stack would hold every level first, which is what
++the bound exists to prevent (probe 05: checked before the push); **a bound on the stack's bytes rather than its
++frames** — `SAFETY.md` §5 names the count, and the count is what a pattern's author can read and act on.
+diff --git a/meta/specs/SAFETY.md b/meta/specs/SAFETY.md
+index 8c8f614571f3069bbe3f72e96e6a1676957968f8..58b91f2e49373e4d908b948a2d055f601dcbba11 100644
+--- a/meta/specs/SAFETY.md
++++ b/meta/specs/SAFETY.md
+@@ -370,7 +370,7 @@ nowhere else.** A tree check enforces it. Exceeding one at compile time is a
+ | Constant | Default | Bounds |
+ |---|---|---|
+ | `NREGEX_PATTERN_BYTES` | 65536 | the pattern text |
+-| `NREGEX_NEST_DEPTH` | 250 | group and alternation nesting — the parser's explicit stack (§8) |
++| `NREGEX_NEST_DEPTH` | 250 | group and alternation nesting — the parser's explicit stack (§8). *Counted in groups, since an alternation nests only inside one, and refused at the `(` that goes too deep — `SYNTAX.md` Y-35, RX-193, @@DATE@@* |
+ | `NREGEX_PROGRAM_INSTRUCTIONS` | 100000 | the compiled program |
+ | `NREGEX_REPEAT_MAX` | 1000 | a single `{n,m}` bound |
+ | `NREGEX_REPEAT_PRODUCT` | 100000 | the **product** across nested repetitions — §5.1 |
+diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
+index 0601655053df5d89ded241d382aff37012be43b1..374c7df998236cae5706b439319e77b1caf5689c 100644
+--- a/meta/specs/SYNTAX.md
++++ b/meta/specs/SYNTAX.md
+@@ -105,6 +105,8 @@ pointer to anything that pushes or pops (`SAFETY.md` S-23b).)*
+ *(2026-09-27, cycle 0.1.1 — RX-182: the parser holds it — `src/syntax/parse.npk`'s
+ `Parser`, freed by `parse_pattern` on every path (Y-33) — and cycle 0.1.2 adds
+ the bound; until then the pattern's length bounds the stack.)*
++*(@@DATE@@, cycle 0.1.2 — RX-193: bounded, and decided at the `(` before a byte
++after it is read — Y-35.)*
+ 
+ **Rule Y-10 — every error carries a byte offset into the pattern**, and a
+ length where the construct spans more than a point. A user gets "unclosed
+@@ -201,6 +203,10 @@ a group is `UnclosedGroup` at the INNERMOST open `(`, its detail how many are op
+ `(?` as the pattern's last two bytes is `UnclosedGroup` spanning both. `(?P<` and
+ `(?'` are `WrongNamedGroupSpelling` (Y-7) at the `(`, spanning the head, detail `P`
+ (80) or `'` (39).
++*(@@DATE@@, cycle 0.1.2 — RX-193: unless the `(` would nest groups deeper than
++`NREGEX_NEST_DEPTH`. Then it is `NestTooDeep` before anything this rule decides — its
++number, its name, or a `(?` the pattern ends on — so 251 nested `(` are `NestTooDeep`
++at byte 250, never `TooManyCaptureGroups` (Y-35).)*
+ 
+ **Rule Y-30 (RX-185) — the refusals of §8 that a group head or a quantifier spells
+ are made where they are read**, each at the `(`, spanning the head read, its detail
+@@ -211,6 +217,8 @@ the head's last byte: `(?=`, `(?!`, `(?<=`, `(?<!` are `LookaroundUnsupported`;
+ quantifier — `a*+`, `a{2}+` — is `AtomicGroupUnsupported` at the quantifier,
+ spanning through the `+`, detail `+` (43). §8's escapes (`\1`, `\k<…>`, `\G`,
+ `\Z`, `\Q`) are cycle 0.1.5's, after 0.1.4 parses escapes.
++*(@@DATE@@, cycle 0.1.2 — RX-193: a head a `(` past `NREGEX_NEST_DEPTH` would open is
++never read; that `(` is `NestTooDeep` (Y-35).)*
+ 
+ **Rule Y-31 (RX-186) — until its parser exists, a construct is refused
+ PROVISIONALLY**, with the kind its parser gives a member it does not know: `[` is
+@@ -222,6 +230,8 @@ character's codepoint (cycle 0.1.4); `(?` before anything Y-29 and Y-30 do not n
+ replaces it. One answer among them is final, and a test pins it: `(?P` before a
+ byte Y-29 and Y-30 do not name is `UnknownFlag` at the `P`, detail `P` (80), in
+ every cycle, since `P` is no flag (`parse_refusals.npk` case 64).
++*(@@DATE@@, cycle 0.1.2 — RX-193: not at a `(` past `NREGEX_NEST_DEPTH`, which is
++`NestTooDeep` before what follows it is read (Y-35).)*
+ 
+ **Rule Y-32 (RX-184) — quantifiers.** `*`, `+`, `?`, `{n}`, `{n,}` and `{n,m}`, each
+ followed by `?` to be lazy, wrap the atom before them in a `Repeat` — `a` the atom,
+@@ -253,6 +263,17 @@ until cycle 0.1.4 parses flags — with `AST_FLAG_LAZY` on a lazy `Repeat`. The
+ refusal, left to right, is the answer; the tree's nodes are then partial, its root is
+ unchanged, and the caller frees them.
+ 
++**Rule Y-35 (RX-193) — groups nest at most `NREGEX_NEST_DEPTH` deep, and the bound
++is decided at the `(`.** A `(` read while `NREGEX_NEST_DEPTH` groups — 250 — are open
++around it is `NestTooDeep` at that `(`, length 1, detail the bound, and it is decided
++BEFORE any byte after the `(` is read: no frame past the bound is pushed, nothing
++past the `(` is read, and the parse stops where the bound is rather than where the
++pattern ends. So it is the answer whatever would have followed — a capture numbered
++past `NREGEX_CAPTURE_GROUPS` (Y-29; 251 nested `(` are `NestTooDeep` at byte 250), a
++head §8 refuses (Y-30), a construct refused provisionally (Y-31), or the end of the
++pattern. 250 nested groups parse. The bound counts groups, the one construct that
++nests here; a class nests too from cycle 0.1.3, which bounds it.
++
+ ---
+ 
+ ## 4. Flags
+@@ -453,7 +474,7 @@ detail a message is built from (Y-29 … Y-32):
+ | `DoubleRepeat` | a quantifier after a quantifier | the second one | 1 | its first byte |
+ | `BadRepeatBounds` | a `{` that is no bounded repeat; a minimum above the maximum | the `{` | what was read | 0; 1 |
+ | `RepeatTooLarge` | a bound above `NREGEX_REPEAT_MAX` | its first digit | its digits | the bound |
+-| `TooManyCaptureGroups` | a group numbered past `NREGEX_CAPTURE_GROUPS` | its `(` | 1 | the bound |
++| `TooManyCaptureGroups` | a group numbered past `NREGEX_CAPTURE_GROUPS` — *not one nested past `NREGEX_NEST_DEPTH`, which is `NestTooDeep` first (Y-35)* | its `(` | 1 | the bound |
+ | `DuplicateGroupName` | a name already used | the second name | its length | the first group's number |
+ | `BadGroupName` | an empty, malformed or unfinished name | the bad character; for an unfinished one the name | the character's bytes; what was read | its codepoint; 62 when empty; 0 when unfinished |
+ | `WrongNamedGroupSpelling` | `(?P<` or `(?'` | the `(` | the head | 80 or 39 |
+@@ -461,6 +482,7 @@ detail a message is built from (Y-29 … Y-32):
+ | `AtomicGroupUnsupported` | a quantifier made possessive | the quantifier | through the `+` | 43 |
+ | `InvalidPatternEncoding` | ill-formed UTF-8 | the sequence's first byte | through the byte that broke it | that byte; 0 when cut short |
+ | `PatternTooLong` (cycle 0.1.0) | over `NREGEX_PATTERN_BYTES` | the first byte past the bound | the bytes over it | the bound |
++| `NestTooDeep` (cycle 0.1.2) | a `(` that would nest groups deeper than `NREGEX_NEST_DEPTH` (Y-35) | that `(` | 1 | the bound |
+ 
+ *(2026-09-27, cycle 0.1.1 — RX-181: thirty-six, `EmptyAlternate` retired.)*
+ *(2026-09-26, cycle 0.1.0 — RX-172: `src/syntax/pattern_error.npk`'s
+diff --git a/src/core/limits.npk b/src/core/limits.npk
+index 37d2d75a05d4722456621405a06f58ec90ccc1ff..5a8fdeeb124d2a4e9c7df2fa3ccecc8b9ea1b8a5 100644
+--- a/src/core/limits.npk
++++ b/src/core/limits.npk
+@@ -41,6 +41,8 @@ pub fixed int64:NREGEX_PATTERN_BYTES = 65536i64;
+ // *(@@DATE@@, cycle 0.1.2 — RX-191: since `c3bdae2` the language has that guard —
+ // a recursion deeper than its stack traps `StackExhausted` (the compiler's D-305;
+ // probe 19) — and a trap ends the whole program, so the explicit stack stands.)*
++// *(@@DATE@@, cycle 0.1.2 — RX-193: `parse.npk`'s `open_group` refuses at it, at the
++// `(`, before a byte after it is read — `SYNTAX.md` Y-35.)*
+ pub fixed int64:NREGEX_NEST_DEPTH = 250i64;
+ 
+ // ---- the compiled program --------------------------------------------------
+diff --git a/src/syntax/parse.npk b/src/syntax/parse.npk
+index 387446d313d25f202a3d3e4ff09a1c1ada5968bf..76f769ff50b82a389e6e83d8511b55bcfeae3324 100644
+--- a/src/syntax/parse.npk
++++ b/src/syntax/parse.npk
+@@ -16,8 +16,10 @@
+ // AN EXPLICIT STACK, NEVER NATIVE RECURSION (RX-032, `SAFETY.md` S-18). One
+ // `while` walks the pattern once. A `(` saves the frame being built on a
+ // `Vec<Frame>` and starts the group's; its `)` builds the group's node and takes
+-// the saved frame back. No function here calls itself. Cycle 0.1.2 bounds the
+-// stack by `NREGEX_NEST_DEPTH`; until then the pattern's length bounds it.
++// the saved frame back. No function here calls itself, and `check_no_recursion`
++// says so on every run (RX-192). `NREGEX_NEST_DEPTH` bounds the stack since cycle
++// 0.1.2: a `(` that would nest groups deeper is `NestTooDeep` at that `(`, before
++// a byte after it is read (Y-35, RX-193). Until then the pattern's length bounded it.
+ //
+ // THE TREE IS BUILT BOTTOM-UP INTO THE ARENA (Y-26, Y-27, Y-33). A frame keeps two
+ // lists: the alternatives closed so far, and the pieces of the current one. A
+@@ -311,7 +313,10 @@ func:close_body = int64(Ast->:out, Frame->:f, int64:upto) never fails {
+ 
+ // ---- groups (Y-29, Y-30) ---------------------------------------------------
+ 
+-// Starts a group's frame: the one being built is saved on the stack.
++// Starts a group's frame: the one being built is saved on the stack. Every call is
++// made after `open_group`'s first line -- there, or in `named_group`, which only
++// `open_group` calls -- so the stack never holds more than `NREGEX_NEST_DEPTH` frames
++// (Y-35).
+ func:push_group = NIL(Parser->:p, int64:open, int64:cap, int64:name_len) never fails {
+     uint32:fl = p.f.flags;
+     drop vec_push(@p.stack, p.f);
+@@ -385,8 +390,14 @@ func:head_refused = PatternError?(Parser->:p, PatternErrorKind:k, int64:open, in
+     pass raw pattern_error(k, open, p.c.pos - open, b =>! uint32);
+ };
+ 
+-// `(` read at `open`. What follows decides the group (Y-29), or the refusal (Y-30).
++// `(` read at `open`. First the depth (Y-35): a `(` that would nest groups deeper
++// than `NREGEX_NEST_DEPTH` is `NestTooDeep` here, before a byte after it is read --
++// so no frame past the bound is pushed, and the parse stops where the bound is.
++// Then what follows decides the group (Y-29), or the refusal (Y-30).
+ func:open_group = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:open) never fails {
++    if (p.stack.count >= NREGEX_NEST_DEPTH) {
++        pass raw pattern_error(PatternErrorKind.NestTooDeep, open, 1i64, NREGEX_NEST_DEPTH =>! uint32);
++    }
+     drop commit(out, @p.f);
+     if (!(raw cursor_eat(@p.c, CH_QUESTION =>! uint8))) {
+         PatternError?:full = raw take_cap(p, open);
+diff --git a/src/syntax/pattern_error.npk b/src/syntax/pattern_error.npk
+index f2f66099ffcf24699616d91f9c265ebe2048f21b..87df7efe11f7fa667ff09ba5ee35aac8b8ed2a92 100644
+--- a/src/syntax/pattern_error.npk
++++ b/src/syntax/pattern_error.npk
+@@ -172,8 +172,9 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
+         },
+         (PatternErrorKind.NestTooDeep) {
+             drop put(@b, "nesting too deep at byte "); drop num(@b, e.offset);
+-            drop put(@b, ": groups may nest at most "); drop num(@b, e.detail => int64);
+-            drop put(@b, " deep (NREGEX_NEST_DEPTH).");
++            drop put(@b, ": this `(` would nest groups "); drop num(@b, (e.detail => int64) + 1i64);
++            drop put(@b, " deep, and they may nest at most "); drop num(@b, e.detail => int64);
++            drop put(@b, " deep (NREGEX_NEST_DEPTH). Nest fewer groups: a non-capturing group around one item, as in `(?:a)`, can be written without it.");
+         },
+         (PatternErrorKind.TrailingBackslash) {
+             drop put(@b, "trailing backslash at byte "); drop num(@b, e.offset);
+diff --git a/src/syntax/syntax.npk b/src/syntax/syntax.npk
+index d8372797a240c1574428552c01fbd55d7f26242d..af25f767ecfc37c3bb36322e928133a4c33ffe27 100644
+--- a/src/syntax/syntax.npk
++++ b/src/syntax/syntax.npk
+@@ -16,6 +16,8 @@
+ // re-exports alone. SINCE CYCLE 0.1.1 `parse.npk` PARSES THE CORE GRAMMAR --
+ // `parse_pattern`, RX-182 … RX-186 -- and classes, escapes other than
+ // punctuation, and flags are the subcycles' after it (Y-31).
++// SINCE CYCLE 0.1.2 ITS STACK IS BOUNDED: a `(` that would nest groups deeper than
++// `NREGEX_NEST_DEPTH` is `NestTooDeep` at that `(` (Y-35, RX-193).
+ //
+ // EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1
+ // and 3): `use` is not transitive, a plain `use` re-exports nothing, and one
+diff --git a/tests/unit/parse_limits.npk b/tests/unit/parse_limits.npk
+index f614fd7334a2da3a2f23aff2a40bffb96c439c34..93aedda8b8dc2d4b95dbb807029333b2e1c8f307 100644
+--- a/tests/unit/parse_limits.npk
++++ b/tests/unit/parse_limits.npk
+@@ -6,8 +6,13 @@
+ // same); `NREGEX_PATTERN_BYTES` through `parse_pattern` -- 65 536 bytes parse and
+ // one more is `PatternTooLong` before anything reads a byte. And 250 groups
+ // nested, which the explicit stack holds without a native frame per level
+-// (RX-032): `NREGEX_NEST_DEPTH` is 250, and cycle 0.1.2 refuses the 251st.
+-// (`NREGEX_REPEAT_MAX` is `parse_grammar`'s case 31 and `parse_refusals`' 33.)
++// (RX-032): `NREGEX_NEST_DEPTH` is 250, and since cycle 0.1.2 the 251st `(` is
++// `NestTooDeep` at it, before a byte after it is read (Y-35, RX-193) -- 251
++// non-capturing groups at byte 750; 251 capturing groups at byte 250, past both
++// bounds, the depth decided first; and a lookahead or a `(?` the 251st `(` would
++// open, never read. (`NREGEX_REPEAT_MAX` is `parse_grammar`'s case 31 and
++// `parse_refusals`' 33; 10 000 levels and the longest pattern's are
++// `parse_nest_deep`'s.)
+ mod:parse_limits;
+ 
+ use "../../src/core/core.npk".*;
+@@ -24,6 +29,22 @@ func:many = Bytes(int64:groups, string:piece, string:tail) never fails {
+     pass move(b);
+ };
+ 
++// `piece` `groups` times then `tail`: `NestTooDeep` at byte `at`, one byte long, its
++// detail the bound, and no node built?
++func:too_deep = bool(int64:groups, string:piece, string:tail, int64:at) never fails {
++    Bytes:b = raw many(groups, piece, tail);
++    string:s = raw bytes_copy_string(@b);
++    Ast:t = raw ast_init(8i64);
++    PatternError?:r = raw parse_pattern(string_bytes(s), @t);
++    int64:nodes = raw ast_len(t);
++    drop ast_free(@t);
++    if (r == NIL) { pass false; }
++    PatternError:e = r ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
++    if (e.kind != PatternErrorKind.NestTooDeep) { pass false; }
++    if ((e.offset != at) || (e.span_len != 1i64) || (e.detail != 250u32)) { pass false; }
++    pass nodes == 0i64;
++};
++
+ func:run = int32() never fails {
+     // 250 capture groups: accepted, the root a `Concat` of 250, the last group number 250
+     Bytes:ok = raw many(250i64, "()", "");
+@@ -91,6 +112,15 @@ func:run = int32() never fails {
+     PatternError:g = mr ?? raw pattern_error(PatternErrorKind.UnclosedGroup, 0i64, 0i64, 0u32);
+     if ((g.kind != PatternErrorKind.PatternTooLong) || (g.offset != 65536i64) || (g.detail != 65536u32)) { pass 13i32; }
+     if (nodes != 0i64) { pass 14i32; }
++    // the depth (Y-35): 251 non-capturing groups nested -- refused at the 251st `(`,
++    // byte 750, its detail the bound
++    if (!(raw too_deep(251i64, "(?:", "a", 750i64))) { pass 15i32; }
++    // 251 capturing groups nested: the 251st `(` is past NREGEX_CAPTURE_GROUPS too,
++    // and the depth is decided first -- NestTooDeep at byte 250, not TooManyCaptureGroups
++    if (!(raw too_deep(251i64, "(", "", 250i64))) { pass 16i32; }
++    // what the 251st `(` would open is never read: a lookahead, and `(?` at the end
++    if (!(raw too_deep(250i64, "(?:", "(?=a)", 750i64))) { pass 17i32; }
++    if (!(raw too_deep(250i64, "(?:", "(?", 750i64))) { pass 18i32; }
+     pass 0i32;
+ };
+ 
+diff --git a/tests/unit/pattern_error_text.npk b/tests/unit/pattern_error_text.npk
+index aa6d33f3d3c1ce27a3243a3e6fece74e34033b7a..4a566e7b79679633550c4cb99e0cd6070f005ba5 100644
+--- a/tests/unit/pattern_error_text.npk
++++ b/tests/unit/pattern_error_text.npk
+@@ -2,10 +2,10 @@
+ //
+ // WHAT A PERSON READS (`SYNTAX.md` Y-34; RX-187): `pattern_error_text` says what
+ // is wrong, at which byte, and what to write instead, for every refusal cycle
+-// 0.1.1 makes -- each case parses a pattern and holds the text to the letter,
+-// so a message changed by accident is a red run. Then every kind, built by
+-// `pattern_error` at byte 7, renders a text that names byte 7 (40), so no kind
+-// is left without a sentence.
++// 0.1.1 makes, and cycle 0.1.2's `NestTooDeep` (23; RX-193) -- each case parses a
++// pattern and holds the text to the letter, so a message changed by accident is a
++// red run. Then every kind, built by `pattern_error` at byte 7, renders a text that
++// names byte 7 (40), so no kind is left without a sentence.
+ mod:pattern_error_text;
+ 
+ use "../../src/core/core.npk".*;
+@@ -80,6 +80,15 @@ func:run = int32() never fails {
+     PatternError:e = r ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
+     string:enc = raw pattern_error_text(e);
+     if (!(raw same(enc, "invalid UTF-8 at byte 0: a pattern is UTF-8 text, and this sequence is not well-formed."))) { pass 22i32; }
++    // 251 groups nested: the 251st `(`, byte 250 (Y-35)
++    Bytes:deep = raw bytes_init(256i64);
++    int64:n = 0i64;
++    while (n < 251i64) decreases 251i64 - n {
++        drop bytes_extend_str(@deep, "(");
++        n = n + 1i64;
++    }
++    string:ds = raw bytes_copy_string(@deep);
++    if (!(raw says(ds, "nesting too deep at byte 250: this `(` would nest groups 251 deep, and they may nest at most 250 deep (NREGEX_NEST_DEPTH). Nest fewer groups: a non-capturing group around one item, as in `(?:a)`, can be written without it."))) { pass 23i32; }
+     // every kind renders a sentence naming its byte
+     int64:k = 0i64;
+     while (k < 36i64) decreases 36i64 - k {

@@ -1,0 +1,278 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index c7eca6238ad9c615505823333ac72177a0be448b..6f48047400d86475139854bb3a556d2d4aadedb2 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -256,6 +256,10 @@ change a visible diff rather than behaviour nobody can inspect. The alternative
+ string, and would dangle on the first `Vec` growth in any case.
+ 
+ ### RX-032 — the parser uses an explicit stack, never native recursion
++> **SUPERSEDED IN PART by RX-191 (@@DATE@@)** — its reason, *"the language has no stack-depth
++> guard — the failure is a segfault"*: since `c3bdae2` every emitted function checks its stack
++> before its frame exists (the compiler's D-305), so a recursion deeper than its stack traps
++> `StackExhausted`, a controlled stop of the whole program. The rule stands, for RX-191's reasons.
+ **2026-09-03.** A recursive-descent parser on `((((((…` blows the call stack,
+ and the language has no stack-depth guard — the failure is a segfault, not a
+ controlled stop, which is precisely what this ecosystem exists to prevent. The
+@@ -4672,3 +4676,38 @@ struct would then pass the run, the second half of S-23a unchecked; **narrowing
+ `Vec` of pointers is a `Vec` of blocks some other owner must free, which is the orphaning RX-155 measured, one
+ level down; **teaching the check the compiler's `Copy` rule** — a second copy of a rule the compiler already
+ enforces, which is what a belt is for and a rule is not.
++
++## The explicit stack's bound — cycle 0.1.2
++
++### RX-191 — RX-032's reason, measured: a recursion deeper than its stack traps `StackExhausted` since `c3bdae2`, and the explicit stack stands because a trap ends the whole program
++
++**@@DATE@@, cycle 0.1.2 (the plan's PD-35), at compiler `5fbaf4a`.** It supersedes in part RX-032 — its reason,
++*"the language has no stack-depth guard — the failure is a segfault, not a controlled stop"* — and the same reason
++restated in `SAFETY.md` S-18, `src/core/limits.npk` and probe 05. Each was true of the compiler RX-032 was written
++against. Since `c3bdae2` every function the compiler emits carries LLVM's split-stack prologue, which compares the
++stack against its thread's limit before the function's frame exists — only a leaf with no frame skips it, and a
++recursive function is no leaf — and `failsafe` runs on a stack of its own (the compiler's D-305).
++
++**Measured at `5fbaf4a`.** A recursive descent over nested `(` — one native frame per level, each holding a copy
++of a frame the size of `parse.npk`'s `Frame` — handed more levels than its stack holds leaves through `failsafe`'s
++`StackExhausted` arm, at −O0 and through `opt -O2`, never on a signal: `tests/probe/probe19_native_recursion_traps.npk`,
++2^20 levels, exit 106 at both legs. The depth it stops at, the probe's `LEVELS` set by `sed`: it runs 16 911
++levels and traps at 16 912 at −O0, and runs 52 425 and traps at 52 426 through `opt -O2`, each edge the same on
++twenty runs of each side, because the main thread runs on the floor's own 8 MiB stack whatever the shell's
++`ulimit` (D-305 (3)). So 10 000 levels trap at neither leg, and 65 536 — the longest pattern
++`NREGEX_PATTERN_BYTES` admits, all `(` — traps at both.
++
++**The decision.** RX-032 and S-18 stand, and their reason is restated. A trap is a controlled stop of the WHOLE
++PROGRAM — `failsafe` does not return — so a consumer handed a hostile pattern would lose its process where S-9
++owes it a `PatternError`. And the depth a recursion survives is the frame the optimiser sizes and the stack the
++caller's thread was given — a spawned thread has 2 MiB (D-305 (3)) — and differs threefold between two legs of
++one program, so the library cannot know it. The parser holds its nesting on an explicit stack and refuses at
++`NREGEX_NEST_DEPTH`. Probe 19 records the language's answer and re-derives it on every run.
++
++*Alternatives declined:* **leave RX-032's reason as written** — a rule whose stated reason is false is argued
++with on that reason, and the next reader to meet the trap would take the rule for obsolete; **retire the explicit
++stack because the language now stops a runaway recursion** — the stop is the process's and not the parse's, and
++S-18 is about adversarial input, which is owed a refusal; **record the measured depths as the library's bound** —
++they are the optimiser's and the thread's, a factor of three apart between the two legs; **a dated note on RX-032
++without a probe** — a pin-dependent measurement recorded as a permanent property is RX-120's lesson, and a probe
++re-measures it on every run.
+diff --git a/meta/specs/SAFETY.md b/meta/specs/SAFETY.md
+index d6f6e35ff4e8ca69c4245d0571fecd645ec640ac..6ffd12345d2535f386f9781be21faeab7f2b70e5 100644
+--- a/meta/specs/SAFETY.md
++++ b/meta/specs/SAFETY.md
+@@ -860,6 +860,17 @@ controls.** The pattern parser uses an **explicit stack** with
+ `((((((…` blows the call stack, and the language has no stack-depth guard —
+ the failure is a segfault, not a controlled stop, which is precisely what this
+ ecosystem exists to prevent.
++*(@@DATE@@, cycle 0.1.2 — RX-191: the reason above has been false since
++`c3bdae2`. Every function the compiler emits checks its stack before its frame
++exists (the compiler's D-305), so a recursion deeper than its stack traps
++`StackExhausted` and leaves through `failsafe` — a controlled stop, never a
++segfault: `tests/probe/probe19_native_recursion_traps.npk`, exit 106 at both legs
++at `5fbaf4a`. The rule stands for what remains true: a trap ends the consumer's
++whole program where it is owed a `PatternError`, and the depth a recursion
++survives is the frame the optimiser sizes and the stack the caller's thread was
++given — a recursion of the parser's frame size runs 16 911 levels at −O0 and
++52 425 through `opt -O2` on the main thread's 8 MiB, neither the library's to
++know.)*
+ 
+ **Rule S-19 — the same rule applies to every HIR and program walk.** Desugaring,
+ literal extraction and program emission all walk a tree that a pattern
+diff --git a/src/core/limits.npk b/src/core/limits.npk
+index 474d9badb8367afe7cc028a100dfe38de63fa4f5..37d2d75a05d4722456621405a06f58ec90ccc1ff 100644
+--- a/src/core/limits.npk
++++ b/src/core/limits.npk
+@@ -38,6 +38,9 @@ pub fixed int64:NREGEX_PATTERN_BYTES = 65536i64;
+ // would be a segfault rather than a controlled stop. Probe 05 measured the
+ // shape at exactly this bound: 250 parses, 251 is refused at byte 250, and
+ // 10 000 is refused at depth 251 with the program surviving.
++// *(@@DATE@@, cycle 0.1.2 — RX-191: since `c3bdae2` the language has that guard —
++// a recursion deeper than its stack traps `StackExhausted` (the compiler's D-305;
++// probe 19) — and a trap ends the whole program, so the explicit stack stands.)*
+ pub fixed int64:NREGEX_NEST_DEPTH = 250i64;
+ 
+ // ---- the compiled program --------------------------------------------------
+diff --git a/tests/probe/README.md b/tests/probe/README.md
+index e91093372788c92d7f8cb92e8c5c197a9c620f8c..e1d85d6e3d407b809ceed8cb0b84d1b31b48ad65 100644
+--- a/tests/probe/README.md
++++ b/tests/probe/README.md
+@@ -24,15 +24,25 @@ Cycle 0.0.2 picks them up as the harness's first `program`-stage entries.
+ 
+ | Directory | Files | Declared as | Judged by |
+ |---|---|---|---|
+-| `tests/probe/` | **24**, each `// expect-exit: N` | `probe`, stage `program` | it compiles, links, runs, and exits with that code — at −O0 and again under `opt -O2` |
++| `tests/probe/` | **25**, each `// expect-exit: N` | `probe`, stage `program` | it compiles, links, runs, and exits with that code — at −O0 and again under `opt -O2` |
+ | `tests/probe/refused/` | **8**, each `// expect-error: CODE` | `probe-refused`, stage `compile`, kind `negative` | `npkc` exits **1** and reports **exactly** that code set (B-7, D-237) |
+ 
+-> **The split is 24 / 8, and 32 is the count of probes in this repository.** It
++> **The split is 25 / 8, and 33 is the count of probes in this repository.** It
+ > was 16 / 7, then 17 / 6, then 19 / 6, then 22 / 5, then 22 / 6, then 24 / 7, then
+-> 25 / 7, and
++> 25 / 7, then 24 / 8, and
+ > every move was a probe changing directory or name because the compiler changed its
+ > answer — not a probe being deleted, which P-5 forbids — or a probe ADDED.
+ >
++> **@@DATE@@, cycle 0.1.2 (RX-191).** `probe19_native_recursion_traps.npk` (exit
++> 106) is new: a recursive descent of the parser's frame size, handed 2^20 levels,
++> leaves through `failsafe`'s `StackExhausted` arm at both legs — since `c3bdae2`
++> every emitted function checks its stack before its frame exists (the compiler's
++> D-305), so a stack overflow is a controlled trap and not the segfault RX-032 and
++> `SAFETY.md` S-18 gave as their reason. The rule stands — a trap ends the whole
++> program, where probe 05's explicit stack refuses and returns — and this probe
++> re-measures the language's answer on every run. Its header has the depths each leg
++> stops at, and says what to do when it reddens.
++>
+ > **2026-09-27, cycle 0.1.0b, at the re-pin to `5fbaf4a` (RX-176).**
+ > `probe18_impl_adds_move.npk` moved INTO `refused/`: an impl declaring `move` on a
+ > parameter its trait lends is `NITPICK-TYPE-014` since the compiler's landing 69
+diff --git a/tests/probe/probe05_explicit_stack.npk b/tests/probe/probe05_explicit_stack.npk
+index e5a84342d19da0cd746a564593c13e24276c125b..119e4e4e19f79c25ee58f1566331c270f3009d45 100644
+--- a/tests/probe/probe05_explicit_stack.npk
++++ b/tests/probe/probe05_explicit_stack.npk
+@@ -34,6 +34,14 @@
+ // So the assertion below is not "10 000 works". It is **"10 000 is REFUSED, by
+ // name, having consumed bounded memory, and the program is still running
+ // afterwards to say so"** -- which is only observable because nothing crashed.
++// *(@@DATE@@, cycle 0.1.2 -- RX-191, measured at `5fbaf4a`: not a SIGSEGV since
++// `c3bdae2`. A recursion deeper than its stack traps `StackExhausted` and leaves
++// through `failsafe` (the compiler's D-305; probe 19). And 10 000 levels do not
++// exhaust it: a recursive descent of the parser's frame size runs 16 911 levels at
++// -O0 and 52 425 through `opt -O2` on the main thread's 8 MiB, so this probe's
++// 10 000 shows the bound stopping the parser, not the hazard -- 65 536, the longest
++// pattern, traps at both legs. The rule stands: a trap ends the whole program, where
++// this probe's refusal returns.)*
+ //
+ // ==========================================================================
+ // `stack` IS A RESERVED WORD, AND IT IS THE OBVIOUS NAME FOR THIS PROBE
+@@ -264,6 +272,8 @@ func:main = int32(cstring[]:_~argv) {
+ 
+     // THE PROBE'S REASON FOR EXISTING. A recursive-descent parser dies here
+     // with a SIGSEGV, which no `failsafe` can catch and no bound can prevent.
++    // *(Not at `5fbaf4a`: it runs 10 000 levels, and deeper it traps
++    // `StackExhausted` -- the header's note of @@DATE@@, RX-191.)*
+     // This one refuses at depth 251 and returns, and the fact that the next
+     // line executes at all IS the result.
+     string:huge = raw nest_of(10000i64);
+@@ -277,7 +287,8 @@ func:main = int32(cstring[]:_~argv) {
+     if (rh.at != 250i64)                                { exit 42i32; }
+     if (rh.max_depth != 250i64)                         { exit 43i32; }
+ 
+-    // And the program is still running, which a segfault would have prevented.
++    // And the program is still running, which a segfault would have prevented
++    // (a `StackExhausted` trap since `c3bdae2`, RX-191).
+     exit 0i32;
+ };
+ 
+diff --git a/tests/probe/probe19_native_recursion_traps.npk b/tests/probe/probe19_native_recursion_traps.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..0c4092dd60805f1f9e40e82707957691f2d485d1
+--- /dev/null
++++ b/tests/probe/probe19_native_recursion_traps.npk
+@@ -0,0 +1,111 @@
++// expect-exit: 106
++//
++// PROBE 19 — a native recursion deeper than its stack, and what the program does.
++//
++// ASKS: a recursive descent over nested `(` -- one native frame per level, each
++// carrying a frame the size of `src/syntax/parse.npk`'s `Frame` -- handed
++// 1 048 576 levels, far past what any thread's stack holds. Does the program die
++// of a signal, run on past its stack in silence, or stop under control?
++//
++// DEPENDS ON THE ANSWER: `SAFETY.md` S-18 and RX-032 -- a pattern's nesting is held
++// on an explicit stack, never on native recursion -- and RX-191, which restates
++// their reason. Until cycle 0.1.2 both said "the language has no stack-depth guard
++// -- the failure is a segfault", which was true of the compiler RX-032 was written
++// against and has not been since `c3bdae2`.
++//
++// THE ANSWER AT `5fbaf4a`: A CONTROLLED TRAP, `StackExhausted`. Every function the
++// compiler emits checks in its prologue, BEFORE its frame exists, that the frame
++// fits under its thread's stack limit (the compiler's D-305) -- only a leaf with no
++// frame skips the check, and a recursive function is no leaf; the floor's
++// `__morestack` enters the trap route, and `failsafe` runs on a stack of its own.
++// So this program leaves through `failsafe`'s `StackExhausted` arm, 106, at -O0 and
++// through `opt -O2` alike -- never on a signal.
++//
++// AND THE DEPTH IT STOPS AT IS NOT THE LIBRARY'S TO KNOW. Measured at `5fbaf4a`
++// with this file, `LEVELS` set by `sed`: it runs 16 911 levels and traps at
++// 16 912 at -O0, and runs 52 425 and traps at 52 426 through `opt -O2` -- so 10 000
++// trap at neither leg, and 65 536, the longest pattern `NREGEX_PATTERN_BYTES`
++// admits, all `(`, at both. Each edge is the same on every run, because the main
++// thread runs on the floor's own 8 MiB stack whatever the shell's `ulimit` (D-305
++// (3)); but a spawned thread has 2 MiB, and the frame is the optimiser's to size.
++//
++// WHY THE RULE STANDS ON THIS ANSWER (RX-191). A trap is a controlled stop, but of
++// the WHOLE PROGRAM: `failsafe` does not return, so a consumer handed a hostile
++// pattern would lose its process where it is owed a `PatternError`. Probe 05 is the
++// other half: an explicit stack refuses at depth 251 and returns.
++//
++// A NEGATIVE VERDICT is a finding for the compiler seat, and changes nothing in
++// S-18: exit 1 means the recursion ran all 1 048 576 levels -- a stack or a frame
++// changed by a factor of twenty -- and `-11` means D-305's check is gone and a
++// stack overflow is a SIGSEGV again.
++mod:probe19_native_recursion_traps;
++
++// How deep the recursion is asked to go: 2^20 levels.
++fixed int64:LEVELS = 1048576i64;
++
++// Thirteen fields, as `src/syntax/parse.npk`'s `Frame` -- copied, since a probe
++// imports nothing from `src/` (P-1).
++#[derive(Copy)]
++struct:Fr = {
++    int64:a0; int64:a1; int64:a2; int64:a3; int64:a4; int64:a5; int64:a6;
++    int64:a7; int64:a8; int64:a9; int64:a10; int64:a11; uint32:fl;
++};
++
++// RECURSIVE DESCENT, THE SHAPE RX-032 FORBIDS. At `pat[i]`, a `(`: the index after
++// its `)`, or -1 when the pattern ends first. One native frame per level of nesting,
++// each holding a copy of the frame above it. The call sits inside the loop, so no
++// optimiser can turn it into a jump.
++func:rd = int64(uint8[]:pat, int64:i, Fr:outer) never fails {
++    Fr:f = outer;
++    f.a0 = i;
++    int64:j = i + 1i64;
++    while (j < pat.len) decreases pat.len - j {
++        if (pat[j] == 40u8) {
++            int64:k = raw rd(pat, j, f);
++            if (k < 0i64) { pass k; }
++            j = k;
++        }
++        else if (pat[j] == 41u8) { pass j + 1i64; }
++        else { j = j + 1i64; }
++    }
++    pass 0i64 - 1i64;
++};
++
++func:main = int32(cstring[]:_~argv) {
++    // `(` doubled until there are `LEVELS` of them, then viewed `LEVELS` long. Every
++    // intermediate is BOUND (probe 05's note): reassigning `t` frees its old body, so
++    // this peaks at the final size.
++    string:t = string_concat("(", "");
++    int64:n = 1i64;
++    int64:k = 0i64;
++    while (n < LEVELS) decreases 64i64 - k {
++        t = string_concat(t, t);
++        n = n * 2i64;
++        k = k + 1i64;
++    }
++    uint8[]:all = string_bytes(t);
++    uint8[]:pat = all[0i64...LEVELS];
++    Fr:z = Fr{ a0: 0i64, a1: 0i64, a2: 0i64, a3: 0i64, a4: 0i64, a5: 0i64, a6: 0i64,
++               a7: 0i64, a8: 0i64, a9: 0i64, a10: 0i64, a11: 0i64, fl: 0u32 };
++    int64:r = raw rd(pat, 0i64, z);
++    // Reached only if the recursion held every level: the pattern has no `)`, so it
++    // answers -1.
++    if (r < 0i64) { exit 1i32; }
++    exit 2i32;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
