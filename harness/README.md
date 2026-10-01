@@ -51,7 +51,10 @@ reporting it.
 - no object gained an undefined symbol the baseline lacks, and no function
   outside the baseline called a floor symbol this library may not (B-2, B-2a);
 - the same tree built from two different working directories produced
-  byte-identical IR (B-4);
+  byte-identical IR (B-4) — each copy carrying the manifest, so its paths render
+  as the tree's own, and one below a decoy manifest, so `TMPDIR` may sit anywhere,
+  inside this repository included *(since cycle 0.1.2, RX-195; until then a
+  `TMPDIR` inside it failed this step on an unchanged tree)*;
 - **every `.npk` in the tree was swept as a root** by the `parse` stage, which
   is what re-checks the six `src/` files `src/lib.npk` does not reach;
 - the live **tree checks** (`treecheck.ALL`; the runner prints each one and what it examined) agreed with the specifications they diff against;

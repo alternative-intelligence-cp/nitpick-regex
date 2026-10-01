@@ -211,6 +211,11 @@ true of every program but those. B-5b says what it is held to.)*
 working directories produce byte-identical IR. `nregex` inherits this from the
 compiler (D-078, D-204, D-236) and the harness has a `repro` stage that
 measures it.
+*(2026-10-01, cycle 0.1.2 — RX-195: each of the two copies carries the manifest, so
+each is a tree of its own and renders its paths as the tree it came from does (B-4c),
+and the second sits below a decoy manifest on every run. Until then a `TMPDIR`
+inside this repository failed the stage on an unchanged tree: the compiler's walk to
+its manifest root (D-236) went past the copies to the repository's own.)*
 
 **Rule B-4c (RX-133) — an emission depends on a file's POSITION IN ITS TREE and
 not on how the compiler was invoked, and CI records the compiler's own digest

@@ -4801,3 +4801,35 @@ by rules of its own, where the runner's reading needed a case, not a twin; **dro
 was measured false** — the forty runs cost half a second and hold the parse to one answer; **the deep patterns in
 `parse_limits.npk`** — `stress: 40` would then rerun every bound's cases, its two 65 536-byte length cases among
 them, forty times a leg.
+
+### RX-195 — B-4's two copies each carry the manifest, and one sits below a decoy: a `TMPDIR` inside a project no longer fails the step, and a copy that forgets its manifest fails on every run
+
+**2026-10-01, cycle 0.1.2 (the plan's PD-39), at compiler `5fbaf4a`** — `BUILD.md` B-4. The cause of what cycle 0.1.1b
+measured and left unestablished (its plan's §4 and §6): with `TMPDIR` inside this repository the `repro` step failed
+on an unchanged tree in each of the nineteen self-check cases whose inner run reaches it — the other seven test an
+instrument directly or, as case 24 does, stop at the toolchain check first — 57 472 against 57 792 bytes with the
+scratch at `.internal/n12/tmp`, the sizes moving with its name; so the self-check failed and no suite ran, while
+under `/tmp` it passed. The
+compiler renders every source path relative to its manifest root, the first directory holding `nitpick.toml` above
+the main file, or the main file's directory where there is none (its D-236, read in `front_set_root` at
+`5fbaf4a`; this repository's B-4c). `repro` copied `src/` and the entry's directory and no manifest, so the walk
+went on past each copy: under `/tmp` it found none and each copy's entry directory was its root, alike; inside
+this repository it found the repository's own, and the copies' two directory names, 32 characters apart, entered
+every path. No directory above this repository holds a manifest (measured), which is why only a `TMPDIR` inside a
+library met it.
+
+**The decision.** Each copy carries the tree's `nitpick.toml`, so each is its own manifest root and renders its
+paths as the tree it came from — a copy's emission is the in-tree build's, byte for byte (measured), where before
+it rendered paths no build of this library ever makes. And the second copy sits below a decoy manifest on every
+run, so a copy that forgot its own would take the decoy for its root and fail the step every time, whatever
+`TMPDIR` is. Measured: without the copy, under the decoy, the step fails under `/tmp` (57 250 against 57 822
+bytes); with it, the two copies are byte-identical under `/tmp` and inside the repository, and the full run is
+`242/242` GREEN with `TMPDIR` inside it. So a session needs no rule about `TMPDIR`: it may sit anywhere.
+
+*Alternatives declined:* **refuse a `TMPDIR` inside a project, by name** — a clear message, and B-4 would still test
+only the no-manifest branch, a configuration this library is never built in; **state the cause and a rule, `TMPDIR`
+left at its default** — a trap for every session that keeps its scratch inside its write boundary, as the workbench
+asks; **mask the site paths in the comparison** — B-4 exists to see a path in the emission, and a mask would hide a
+real one; **build the copies under a fixed `/tmp`** — it overrides the environment the session chose and still
+tests the no-manifest branch; **a self-check case that sets `TMPDIR` inside a project** — one environment, tested
+in one case; the decoy puts the failing shape inside every run's own scratch.

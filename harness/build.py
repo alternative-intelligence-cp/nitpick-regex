@@ -47,6 +47,11 @@ COMPILE_TIMEOUT = 300
 TOOL_TIMEOUT = 300
 RUN_TIMEOUT = 30
 
+# The manifest, which is also the compiler's ROOT MARKER (D-236): every source path
+# an emission records is rendered relative to the directory holding it. `repro`
+# copies it with the tree (RX-195).
+MANIFEST = "nitpick.toml"
+
 
 def _as_limit(mib):
     """A `preexec_fn` capping the child's ADDRESS SPACE, for `mem-cap-mib:`.
@@ -585,7 +590,25 @@ def repro(c, entry):
     Compiling one absolute path twice would compare a build with itself; the
     property D-078 and D-236 state is about the build's environment, so the tree
     is copied to two roots with different names and different depths and the
-    SAME RELATIVE command is run in each."""
+    SAME RELATIVE command is run in each.
+
+    EACH COPY CARRIES THE MANIFEST, SO EACH IS A TREE OF ITS OWN -- RX-195. The
+    compiler renders every source path relative to the MANIFEST ROOT, the first
+    directory holding `nitpick.toml` above the main file (D-236; B-4c). Until
+    cycle 0.1.2 the copies held `src/` and the entry's directory and no manifest,
+    so the compiler's walk went on past them: under `/tmp` it found none and each
+    copy's entry directory was its root, but with `TMPDIR` anywhere inside this
+    repository it found the REPOSITORY's manifest, the copies' own directory names
+    entered every path, and the step failed on an unchanged tree -- in each of the
+    nineteen self-check cases whose inner run reaches it, so no suite ran; measured
+    at `5fbaf4a`. With the manifest
+    copied, each copy renders its paths as the tree it came from does, wherever the
+    scratch directory is.
+
+    AND COPY B SITS BELOW A DECOY MANIFEST ON EVERY RUN, as a scratch directory
+    inside a project does: a copy that lacked its own would take the decoy for its
+    root and render `deeper/repro-b-with-a-longer-name/...`, so the step goes red on
+    every run, whatever `TMPDIR` is, the day the copy is forgotten again."""
     a = os.path.join(c.tmp, "repro-a")
     b = os.path.join(c.tmp, "repro", "deeper", "repro-b-with-a-longer-name")
     for d in (a, b):
@@ -596,6 +619,9 @@ def repro(c, entry):
             s = os.path.join(c.root, sub)
             if os.path.isdir(s):
                 shutil.copytree(s, os.path.join(d, sub), dirs_exist_ok=True)
+        shutil.copy(os.path.join(c.root, MANIFEST), os.path.join(d, MANIFEST))
+    with open(os.path.join(c.tmp, "repro", MANIFEST), "w", encoding="utf-8") as fh:
+        fh.write("# a decoy: repro's copy B sits below it, and must not take it for its root (RX-195)\n")
     outs = []
     for d in (a, b):
         out = os.path.join(d, "repro.ll")
