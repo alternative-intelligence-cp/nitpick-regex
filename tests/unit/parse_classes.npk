@@ -1,7 +1,8 @@
 // expect-exit: 0
 //
 // CLASSES, ACCEPTED: EVERY SHAPE CYCLE 0.1.3 PARSES, AS THE TREE IT BUILDS
-// (`SYNTAX.md` Y-27, Y-36 … Y-38).
+// (`SYNTAX.md` Y-27, Y-36 … Y-38) -- and since RX-199 a Perl class or a property
+// outside a class too (cases 70-77).
 //
 // Each case parses one pattern through `syntax.npk`'s re-exports and writes the tree
 // back as text -- `(cls …)` a class and `(cls^ …)` a negated one; `'a'` a member that is
@@ -269,6 +270,15 @@ func:run = int32() never fails {
     if (!(raw tree("[é-ü]", "(cls@0+7 #233-#252@1+5)", true)))               { pass 67i32; }
     if (!(raw tree("[a[b]]", "(cls@0+6 'a'@1+1 (cls@2+3 'b'@3+1))", true)))  { pass 68i32; }
     if (!(raw tree("x[y]+", "(cat@0+5 'x'@0+1 (rep@1+4 1 - (cls@1+3 'y'@2+1)))", true))) { pass 69i32; }
+    // outside a class, a Perl class or a property is an atom (Y-37)
+    if (!(raw tree("\\d", "\\d", false)))                                   { pass 70i32; }
+    if (!(raw tree("\\D+", "(rep 1 - \\D)", false)))                         { pass 71i32; }
+    if (!(raw tree("a\\wb", "(cat 'a' \\w 'b')", false)))                    { pass 72i32; }
+    if (!(raw tree("\\s\\S", "(cat \\s \\S)", false)))                     { pass 73i32; }
+    if (!(raw tree("\\pL", "\\p{L}", false)))                                { pass 74i32; }
+    if (!(raw tree("\\P{Greek}*", "(rep 0 - \\P{Greek})", false)))           { pass 75i32; }
+    if (!(raw tree("(\\p{Script=Greek}|\\d)", "(grp 1 (alt \\p{Script=Greek} \\d))", false))) { pass 76i32; }
+    if (!(raw tree("x\\pN\\p{Lu}\\W", "(cat@0+12 'x'@0+1 \\p{N}@1+3 \\p{Lu}@4+6 \\W@10+2)", true))) { pass 77i32; }
     pass 0i32;
 };
 

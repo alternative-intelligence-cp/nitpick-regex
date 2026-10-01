@@ -4947,3 +4947,22 @@ none of which says which byte it was (Y-34); **a detail that says which** — a 
 where `RegexOptions` may set the bound (`SAFETY.md` S-12); **each operator counted as a level, as Rust's nest limit
 counts every node** — a class's operators fold into a chain one node deeper per operator, which the pattern's length
 already bounds, and a flat `[a--b--c…]` would be refused for its length; S-19's walks hold their own stacks for it.
+
+### RX-199 — a Perl class and a property are atoms outside a class too, as Y-27 names them
+
+**2026-10-01, cycle 0.1.3 (the plan's PD-43), at compiler `5fbaf4a`** — `SYNTAX.md` Y-37 and §1's `Atom`. Y-27 says a
+`PerlClass` is *"`\d` `\w` `\s`, in a class or out"*, but §1's grammar lists `PerlClass` and `UnicodeClass` only among
+a class's items, its `Atom` naming neither, and the cycle 0.1 README gives cycle 0.1.4 *"every escape in §1's `Escape`
+production"*, which holds neither either — so `\d` outside a class was no subcycle's. It is this one's, which reads
+the same two inside a class: outside one, `\d \D \w \W \s \S` and `\p…` `\P…` are atoms — a `PerlClass` or a
+`UnicodeClass`, unresolved, which a quantifier may repeat — with Y-37's refusals at the `\`.
+
+**Measured at `5fbaf4a`.** `tests/unit/parse_classes.npk` cases 70–77 and `parse_class_refusals.npk` cases 56–61 pass
+at −O0 and through `opt -O2`, and `pattern_error_text.npk` case 36 holds the sentence outside a class; against the
+parser before this decision the first two exit 70 and 56, each pattern refused provisionally, `UnknownEscape` (Y-31).
+
+*Alternatives declined:* **left to cycle 0.1.4, with the other escapes** — the escapes 0.1.4 reads name codepoints and
+anchors, and these two are read by the code the class parser already holds; **inside a class only** — `\d+` is the
+commonest class there is, and Y-27 already says *"in a class or out"*; **each wrapped in a `Class`, so one class kind
+stands outside a class** — a node per atom that no reader asks for, where cycle 0.2's desugaring makes every class a
+`Class` anyway (`HIR.md` H-5).

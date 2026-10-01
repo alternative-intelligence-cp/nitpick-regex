@@ -6,7 +6,8 @@
 // Each case parses one pattern through `syntax.npk`'s re-exports and requires the
 // refusal to be EXACTLY this kind at this offset, spanning this many bytes, with this
 // detail -- the four fields a message is built from (Y-10, Y-34). A case that differs
-// exits with its number. An escape other than punctuation, a Perl class or a property
+// exits with its number. Since RX-199 a property's name is read the same way outside a
+// class (cases 56-61). An escape other than punctuation, a Perl class or a property
 // is refused PROVISIONALLY inside a class as outside it (Y-31) and is not pinned here:
 // cycle 0.1.4 changes it. `NestTooDeep` at a `[` is `parse_limits`' and
 // `parse_nest_deep`'s.
@@ -90,6 +91,13 @@ func:run = int32() never fails {
     if (!(raw refused("[[:foo:]", PatternErrorKind.UnknownPosixClass, 1i64, 7i64, 0u32)))   { pass 53i32; }
     if (!(raw refused("[\\p{}", PatternErrorKind.UnknownUnicodeProperty, 1i64, 4i64, 3u32))) { pass 54i32; }
     if (!(raw refused("[\\d-", PatternErrorKind.UnclosedClass, 0i64, 1i64, 0u32)))        { pass 55i32; }
+    // a property outside a class reads its name the same way (Y-37, RX-199)
+    if (!(raw refused("\\p", PatternErrorKind.UnknownUnicodeProperty, 0i64, 2i64, 1u32)))   { pass 56i32; }
+    if (!(raw refused("\\p{", PatternErrorKind.UnknownUnicodeProperty, 0i64, 3i64, 2u32)))  { pass 57i32; }
+    if (!(raw refused("\\p{}", PatternErrorKind.UnknownUnicodeProperty, 0i64, 4i64, 3u32))) { pass 58i32; }
+    if (!(raw refused("\\p1", PatternErrorKind.UnknownUnicodeProperty, 0i64, 2i64, 1u32)))  { pass 59i32; }
+    if (!(raw refused("a\\P", PatternErrorKind.UnknownUnicodeProperty, 1i64, 2i64, 1u32)))  { pass 60i32; }
+    if (!(raw refused("\\p{Gr", PatternErrorKind.UnknownUnicodeProperty, 0i64, 5i64, 2u32))) { pass 61i32; }
     pass 0i32;
 };
 

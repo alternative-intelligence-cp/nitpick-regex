@@ -51,6 +51,8 @@ Name         ::= [A-Za-z_][A-Za-z0-9_]*
 `ClassAtom`, which the grammar leaves undefined, is one codepoint: any but `\`, `[` and `]`, or `\` and ASCII
 punctuation, with `]` and `-` members where Y-36 places them; and a `PosixClass`'s name is lowercase, one of §5.1's
 fourteen (Y-38).)*
+*(2026-10-01, cycle 0.1.3 — RX-199: `Atom` holds `PerlClass` and `UnicodeClass` too, outside a class as in one — as Y-27
+already says of `\d`, "in a class or out".)*
 
 **Rule Y-2 — a `\` before any ASCII punctuation is that punctuation,
 literally.** `\@` is `@`. A `\` before an ASCII **letter or digit** that this
@@ -253,6 +255,8 @@ inside one is — `UnclosedClass` at the innermost open `[`, its detail telling 
 ends inside an escape, a property's name or a `[:`. Inside a class,
 `\d \D \w \W \s \S`, `\p` and `\P` are classes (Y-37); any other escape there, and every one outside a class
 but punctuation, is still refused provisionally.)*
+*(2026-10-01, cycle 0.1.3 — RX-199: outside a class too, `\d \D \w \W \s \S`, `\p` and `\P` are classes (Y-37);
+every other escape but punctuation is still refused provisionally, until cycle 0.1.4.)*
 
 **Rule Y-32 (RX-184) — quantifiers.** `*`, `+`, `?`, `{n}`, `{n,}` and `{n,m}`, each
 followed by `?` to be lazy, wrap the atom before them in a `Repeat` — `a` the atom,
@@ -421,6 +425,7 @@ the name's offset and length, negated for `\P`. Cycle 0.3 resolves both (`UNICOD
 no table. A name that cannot be read is `UnknownUnicodeProperty` at the `\`, spanning what was read: detail 1 when
 neither an ASCII letter nor `{` follows the `p`, 2 when the braces never close, 3 when they hold nothing. Each is a
 member of a class (Y-36).
+*(2026-10-01, cycle 0.1.3 — RX-199: and outside a class, an atom, which a quantifier may repeat.)*
 
 **Rule Y-38 (RX-197) — POSIX classes, inside a class only.** Where a member would start inside a class, `[:` begins
 a POSIX class: `[:name:]`, or `[:^name:]` for its complement, its name lowercase and one of §5.1's fourteen — a

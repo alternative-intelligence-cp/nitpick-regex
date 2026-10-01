@@ -337,6 +337,14 @@ func:atom = NIL(Ast->:out, Frame->:f, AstKind:k, int64:a, int64:pos, int64:len) 
     pass NIL;
 };
 
+// The same, for an atom whose node is built already: a Perl class or a property
+// outside a class (Y-37).
+func:atom_node = NIL(Ast->:out, Frame->:f, AstNode:n) never fails {
+    drop commit(out, f);
+    f.pending = raw ast_push(out, n);
+    pass NIL;
+};
+
 // Closes the current alternative, which ends at `upto`, into ONE piece -- `Empty`
 // if it has none, the piece itself if it has one, a `Concat` if more -- and adds
 // it to the alternation.
@@ -673,8 +681,9 @@ func:escape_class_node = AstNode(uint8[]:pat, uint32:flags, int64:at, int32:d, i
     pass raw node(AstKind.UnicodeClass, bits, at + 2i64, 1i64, 0i64, at, upto - at);
 };
 
-// `\` read at `at`. ASCII punctuation after it is that punctuation (Y-2); every
-// other escape is cycle 0.1.4's, and until then provisionally `UnknownEscape` (Y-31).
+// `\` read at `at`. ASCII punctuation after it is that punctuation (Y-2); a Perl
+// class or a property is a class, unresolved, here as in a class (Y-37); every other
+// escape is cycle 0.1.4's, and until then provisionally `UnknownEscape` (Y-31).
 func:escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:at) never fails {
     int32:d = raw cursor_peek(@p.c);
     if (d == CURSOR_END) {
@@ -683,6 +692,15 @@ func:escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:at) never 
     if (raw is_ascii_punct(d)) {
         discard(raw cursor_bump(@p.c));
         drop atom(out, @p.f, AstKind.Literal, d => int64, at, 2i64);
+        pass NIL;
+    }
+    if (raw is_class_letter(d)) {
+        discard(raw cursor_bump(@p.c));
+        if ((d == CH_LOWER_P) || (d == CH_UPPER_P)) {
+            PatternError?:bad = raw read_property(p, at);
+            if (bad != NIL) { pass bad; }
+        }
+        drop atom_node(out, @p.f, raw escape_class_node(pat, p.f.flags, at, d, p.c.pos));
         pass NIL;
     }
     pass raw pattern_error(PatternErrorKind.UnknownEscape, at, 1i64 + raw utf8_len(d => int64),
