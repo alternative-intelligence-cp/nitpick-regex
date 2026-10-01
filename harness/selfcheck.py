@@ -669,6 +669,46 @@ def _case30(d):
     return None                                   # handled by `_run_case30`
 
 
+def _run_case31(case):
+    """Case 31, on the instrument: `stages.run_binary` over stand-in executables that
+    kill themselves -- by SIGSEGV, the crash a stack overflow was until the compiler's
+    `c3bdae2`, and by SIGKILL, which a timeout or `earlyoom` sends -- three runs each,
+    each required red with its `0 - signal` named, and a control exiting 0 required to
+    pass (RX-194). `tests/unit/parse_nest_deep.npk`'s "not on a signal" is this reading:
+    no other wrapper confirms how a unit ended."""
+    import stages
+    d = tempfile.mkdtemp(prefix="nregex-selfcheck-31-")
+    wrong, said = [], []
+    try:
+        for name, body, want in (("segv", "kill -SEGV $$", "segv.npk: exited -11 (3x), expected 0"),
+                                 ("killed", "kill -KILL $$", "killed.npk: exited -9 (3x), expected 0"),
+                                 ("control", "exit 0", None)):
+            path = os.path.join(d, name)
+            with open(path, "w", encoding="utf-8", newline="") as fh:
+                fh.write("#!/bin/sh\nulimit -c 0\n" + body + "\n")
+            os.chmod(path, 0o755)
+            r = stages.run_binary(path, [], 3, 0, f"{name}.npk", "")
+            if want is None:
+                if r:
+                    wrong.append(f"the control, exiting 0, was red: {r!r}")
+                else:
+                    said.append("the control passed")
+            elif len(r) != 1 or want not in r[0]:
+                wrong.append(f"{name} was not red as `{want}`: {r!r}")
+            else:
+                said.append(want)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+    if wrong:
+        return Outcome(case, False, "a unit killed by a signal is not reported as one: "
+                       + "; ".join(wrong))
+    return Outcome(case, True, "; ".join(said))
+
+
+def _case31(d):
+    return None                                   # handled by `_run_case31`
+
+
 def _case19(d):
     """A RED UNIT HIDDEN BY TWO LONE CARRIAGE RETURNS -- the fifth audit's BL-9 (a).
 
@@ -1065,6 +1105,10 @@ CASES = [
          "RX-192: `SAFETY.md` S-18's explicit stack has a belt -- no function under src/ "
          "recurses -- and a by-name reader must neither miss a cycle nor invent one",
          _case30, ()),
+    Case(31, "a unit killed by a signal: SIGSEGV and SIGKILL, three runs each",
+         "RX-194: the gate's 'not on a signal' is the runner reading a killed process "
+         "as `0 - signal` -- shown red here, so `expect-exit: 0` is met by a normal exit alone",
+         _case31, ()),
 ]
 
 
@@ -1168,6 +1212,8 @@ def _run_case(case, keep):
         return _run_case29(case)
     if case.num == 30:
         return _run_case30(case)
+    if case.num == 31:
+        return _run_case31(case)
     d = tempfile.mkdtemp(prefix=f"nregex-selfcheck-{case.num}-")
     try:
         toml = case.build_tree(d)

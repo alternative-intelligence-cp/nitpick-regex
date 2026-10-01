@@ -4775,3 +4775,29 @@ is taken** — a head refused at depth 251 would answer for its head and an acce
 where one serves; **at the `)` or at the pattern's end** — the stack would hold every level first, which is what
 the bound exists to prevent (probe 05: checked before the push); **a bound on the stack's bytes rather than its
 frames** — `SAFETY.md` §5 names the count, and the count is what a pattern's author can read and act on.
+
+### RX-194 — the gate: 10 000 levels, and the deepest pattern the length bound admits, are `NestTooDeep` at the 251st `(`, forty runs a leg; "not on a signal" is the runner's reading, shown red by self-check case 31
+
+**2026-10-01, cycle 0.1.2 (the plan's PD-38), at compiler `5fbaf4a`.** The cycle README's gate — *"a 10 000-level
+pattern produces a clean refusal, and a wrapper script confirms the process exited normally rather than on a
+signal"*, with `// stress: 40` *"because a stack overflow is timing-shaped"* — is `tests/unit/parse_nest_deep.npk`,
+and two of its premises were measured otherwise (RX-191). A recursive descent of the parser's frame size runs 10 000
+levels at both legs and returns, so the unit adds the deepest pattern there is: `(` 65 536 times, the whole of
+`NREGEX_PATTERN_BYTES`, where such a recursion traps at both legs; and `(?:` 21 845 times and `a`, where no capture
+bound plays a part. Each is `NestTooDeep` at the 251st `(` — bytes 250, 250 and 750 — one byte long, its detail the
+bound, with no node built. Against the unbounded parser the unit exits 2: the first pattern answered
+`TooManyCaptureGroups`. And the depth a recursion traps at is the same on every run, so `stress: 40` holds the parse
+itself to one answer, forty runs a leg — about half a second in all, measured.
+
+**The wrapper is the runner.** `stages.run_binary` runs every program, reads a killed process as `0 - signal` and
+requires the expected exit on every run, so `expect-exit: 0` is met by a normal exit alone. What nothing showed was
+that the reading works: self-check case 31 runs stand-ins killed by SIGSEGV and by SIGKILL, three runs each, and
+requires each red with its `0 - signal` named and a control exiting 0 to pass; against a runner that read a killed
+process as a clean exit it fails.
+
+*Alternatives declined:* **10 000 levels alone, as the README asked** — a recursive parser would pass it too, so it
+could not tell the explicit stack from recursion; **a separate wrapper script** — a second runner judging one unit
+by rules of its own, where the runner's reading needed a case, not a twin; **dropping `stress: 40` when its reason
+was measured false** — the forty runs cost half a second and hold the parse to one answer; **the deep patterns in
+`parse_limits.npk`** — `stress: 40` would then rerun every bound's cases, its two 65 536-byte length cases among
+them, forty times a leg.

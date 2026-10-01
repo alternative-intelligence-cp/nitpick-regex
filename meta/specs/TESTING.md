@@ -329,6 +329,10 @@ requires it to report every one as a failure. The list is `harness/selfcheck.py`
     and a self-call whose name and `(` a comment and a line break split — each
     failing by name, and a clean tree passing: one name declared in two files,
     each call resolved in its own file first (RX-192). On the instrument.
+31. a unit killed by a signal — SIGSEGV and SIGKILL, three runs each — must be
+    red, the runner reading each as `0 - signal`, and a control exiting 0 must
+    pass (RX-194): `tests/unit/parse_nest_deep.npk`'s "not on a signal" is this
+    reading. On the instrument, with stand-in executables, as 22 is.
 
 *(Reconciled 2026-09-25 by the third cycle 0.0 audit's triage, RX-154. This list
 had eight bullets and `CASES` eleven entries, and they disagreed in BOTH
@@ -363,6 +367,10 @@ modules passed — and against one that resolved each call to every function of 
 name rather than to its own file's first, whose clean control then failed on a cycle
 that is not there.
 **31 cases, 27 live, 4 pending** on the day it was written.)*
+
+*(Extended 2026-10-01 by cycle 0.1.2, RX-194: 31. It was seen to fail against a runner
+that read a killed process as a clean exit. **32 cases, 28 live, 4 pending** on the
+day it was written.)*
 
 **Rule V-21 — the self-check runs first in every full invocation.** A harness
 that has not proven it can fail has not proven anything.
