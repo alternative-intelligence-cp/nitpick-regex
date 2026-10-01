@@ -7,7 +7,8 @@
 // refusal to be EXACTLY this kind at this offset, spanning this many bytes, with this
 // detail -- the four fields a message is built from (Y-10, Y-34). A case that differs
 // exits with its number. Since RX-199 a property's name is read the same way outside a
-// class (cases 56-61). An escape other than punctuation, a Perl class or a property
+// class (cases 56-61); since RX-200 a whole class in a POSIX class's own form is refused
+// (62-75). An escape other than punctuation, a Perl class or a property
 // is refused PROVISIONALLY inside a class as outside it (Y-31) and is not pinned here:
 // cycle 0.1.4 changes it. `NestTooDeep` at a `[` is `parse_limits`' and
 // `parse_nest_deep`'s.
@@ -98,6 +99,22 @@ func:run = int32() never fails {
     if (!(raw refused("\\p1", PatternErrorKind.UnknownUnicodeProperty, 0i64, 2i64, 1u32)))  { pass 59i32; }
     if (!(raw refused("a\\P", PatternErrorKind.UnknownUnicodeProperty, 1i64, 2i64, 1u32)))  { pass 60i32; }
     if (!(raw refused("\\p{Gr", PatternErrorKind.UnknownUnicodeProperty, 0i64, 5i64, 2u32))) { pass 61i32; }
+    // a whole class in a POSIX class's own form (Y-38, RX-200): at its `[`, spanning it,
+    // detail the name's place plus one, or 0 for no name
+    if (!(raw refused("[:alpha:]", PatternErrorKind.UnknownPosixClass, 0i64, 9i64, 1u32)))   { pass 62i32; }
+    if (!(raw refused("[:^digit:]", PatternErrorKind.UnknownPosixClass, 0i64, 10i64, 2u32))) { pass 63i32; }
+    if (!(raw refused("x[:word:]+", PatternErrorKind.UnknownPosixClass, 1i64, 8i64, 13u32))) { pass 64i32; }
+    if (!(raw refused("[^:alpha:]", PatternErrorKind.UnknownPosixClass, 0i64, 10i64, 1u32))) { pass 65i32; }
+    if (!(raw refused("([:space:])", PatternErrorKind.UnknownPosixClass, 1i64, 9i64, 4u32))) { pass 66i32; }
+    if (!(raw refused("[:alhpa:]", PatternErrorKind.UnknownPosixClass, 0i64, 9i64, 0u32)))   { pass 67i32; }
+    if (!(raw refused("[:a,b:]", PatternErrorKind.UnknownPosixClass, 0i64, 7i64, 0u32)))     { pass 68i32; }
+    if (!(raw refused("[:foo:]", PatternErrorKind.UnknownPosixClass, 0i64, 7i64, 0u32)))     { pass 69i32; }
+    if (!(raw refused("[:;:]", PatternErrorKind.UnknownPosixClass, 0i64, 5i64, 0u32)))       { pass 70i32; }
+    if (!(raw refused("[:9:]", PatternErrorKind.UnknownPosixClass, 0i64, 5i64, 0u32)))       { pass 71i32; }
+    if (!(raw refused("[:^alpha:]", PatternErrorKind.UnknownPosixClass, 0i64, 10i64, 1u32))) { pass 72i32; }
+    if (!(raw refused("x[:alpha:]y", PatternErrorKind.UnknownPosixClass, 1i64, 9i64, 1u32))) { pass 73i32; }
+    if (!(raw refused("[:é:]", PatternErrorKind.UnknownPosixClass, 0i64, 6i64, 0u32)))       { pass 74i32; }
+    if (!(raw refused("[:^:]", PatternErrorKind.UnknownPosixClass, 0i64, 5i64, 0u32)))       { pass 75i32; }
     pass 0i32;
 };
 

@@ -2,7 +2,8 @@
 //
 // CLASSES, ACCEPTED: EVERY SHAPE CYCLE 0.1.3 PARSES, AS THE TREE IT BUILDS
 // (`SYNTAX.md` Y-27, Y-36 … Y-38) -- and since RX-199 a Perl class or a property
-// outside a class too (cases 70-77).
+// outside a class too (cases 70-77), and since RX-200 the classes that only look like
+// a POSIX class's own form (78-84) and those written as classes (85-90).
 //
 // Each case parses one pattern through `syntax.npk`'s re-exports and writes the tree
 // back as text -- `(cls …)` a class and `(cls^ …)` a negated one; `'a'` a member that is
@@ -279,6 +280,22 @@ func:run = int32() never fails {
     if (!(raw tree("\\P{Greek}*", "(rep 0 - \\P{Greek})", false)))           { pass 75i32; }
     if (!(raw tree("(\\p{Script=Greek}|\\d)", "(grp 1 (alt \\p{Script=Greek} \\d))", false))) { pass 76i32; }
     if (!(raw tree("x\\pN\\p{Lu}\\W", "(cat@0+12 'x'@0+1 \\p{N}@1+3 \\p{Lu}@4+6 \\W@10+2)", true))) { pass 77i32; }
+    // a class that only looks like a POSIX class's own form is its members (Y-38, RX-200)
+    if (!(raw tree("[::]", "(cls ':' ':')", false)))                          { pass 78i32; }
+    if (!(raw tree("[:]", "(cls ':')", false)))                               { pass 79i32; }
+    if (!(raw tree("[:alpha]", "(cls ':' 'a' 'l' 'p' 'h' 'a')", false)))      { pass 80i32; }
+    if (!(raw tree("[a:alpha:]", "(cls 'a' ':' 'a' 'l' 'p' 'h' 'a' ':')", false))) { pass 81i32; }
+    if (!(raw tree("[\\:alpha:]", "(cls ':' 'a' 'l' 'p' 'h' 'a' ':')", false))) { pass 82i32; }
+    if (!(raw tree("[a[:alpha:]]", "(cls 'a' [:alpha:])", false)))            { pass 83i32; }
+    if (!(raw tree("[:alpha:a]", "(cls ':' 'a' 'l' 'p' 'h' 'a' ':' 'a')", false))) { pass 84i32; }
+    // a class of colons alone, or one holding a member not written as itself -- a range, an
+    // escape, a POSIX or a Perl class, an operator -- is a class written as one (Y-38, RX-200)
+    if (!(raw tree("[:::]", "(cls ':' ':' ':')", false)))                     { pass 85i32; }
+    if (!(raw tree("[:a-z:]", "(cls ':' 'a'-'z' ':')", false)))               { pass 86i32; }
+    if (!(raw tree("[:foo\\:]", "(cls@0+8 ':'@1+1 'f'@2+1 'o'@3+1 'o'@4+1 ':'@5+2)", true))) { pass 87i32; }
+    if (!(raw tree("[:[:digit:]:]", "(cls ':' [:digit:] ':')", false)))       { pass 88i32; }
+    if (!(raw tree("[:\\d:]", "(cls ':' \\d ':')", false)))                   { pass 89i32; }
+    if (!(raw tree("[:a&&b:]", "(cls (&& (cls ':' 'a') (cls 'b' ':')))", false))) { pass 90i32; }
     pass 0i32;
 };
 

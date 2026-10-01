@@ -34,6 +34,7 @@ The closest neighbour, so the list is short and each entry is deliberate.
 | Unicode blocks | not supported | refused, naming `Script` | `UNICODE.md` §2.1 |
 | case folding | simple | simple | same |
 | `x` mode inside classes | whitespace significant | whitespace significant | same (O-Y2) |
+| a POSIX class as a whole class, `[:alpha:]` | a class of `:`, `a`, `h`, `l`, `p` | refused, saying a POSIX class goes inside a class — as GNU `grep` refuses it | a class of five bytes where every letter was meant — RX-200 |
 | a class's edge cases | an operator with an empty side is the empty set (`[a&&]`, `[!--]`), and a run of `-` first in a class is members (`[--a]`); `[:` that opens no POSIX class opens a nested class (`[[:alpah:]]`); a `-` after `[…]` or `[:name:]` is a member, and a `[` ending a range is a codepoint | each refused, with the kind and the fix `SYNTAX.md` Y-36 and Y-38 name | a reading the author may not have meant is a refusal that says what to write — RX-197 |
 | replacement | closures **or** templates | templates and non-capturing function values | no closures (D-018) |
 | `Match` | a `&str` slice | byte offsets | borrows never pass up (D-004) |

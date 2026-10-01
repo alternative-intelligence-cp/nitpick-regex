@@ -4966,3 +4966,41 @@ anchors, and these two are read by the code the class parser already holds; **in
 commonest class there is, and Y-27 already says *"in a class or out"*; **each wrapped in a `Class`, so one class kind
 stands outside a class** — a node per atom that no reader asks for, where cycle 0.2's desugaring makes every class a
 `Class` anyway (`HIR.md` H-5).
+
+### RX-200 — a whole class in a POSIX class's own form, `[:alpha:]`, is refused, saying a POSIX class goes inside a class
+
+**2026-10-01, cycle 0.1.3 (the plan's PD-44), at compiler `5fbaf4a`** — `SYNTAX.md` Y-38. POSIX puts a POSIX class inside
+a bracket expression, `[[:alpha:]]`, and so does this library (§5.1). Written as a class of its own, `[:alpha:]` is
+valid in every engine — a class of `:`, `a`, `h`, `l` and `p`, measured in Rust's `regex` 1.13.1 — and is almost never
+what was meant. GNU `grep` 3.11 refuses it, saying *"character class syntax is [[:space:]], not [:space:]"*: a bracket
+expression whose first and last members are `:`, with a member between that is not, and no range, class or collating
+element in it — the rule its source states, and thirty-one shapes measured
+(`meta/research/class-syntax-reference-engines.md`). A pattern that compiles and matches something other than what was
+written is the surprise this library refuses where it can (`\Z`, Y-18; `(?P<n>…)`, RX-017).
+
+**The decision.** An outermost class, negated or not, whose every member is one codepoint written as itself, the first
+and the last of them `:` and another not — `[:alpha:]`, `[:^digit:]`, `[^:alpha:]`, and a misspelt `[:alhpa:]` too — is
+`UnknownPosixClass` at its `[`, spanning the class. A range, an escape, a nested, POSIX or Perl class, a property or an
+operator in it makes it a class written as one. When the bytes between the colons, less a leading `^`, are one of §5.1's
+names, the detail is that name's place plus one and the sentence names the POSIX class: *"POSIX class outside a class at
+byte 0: `[:alpha:]` is the POSIX class alpha only inside a class, and written as a class of its own its bytes are its
+members, `:` and the letters in `alpha`. Write `[[:alpha:]]` for the POSIX class, `[[:^alpha:]]` for its complement, or
+`[\:alpha:]` for its bytes."* Otherwise the detail is 0 and the sentence is the one a misspelt name inside a class gets,
+which ends *"Write `\:` to match a `:`"* — and a `\:` at either end makes a class written as one, as every escape does.
+`[::]`, `[:::]`, `[:alpha]`, `[a:alpha:]`, `[:a-z:]` and `[:[:digit:]:]` are read as their members, as GNU `grep` reads
+them; inside a class, `[:alpha:]` is the POSIX class. `grep`'s brackets have no escape, nested class or operator — a `\`
+is a member there, so it refuses `[:foo\:]` and `[:\d:]`, and `&&` is two members — and a class holding one is read here
+as Rust reads it.
+
+**Measured at `5fbaf4a`.** `parse_class_refusals.npk` cases 62–75, `parse_classes.npk` cases 78–90 and
+`pattern_error_text.npk` cases 37 and 38 pass at −O0 and through `opt -O2`; against the parser before this decision the
+first and third exit 62 and 37. Of the thirty-one shapes GNU `grep` 3.11 was asked, the parser reads twenty-seven as
+`grep` does — it refuses twelve and reads fifteen as their members — and the four it reads otherwise each hold an
+escape or an operator.
+
+*Alternatives declined:* **accept it, as Rust does** — a class that matches five bytes where every letter was asked for,
+with no word said; **refuse only the fourteen names** — a misspelt `[:alhpa:]` would then be a class of its bytes, the
+same surprise; **refuse every outermost class whose members begin and end with `:`** — `[:a-z:]` and `[:[:digit:]:]`
+are classes written as classes, and `[:foo\:]` is the refusal's own advice followed; **refuse every outermost class that
+begins with `:`** — `[:;,]` is a class of punctuation someone means; **a kind of its own** — `UnknownPosixClass` is the
+POSIX class's kind already, and its detail says which case.

@@ -964,6 +964,39 @@ func:class_range = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame-
     pass NIL;
 };
 
+// An outermost class written in a POSIX class's own form -- every member one codepoint
+// written as itself, the first and the last `:` and another not, as `[:alpha:]` and
+// `[^:alpha:]` -- is a class of those codepoints, and almost never what was meant:
+// `UnknownPosixClass` at its `[`, spanning it, its detail the name's place in §5.1's list
+// plus one when the bytes between the colons, less a leading `^`, are one of its names,
+// else 0 (Y-38, RX-200). A member is written as itself when its node spans exactly the
+// UTF-8 sequence its first byte begins: a range, an escape, a nested class, a POSIX or a
+// Perl class, a property and the operators' fold each span more, and a class holding one
+// is a class written as one -- `[:foo\:]`, `[:a-z:]` and `[:[:digit:]:]` are classes.
+func:posix_alone = PatternError?(uint8[]:pat, Ast->:out, ClassFrame:cf, int64:upto) never fails {
+    int64:lo = cf.open + 1i64;
+    if (cf.neg != 0u32) { lo = lo + 1i64; }
+    int64:hi = upto - 2i64;
+    if (((pat[lo] => int32) != CH_COLON) || ((pat[hi] => int32) != CH_COLON)) { pass NIL; }
+    bool:other = false;
+    int64:m = cf.first;
+    int64:j = 0i64;
+    while (j < cf.count) decreases cf.count - j {
+        AstNode:x = raw ast_get(<-out, m);
+        if (x.len != raw utf8_len(pat[x.pos] => int64)) { pass NIL; }
+        if ((pat[x.pos] => int32) != CH_COLON) { other = true; }
+        m = x.next;
+        j = j + 1i64;
+    }
+    if (!other) { pass NIL; }
+    int64:name = lo + 1i64;
+    if ((pat[name] => int32) == CH_CARET) { name = name + 1i64; }
+    int64:k = raw posix_index(pat, name, hi - name);
+    uint32:detail = 0u32;
+    if (k != AST_NONE) { detail = (k + 1i64) =>! uint32; }
+    pass raw pattern_error(PatternErrorKind.UnknownPosixClass, cf.open, upto - cf.open, detail);
+};
+
 // `[` read at `open`, outside any class: the class, every class nested in it and
 // every member, in one `while` (Y-36); its node becomes the frame's pending atom. A
 // class needs no `(` and no `)`, so nothing in here meets a group.
@@ -980,6 +1013,8 @@ func:parse_class = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:open)
             e = raw class_close(out, @cf, p.f.flags, p.c.pos);
             if (e != NIL) { pass e; }
             if (p.classes.count == 0i64) {
+                PatternError?:alone = raw posix_alone(pat, out, cf, p.c.pos);
+                if (alone != NIL) { pass alone; }
                 drop commit(out, @p.f);
                 p.f.pending = cf.expr;
                 pass NIL;

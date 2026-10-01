@@ -254,18 +254,32 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
             }
         },
         (PatternErrorKind.UnknownPosixClass) {
-            drop put(@b, "unknown POSIX class at byte "); drop num(@b, e.offset);
-            drop put(@b, ": a POSIX class is `[:name:]` inside a class, as in `[[:alpha:]]`, and the names are ");
-            int64:k = 0i64;
-            while (k < POSIX_CLASS_NAMES) decreases POSIX_CLASS_NAMES - k {
-                if (k > 0i64) {
-                    if ((k + 1i64) == POSIX_CLASS_NAMES) { drop put(@b, " and "); }
-                    else { drop put(@b, ", "); }
-                }
-                drop put(@b, raw posix_class_name(k));
-                k = k + 1i64;
+            if (e.detail > 0u32) {
+                string:name = raw posix_class_name((e.detail => int64) - 1i64);
+                drop put(@b, "POSIX class outside a class at byte "); drop num(@b, e.offset);
+                drop put(@b, ": `[:"); drop put(@b, name);
+                drop put(@b, ":]` is the POSIX class "); drop put(@b, name);
+                drop put(@b, " only inside a class, and written as a class of its own its bytes are its members, `:` and the letters in `");
+                drop put(@b, name);
+                drop put(@b, "`. Write `[[:"); drop put(@b, name);
+                drop put(@b, ":]]` for the POSIX class, `[[:^"); drop put(@b, name);
+                drop put(@b, ":]]` for its complement, or `[\\:"); drop put(@b, name);
+                drop put(@b, ":]` for its bytes.");
             }
-            drop put(@b, ". Write `\\:` to match a `:`.");
+            else {
+                drop put(@b, "unknown POSIX class at byte "); drop num(@b, e.offset);
+                drop put(@b, ": a POSIX class is `[:name:]` inside a class, as in `[[:alpha:]]`, and the names are ");
+                int64:k = 0i64;
+                while (k < POSIX_CLASS_NAMES) decreases POSIX_CLASS_NAMES - k {
+                    if (k > 0i64) {
+                        if ((k + 1i64) == POSIX_CLASS_NAMES) { drop put(@b, " and "); }
+                        else { drop put(@b, ", "); }
+                    }
+                    drop put(@b, raw posix_class_name(k));
+                    k = k + 1i64;
+                }
+                drop put(@b, ". Write `\\:` to match a `:`.");
+            }
         },
         (PatternErrorKind.UnknownUnicodeProperty) {
             drop put(@b, "unknown Unicode property at byte "); drop num(@b, e.offset);

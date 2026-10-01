@@ -3,7 +3,7 @@
 // WHAT A PERSON READS (`SYNTAX.md` Y-34; RX-187): `pattern_error_text` says what
 // is wrong, at which byte, and what to write instead, for every refusal cycle
 // 0.1.1 makes, cycle 0.1.2's `NestTooDeep` (23; RX-193), and every one cycle 0.1.3's
-// classes make (24-36; RX-197 … RX-199) -- each case parses a pattern and holds the
+// classes make (24-38; RX-197 … RX-200) -- each case parses a pattern and holds the
 // text to the letter, so a message changed by accident is a red run. Then every kind,
 // built by `pattern_error` at byte 7, renders a text that names byte 7 (40), so no
 // kind is left without a sentence.
@@ -113,6 +113,9 @@ func:run = int32() never fails {
     if (!(raw says(cds, "nesting too deep at byte 250: the `(` or `[` here would nest groups and classes 251 deep, and they may nest at most 250 deep (NREGEX_NEST_DEPTH). Nest fewer: write `(?:a)` as `a`, and `[[a]]` as `[a]`."))) { pass 35i32; }
     // outside a class, the same sentence (Y-37, RX-199)
     if (!(raw says("\\p", "unknown Unicode property at byte 0: `\\p` and `\\P` take a one-letter name, as in `\\pL`, or a name in braces, as in `\\p{Greek}`."))) { pass 36i32; }
+    // a whole class in a POSIX class's own form (Y-38, RX-200)
+    if (!(raw says("[:alpha:]", "POSIX class outside a class at byte 0: `[:alpha:]` is the POSIX class alpha only inside a class, and written as a class of its own its bytes are its members, `:` and the letters in `alpha`. Write `[[:alpha:]]` for the POSIX class, `[[:^alpha:]]` for its complement, or `[\\:alpha:]` for its bytes."))) { pass 37i32; }
+    if (!(raw says("[:alhpa:]", "unknown POSIX class at byte 0: a POSIX class is `[:name:]` inside a class, as in `[[:alpha:]]`, and the names are alpha, digit, alnum, space, upper, lower, punct, print, graph, cntrl, xdigit, blank, word and ascii. Write `\\:` to match a `:`."))) { pass 38i32; }
     // every kind renders a sentence naming its byte
     int64:k = 0i64;
     while (k < 36i64) decreases 36i64 - k {

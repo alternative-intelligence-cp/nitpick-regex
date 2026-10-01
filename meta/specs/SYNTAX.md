@@ -433,6 +433,12 @@ a POSIX class: `[:name:]`, or `[:^name:]` for its complement, its name lowercase
 capital — is `UnknownPosixClass` at the `[`, spanning what was read, detail 0: never a nested class instead, as Rust
 reads one, because the cursor does not go back (RX-173). Outside a class, `[:` opens a class whose first member is
 `:`.
+*(2026-10-01, cycle 0.1.3 — RX-200: an outermost class whose every member is one codepoint written as itself, the first
+and the last `:` and another not — `[:alpha:]`, `[^:alpha:]`, `[:alhpa:]` — is `UnknownPosixClass` at its `[`, spanning
+the class: its detail the name's place in §5.1's list plus one when the bytes between the colons, less a leading `^`,
+are one of its names, else 0. GNU `grep` refuses these too. `[::]`, `[:::]` and `[:alpha]` are classes of their bytes;
+a range, an escape, a nested, POSIX or Perl class, a property or an operator makes a class one written as a class, so
+`[:a-z:]` and `[:[:digit:]:]` are classes, and `\:` at either end writes a `:`.)*
 
 ---
 
@@ -578,6 +584,7 @@ RX-197)*:
 | `BadClassRange` (cycle 0.1.3) | a range's end below its start; a class at either end | the range's first byte | through the byte that made it bad | 0; 1 |
 | `ClassOpMismatch` (cycle 0.1.3) | `&&`, `--` or `~~` with no member before it or after it | the operator | 2 | its byte: 38, 45 or 126 |
 | `UnknownPosixClass` (cycle 0.1.3) | `[:` inside a class that opens no `[:name:]` or `[:^name:]` with a name of §5.1 | its `[` | what was read | 0 |
+| `UnknownPosixClass` (cycle 0.1.3, RX-200) | an outermost class whose every member is one codepoint written as itself, the first and the last `:` and another not | its `[` | the class | the name's place in §5.1's list plus one; 0 when the bytes name none |
 | `UnknownUnicodeProperty` (cycle 0.1.3) | `\p` or `\P` whose name cannot be read | the `\` | what was read | 1, no letter or `{` after it; 2, no `}`; 3, empty braces — 0 is cycle 0.3's, a name it does not know |
 
 *(2026-09-27, cycle 0.1.1 — RX-181: thirty-six, `EmptyAlternate` retired.)*
