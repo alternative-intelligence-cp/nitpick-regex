@@ -116,6 +116,11 @@ func:run = int32() never fails {
     if (!(raw refused("\\x{D800}\\q", PatternErrorKind.InvalidCodepoint, 0i64, 8i64, 55296u32))) { pass 71i32; }
     if (!(raw refused("\\q\\x{D800}", PatternErrorKind.UnknownEscape, 0i64, 2i64, 113u32)))     { pass 72i32; }
     if (!(raw refused("[\\x{110000}", PatternErrorKind.InvalidCodepoint, 1i64, 10i64, NOT_A_CODEPOINT))) { pass 73i32; }
+    // `\<` and `\>`: word assertions in Rust's `regex` and GNU grep, the bytes elsewhere (RX-205)
+    if (!(raw refused("\\<", PatternErrorKind.UnknownEscape, 0i64, 2i64, 60u32)))            { pass 74i32; }
+    if (!(raw refused("a\\>", PatternErrorKind.UnknownEscape, 1i64, 2i64, 62u32)))           { pass 75i32; }
+    if (!(raw refused("[\\<]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 60u32)))          { pass 76i32; }
+    if (!(raw refused("[!-\\>]", PatternErrorKind.UnknownEscape, 3i64, 2i64, 62u32)))        { pass 77i32; }
     pass 0i32;
 };
 

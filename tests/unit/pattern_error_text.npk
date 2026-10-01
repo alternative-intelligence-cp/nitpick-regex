@@ -144,6 +144,9 @@ func:run = int32() never fails {
     if (!(raw says("\\u004", "bad Unicode escape at byte 0: the pattern ends inside it. `\\u` takes exactly four hex digits, as in `\\u00E9`, and `\\U` exactly eight, as in `\\U0001F600`; a codepoint in braces is `\\x{1F600}`."))) { pass 50i32; }
     if (!(raw says("\\uD83D\\uDE00", "invalid codepoint at byte 0: U+D83D is a surrogate, half of a UTF-16 pair, and UTF-8 has no form for it. Write the codepoint the pair stands for, as in `\\x{1F600}` for `\\uD83D\\uDE00`."))) { pass 51i32; }
     if (!(raw says("\\x{110000}", "invalid codepoint at byte 0: the escape names a value past U+10FFFF, the last codepoint. Write one from U+0000 to U+10FFFF."))) { pass 52i32; }
+    // `\<` and `\>` (RX-205)
+    if (!(raw says("\\<a", "unknown escape at byte 0: `\\<` is a start-of-word assertion in Rust's `regex` and GNU grep, and a `<` in Perl, PCRE, Python and Java, so nregex reads it neither way. Write `\\b` for a word boundary, or `<` to match a `<`."))) { pass 53i32; }
+    if (!(raw says("[a\\>]", "unknown escape at byte 2: `\\>` is an end-of-word assertion in Rust's `regex` and GNU grep, and a `>` in Perl, PCRE, Python and Java, so nregex reads it neither way. Write `\\b` for a word boundary, or `>` to match a `>`."))) { pass 54i32; }
     pass 0i32;
 };
 

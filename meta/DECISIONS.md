@@ -4504,6 +4504,9 @@ is one, and the wrapped atom's link undone; **a frame per alternative** — a gr
 frame per group is what 0.1.2 bounds by `NREGEX_NEST_DEPTH`.
 
 ### RX-183 — a pattern is UTF-8 text checked whole before the grammar, and every character is a literal but the twelve metacharacters
+> **SUPERSEDED IN PART by RX-205 (2026-10-01)** — *"`\` before ASCII punctuation is that punctuation"*, for `<` and `>`
+> only: Rust's `regex` and GNU `grep` read `\<` and `\>` as word assertions, so each is refused (`SYNTAX.md` Y-40's
+> note). Every other punctuation is as this decision says.
 
 **2026-09-27, cycle 0.1.1 (the plan's PD-27)** — `SYNTAX.md` Y-28, per RFC 3629 (`meta/research/CURRENCY.md`).
 `parse_check_encoding` runs after the length and before the walk, and refuses the first ill-formed sequence as
@@ -5127,3 +5130,28 @@ refused naming the one; **`[\b]` as a backspace** — one spelling meaning two t
 Java refuse it; **a `\` before a space or a control refused, Y-2 as written** — every engine measured reads the byte,
 and it is how a space is written under `x`; **`\x` and one hex digit** — Rust, Python and Java refuse it; **a UTF-16
 pair of `\u` escapes joined, as Java and node join it** — Rust refuses each half, and Python reads two lone surrogates.
+
+### RX-205 — `\<` and `\>` are refused: Rust's `regex` and GNU `grep` read word assertions, Perl, PCRE, Python and Java the bytes
+
+**2026-10-01, cycle 0.1.4 (the plan's PD-49), at compiler `5fbaf4a`** — `SYNTAX.md` Y-2's and Y-40's notes; per
+`meta/research/escape-flag-syntax-reference-engines.md`, as of 2026-10-01. It supersedes in part RX-183 — *"`\`
+before ASCII punctuation is that punctuation"* — for `<` and `>`. Since cycle 0.1.1 `\<` has been `<` here. Rust's
+`regex`, this library's closest neighbour, reads `\<` and `\>` as the start and the end of a word — its 1.13.1
+documentation: *"`\b{start}, \<` start-of-word boundary assertion"* — and regex-syntax 0.8.11 keeps both out of what a `\`
+may escape, *"since the escape sequence is significant"*; GNU `grep` 3.11 reads them as word
+boundaries too. Perl, PCRE2, Python and Java read the bytes, and node refuses both under `u`. Measured on `a <b>`:
+Rust's `\<` matches the empty positions 0 and 3, and Perl's, Python's and Java's the `<` at 2 — as this parser did. A
+pattern written for Rust or `grep` compiled here and matched something else, with no word said.
+
+**The decision.** A `\` before `<` or `>` is `UnknownEscape` at the `\`, spanning both bytes, its detail the byte —
+in a class and out, as Rust refuses `[\<]` too. The sentence names both readings and what to write: *"`\<` is a
+start-of-word assertion in Rust's `regex` and GNU grep, and a `<` in Perl, PCRE, Python and Java, so nregex reads it
+neither way. Write `\b` for a word boundary, or `<` to match a `<`."* (`tests/unit/pattern_error_text.npk` cases 53,
+54). Every other punctuation is itself, as RX-183 says.
+
+*Alternatives declined:* **the bytes, RX-183 as written** — a pattern from Rust or `grep` would match `<` where it
+asked for a word's start, silently; **the assertions, as Rust reads them** — two more boundary kinds and their engine
+work in every later cycle for a spelling the families read two ways, where `\b` exists; refusing keeps the choice open,
+which is why regex-syntax refused `\<` before it read it (its comment: *"we can turn them into something else in the
+future without it being a backwards incompatible change"*); **refused outside a class and the bytes inside** — one
+spelling with two answers by where it stands, and Rust refuses it in a class as well.

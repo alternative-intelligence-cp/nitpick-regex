@@ -231,9 +231,12 @@ func:is_class_letter = bool(int32:b) never fails {
 };
 
 // ASCII that is neither a letter nor a digit -- punctuation, a space, a control, DEL -- which a
-// `\` before it writes literally (Y-2, as RX-204 widens it from punctuation alone).
+// `\` before it writes literally (Y-2, as RX-204 widens it from punctuation alone): all but `<`
+// and `>`, which Rust's `regex` and GNU `grep` read as word assertions and Perl, PCRE, Python and
+// Java as the bytes, so nregex reads them neither way (RX-205).
 func:is_literal_escape = bool(int32:b) never fails {
     if ((b < 0i32) || (b > CH_DEL)) { pass false; }
+    if ((b == CH_LT) || (b == CH_GT)) { pass false; }
     if (raw is_letter(b)) { pass false; }
     pass !(raw is_digit(b));
 };
@@ -861,7 +864,8 @@ func:unknown_escape = PatternError?(uint8[]:pat, int64:at) never fails {
 // `Escape`); a Perl class or a property is a class, unresolved, here as in a class (Y-37); `\A` and `\z`
 // are anchors 2 and 3, and `\b` and `\B` word boundaries 0 and 1 (§1's `Anchor`, Y-27); and a `\`
 // before any other letter or digit, or before a non-ASCII codepoint, is `UnknownEscape` (RX-204) --
-// §8's escapes among them, until cycle 0.1.5 refuses each by its own kind (Y-30).
+// §8's escapes among them, until cycle 0.1.5 refuses each by its own kind (Y-30) -- and so is a `\`
+// before `<` or `>` (RX-205).
 func:escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:at) never fails {
     int32:d = raw cursor_peek(@p.c);
     if (d == CURSOR_END) {
@@ -1032,7 +1036,7 @@ func:class_close = PatternError?(Ast->:out, ClassFrame->:cf, uint32:flags, int64
 // `\` read at `at` inside a class: an escape naming a codepoint is a member, which a `-` may make a
 // range's first end (Y-36, RX-204); a Perl class or a property is a class member (Y-37); every other
 // escape is `UnknownEscape` -- `\b`, `\B`, `\A` and `\z` too, since a class holds codepoints and they
-// name positions.
+// name positions, and `\<` and `\>` (RX-205).
 func:class_escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame->:cf, int64:at) never fails {
     int32:d = raw cursor_peek(@p.c);
     if (d == CURSOR_END) {

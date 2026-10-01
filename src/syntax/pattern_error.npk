@@ -390,6 +390,14 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
             else if (e.detail == 98u32) {
                 drop put(@b, ": `\\b` is a word boundary, a position, and a class holds codepoints. Move it out of the class, or write `\\x08` to match a backspace, as Perl and Python read `[\\b]`.");
             }
+            else if ((e.detail == 60u32) || (e.detail == 62u32)) {
+                drop put(@b, ": `\\"); drop ch(@b, e.detail);
+                if (e.detail == 60u32) { drop put(@b, "` is a start-of-word assertion"); }
+                else { drop put(@b, "` is an end-of-word assertion"); }
+                drop put(@b, " in Rust's `regex` and GNU grep, and a `"); drop ch(@b, e.detail);
+                drop put(@b, "` in Perl, PCRE, Python and Java, so nregex reads it neither way. Write `\\b` for a word boundary, or `");
+                drop ch(@b, e.detail); drop put(@b, "` to match a `"); drop ch(@b, e.detail); drop put(@b, "`.");
+            }
             else if ((e.detail == 66u32) || (e.detail == 65u32) || (e.detail == 122u32)) {
                 drop put(@b, ": `\\"); drop ch(@b, e.detail);
                 drop put(@b, "` matches a position, and a class holds codepoints. Move it out of the class.");

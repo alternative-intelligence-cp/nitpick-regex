@@ -65,6 +65,8 @@ that changes meaning across versions is worse than one that did not compile.
 *(2026-10-01, cycle 0.1.4 — RX-204: and a `\` before a space, a control or DEL is that byte too — any ASCII that is
 neither a letter nor a digit, as every engine measured reads it; `\ ` is a space. A `\` before a codepoint past ASCII
 escapes nothing and is `UnknownEscape` (Y-40).)*
+*(2026-10-01, cycle 0.1.4 — RX-205: but `<` and `>`. Rust's `regex` and GNU `grep` read `\<` and `\>` as the start and the
+end of a word, and Perl, PCRE, Python and Java as the bytes, so each is `UnknownEscape`, in a class and out (Y-40).)*
 
 **Rule Y-40 (RX-204) — every escape names a codepoint, a class or an anchor, or is refused.** After a `\`:
 
@@ -89,6 +91,8 @@ escapes nothing and is `UnknownEscape` (Y-40).)*
 
 An escape that names a codepoint is a `Literal` spanning the escape, and inside a class a member, which a `-` may make
 either end of a range (Y-36). `COMPAT.md` §2 and §3 list where other engines read these otherwise.
+*(2026-10-01, cycle 0.1.4 — RX-205: ASCII that is neither a letter nor a digit names itself but `<` and `>`: `\<` and
+`\>` are `UnknownEscape` at the `\`, spanning both bytes, their detail the byte (Y-2's note).)*
 
 ---
 
@@ -240,6 +244,7 @@ metacharacters are `\ . ^ $ | ? * + ( ) [ {`; every other character — a bare `
 punctuation, a `Literal` spanning two bytes (Y-2), and `\` as the last byte is
 `TrailingBackslash` at it.
 *(2026-10-01, cycle 0.1.4 — RX-204: and every other escape as Y-40 reads it.)*
+*(2026-10-01, cycle 0.1.4 — RX-205: but `\<` and `\>`, which are refused (Y-2's note).)*
 
 **Rule Y-29 (RX-185) — groups.** `(` opens a capturing group, numbered by its `(`
 (Y-6); `(?:` a non-capturing one; `(?<name>` a capturing one named by
@@ -635,6 +640,7 @@ RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-2
 | `UnknownUnicodeProperty` (cycle 0.1.3) | `\p` or `\P` whose name cannot be read | the `\` | what was read | 1, no letter or `{` after it; 2, no `}`; 3, empty braces — 0 is cycle 0.3's, a name it does not know |
 | `UnknownEscape` (cycle 0.1.4) | a `\` before a letter or a digit no rule names, or before a codepoint past ASCII; in a class, before `b`, `B`, `A` or `z` | the `\` | the `\` and that codepoint | that codepoint |
 | `UnknownEscape` (cycle 0.1.4) | `\0` before a digit | the `\` | 3 | 48, the `0` |
+| `UnknownEscape` (cycle 0.1.4, RX-205) | `\<` or `\>`, in a class or out | the `\` | 2 | 60 or 62 |
 | `BadHexEscape` (cycle 0.1.4) | `\x` not followed by two hex digits, or by hex digits in braces | the `\` | through the byte found; what was read | that byte's codepoint; `NOT_A_CODEPOINT` when the pattern ends |
 | `BadUnicodeEscape` (cycle 0.1.4) | `\u` not followed by four hex digits, `\U` by eight | the `\` | through the byte found; what was read | that byte's codepoint; `NOT_A_CODEPOINT` when the pattern ends |
 | `InvalidCodepoint` (cycle 0.1.4) | an escape naming a surrogate or a value past U+10FFFF | the `\` | the escape | the surrogate's value; `NOT_A_CODEPOINT` past U+10FFFF |
