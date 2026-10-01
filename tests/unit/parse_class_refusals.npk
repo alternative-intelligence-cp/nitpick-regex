@@ -12,6 +12,8 @@
 // is refused PROVISIONALLY inside a class as outside it (Y-31) and is not pinned here:
 // cycle 0.1.4 changes it. `NestTooDeep` at a `[` is `parse_limits`' and
 // `parse_nest_deep`'s.
+// *(2026-10-01, cycle 0.1.4 -- RX-204: an escape is no longer provisional but §8's, and
+// `parse_escape_refusals` holds an escape's refusals in a class too.)*
 mod:parse_class_refusals;
 
 use "../../src/core/core.npk".*;

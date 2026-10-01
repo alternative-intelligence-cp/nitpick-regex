@@ -138,20 +138,20 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
 - [ ] the provisional `UnknownEscape` and `UnknownFlag` (`SYNTAX.md` Y-31) replaced; a `Flags` node never the pending atom (`(?i)*` is `NothingToRepeat`); each kind produced here held to its sentence (`0.1.1.md` §8)
 - [ ] every escape in §1's `Escape` production *(2026-10-01 — RX-197: inside a class too, where an escape naming a codepoint is a member and may end a range — `parse.npk`'s `class_escape` and `class_range` refuse each provisionally until then; and `\b` there is this subcycle's to decide)*
 - [ ] **`\` before an unlisted ASCII letter or digit is `UnknownEscape`, never a literal** (Y-2) — a test per unassigned letter
-- [ ] `\x41`, `\x{1F600}`, `A`, `\U0001F600`, with `BadHexEscape`, `BadUnicodeEscape`, `InvalidCodepoint` (surrogates and above `U+10FFFF`)
+- [ ] `\x41`, `\x{1F600}`, `A`, `\U0001F600`, with `BadHexEscape`, `BadUnicodeEscape`, `InvalidCodepoint` (surrogates and above `U+10FFFF`) *(2026-10-01 — cycle 0.1.4: the third is `\u0041`, which reads `A` because the list was written with the escape decoded, `46d870d`; every other item names an escape)*
 - [ ] flags `imsxu`, scoped per Y-12: `(?i:…)` to the group, `(?i)` to the end of the enclosing group, `(?-i)` clearing
 - [ ] `x` mode: whitespace and `#`-to-end-of-line ignored, per O-Y2's answer *(2026-10-01 — RX-201: outside a class; inside one, a white-space byte or a `#` is refused at it (Y-39), with a kind this subcycle adds to §9 and a sentence naming `\x20` and `\#`; `(?xx)`, a repeated flag, refused saying so)*
 - [ ] `(?-u)` byte mode, and `ByteModeNonAscii` when a non-ASCII literal appears under it (Y-14) — **naming the codepoint**
 - [ ] `UnknownFlag`
 
 ### 0.1.5 — the refusals
-- [ ] every construct in §8 refused with its own kind and offset — the group-head ones and the possessive quantifier since 0.1.1 (Y-30); here the escape-shaped ones
+- [ ] every construct in §8 refused with its own kind and offset — the group-head ones and the possessive quantifier since 0.1.1 (Y-30); here the escape-shaped ones *(2026-10-01 — cycle 0.1.4: each is `UnknownEscape` until then (Y-40), and `\Q` in a class too. Two sentences of 0.1.1's meet Rust's syntax: `(?R)` is Rust's CRLF flag and `\b{start}` its start-of-word assertion, which read today as recursion and as a bad bound)*
 - [ ] **each message names the guarantee or the alternative, never "unsupported"** (K-1) — the sentences exist since 0.1.1 (Y-34); here each is held to the letter: `BackreferenceUnsupported` says the pattern could not be matched in linear time; `UnsupportedQuoting` names `regex_escape()`; `\Z` names `\n?\z`; `\p{InGreek}` names `\p{Script=Greek}`
 - [ ] `regex_escape(text)` implemented here, since §8 points at it
 - [ ] a rejection test per refusal in `tests/rejection/`, with the exact-code rule
 
 ### 0.1.6 — close
-- [ ] **`check_error_kinds_tested` live and green**: every `PatternErrorKind` in `SYNTAX.md` §9 has a test that provokes it *(2026-10-01 — RX-197: no pattern reaches `EmptyClass` in the parser, open question O-Y3 for cycle 0.3.4, so the check counts it with the kinds a later cycle provokes, as it does `ClassTooLarge`)*
+- [ ] **`check_error_kinds_tested` live and green**: every `PatternErrorKind` in `SYNTAX.md` §9 has a test that provokes it *(2026-10-01 — RX-197: no pattern reaches `EmptyClass` in the parser, open question O-Y3 for cycle 0.3.4, so the check counts it with the kinds a later cycle provokes, as it does `ClassTooLarge`)* *(2026-10-01 — cycle 0.1.4: thirty-eight kinds; `DuplicateFlag` and `ExtendedAmbiguity` are new, each provoked by `parse_flag_refusals`)*
 - [ ] a fuzz pass over random byte strings as patterns: never traps, always terminates, always produces a program or an error with a valid offset
 - [ ] findings written; `0.2.0.md` written; archived
 

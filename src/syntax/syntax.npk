@@ -22,6 +22,8 @@
 // operators, Perl classes, properties and POSIX classes inside a class, unresolved
 // (Y-36 … Y-38, RX-197) -- groups and classes nesting at most `NREGEX_NEST_DEPTH` deep
 // together (RX-198).
+// SINCE CYCLE 0.1.4 IT READS ESCAPES AND FLAGS -- every escape of §1, in a class and out,
+// and `(?flags)` and `(?flags:...)`, with `x` and `(?-u)` (Y-40 … Y-43, RX-203 … RX-208).
 //
 // EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1
 // and 3): `use` is not transitive, a plain `use` re-exports nothing, and one

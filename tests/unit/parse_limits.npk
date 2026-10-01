@@ -16,7 +16,9 @@
 // *(2026-10-01, cycle 0.1.3 -- RX-198: classes nest too, and groups and classes count
 // together against `NREGEX_NEST_DEPTH` (Y-35): 250 nested classes parse and the 251st
 // `[` is `NestTooDeep` at byte 250; so is a `[` inside 250 groups, and the 126th `[`
-// inside 125 groups; 249 groups around a class parse (cases 19-23).)*
+// inside 125 groups; 249 groups around a class parse (cases 19-24).)*
+// *(2026-10-01, cycle 0.1.4: "19-24" above read "19-23" until this subcycle, where the cases
+// are 19-24 -- cycle 0.1.3's verifier's finding.)*
 mod:parse_limits;
 
 use "../../src/core/core.npk".*;

@@ -16,6 +16,9 @@
 // *(2026-10-01, cycle 0.1.3's record -- RX-199: nor is a Perl class or a property,
 // in a class or out of one, and the same two units hold them. Every other escape but
 // punctuation, and a flag, are still provisional, until cycle 0.1.4.)*
+// *(2026-10-01, cycle 0.1.4 -- RX-204, RX-206: nor is any escape but §8's, which cycle 0.1.5
+// refuses by their own kinds, nor a flag: `parse_escapes`, `parse_escape_refusals`,
+// `parse_flags` and `parse_flag_refusals` hold them.)*
 mod:parse_refusals;
 
 use "../../src/core/core.npk".*;

@@ -7,6 +7,8 @@
 // text to the letter, so a message changed by accident is a red run. Then every kind,
 // built by `pattern_error` at byte 7, renders a text that names byte 7 (40), so no
 // kind is left without a sentence.
+// *(2026-10-01, cycle 0.1.4 -- and every one cycle 0.1.4's escapes and flags make: 39 and
+// 41-66, RX-203 … RX-208.)*
 mod:pattern_error_text;
 
 use "../../src/core/core.npk".*;

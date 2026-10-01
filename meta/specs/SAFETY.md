@@ -206,7 +206,8 @@ held by the compiler (`tests/rejection/pattern_error_literal.npk`). The
 constructor stops on a negative offset or length, a defect in the code that
 built the error. Thirty-two bytes, measured. `SYNTAX.md` §9 lists thirty-seven
 kinds; "thirty" above is a round number.)* *(Thirty-six since cycle 0.1.1, which
-retired `EmptyAlternate` — RX-181.)*
+retired `EmptyAlternate` — RX-181.)* *(Thirty-eight since cycle 0.1.4, which added
+`DuplicateFlag` and `ExtendedAmbiguity` — RX-206, RX-207.)*
 
 ### 4.1 `PatternErrorKind`
 
