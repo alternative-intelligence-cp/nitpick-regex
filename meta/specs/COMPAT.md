@@ -36,6 +36,8 @@ The closest neighbour, so the list is short and each entry is deliberate.
 | `x` mode inside classes | ~~whitespace significant~~ white space and `#` comments ignored (measured, regex 1.13.1) | ~~whitespace significant~~ a white-space byte or a `#` refused (`SYNTAX.md` Y-39) | ~~same (O-Y2)~~ the engines disagree, so neither reading is guessed — RX-201, 2026-10-01; this row said Rust kept white space, and it does not |
 | a POSIX class as a whole class, `[:alpha:]` | a class of `:`, `a`, `h`, `l`, `p` | refused, saying a POSIX class goes inside a class — as GNU `grep` refuses it | a class of five bytes where every letter was meant — RX-200 |
 | a class's edge cases | an operator with an empty side is the empty set (`[a&&]`, `[!--]`), and a run of `-` first in a class is members (`[--a]`); `[:` that opens no POSIX class opens a nested class (`[[:alpah:]]`); a `-` after `[…]` or `[:name:]` is a member, and a `[` ending a range is a codepoint | each refused, with the kind and the fix `SYNTAX.md` Y-36 and Y-38 name | a reading the author may not have meant is a refusal that says what to write — RX-197 |
+| `\e`, `\0` | refused | U+001B and U+0000, as in Perl, PCRE and Python | §1 names them; accepting what Rust refuses changes no pattern Rust accepts — RX-204 |
+| `\u{41}`, `\U{1F600}` | a codepoint | refused, naming `\x{…}` | one spelling for a codepoint in braces (`SYNTAX.md` Y-40) — RX-204 |
 | replacement | closures **or** templates | templates and non-capturing function values | no closures (D-018) |
 | `Match` | a `&str` slice | byte offsets | borrows never pass up (D-004) |
 | DFA cache | pooled internally | an explicit `Cache` the caller owns | `ENGINES.md` §5 |
@@ -63,6 +65,12 @@ The list a user migrating from Python, PHP, Java or JavaScript needs.
 | `\w` | UTS #18 Annex C, not `[A-Za-z0-9_]` — `UNICODE.md` U-10 |
 | `x` mode inside a class | a white-space byte or a `#` refused under `x`, where Perl's `/x`, PCRE2's `x`, Python and .NET read them as members and `xx` ignores a space or a tab — write `\x20` or `\#` (`SYNTAX.md` Y-39, RX-201) |
 | `[` inside a class; `&&`, `--`, `~~` | a nested class, and the class operators of UTS #18 and Rust: `[a[b]]` is `a` or `b`, and `[a--b]` is `a` but not `b` — write `\[` and `\-` for the bytes (`SYNTAX.md` Y-36, RX-197) |
+| `\012`, `\0` and a digit — octal | refused; write the hex form, `\x0A` (`SYNTAX.md` Y-40, RX-204) |
+| `\x4`, `\x` and one hex digit | refused; `\x` takes exactly two, or any number in braces, `\x{4}` (Y-40) |
+| `[\b]` — a backspace | refused; write `\x08` (Y-40) |
+| `\c`, `\h`, `\K`, `\N`, `\R`, `\X` and every other letter no rule names | refused, `UnknownEscape`: a `\` before a letter is never the letter (Y-2) |
+| Perl's `\u` and `\U`, which change case | `\u` takes four hex digits and `\U` eight, as in Python and Rust (Y-40) |
+| `\uD83D\uDE00` — a UTF-16 pair, one codepoint in Java and JavaScript | refused at the first half; write `\x{1F600}` (Y-40) |
 
 **Rule K-1 — every refusal names the alternative in its message**, and where
 there is none it names the reason. `LookaroundUnsupported` says the pattern

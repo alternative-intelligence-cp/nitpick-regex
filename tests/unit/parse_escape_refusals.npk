@@ -1,0 +1,143 @@
+// expect-exit: 0
+//
+// ESCAPES, REFUSED: EVERY REFUSAL CYCLE 0.1.4 MAKES AT AN ESCAPE, WITH ITS OFFSET, LENGTH AND
+// DETAIL (`SYNTAX.md` §9's table, Y-2, Y-40; RX-203, RX-204).
+//
+// Each case parses one pattern through `syntax.npk`'s re-exports and requires the refusal to be
+// EXACTLY this kind at this offset, spanning this many bytes, with this detail -- the four fields a
+// message is built from (Y-10, Y-34). A case that differs exits with its number. Each refusal is at
+// the `\`. A detail that is a codepoint is the one found where a hex digit was due, or
+// `NOT_A_CODEPOINT` where the pattern ended (RX-203); `InvalidCodepoint`'s is a surrogate's value,
+// or `NOT_A_CODEPOINT` for any value past U+10FFFF. §8's escapes -- `\1` … `\9`, `\k`, `\G`, `\Z`,
+// `\Q`, `\E` -- are refused PROVISIONALLY as `UnknownEscape` until cycle 0.1.5 refuses each by its
+// own kind (Y-30), and are not pinned here.
+mod:parse_escape_refusals;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+
+func:refused = bool(string:pattern, PatternErrorKind:kind, int64:off, int64:len, uint32:detail) never fails {
+    Ast:t = raw ast_init(8i64);
+    PatternError?:r = raw parse_pattern(string_bytes(pattern), @t);
+    drop ast_free(@t);
+    if (r == NIL) { pass false; }
+    PatternError:e = r ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
+    if (e.kind != kind)     { pass false; }
+    if (e.offset != off)    { pass false; }
+    if (e.span_len != len)  { pass false; }
+    pass e.detail == detail;
+};
+
+// `\` and the letter `c`: `UnknownEscape` at byte 0, two bytes, its detail the letter?
+func:unknown = bool(string:pattern, uint32:c) never fails {
+    pass raw refused(pattern, PatternErrorKind.UnknownEscape, 0i64, 2i64, c);
+};
+
+func:run = int32() never fails {
+    // `\x`: two hex digits, or one or more in braces -- through the byte that is no digit, or to
+    // the end
+    if (!(raw refused("\\x", PatternErrorKind.BadHexEscape, 0i64, 2i64, NOT_A_CODEPOINT)))       { pass 1i32; }
+    if (!(raw refused("\\x4", PatternErrorKind.BadHexEscape, 0i64, 3i64, NOT_A_CODEPOINT)))      { pass 2i32; }
+    if (!(raw refused("\\xg", PatternErrorKind.BadHexEscape, 0i64, 3i64, 103u32)))              { pass 3i32; }
+    if (!(raw refused("\\x4g", PatternErrorKind.BadHexEscape, 0i64, 4i64, 103u32)))             { pass 4i32; }
+    if (!(raw refused("\\x{", PatternErrorKind.BadHexEscape, 0i64, 3i64, NOT_A_CODEPOINT)))      { pass 5i32; }
+    if (!(raw refused("\\x{}", PatternErrorKind.BadHexEscape, 0i64, 4i64, 125u32)))             { pass 6i32; }
+    if (!(raw refused("\\x{41", PatternErrorKind.BadHexEscape, 0i64, 5i64, NOT_A_CODEPOINT)))    { pass 7i32; }
+    if (!(raw refused("\\x{4G}", PatternErrorKind.BadHexEscape, 0i64, 5i64, 71u32)))            { pass 8i32; }
+    if (!(raw refused("\\x{4 1}", PatternErrorKind.BadHexEscape, 0i64, 5i64, 32u32)))           { pass 9i32; }
+    if (!(raw refused("\\xé", PatternErrorKind.BadHexEscape, 0i64, 4i64, 233u32)))              { pass 10i32; }
+    if (!(raw refused("a\\x41\\x", PatternErrorKind.BadHexEscape, 5i64, 2i64, NOT_A_CODEPOINT))) { pass 11i32; }
+    if (!(raw refused("[\\x]", PatternErrorKind.BadHexEscape, 1i64, 3i64, 93u32)))              { pass 12i32; }
+    if (!(raw refused("[a-\\x4]", PatternErrorKind.BadHexEscape, 3i64, 4i64, 93u32)))           { pass 13i32; }
+    // `\u` and four hex digits, `\U` and eight -- never braces
+    if (!(raw refused("\\u", PatternErrorKind.BadUnicodeEscape, 0i64, 2i64, NOT_A_CODEPOINT)))   { pass 14i32; }
+    if (!(raw refused("\\u004", PatternErrorKind.BadUnicodeEscape, 0i64, 5i64, NOT_A_CODEPOINT))) { pass 15i32; }
+    if (!(raw refused("\\u{41}", PatternErrorKind.BadUnicodeEscape, 0i64, 3i64, 123u32)))       { pass 16i32; }
+    if (!(raw refused("\\U0001F60", PatternErrorKind.BadUnicodeEscape, 0i64, 9i64, NOT_A_CODEPOINT))) { pass 17i32; }
+    if (!(raw refused("\\U1F600", PatternErrorKind.BadUnicodeEscape, 0i64, 7i64, NOT_A_CODEPOINT))) { pass 18i32; }
+    if (!(raw refused("\\u00G0", PatternErrorKind.BadUnicodeEscape, 0i64, 5i64, 71u32)))        { pass 19i32; }
+    if (!(raw refused("[\\u004]", PatternErrorKind.BadUnicodeEscape, 1i64, 6i64, 93u32)))       { pass 20i32; }
+    // a value that is no codepoint: a surrogate, or past U+10FFFF -- spanning the escape
+    if (!(raw refused("\\x{D800}", PatternErrorKind.InvalidCodepoint, 0i64, 8i64, 55296u32)))   { pass 21i32; }
+    if (!(raw refused("\\x{DFFF}", PatternErrorKind.InvalidCodepoint, 0i64, 8i64, 57343u32)))   { pass 22i32; }
+    if (!(raw refused("\\x{110000}", PatternErrorKind.InvalidCodepoint, 0i64, 10i64, NOT_A_CODEPOINT))) { pass 23i32; }
+    if (!(raw refused("\\x{FFFFFFFFFFFFFFFFFFFF}", PatternErrorKind.InvalidCodepoint, 0i64, 24i64, NOT_A_CODEPOINT))) { pass 24i32; }
+    if (!(raw refused("\\x{0000000000110000}", PatternErrorKind.InvalidCodepoint, 0i64, 20i64, NOT_A_CODEPOINT))) { pass 25i32; }
+    if (!(raw refused("\\uD800", PatternErrorKind.InvalidCodepoint, 0i64, 6i64, 55296u32)))     { pass 26i32; }
+    if (!(raw refused("\\uDBFF\\uDC00", PatternErrorKind.InvalidCodepoint, 0i64, 6i64, 56319u32))) { pass 27i32; }
+    if (!(raw refused("\\U00110000", PatternErrorKind.InvalidCodepoint, 0i64, 10i64, NOT_A_CODEPOINT))) { pass 28i32; }
+    if (!(raw refused("\\U0000DFFF", PatternErrorKind.InvalidCodepoint, 0i64, 10i64, 57343u32))) { pass 29i32; }
+    if (!(raw refused("[\\x{D800}]", PatternErrorKind.InvalidCodepoint, 1i64, 8i64, 55296u32))) { pass 30i32; }
+    if (!(raw refused("[a-\\uDFFF]", PatternErrorKind.InvalidCodepoint, 3i64, 6i64, 57343u32))) { pass 31i32; }
+    // a `\` before a letter that names nothing is never the letter (Y-2): every unassigned one
+    if (!(raw unknown("\\c", 99u32)))  { pass 32i32; }
+    if (!(raw unknown("\\g", 103u32))) { pass 33i32; }
+    if (!(raw unknown("\\h", 104u32))) { pass 34i32; }
+    if (!(raw unknown("\\i", 105u32))) { pass 35i32; }
+    if (!(raw unknown("\\j", 106u32))) { pass 36i32; }
+    if (!(raw unknown("\\l", 108u32))) { pass 37i32; }
+    if (!(raw unknown("\\m", 109u32))) { pass 38i32; }
+    if (!(raw unknown("\\o", 111u32))) { pass 39i32; }
+    if (!(raw unknown("\\q", 113u32))) { pass 40i32; }
+    if (!(raw unknown("\\y", 121u32))) { pass 41i32; }
+    if (!(raw unknown("\\C", 67u32)))  { pass 42i32; }
+    if (!(raw unknown("\\F", 70u32)))  { pass 43i32; }
+    if (!(raw unknown("\\H", 72u32)))  { pass 44i32; }
+    if (!(raw unknown("\\I", 73u32)))  { pass 45i32; }
+    if (!(raw unknown("\\J", 74u32)))  { pass 46i32; }
+    if (!(raw unknown("\\K", 75u32)))  { pass 47i32; }
+    if (!(raw unknown("\\L", 76u32)))  { pass 48i32; }
+    if (!(raw unknown("\\M", 77u32)))  { pass 49i32; }
+    if (!(raw unknown("\\N", 78u32)))  { pass 50i32; }
+    if (!(raw unknown("\\O", 79u32)))  { pass 51i32; }
+    if (!(raw unknown("\\R", 82u32)))  { pass 52i32; }
+    if (!(raw unknown("\\T", 84u32)))  { pass 53i32; }
+    if (!(raw unknown("\\V", 86u32)))  { pass 54i32; }
+    if (!(raw unknown("\\X", 88u32)))  { pass 55i32; }
+    if (!(raw unknown("\\Y", 89u32)))  { pass 56i32; }
+    if (!(raw refused("[\\q]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 113u32)))           { pass 57i32; }
+    if (!(raw refused("[a-\\q]", PatternErrorKind.UnknownEscape, 3i64, 2i64, 113u32)))         { pass 58i32; }
+    // `\0` before a digit, which begins an octal escape elsewhere: the three bytes, detail `0`
+    if (!(raw refused("\\01", PatternErrorKind.UnknownEscape, 0i64, 3i64, 48u32)))             { pass 59i32; }
+    if (!(raw refused("a\\012", PatternErrorKind.UnknownEscape, 1i64, 3i64, 48u32)))           { pass 60i32; }
+    if (!(raw refused("\\08", PatternErrorKind.UnknownEscape, 0i64, 3i64, 48u32)))             { pass 61i32; }
+    if (!(raw refused("[\\00]", PatternErrorKind.UnknownEscape, 1i64, 3i64, 48u32)))           { pass 62i32; }
+    // a `\` before a codepoint past ASCII escapes nothing: spanning it, detail the codepoint
+    if (!(raw refused("\\é", PatternErrorKind.UnknownEscape, 0i64, 3i64, 233u32)))             { pass 63i32; }
+    if (!(raw refused("\\😀", PatternErrorKind.UnknownEscape, 0i64, 5i64, 128512u32)))         { pass 64i32; }
+    if (!(raw refused("[\\€]", PatternErrorKind.UnknownEscape, 1i64, 4i64, 8364u32)))          { pass 65i32; }
+    // an anchor in a class, which holds codepoints and no position
+    if (!(raw refused("[\\b]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 98u32)))            { pass 66i32; }
+    if (!(raw refused("[\\B]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 66u32)))            { pass 67i32; }
+    if (!(raw refused("[\\A]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 65u32)))            { pass 68i32; }
+    if (!(raw refused("[\\z]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 122u32)))           { pass 69i32; }
+    if (!(raw refused("[a-\\b]", PatternErrorKind.UnknownEscape, 3i64, 2i64, 98u32)))          { pass 70i32; }
+    // the first refusal wins, left to right
+    if (!(raw refused("\\x{D800}\\q", PatternErrorKind.InvalidCodepoint, 0i64, 8i64, 55296u32))) { pass 71i32; }
+    if (!(raw refused("\\q\\x{D800}", PatternErrorKind.UnknownEscape, 0i64, 2i64, 113u32)))     { pass 72i32; }
+    if (!(raw refused("[\\x{110000}", PatternErrorKind.InvalidCodepoint, 1i64, 10i64, NOT_A_CODEPOINT))) { pass 73i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:r = raw run();
+    exit r;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

@@ -5081,3 +5081,49 @@ nearest value no codepoint takes, and the one a value past U+10FFFF needs, so on
 **the length to tell them apart** — measured, both are one byte; **a kind of its own for an unfinished name** — a
 kind per sentinel, where one constant serves every kind with a codepoint for a detail; **a NUL refused before the
 name is read** — the name's rule refuses it already, and what was wrong was the field.
+
+### RX-204 — every escape of §1 is read — a codepoint, a class, an anchor, or a refusal saying what to write — in a class and out
+
+**2026-10-01, cycle 0.1.4 (the plan's PD-48), at compiler `5fbaf4a`** — `SYNTAX.md` Y-40, with Y-2, Y-27, Y-28 and Y-36;
+per `meta/research/escape-flag-syntax-reference-engines.md`, as of 2026-10-01. It completes RX-186 for escapes, whose
+provisional `UnknownEscape` it replaces — all but §8's, which cycle 0.1.5 refuses by their own kinds.
+
+**What chose the rules.** §1 lists what an escape may be. It does not say what ends one, what an escape the pattern
+ends inside is, or what a `\` before a space or a codepoint past ASCII means. Measured in Rust's `regex` 1.13.1, Perl
+5.38.2, Python 3.12.3, Java 21.0.12.1, node 24.21.0 and PCRE2 10.42 (through GNU `grep -P`): where Rust and the
+backtracking engines agree, this library reads the shape so — `\x41` and `\x{1F600}`, `\u0041`, `\U0001F600`, the
+control escapes, `\ ` a space. Where they disagree it refuses, saying what to write: `\0` before a digit, an octal
+escape in Perl, PCRE, Python and Java, refused by Rust, and U+0000 and the digit if §1 were read as written; `\x4`,
+U+0004 in Perl and PCRE, refused by Rust, Python and Java; `[\b]`, a backspace in Perl, Python, PCRE and node,
+refused by Rust and Java; `\uD83D\uDE00`, one codepoint in Java and node, two lone surrogates in Python, refused by
+Rust; `\é`, `é` in Perl and Python, refused by Rust. `\e` and `\0`, which Rust refuses, are §1's, and read as Perl,
+PCRE and Python read them; `\u{41}`, Rust's and node's second spelling of `\x{41}`, is refused naming the first.
+
+**The decision.** Y-40, rule by rule. An escape naming a codepoint is a `Literal` spanning the escape, and in a class
+a member, which a `-` may make either end of a range; `\A`, `\z`, `\b` and `\B` are anchors outside a class, and in
+one `UnknownEscape`, a position a class cannot hold. A `\` before any other letter or digit, or a codepoint past
+ASCII, is `UnknownEscape` — no longer provisional but Y-2's refusal, with a test for each letter no rule assigns:
+`c g h i j l m o q y` and `C F H I J K L M N O R T V X Y`. A `\` before ASCII that is neither a letter nor a digit is
+that byte: Y-2 said punctuation, and every engine measured reads a space, a control and DEL so — Rust's own
+documentation writes a space under `x` as `\ `. The refusals carry the codepoint found, or `NOT_A_CODEPOINT` where
+the pattern ended (RX-203); a value stops growing past U+10FFFF, so `\x{FFFFFFFFFFFFFFFFFFFF}` overflows nothing.
+
+**The text.** Each says what is wrong, at which byte, and what to write instead, held to the letter by
+`tests/unit/pattern_error_text.npk` cases 41–52: an unknown letter says to write the letter, or `\\` for a backslash;
+`\0` before a digit names the hex form, `\x0A` for `\012`; `[\b]` says a class holds codepoints and names `\x08`; a
+bad hex or Unicode escape names the byte found and the forms each escape takes; a surrogate names what the pair
+stands for, `\x{1F600}` for `\uD83D\uDE00`. A codepoint a sentence names is printable ASCII between backticks, or
+`U+` and its hex digits, so no sentence carries a byte a reader cannot see.
+
+**Measured at `5fbaf4a`.** `tests/unit/parse_escapes.npk` and `parse_escape_refusals.npk` pass at −O0 and through
+`opt -O2`, and against the parser before this decision each exits 1; each rule broken in a copy exits as the plan's
+§1.10 records — at its case, or, with the stop past U+10FFFF removed, by the `IntOverflow` trap twenty hex digits make.
+
+*Alternatives declined:* **`\0` and a digit read as octal** — a second way to write a codepoint, which Rust refuses;
+**`\0` and a digit read as U+0000 and the digit, §1 as written** — `\012` would match U+0000, `1`, `2` where five
+engines match a line feed, silently; **`\0` refused altogether, as Rust refuses it** — §1 names it, and Perl, PCRE,
+Python and node read it as U+0000; **`\u{…}` and `\U{…}` accepted** — two spellings for `\x{…}`, Y-7's reasoning, so
+refused naming the one; **`[\b]` as a backspace** — one spelling meaning two things by where it stands, and Rust and
+Java refuse it; **a `\` before a space or a control refused, Y-2 as written** — every engine measured reads the byte,
+and it is how a space is written under `x`; **`\x` and one hex digit** — Rust, Python and Java refuse it; **a UTF-16
+pair of `\u` escapes joined, as Java and node join it** — Rust refuses each half, and Python reads two lone surrogates.

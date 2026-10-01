@@ -131,6 +131,19 @@ func:run = int32() never fails {
         if (!(raw has(s, " at byte 7"))) { pass 40i32; }
         k = k + 1i64;
     }
+    // cycle 0.1.4's escapes (Y-40), each sentence to the letter
+    if (!(raw says("\\q", "unknown escape at byte 0: `\\q` is not an escape nregex defines, and a `\\` before a letter or a digit never stands for that letter or digit. Write `q` to match it, or `\\\\` to match a backslash."))) { pass 41i32; }
+    if (!(raw says("a\\012", "unknown escape at byte 1: `\\0` before a digit begins an octal escape in Perl, PCRE, Python and Java, and nregex reads no octal. Write the codepoint in hex instead, as in `\\x0A` for `\\012`, or `\\x00` and then the digit for a NUL and a digit."))) { pass 42i32; }
+    if (!(raw says("[\\b]", "unknown escape at byte 1: `\\b` is a word boundary, a position, and a class holds codepoints. Move it out of the class, or write `\\x08` to match a backspace, as Perl and Python read `[\\b]`."))) { pass 43i32; }
+    if (!(raw says("[\\A]", "unknown escape at byte 1: `\\A` matches a position, and a class holds codepoints. Move it out of the class."))) { pass 44i32; }
+    if (!(raw says("\\é", "unknown escape at byte 0: a `\\` before a codepoint past ASCII escapes nothing. Write `é` without it."))) { pass 45i32; }
+    if (!(raw says("\\x4g", "bad hex escape at byte 0: `g` is not a hex digit. `\\x` takes exactly two hex digits, as in `\\x41`, or one or more in braces, as in `\\x{1F600}`."))) { pass 46i32; }
+    if (!(raw says("\\x{41", "bad hex escape at byte 0: the pattern ends inside it. `\\x` takes exactly two hex digits, as in `\\x41`, or one or more in braces, as in `\\x{1F600}`."))) { pass 47i32; }
+    if (!(raw says("\\x{4 1}", "bad hex escape at byte 0: U+0020 is not a hex digit. `\\x` takes exactly two hex digits, as in `\\x41`, or one or more in braces, as in `\\x{1F600}`."))) { pass 48i32; }
+    if (!(raw says("\\u{41}", "bad Unicode escape at byte 0: `{` is not a hex digit. `\\u` takes exactly four hex digits, as in `\\u00E9`, and `\\U` exactly eight, as in `\\U0001F600`; a codepoint in braces is `\\x{1F600}`."))) { pass 49i32; }
+    if (!(raw says("\\u004", "bad Unicode escape at byte 0: the pattern ends inside it. `\\u` takes exactly four hex digits, as in `\\u00E9`, and `\\U` exactly eight, as in `\\U0001F600`; a codepoint in braces is `\\x{1F600}`."))) { pass 50i32; }
+    if (!(raw says("\\uD83D\\uDE00", "invalid codepoint at byte 0: U+D83D is a surrogate, half of a UTF-16 pair, and UTF-8 has no form for it. Write the codepoint the pair stands for, as in `\\x{1F600}` for `\\uD83D\\uDE00`."))) { pass 51i32; }
+    if (!(raw says("\\x{110000}", "invalid codepoint at byte 0: the escape names a value past U+10FFFF, the last codepoint. Write one from U+0000 to U+10FFFF."))) { pass 52i32; }
     pass 0i32;
 };
 

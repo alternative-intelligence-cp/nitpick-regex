@@ -175,6 +175,70 @@ func:ch = NIL(Bytes->:b, uint32:d) never fails {
     pass NIL;
 };
 
+// ---- codepoints in a sentence (RX-204) -------------------------------------------
+
+// The first codepoint UTF-8 writes in two bytes, in three, in four (RFC 3629 §3).
+fixed int64:UTF8_TWO = 128i64;
+fixed int64:UTF8_THREE = 2048i64;
+fixed int64:UTF8_FOUR = 65536i64;
+
+// `v` in upper-case hex, at least `min` digits -- a shift and a mask a digit, no division
+// (`SAFETY.md` S-25). `v` is at most U+110000 here, six digits; eight bound the loop.
+func:hex = NIL(Bytes->:b, int64:v, int64:min) never fails {
+    uint8[]:digit = string_bytes("0123456789ABCDEF");
+    int64:n = 1i64;
+    while ((n < 8i64) && ((v >> (4i64 * n)) != 0i64)) decreases 8i64 - n {
+        n = n + 1i64;
+    }
+    if (n < min) { n = min; }
+    while (n > 0i64) decreases n {
+        n = n - 1i64;
+        drop bytes_push(b, digit[(v >> (4i64 * n)) & 15i64]);
+    }
+    pass NIL;
+};
+
+// How many bytes UTF-8 writes the codepoint `cp` in.
+func:utf8_count = int64(int64:cp) never fails {
+    if (cp < UTF8_TWO) { pass 1i64; }
+    if (cp < UTF8_THREE) { pass 2i64; }
+    if (cp < UTF8_FOUR) { pass 3i64; }
+    pass 4i64;
+};
+
+// The `k`th byte, from 0, of the codepoint `cp` in UTF-8.
+func:utf8_at = int64(int64:cp, int64:k) never fails {
+    int64:n = raw utf8_count(cp);
+    if (n == 1i64) { pass cp; }
+    if (k > 0i64) { pass 128i64 | ((cp >> (6i64 * (n - 1i64 - k))) & 63i64); }
+    if (n == 2i64) { pass 192i64 | (cp >> 6i64); }
+    if (n == 3i64) { pass 224i64 | (cp >> 12i64); }
+    pass 240i64 | (cp >> 18i64);
+};
+
+// The codepoint `cp`, written as itself.
+func:utf8 = NIL(Bytes->:b, int64:cp) never fails {
+    int64:k = 0i64;
+    int64:n = raw utf8_count(cp);
+    while (k < n) decreases n - k {
+        drop bytes_push(b, (raw utf8_at(cp, k)) =>! uint8);
+        k = k + 1i64;
+    }
+    pass NIL;
+};
+
+// The codepoint a sentence names: printable ASCII as itself between backticks, and a space, a
+// control, a backtick or anything past ASCII as `U+` and four or more hex digits, so no sentence
+// carries a byte a reader cannot see.
+func:shown = NIL(Bytes->:b, uint32:d) never fails {
+    if ((d > 32u32) && (d < 127u32) && (d != 96u32)) {
+        drop put(b, "`"); drop bytes_push(b, d =>! uint8); drop put(b, "`");
+        pass NIL;
+    }
+    drop put(b, "U+"); drop hex(b, d => int64, 4i64);
+    pass NIL;
+};
+
 // obligation: never fails
 //
 // WHAT IS WRONG, WHERE, AND WHAT TO WRITE INSTEAD (Y-34). One sentence naming the
@@ -320,20 +384,47 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
         },
         (PatternErrorKind.UnknownEscape) {
             drop put(@b, "unknown escape at byte "); drop num(@b, e.offset);
-            drop put(@b, ": a `\\` before a letter, a digit or a non-ASCII character must be an escape nregex defines. Write `\\\\` to match a backslash.");
+            if (e.detail == 48u32) {
+                drop put(@b, ": `\\0` before a digit begins an octal escape in Perl, PCRE, Python and Java, and nregex reads no octal. Write the codepoint in hex instead, as in `\\x0A` for `\\012`, or `\\x00` and then the digit for a NUL and a digit.");
+            }
+            else if (e.detail == 98u32) {
+                drop put(@b, ": `\\b` is a word boundary, a position, and a class holds codepoints. Move it out of the class, or write `\\x08` to match a backspace, as Perl and Python read `[\\b]`.");
+            }
+            else if ((e.detail == 66u32) || (e.detail == 65u32) || (e.detail == 122u32)) {
+                drop put(@b, ": `\\"); drop ch(@b, e.detail);
+                drop put(@b, "` matches a position, and a class holds codepoints. Move it out of the class.");
+            }
+            else if (e.detail >= 128u32) {
+                drop put(@b, ": a `\\` before a codepoint past ASCII escapes nothing. Write `");
+                drop utf8(@b, e.detail => int64); drop put(@b, "` without it.");
+            }
+            else {
+                drop put(@b, ": `\\"); drop ch(@b, e.detail);
+                drop put(@b, "` is not an escape nregex defines, and a `\\` before a letter or a digit never stands for that letter or digit. Write `");
+                drop ch(@b, e.detail); drop put(@b, "` to match it, or `\\\\` to match a backslash.");
+            }
         },
         (PatternErrorKind.BadHexEscape) {
             drop put(@b, "bad hex escape at byte "); drop num(@b, e.offset);
-            drop put(@b, ": `\\x` takes two hex digits, or hex digits in braces, `\\x{...}`.");
+            if (e.detail == NOT_A_CODEPOINT) { drop put(@b, ": the pattern ends inside it."); }
+            else { drop put(@b, ": "); drop shown(@b, e.detail); drop put(@b, " is not a hex digit."); }
+            drop put(@b, " `\\x` takes exactly two hex digits, as in `\\x41`, or one or more in braces, as in `\\x{1F600}`.");
         },
         (PatternErrorKind.BadUnicodeEscape) {
             drop put(@b, "bad Unicode escape at byte "); drop num(@b, e.offset);
-            drop put(@b, ": `\\u` takes four hex digits and `\\U` eight.");
+            if (e.detail == NOT_A_CODEPOINT) { drop put(@b, ": the pattern ends inside it."); }
+            else { drop put(@b, ": "); drop shown(@b, e.detail); drop put(@b, " is not a hex digit."); }
+            drop put(@b, " `\\u` takes exactly four hex digits, as in `\\u00E9`, and `\\U` exactly eight, as in `\\U0001F600`; a codepoint in braces is `\\x{1F600}`.");
         },
         (PatternErrorKind.InvalidCodepoint) {
             drop put(@b, "invalid codepoint at byte "); drop num(@b, e.offset);
-            drop put(@b, ": "); drop num(@b, e.detail => int64);
-            drop put(@b, " is a surrogate or above U+10FFFF, and names no character.");
+            if (e.detail == NOT_A_CODEPOINT) {
+                drop put(@b, ": the escape names a value past U+10FFFF, the last codepoint. Write one from U+0000 to U+10FFFF.");
+            }
+            else {
+                drop put(@b, ": "); drop shown(@b, e.detail);
+                drop put(@b, " is a surrogate, half of a UTF-16 pair, and UTF-8 has no form for it. Write the codepoint the pair stands for, as in `\\x{1F600}` for `\\uD83D\\uDE00`.");
+            }
         },
         (PatternErrorKind.DuplicateGroupName) {
             drop put(@b, "duplicate group name at byte "); drop num(@b, e.offset);

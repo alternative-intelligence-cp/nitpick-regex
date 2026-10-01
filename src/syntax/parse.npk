@@ -47,6 +47,7 @@ use "./ast.npk".*;
 
 // ---- the bytes the grammar names, as the cursor answers them ---------------
 fixed int32:CH_BANG = 33i32;         // `!`, the first ASCII punctuation
+fixed int32:CH_DEL = 127i32;         // the last ASCII byte (Y-2)
 fixed int32:CH_HASH = 35i32;         // `#`
 fixed int32:CH_DOLLAR = 36i32;       // `$`
 fixed int32:CH_AMP = 38i32;          // `&`
@@ -58,7 +59,6 @@ fixed int32:CH_PLUS = 43i32;         // `+`
 fixed int32:CH_COMMA = 44i32;        // `,`
 fixed int32:CH_MINUS = 45i32;        // `-`
 fixed int32:CH_DOT = 46i32;          // `.`
-fixed int32:CH_SLASH = 47i32;        // `/`, the last punctuation before the digits
 fixed int32:CH_0 = 48i32;
 fixed int32:CH_9 = 57i32;
 fixed int32:CH_COLON = 58i32;        // `:`, the first punctuation after the digits
@@ -66,12 +66,14 @@ fixed int32:CH_LT = 60i32;           // `<`
 fixed int32:CH_EQ = 61i32;           // `=`
 fixed int32:CH_GT = 62i32;           // `>`
 fixed int32:CH_QUESTION = 63i32;     // `?`
-fixed int32:CH_AT = 64i32;           // `@`, the last punctuation before the capitals
 fixed int32:CH_UPPER_A = 65i32;
+fixed int32:CH_UPPER_B = 66i32;      // `\B`, not a word boundary (§6)
 fixed int32:CH_UPPER_D = 68i32;      // `\D`, not a digit (Y-37)
+fixed int32:CH_UPPER_F = 70i32;      // the last capital hex digit
 fixed int32:CH_UPPER_P = 80i32;
 fixed int32:CH_UPPER_R = 82i32;
 fixed int32:CH_UPPER_S = 83i32;      // `\S`, not white space
+fixed int32:CH_UPPER_U = 85i32;      // `\U` and eight hex digits (§1's `Escape`)
 fixed int32:CH_UPPER_W = 87i32;      // `\W`, not a word codepoint
 fixed int32:CH_UPPER_Z = 90i32;
 fixed int32:CH_LBRACKET = 91i32;     // `[`, the first punctuation after the capitals
@@ -79,12 +81,20 @@ fixed int32:CH_BACKSLASH = 92i32;    // `\`
 fixed int32:CH_RBRACKET = 93i32;     // `]`
 fixed int32:CH_CARET = 94i32;        // `^`
 fixed int32:CH_UNDERSCORE = 95i32;   // `_`
-fixed int32:CH_BACKTICK = 96i32;     // the last punctuation before the small letters
-fixed int32:CH_LOWER_A = 97i32;
+fixed int32:CH_LOWER_A = 97i32;      // `\a`, the bell
+fixed int32:CH_LOWER_B = 98i32;      // `\b`, a word boundary (§6)
 fixed int32:CH_LOWER_D = 100i32;     // `\d`, a digit (Y-37)
+fixed int32:CH_LOWER_E = 101i32;     // `\e`, escape
+fixed int32:CH_LOWER_F = 102i32;     // `\f`, form feed; and the last small hex digit
+fixed int32:CH_LOWER_N = 110i32;     // `\n`, line feed
 fixed int32:CH_LOWER_P = 112i32;     // `\p`, a Unicode property (Y-37)
+fixed int32:CH_LOWER_R = 114i32;     // `\r`, carriage return
 fixed int32:CH_LOWER_S = 115i32;     // `\s`, white space
+fixed int32:CH_LOWER_T = 116i32;     // `\t`, tab
+fixed int32:CH_LOWER_U = 117i32;     // `\u` and four hex digits (§1's `Escape`)
+fixed int32:CH_LOWER_V = 118i32;     // `\v`, vertical tab
 fixed int32:CH_LOWER_W = 119i32;     // `\w`, a word codepoint
+fixed int32:CH_LOWER_X = 120i32;     // `\x` and hex digits (§1's `Escape`)
 fixed int32:CH_LOWER_Z = 122i32;
 fixed int32:CH_LBRACE = 123i32;      // `{`, the first punctuation after the small letters
 fixed int32:CH_PIPE = 124i32;        // `|`
@@ -107,6 +117,11 @@ fixed int64:U8_F0_SECOND = 144i64;   // 0x90
 fixed int64:U8_F3 = 243i64;          // 0xF1 … 0xF3: four bytes, any continuation
 fixed int64:U8_F4 = 244i64;          // 0xF4: four bytes, the second 0x80 … 0x8F (no more than U+10FFFF)
 fixed int64:U8_F4_SECOND = 143i64;   // 0x8F
+
+// ---- the codepoints an escape may name (§1's `Escape`; RX-204) ---------------
+fixed int64:CP_SURROGATE_LO = 55296i64;  // U+D800, the first surrogate: half of a UTF-16 pair, no codepoint
+fixed int64:CP_SURROGATE_HI = 57343i64;  // U+DFFF, the last
+fixed int64:CP_MAX = 1114111i64;         // U+10FFFF, the last codepoint
 
 // ---- the class operators and what a class read last (Y-27, Y-36) ------------
 fixed int64:CLASS_AND = 0i64;        // `&&`, Y-27's `ClassOp` code
@@ -141,6 +156,14 @@ struct:GroupName = {
     int64:off;           // the name's first byte in the pattern
     int64:len;           // its length
     int64:cap;           // its group's capture index
+};
+
+// What an escape names, once read (Y-2, §1's `Escape`): whether it names a codepoint, which, and
+// whether it was written `\x` and two hex digits -- which names a byte under `(?-u)` (Y-13).
+struct:Esc = {
+    bool:named;          // the escape names the codepoint `cp`; false for every other escape
+    bool:byte;           // written `\xHH`
+    int64:cp;
 };
 
 // One open class (Y-36): the union of members being read, the operators before it
@@ -207,12 +230,33 @@ func:is_class_letter = bool(int32:b) never fails {
     pass (b == CH_LOWER_P) || (b == CH_UPPER_P);
 };
 
-// ASCII punctuation: `!` … `/`, `:` … `@`, `[` … the backtick, `{` … `~` (Y-2).
-func:is_ascii_punct = bool(int32:b) never fails {
-    if ((b >= CH_BANG) && (b <= CH_SLASH)) { pass true; }
-    if ((b >= CH_COLON) && (b <= CH_AT)) { pass true; }
-    if ((b >= CH_LBRACKET) && (b <= CH_BACKTICK)) { pass true; }
-    pass (b >= CH_LBRACE) && (b <= CH_TILDE);
+// ASCII that is neither a letter nor a digit -- punctuation, a space, a control, DEL -- which a
+// `\` before it writes literally (Y-2, as RX-204 widens it from punctuation alone).
+func:is_literal_escape = bool(int32:b) never fails {
+    if ((b < 0i32) || (b > CH_DEL)) { pass false; }
+    if (raw is_letter(b)) { pass false; }
+    pass !(raw is_digit(b));
+};
+
+// A hex digit's value, or -1 for any other byte -- `CURSOR_END` included.
+func:hex_value = int64(int32:b) never fails {
+    if (raw is_digit(b)) { pass (b - CH_0) => int64; }
+    if ((b >= CH_UPPER_A) && (b <= CH_UPPER_F)) { pass ((b - CH_UPPER_A) => int64) + 10i64; }
+    if ((b >= CH_LOWER_A) && (b <= CH_LOWER_F)) { pass ((b - CH_LOWER_A) => int64) + 10i64; }
+    pass -1i64;
+};
+
+// The codepoint a control escape's letter names -- `\a` bell, `\t` tab, `\n` line feed, `\v`
+// vertical tab, `\f` form feed, `\r` carriage return, `\e` escape (§1's `Escape`) -- or -1.
+func:control_cp = int64(int32:d) never fails {
+    if (d == CH_LOWER_A) { pass 7i64; }
+    if (d == CH_LOWER_T) { pass 9i64; }
+    if (d == CH_LOWER_N) { pass 10i64; }
+    if (d == CH_LOWER_V) { pass 11i64; }
+    if (d == CH_LOWER_F) { pass 12i64; }
+    if (d == CH_LOWER_R) { pass 13i64; }
+    if (d == CH_LOWER_E) { pass 27i64; }
+    pass -1i64;
 };
 
 // The length of the UTF-8 sequence a lead byte begins, in a VALIDATED pattern.
@@ -683,30 +727,177 @@ func:escape_class_node = AstNode(uint8[]:pat, uint32:flags, int64:at, int32:d, i
     pass raw node(AstKind.UnicodeClass, bits, at + 2i64, 1i64, 0i64, at, upto - at);
 };
 
-// `\` read at `at`. ASCII punctuation after it is that punctuation (Y-2); a Perl
-// class or a property is a class, unresolved, here as in a class (Y-37); every other
-// escape is cycle 0.1.4's, and until then provisionally `UnknownEscape` (Y-31).
+// ---- escapes that name a codepoint (Y-2, §1's `Escape`; RX-204) --------------------
+
+// The escape at `at` wanted a hex digit and found another byte: `kind` at the `\`, spanning
+// through that byte, its detail the codepoint it begins -- or, where the pattern ended, spanning
+// what was read, its detail `NOT_A_CODEPOINT` (RX-203).
+func:escape_bad_digit = PatternError?(uint8[]:pat, Parser->:p, PatternErrorKind:kind, int64:at) never fails {
+    int32:b = raw cursor_peek(@p.c);
+    if (b == CURSOR_END) {
+        pass raw pattern_error(kind, at, p.c.pos - at, NOT_A_CODEPOINT);
+    }
+    pass raw pattern_error(kind, at, (p.c.pos - at) + raw utf8_len(b => int64),
+                           raw decode_at(pat, p.c.pos) =>! uint32);
+};
+
+// The value `v` an escape read through `p.c.pos` from its `\` at `at` names: a codepoint, or
+// `InvalidCodepoint` spanning the escape -- its detail a surrogate's value, or `NOT_A_CODEPOINT` for
+// any value past U+10FFFF.
+func:escape_value = PatternError?(Parser->:p, int64:at, Esc->:e, int64:v) never fails {
+    if ((v >= CP_SURROGATE_LO) && (v <= CP_SURROGATE_HI)) {
+        pass raw pattern_error(PatternErrorKind.InvalidCodepoint, at, p.c.pos - at, v =>! uint32);
+    }
+    if (v > CP_MAX) {
+        pass raw pattern_error(PatternErrorKind.InvalidCodepoint, at, p.c.pos - at, NOT_A_CODEPOINT);
+    }
+    e.named = true;
+    e.cp = v;
+    pass NIL;
+};
+
+// `\x` read, its `\` at `at`: exactly two hex digits, a codepoint up to U+00FF that under `(?-u)`
+// is a byte (Y-13) -- or one or more in braces, `\x{1F600}`, any codepoint. The value stops growing
+// once it passes U+10FFFF, so no run of digits overflows, as `digits` stops (RX-184).
+func:hex_escape = PatternError?(uint8[]:pat, Parser->:p, int64:at, Esc->:e) never fails {
+    int64:v = 0i64;
+    if (raw cursor_eat(@p.c, CH_LBRACE =>! uint8)) {
+        int64:n = 0i64;
+        while ((raw hex_value(raw cursor_peek(@p.c))) >= 0i64) decreases pat.len - p.c.pos {
+            int64:h = raw hex_value(raw cursor_bump(@p.c));
+            if (v <= CP_MAX) { v = (v * 16i64) + h; }
+            n = n + 1i64;
+        }
+        if ((n == 0i64) || !(raw cursor_eat(@p.c, CH_RBRACE =>! uint8))) {
+            pass raw escape_bad_digit(pat, p, PatternErrorKind.BadHexEscape, at);
+        }
+        pass raw escape_value(p, at, e, v);
+    }
+    int64:k = 0i64;
+    while (k < 2i64) decreases 2i64 - k {
+        int64:h = raw hex_value(raw cursor_peek(@p.c));
+        if (h < 0i64) {
+            pass raw escape_bad_digit(pat, p, PatternErrorKind.BadHexEscape, at);
+        }
+        discard(raw cursor_bump(@p.c));
+        v = (v * 16i64) + h;
+        k = k + 1i64;
+    }
+    e.named = true;
+    e.byte = true;
+    e.cp = v;
+    pass NIL;
+};
+
+// `\u` or `\U` read, its `\` at `at`: exactly `n` hex digits, four or eight (§1) -- a codepoint, not
+// a surrogate and not past U+10FFFF. Braces are `\x{…}`'s: `\u{41}` is a `{` where a digit is due.
+func:unicode_escape = PatternError?(uint8[]:pat, Parser->:p, int64:at, Esc->:e, int64:n) never fails {
+    int64:v = 0i64;
+    int64:k = 0i64;
+    while (k < n) decreases n - k {
+        int64:h = raw hex_value(raw cursor_peek(@p.c));
+        if (h < 0i64) {
+            pass raw escape_bad_digit(pat, p, PatternErrorKind.BadUnicodeEscape, at);
+        }
+        discard(raw cursor_bump(@p.c));
+        if (v <= CP_MAX) { v = (v * 16i64) + h; }
+        k = k + 1i64;
+    }
+    pass raw escape_value(p, at, e, v);
+};
+
+// `\` read at `at`, and the byte after it not yet. If the escape names a codepoint -- `\a \t \n \v
+// \f \r \e`, `\0`, `\x`, `\u`, `\U`, or `\` before ASCII that is neither a letter nor a digit
+// (Y-2) -- it is read and `e` says what it names; any other escape is left unread, `e.named` false,
+// for the caller. `\0` before a digit is `UnknownEscape` at the `\`, spanning the three bytes, its
+// detail `0`: elsewhere it begins an octal escape, and nregex reads none (RX-204).
+func:escape_cp = PatternError?(uint8[]:pat, Parser->:p, int64:at, Esc->:e) never fails {
+    e.named = false;
+    e.byte = false;
+    e.cp = 0i64;
+    int32:d = raw cursor_peek(@p.c);
+    int64:c = raw control_cp(d);
+    if (c >= 0i64) {
+        discard(raw cursor_bump(@p.c));
+        e.named = true;
+        e.cp = c;
+        pass NIL;
+    }
+    if (d == CH_0) {
+        discard(raw cursor_bump(@p.c));
+        if (raw is_digit(raw cursor_peek(@p.c))) {
+            pass raw pattern_error(PatternErrorKind.UnknownEscape, at, 3i64, CH_0 =>! uint32);
+        }
+        e.named = true;
+        pass NIL;
+    }
+    if (d == CH_LOWER_X) {
+        discard(raw cursor_bump(@p.c));
+        pass raw hex_escape(pat, p, at, e);
+    }
+    if ((d == CH_LOWER_U) || (d == CH_UPPER_U)) {
+        discard(raw cursor_bump(@p.c));
+        int64:n = 4i64;
+        if (d == CH_UPPER_U) { n = 8i64; }
+        pass raw unicode_escape(pat, p, at, e, n);
+    }
+    if (raw is_literal_escape(d)) {
+        discard(raw cursor_bump(@p.c));
+        e.named = true;
+        e.cp = d => int64;
+        pass NIL;
+    }
+    pass NIL;
+};
+
+// `UnknownEscape` for the `\` at `at`: spanning it and the codepoint after it, its detail that
+// codepoint (Y-2, Y-31).
+func:unknown_escape = PatternError?(uint8[]:pat, int64:at) never fails {
+    pass raw pattern_error(PatternErrorKind.UnknownEscape, at, 1i64 + raw utf8_len(pat[at + 1i64] => int64),
+                           raw decode_at(pat, at + 1i64) =>! uint32);
+};
+
+// `\` read at `at`, outside a class. An escape naming a codepoint is a `Literal` spanning it (Y-2, §1's
+// `Escape`); a Perl class or a property is a class, unresolved, here as in a class (Y-37); `\A` and `\z`
+// are anchors 2 and 3, and `\b` and `\B` word boundaries 0 and 1 (§1's `Anchor`, Y-27); and a `\`
+// before any other letter or digit, or before a non-ASCII codepoint, is `UnknownEscape` (RX-204) --
+// §8's escapes among them, until cycle 0.1.5 refuses each by its own kind (Y-30).
 func:escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:at) never fails {
     int32:d = raw cursor_peek(@p.c);
     if (d == CURSOR_END) {
         pass raw pattern_error(PatternErrorKind.TrailingBackslash, at, 1i64, 0u32);
     }
-    if (raw is_ascii_punct(d)) {
-        discard(raw cursor_bump(@p.c));
-        drop atom(out, @p.f, AstKind.Literal, d => int64, at, 2i64);
+    Esc:e = Esc{ named: false, byte: false, cp: 0i64 };
+    PatternError?:bad = raw escape_cp(pat, p, at, @e);
+    if (bad != NIL) { pass bad; }
+    if (e.named) {
+        drop atom(out, @p.f, AstKind.Literal, e.cp, at, p.c.pos - at);
         pass NIL;
     }
     if (raw is_class_letter(d)) {
         discard(raw cursor_bump(@p.c));
         if ((d == CH_LOWER_P) || (d == CH_UPPER_P)) {
-            PatternError?:bad = raw read_property(p, at);
-            if (bad != NIL) { pass bad; }
+            PatternError?:prop = raw read_property(p, at);
+            if (prop != NIL) { pass prop; }
         }
         drop atom_node(out, @p.f, raw escape_class_node(pat, p.f.flags, at, d, p.c.pos));
         pass NIL;
     }
-    pass raw pattern_error(PatternErrorKind.UnknownEscape, at, 1i64 + raw utf8_len(d => int64),
-                           raw decode_at(pat, at + 1i64) =>! uint32);
+    if ((d == CH_UPPER_A) || (d == CH_LOWER_Z)) {
+        discard(raw cursor_bump(@p.c));
+        int64:k = 2i64;
+        if (d == CH_LOWER_Z) { k = 3i64; }
+        drop atom(out, @p.f, AstKind.Anchor, k, at, 2i64);
+        pass NIL;
+    }
+    if ((d == CH_LOWER_B) || (d == CH_UPPER_B)) {
+        discard(raw cursor_bump(@p.c));
+        int64:k = 0i64;
+        if (d == CH_UPPER_B) { k = 1i64; }
+        drop atom(out, @p.f, AstKind.WordBoundary, k, at, 2i64);
+        pass NIL;
+    }
+    pass raw unknown_escape(pat, at);
 };
 
 // A literal whose first byte `lead` was read at `at`: one codepoint, decoded.
@@ -838,31 +1029,33 @@ func:class_close = PatternError?(Ast->:out, ClassFrame->:cf, uint32:flags, int64
     pass NIL;
 };
 
-// `\` read at `at` inside a class: ASCII punctuation is that codepoint (Y-2); a Perl
-// class or a property is a class member; any other escape is cycle 0.1.4's, and until
-// then provisionally `UnknownEscape` (Y-31).
+// `\` read at `at` inside a class: an escape naming a codepoint is a member, which a `-` may make a
+// range's first end (Y-36, RX-204); a Perl class or a property is a class member (Y-37); every other
+// escape is `UnknownEscape` -- `\b`, `\B`, `\A` and `\z` too, since a class holds codepoints and they
+// name positions.
 func:class_escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame->:cf, int64:at) never fails {
     int32:d = raw cursor_peek(@p.c);
     if (d == CURSOR_END) {
         pass raw pattern_error(PatternErrorKind.TrailingBackslash, at, 1i64, 0u32);
     }
-    if (raw is_ascii_punct(d)) {
-        discard(raw cursor_bump(@p.c));
-        drop class_one(out, cf, p.f.flags, d => int64, at, 2i64);
+    Esc:e = Esc{ named: false, byte: false, cp: 0i64 };
+    PatternError?:bad = raw escape_cp(pat, p, at, @e);
+    if (bad != NIL) { pass bad; }
+    if (e.named) {
+        drop class_one(out, cf, p.f.flags, e.cp, at, p.c.pos - at);
         pass NIL;
     }
     if (raw is_class_letter(d)) {
         discard(raw cursor_bump(@p.c));
         if ((d == CH_LOWER_P) || (d == CH_UPPER_P)) {
-            PatternError?:bad = raw read_property(p, at);
-            if (bad != NIL) { pass bad; }
+            PatternError?:prop = raw read_property(p, at);
+            if (prop != NIL) { pass prop; }
         }
         int64:n = raw ast_push(out, raw escape_class_node(pat, p.f.flags, at, d, p.c.pos));
         drop class_add(out, cf, n, at, p.c.pos, AFTER_CLASS);
         pass NIL;
     }
-    pass raw pattern_error(PatternErrorKind.UnknownEscape, at, 1i64 + raw utf8_len(d => int64),
-                           raw decode_at(pat, at + 1i64) =>! uint32);
+    pass raw unknown_escape(pat, at);
 };
 
 // Does the pattern hold `want` at `off`, `len` bytes long?
@@ -917,7 +1110,7 @@ func:posix_class = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame-
 
 // The `-` just read joins the member before it -- one codepoint, the frame's last --
 // to the one after it, which the caller has seen is there and is no `]` (Y-36): a
-// codepoint or an escaped punctuation, not below the first (`BadClassRange`, detail 0);
+// codepoint or an escape naming one (RX-204), not below the first (`BadClassRange`, detail 0);
 // a class there is `BadClassRange`, detail 1. Each spans from the range's first byte
 // through the byte that made it bad.
 func:class_range = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame->:cf) never fails {
@@ -939,12 +1132,11 @@ func:class_range = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame-
             discard(raw cursor_bump(@p.c));
             pass raw pattern_error(PatternErrorKind.BadClassRange, lo.pos, p.c.pos - lo.pos, 1u32);
         }
-        if (!(raw is_ascii_punct(d))) {
-            pass raw pattern_error(PatternErrorKind.UnknownEscape, at, 1i64 + raw utf8_len(d => int64),
-                                   raw decode_at(pat, at + 1i64) =>! uint32);
-        }
-        discard(raw cursor_bump(@p.c));
-        hi = d => int64;
+        Esc:e = Esc{ named: false, byte: false, cp: 0i64 };
+        PatternError?:bad = raw escape_cp(pat, p, at, @e);
+        if (bad != NIL) { pass bad; }
+        if (!e.named) { pass raw unknown_escape(pat, at); }
+        hi = e.cp;
     }
     else {
         int64:n = raw utf8_len(b => int64);

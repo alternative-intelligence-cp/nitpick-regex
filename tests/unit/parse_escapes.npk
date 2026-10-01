@@ -1,0 +1,286 @@
+// expect-exit: 0
+//
+// ESCAPES, ACCEPTED: EVERY ESCAPE CYCLE 0.1.4 READS, AS THE TREE IT BUILDS (`SYNTAX.md` §1's
+// `Escape` and `Anchor`, Y-2, Y-27; RX-204) -- outside a class, where an escape naming a codepoint
+// is a `Literal` spanning it and `\A`, `\z`, `\b` and `\B` are anchors (1-48), and inside one, where
+// it is a member and may end a range or begin one (50-62). Each boundary is taken from both sides:
+// U+D7FF and U+E000 beside the surrogates, U+10FFFF the last codepoint, `\0` before a letter.
+//
+// Each case parses one pattern through `syntax.npk`'s re-exports and writes the tree back as
+// text, in `parse_classes`' forms -- `'a'` a codepoint in printable ASCII and `#233` any other,
+// `(cls …)` a class and `'a'-'z'` a range -- with `^`, `$`, `\A`, `\z`, `\b` and `\B` for the
+// anchors. The span form adds `@pos+len` after each head. The dump checks what the text cannot
+// show: a list's length and its last `next`, a held node in no list, a class holding only member
+// kinds, and every node's flags `AST_FLAG_U` (plus `AST_FLAG_LAZY` on a lazy `Repeat`). A case that
+// differs exits with its number.
+//
+// THE DUMP RECURSES; the parser does not. `check_no_recursion` reads `src/` and not `tests/`
+// (RX-192).
+mod:parse_escapes;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+
+func:put = NIL(Bytes->:b, string:s) never fails {
+    drop bytes_extend_str(b, s);
+    pass NIL;
+};
+
+func:num = NIL(Bytes->:b, int64:n) never fails {
+    drop bytes_put_uint(b, n =>! uint64);
+    pass NIL;
+};
+
+func:span = NIL(Bytes->:b, AstNode:n, bool:spans) never fails {
+    if (!spans) { pass NIL; }
+    drop put(b, "@"); drop num(b, n.pos); drop put(b, "+"); drop num(b, n.len);
+    pass NIL;
+};
+
+func:cp = NIL(Bytes->:b, int64:c) never fails {
+    if ((c > 32i64) && (c < 127i64)) {
+        drop put(b, "'"); drop bytes_push(b, c =>! uint8); drop put(b, "'");
+    }
+    else { drop put(b, "#"); drop num(b, c); }
+    pass NIL;
+};
+
+func:negatable = bool(AstKind:k) never fails {
+    if ((k == AstKind.Class) || (k == AstKind.PerlClass)) { pass true; }
+    pass (k == AstKind.PosixClass) || (k == AstKind.UnicodeClass);
+};
+
+func:member = bool(AstKind:k) never fails {
+    if (raw negatable(k)) { pass true; }
+    pass (k == AstKind.ClassRange) || (k == AstKind.ClassOp);
+};
+
+// A node's list: `count` members from `first`, each dumped after a space.
+func:list = NIL(uint8[]:pat, Ast:t, int64:first, int64:count, Bytes->:b, bool:spans, bool:inclass) never fails {
+    int64:k = 0i64;
+    int64:m = first;
+    while (k < count) decreases count - k {
+        drop put(b, " ");
+        if (m == AST_NONE) { drop put(b, "!short"); k = count; }
+        else {
+            AstNode:x = raw ast_get(t, m);
+            if (inclass && !(raw member(x.kind))) { drop put(b, "!kind"); }
+            drop dump(pat, t, m, b, spans);
+            m = x.next;
+            k = k + 1i64;
+        }
+    }
+    if (m != AST_NONE) { drop put(b, " !long"); }
+    pass NIL;
+};
+
+// A node an operator or a `Repeat` holds, which no list holds.
+func:held = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
+    drop put(b, " ");
+    AstNode:x = raw ast_get(t, i);
+    if (x.next != AST_NONE) { drop put(b, "!next"); }
+    drop dump(pat, t, i, b, spans);
+    pass NIL;
+};
+
+func:dump = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
+    AstNode:n = raw ast_get(t, i);
+    uint32:want = AST_FLAG_U;
+    if ((n.kind == AstKind.Repeat) && (n.flags == AST_FLAG_U + AST_FLAG_LAZY)) { want = n.flags; }
+    if ((raw negatable(n.kind)) && (n.flags == AST_FLAG_U + AST_FLAG_NEGATED)) { want = n.flags; }
+    if (n.flags != want) { drop put(b, "!flags"); }
+    bool:neg = n.flags == AST_FLAG_U + AST_FLAG_NEGATED;
+    if (n.kind == AstKind.Literal) { drop cp(b, n.a); drop span(b, n, spans); }
+    else if (n.kind == AstKind.Anchor) {
+        if (n.a == 0i64) { drop put(b, "^"); }
+        else if (n.a == 1i64) { drop put(b, "$"); }
+        else if (n.a == 2i64) { drop put(b, "\\A"); }
+        else if (n.a == 3i64) { drop put(b, "\\z"); }
+        else { drop put(b, "!anchor"); }
+        drop span(b, n, spans);
+    }
+    else if (n.kind == AstKind.WordBoundary) {
+        if (n.a == 0i64) { drop put(b, "\\b"); }
+        else if (n.a == 1i64) { drop put(b, "\\B"); }
+        else { drop put(b, "!boundary"); }
+        drop span(b, n, spans);
+    }
+    else if (n.kind == AstKind.ClassRange) {
+        drop cp(b, n.a);
+        if (n.b != n.a) { drop put(b, "-"); drop cp(b, n.b); }
+        drop span(b, n, spans);
+    }
+    else if (n.kind == AstKind.PerlClass) {
+        if (n.a == 0i64) { if (neg) { drop put(b, "\\D"); } else { drop put(b, "\\d"); } }
+        else if (n.a == 1i64) { if (neg) { drop put(b, "\\W"); } else { drop put(b, "\\w"); } }
+        else if (n.a == 2i64) { if (neg) { drop put(b, "\\S"); } else { drop put(b, "\\s"); } }
+        else { drop put(b, "!perl"); }
+        drop span(b, n, spans);
+    }
+    else if (n.kind == AstKind.PosixClass) {
+        drop put(b, "[:");
+        if (neg) { drop put(b, "^"); }
+        drop put(b, raw posix_class_name(n.a));
+        drop put(b, ":]");
+        drop span(b, n, spans);
+    }
+    else if (n.kind == AstKind.UnicodeClass) {
+        if (neg) { drop put(b, "\\P{"); } else { drop put(b, "\\p{"); }
+        int64:k = 0i64;
+        while (k < n.b) decreases n.b - k {
+            drop bytes_push(b, pat[n.a + k]);
+            k = k + 1i64;
+        }
+        drop put(b, "}");
+        drop span(b, n, spans);
+    }
+    else if (n.kind == AstKind.Class) {
+        if (neg) { drop put(b, "(cls^"); } else { drop put(b, "(cls"); }
+        drop span(b, n, spans);
+        drop list(pat, t, n.a, n.b, b, spans, true);
+        drop put(b, ")");
+    }
+    else if (n.kind == AstKind.ClassOp) {
+        if (n.c == 0i64) { drop put(b, "(&&"); }
+        else if (n.c == 1i64) { drop put(b, "(--"); }
+        else if (n.c == 2i64) { drop put(b, "(~~"); }
+        else { drop put(b, "(!op"); }
+        drop span(b, n, spans);
+        drop held(pat, t, n.a, b, spans);
+        drop held(pat, t, n.b, b, spans);
+        drop put(b, ")");
+    }
+    else if ((n.kind == AstKind.Concat) || (n.kind == AstKind.Alternate)) {
+        if (n.kind == AstKind.Concat) { drop put(b, "(cat"); } else { drop put(b, "(alt"); }
+        drop span(b, n, spans);
+        drop list(pat, t, n.a, n.b, b, spans, false);
+        drop put(b, ")");
+    }
+    else if (n.kind == AstKind.Repeat) {
+        if (n.flags == AST_FLAG_U + AST_FLAG_LAZY) { drop put(b, "(rep?"); } else { drop put(b, "(rep"); }
+        drop span(b, n, spans);
+        drop put(b, " "); drop num(b, n.b); drop put(b, " ");
+        if (n.c == AST_NONE) { drop put(b, "-"); } else { drop num(b, n.c); }
+        drop held(pat, t, n.a, b, spans);
+        drop put(b, ")");
+    }
+    else if (n.kind == AstKind.Group) {
+        drop put(b, "(grp");
+        drop span(b, n, spans);
+        if (n.b > 0i64) { drop put(b, " "); drop num(b, n.b); }
+        drop held(pat, t, n.a, b, spans);
+        drop put(b, ")");
+    }
+    else { drop put(b, "?"); }
+    pass NIL;
+};
+
+func:same = bool(Bytes->:b, string:want) never fails {
+    uint8[]:w = string_bytes(want);
+    if ((raw bytes_len(b)) != w.len) { pass false; }
+    int64:i = 0i64;
+    while (i < w.len) decreases w.len - i {
+        if ((raw bytes_get(b, i)) != w[i]) { pass false; }
+        i = i + 1i64;
+    }
+    pass true;
+};
+
+// Parses `pattern`, dumps its tree, and compares the text with `want`.
+func:tree = bool(string:pattern, string:want, bool:spans) never fails {
+    uint8[]:pat = string_bytes(pattern);
+    Ast:t = raw ast_init(8i64);
+    PatternError?:e = raw parse_pattern(pat, @t);
+    Bytes:b = raw bytes_init(64i64);
+    if (e != NIL) { drop put(@b, "!refused"); }
+    else {
+        AstNode:r = raw ast_get(t, t.root);
+        if (r.next != AST_NONE) { drop put(@b, "!next"); }
+        drop dump(pat, t, t.root, @b, spans);
+    }
+    drop ast_free(@t);
+    pass raw same(@b, want);
+};
+
+func:run = int32() never fails {
+    // the control escapes, and `\0` (§1's `Escape`)
+    if (!(raw tree("\\n", "#10@0+2", true)))                                  { pass 1i32; }
+    if (!(raw tree("\\r\\t\\f\\v", "(cat #13 #9 #12 #11)", false)))            { pass 2i32; }
+    if (!(raw tree("\\a\\e", "(cat #7 #27)", false)))                          { pass 3i32; }
+    if (!(raw tree("\\0", "#0@0+2", true)))                                   { pass 4i32; }
+    if (!(raw tree("\\0a", "(cat #0 'a')", false)))                           { pass 5i32; }
+    if (!(raw tree("a\\nb", "(cat@0+4 'a'@0+1 #10@1+2 'b'@3+1)", true)))       { pass 6i32; }
+    // `\x` and two hex digits, either case
+    if (!(raw tree("\\x41", "'A'@0+4", true)))                                { pass 10i32; }
+    if (!(raw tree("\\xff\\xFF\\x00", "(cat #255 #255 #0)", false)))           { pass 11i32; }
+    if (!(raw tree("\\x7e", "'~'", false)))                                   { pass 12i32; }
+    // `\x` and hex digits in braces: any codepoint, the last included, leading zeros read
+    if (!(raw tree("\\x{41}", "'A'@0+6", true)))                              { pass 13i32; }
+    if (!(raw tree("\\x{1F600}", "#128512@0+9", true)))                       { pass 14i32; }
+    if (!(raw tree("\\x{10FFFF}", "#1114111", false)))                        { pass 15i32; }
+    if (!(raw tree("\\x{0000000000000041}", "'A'@0+20", true)))               { pass 16i32; }
+    if (!(raw tree("\\x{D7FF}\\x{E000}", "(cat #55295 #57344)", false)))       { pass 17i32; }
+    if (!(raw tree("\\x{0}", "#0", false)))                                   { pass 18i32; }
+    // `\u` and four, `\U` and eight
+    if (!(raw tree("\\u0041", "'A'@0+6", true)))                              { pass 20i32; }
+    if (!(raw tree("\\u00e9\\uFFFF", "(cat #233 #65535)", false)))            { pass 21i32; }
+    if (!(raw tree("\\uD7FF\\uE000", "(cat #55295 #57344)", false)))           { pass 22i32; }
+    if (!(raw tree("\\U0001F600", "#128512@0+10", true)))                     { pass 23i32; }
+    if (!(raw tree("\\U0010FFFF", "#1114111", false)))                        { pass 24i32; }
+    // a `\` before ASCII that is neither a letter nor a digit is that byte (Y-2): punctuation, a
+    // space, a tab, DEL
+    if (!(raw tree("\\#\\'\\@", "(cat '#' ''' '@')", false)))                  { pass 30i32; }
+    if (!(raw tree("\\ ", "#32@0+2", true)))                                  { pass 31i32; }
+    if (!(raw tree("a\\\tb", "(cat 'a' #9 'b')", false)))                     { pass 32i32; }
+    if (!(raw tree("\\\x7f", "#127", false)))                                 { pass 33i32; }
+    // the anchors (§1's `Anchor`, §6) -- each an atom a quantifier may repeat (Y-22)
+    if (!(raw tree("\\A", "\\A@0+2", true)))                                  { pass 40i32; }
+    if (!(raw tree("\\z", "\\z@0+2", true)))                                  { pass 41i32; }
+    if (!(raw tree("\\b", "\\b@0+2", true)))                                  { pass 42i32; }
+    if (!(raw tree("\\B", "\\B@0+2", true)))                                  { pass 43i32; }
+    if (!(raw tree("^\\Aa\\z$", "(cat ^ \\A 'a' \\z $)", false)))             { pass 44i32; }
+    if (!(raw tree("\\bfoo\\B", "(cat \\b 'f' 'o' 'o' \\B)", false)))         { pass 45i32; }
+    if (!(raw tree("\\b*\\A+", "(cat (rep 0 - \\b) (rep 1 - \\A))", false)))   { pass 46i32; }
+    if (!(raw tree("(\\z|\\B)", "(grp 1 (alt \\z \\B))", false)))             { pass 47i32; }
+    if (!(raw tree("\\b{2}", "(rep@0+5 2 2 \\b@0+2)", true)))                 { pass 48i32; }
+    // inside a class: a member, which may end a range or begin one (Y-36)
+    if (!(raw tree("[\\n]", "(cls@0+4 #10@1+2)", true)))                      { pass 50i32; }
+    if (!(raw tree("[\\x41-\\x5A]", "(cls@0+11 'A'-'Z'@1+9)", true)))         { pass 51i32; }
+    if (!(raw tree("[\\x{1F600}-\\x{1F602}]", "(cls #128512-#128514)", false))) { pass 52i32; }
+    if (!(raw tree("[\\t-\\r]", "(cls #9-#13)", false)))                      { pass 53i32; }
+    if (!(raw tree("[a-\\x{63}]", "(cls 'a'-'c')", false)))                   { pass 54i32; }
+    if (!(raw tree("[\\n-a]", "(cls #10-'a')", false)))                       { pass 55i32; }
+    if (!(raw tree("[\\u0041\\e\\0\\ ]", "(cls 'A' #27 #0 #32)", false)))      { pass 56i32; }
+    if (!(raw tree("[\\x{D7FF}\\x{E000}\\U0010FFFF]", "(cls #55295 #57344 #1114111)", false))) { pass 57i32; }
+    if (!(raw tree("[^\\x00-\\x1F]", "(cls^ #0-#31)", false)))                { pass 58i32; }
+    if (!(raw tree("[\\x41-]", "(cls 'A' '-')", false)))                      { pass 59i32; }
+    if (!(raw tree("[\\-\\x2D]", "(cls '-' '-')", false)))                    { pass 60i32; }
+    if (!(raw tree("[a&&\\x61]", "(cls (&& (cls 'a') (cls 'a')))", false)))  { pass 61i32; }
+    // an escaped member is not written as itself, so a class holding one is a class written as one
+    // (Y-38's note, RX-200): `[:\x61lpha:]` is a class of its codepoints
+    if (!(raw tree("[:\\x61lpha:]", "(cls ':' 'a' 'l' 'p' 'h' 'a' ':')", false))) { pass 62i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:r = raw run();
+    exit r;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

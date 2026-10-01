@@ -53,12 +53,42 @@ punctuation, with `]` and `-` members where Y-36 places them; and a `PosixClass`
 fourteen (Y-38).)*
 *(2026-10-01, cycle 0.1.3 — RX-199: `Atom` holds `PerlClass` and `UnicodeClass` too, outside a class as in one — as Y-27
 already says of `\d`, "in a class or out".)*
+*(2026-10-01, cycle 0.1.4 — RX-204: `Escape` is read as Y-40 says: its `Punct` is any ASCII that is neither a letter nor
+a digit, `HexPair`, `Hex4` and `Hex8` are exactly two, four and eight hex digits, and `"x" "{" Hex+ "}"` any number of
+them; `\0` before a digit is refused. Inside a class an `Escape` that names a codepoint is a `ClassAtom`.)*
 
 **Rule Y-2 — a `\` before any ASCII punctuation is that punctuation,
 literally.** `\@` is `@`. A `\` before an ASCII **letter or digit** that this
 document does not list is a **refusal** (`UnknownEscape`), never a literal:
 `\q` today meaning `q` is `\q` tomorrow meaning something else, and a pattern
 that changes meaning across versions is worse than one that did not compile.
+*(2026-10-01, cycle 0.1.4 — RX-204: and a `\` before a space, a control or DEL is that byte too — any ASCII that is
+neither a letter nor a digit, as every engine measured reads it; `\ ` is a space. A `\` before a codepoint past ASCII
+escapes nothing and is `UnknownEscape` (Y-40).)*
+
+**Rule Y-40 (RX-204) — every escape names a codepoint, a class or an anchor, or is refused.** After a `\`:
+
+- **`a t n v f r e`** name U+0007, U+0009, U+000A, U+000B, U+000C, U+000D and U+001B, and **`0`** names U+0000 —
+  unless a digit follows the `0`, which other engines read as an octal escape and nregex reads not at all:
+  `UnknownEscape` at the `\`, spanning the three bytes, its detail `0` (48).
+- **`x` and two hex digits** name a codepoint up to U+00FF — under `(?-u)`, a byte (Y-13) — and **`x{`, one or more
+  hex digits, `}`** any codepoint; **`u` and exactly four**, **`U` and exactly eight**, a codepoint. Either case;
+  leading zeros are read, and the value stops growing past U+10FFFF, so no run of digits overflows. A byte that is
+  no hex digit where one is due is `BadHexEscape` (after `\x`) or `BadUnicodeEscape` (after `\u` or `\U`) at the
+  `\`, spanning through that byte, its detail the codepoint it begins — or, where the pattern ends first, spanning
+  what was read, its detail `NOT_A_CODEPOINT` (RX-203). So `\u{41}` is `BadUnicodeEscape` at its `{`: braces are
+  `\x`'s. A surrogate, U+D800 … U+DFFF, or a value past U+10FFFF is `InvalidCodepoint` at the `\`, spanning the
+  escape, its detail the surrogate's value, or `NOT_A_CODEPOINT`.
+- **ASCII that is neither a letter nor a digit** names itself (Y-2).
+- **`d D w W s S`, `p` and `P`** name classes (Y-37). **`A` and `z`** are `Anchor` 2 and 3, **`b` and `B`**
+  `WordBoundary` 0 and 1 (§6, Y-27) — outside a class; inside one each is `UnknownEscape`, a position a class cannot
+  hold.
+- **Any other letter or digit, and any codepoint past ASCII,** is `UnknownEscape` at the `\`, spanning it and that
+  codepoint, its detail the codepoint — §8's escapes among them, `\1` … `\9`, `\k`, `\G`, `\Z`, `\Q` and `\E`,
+  until cycle 0.1.5 refuses each by its own kind (Y-30).
+
+An escape that names a codepoint is a `Literal` spanning the escape, and inside a class a member, which a `-` may make
+either end of a range (Y-36). `COMPAT.md` §2 and §3 list where other engines read these otherwise.
 
 ---
 
@@ -191,6 +221,9 @@ first byte to its last member's last; a `ClassOp` spans its left operand's first
 last. A member that is one codepoint is a `ClassRange` from it to itself, spanning how it is written — `\]` is two
 bytes. A `PerlClass` spans two bytes, a `UnicodeClass` its `\` through its name's last byte or its `}`, a
 `PosixClass` its `[` through its `]`.)*
+*(2026-10-01, cycle 0.1.4 — RX-204: an escape that names a codepoint is a `Literal`, or in a class a `ClassRange`, spanning
+the escape — `\x{1F600}` nine bytes; `\A` and `\z` are `Anchor` 2 and 3, and `\b` and `\B` `WordBoundary` 0 and 1,
+each spanning two bytes (Y-40).)*
 
 **Rule Y-28 (RX-183) — a pattern is UTF-8 text, checked whole before the grammar,
 and every character is a literal but twelve.** After the length (RX-175), the pattern
@@ -206,6 +239,7 @@ metacharacters are `\ . ^ $ | ? * + ( ) [ {`; every other character — a bare `
 `^` an `Anchor` 0 and `$` an `Anchor` 1. `\` before ASCII punctuation is that
 punctuation, a `Literal` spanning two bytes (Y-2), and `\` as the last byte is
 `TrailingBackslash` at it.
+*(2026-10-01, cycle 0.1.4 — RX-204: and every other escape as Y-40 reads it.)*
 
 **Rule Y-29 (RX-185) — groups.** `(` opens a capturing group, numbered by its `(`
 (Y-6); `(?:` a non-capturing one; `(?<name>` a capturing one named by
@@ -259,6 +293,8 @@ ends inside an escape, a property's name or a `[:`. Inside a class,
 but punctuation, is still refused provisionally.)*
 *(2026-10-01, cycle 0.1.3 — RX-199: outside a class too, `\d \D \w \W \s \S`, `\p` and `\P` are classes (Y-37);
 every other escape but punctuation is still refused provisionally, until cycle 0.1.4.)*
+*(2026-10-01, cycle 0.1.4 — RX-204: every escape is read as Y-40 says, and none is provisional but §8's — `\1` … `\9`,
+`\k`, `\G`, `\Z`, `\Q` and `\E` — each `UnknownEscape` until cycle 0.1.5 refuses it by its own kind (Y-30).)*
 
 **Rule Y-32 (RX-184) — quantifiers.** `*`, `+`, `?`, `{n}`, `{n,}` and `{n,m}`, each
 followed by `?` to be lazy, wrap the atom before them in a `Repeat` — `a` the atom,
@@ -425,6 +461,9 @@ unions.** `[` outside a class opens one, `[^` a negated one, and the class ends 
 
 No class the parser builds is empty, so no pattern reaches `EmptyClass` here (§9; O-Y3). Where Rust's `regex` reads a
 shape one way and this rule another, this rule refuses it (`COMPAT.md` §2).
+*(2026-10-01, cycle 0.1.4 — RX-204: "any other escape" above is Y-40's: one that names a codepoint is a member, spanning
+its bytes, and either end of a range — `[\x41-\x5A]`; `\b`, `\B`, `\A` and `\z` name positions, and a class holds
+codepoints, so each is `UnknownEscape` here.)*
 
 **Rule Y-37 (RX-197) — Perl classes and Unicode properties are parsed, never resolved.** `\d`, `\w` and `\s` are
 `PerlClass` 0, 1 and 2, and `\D`, `\W` and `\S` the same, negated. `\p` names a Unicode property — one ASCII
@@ -568,7 +607,7 @@ is the compiler's `check_codes_tested` in this library's terms.
 
 **What each refusal cycle 0.1.1 makes carries** — Y-10's offset and length, and the
 detail a message is built from (Y-29 … Y-32) *(and, since 2026-10-01, each cycle 0.1.3's classes make — Y-36 … Y-38,
-RX-197)*:
+RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-204)*:
 
 | Kind | Raised when | Offset | Length | Detail |
 |---|---|---|---|---|
@@ -594,6 +633,11 @@ RX-197)*:
 | `UnknownPosixClass` (cycle 0.1.3) | `[:` inside a class that opens no `[:name:]` or `[:^name:]` with a name of §5.1 | its `[` | what was read | 0 |
 | `UnknownPosixClass` (cycle 0.1.3, RX-200) | an outermost class whose every member is one codepoint written as itself, the first and the last `:` and another not | its `[` | the class | the name's place in §5.1's list plus one; 0 when the bytes name none |
 | `UnknownUnicodeProperty` (cycle 0.1.3) | `\p` or `\P` whose name cannot be read | the `\` | what was read | 1, no letter or `{` after it; 2, no `}`; 3, empty braces — 0 is cycle 0.3's, a name it does not know |
+| `UnknownEscape` (cycle 0.1.4) | a `\` before a letter or a digit no rule names, or before a codepoint past ASCII; in a class, before `b`, `B`, `A` or `z` | the `\` | the `\` and that codepoint | that codepoint |
+| `UnknownEscape` (cycle 0.1.4) | `\0` before a digit | the `\` | 3 | 48, the `0` |
+| `BadHexEscape` (cycle 0.1.4) | `\x` not followed by two hex digits, or by hex digits in braces | the `\` | through the byte found; what was read | that byte's codepoint; `NOT_A_CODEPOINT` when the pattern ends |
+| `BadUnicodeEscape` (cycle 0.1.4) | `\u` not followed by four hex digits, `\U` by eight | the `\` | through the byte found; what was read | that byte's codepoint; `NOT_A_CODEPOINT` when the pattern ends |
+| `InvalidCodepoint` (cycle 0.1.4) | an escape naming a surrogate or a value past U+10FFFF | the `\` | the escape | the surrogate's value; `NOT_A_CODEPOINT` past U+10FFFF |
 
 *(2026-10-01, cycle 0.1.4 — RX-203: a detail whose domain is a codepoint — the one a refusal found where it wanted
 another — says what no codepoint can with `NOT_A_CODEPOINT`, U+110000, one past the last: that the pattern ended
