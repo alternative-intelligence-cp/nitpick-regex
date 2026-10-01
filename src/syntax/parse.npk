@@ -46,6 +46,10 @@ use "./cursor.npk".*;
 use "./ast.npk".*;
 
 // ---- the bytes the grammar names, as the cursor answers them ---------------
+fixed int32:CH_TAB = 9i32;           // the first of five white-space controls, tab … carriage return,
+fixed int32:CH_LF = 10i32;           // line feed, which ends an `x` comment (§4)
+fixed int32:CH_CR = 13i32;           // carriage return, the last
+fixed int32:CH_SPACE = 32i32;        // and the space: the white space `x` skips (Y-42)
 fixed int32:CH_BANG = 33i32;         // `!`, the first ASCII punctuation
 fixed int32:CH_DEL = 127i32;         // the last ASCII byte (Y-2)
 fixed int32:CH_HASH = 35i32;         // `#`
@@ -119,6 +123,22 @@ fixed int64:U8_F0_SECOND = 144i64;   // 0x90
 fixed int64:U8_F3 = 243i64;          // 0xF1 … 0xF3: four bytes, any continuation
 fixed int64:U8_F4 = 244i64;          // 0xF4: four bytes, the second 0x80 … 0x8F (no more than U+10FFFF)
 fixed int64:U8_F4_SECOND = 143i64;   // 0x8F
+
+// ---- white space past ASCII that some engine skips under `x` (Y-42; RX-207) -------
+// Unicode's White_Space, which Rust's `regex` skips, and Pattern_White_Space, which Perl skips --
+// `PropList.txt` of the UCD, the same in 16.0.0, 17.0.0 and 18.0.0.
+fixed int64:WS_NEL = 133i64;             // U+0085, next line: both
+fixed int64:WS_NBSP = 160i64;            // U+00A0, no-break space: White_Space
+fixed int64:WS_OGHAM = 5760i64;          // U+1680
+fixed int64:WS_EN_QUAD = 8192i64;        // U+2000 … U+200A, the typographic spaces
+fixed int64:WS_HAIR = 8202i64;
+fixed int64:WS_LRM = 8206i64;            // U+200E, U+200F, the direction marks: Pattern_White_Space
+fixed int64:WS_RLM = 8207i64;
+fixed int64:WS_LSEP = 8232i64;           // U+2028, U+2029, the separators: both
+fixed int64:WS_PSEP = 8233i64;
+fixed int64:WS_NNBSP = 8239i64;          // U+202F, U+205F, U+3000
+fixed int64:WS_MMSP = 8287i64;
+fixed int64:WS_IDEO = 12288i64;
 
 // ---- the codepoints an escape may name (§1's `Escape`; RX-204) ---------------
 fixed int64:CP_SURROGATE_LO = 55296i64;  // U+D800, the first surrogate: half of a UTF-16 pair, no codepoint
@@ -241,6 +261,21 @@ func:is_literal_escape = bool(int32:b) never fails {
     if ((b == CH_LT) || (b == CH_GT)) { pass false; }
     if (raw is_letter(b)) { pass false; }
     pass !(raw is_digit(b));
+};
+
+// White space as `x` skips it outside a class (§4, Y-42): tab, line feed, vertical tab, form feed,
+// carriage return and space -- the six every engine measured skips.
+func:is_space = bool(int32:b) never fails {
+    if ((b >= CH_TAB) && (b <= CH_CR)) { pass true; }
+    pass b == CH_SPACE;
+};
+
+// White space past ASCII that some engine skips under `x` and another reads as itself (Y-42).
+func:is_wide_space = bool(int64:cp) never fails {
+    if ((cp == WS_NEL) || (cp == WS_NBSP) || (cp == WS_OGHAM)) { pass true; }
+    if ((cp >= WS_EN_QUAD) && (cp <= WS_HAIR)) { pass true; }
+    if ((cp == WS_LRM) || (cp == WS_RLM) || (cp == WS_LSEP) || (cp == WS_PSEP)) { pass true; }
+    pass (cp == WS_NNBSP) || (cp == WS_MMSP) || (cp == WS_IDEO);
 };
 
 // A hex digit's value, or -1 for any other byte -- `CURSOR_END` included.
@@ -975,15 +1010,39 @@ func:escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:at) never 
     pass raw unknown_escape(pat, at);
 };
 
-// A literal whose first byte `lead` was read at `at`: one codepoint, decoded.
-func:literal = NIL(uint8[]:pat, Ast->:out, Parser->:p, int64:at, int32:lead) never fails {
+// The flag `x` is in force (§4).
+func:extended = bool(Parser->:p) never fails {
+    pass (p.f.flags & AST_FLAG_X) != 0u32;
+};
+
+// `ExtendedAmbiguity` at the codepoint `cp`, written in `n` bytes at `at`: under `x` the engines read
+// it two ways, so nregex reads it neither (Y-39, Y-42; RX-207).
+func:ambiguous = PatternError?(int64:at, int64:n, int64:cp) never fails {
+    pass raw pattern_error(PatternErrorKind.ExtendedAmbiguity, at, n, cp =>! uint32);
+};
+
+// Under `x`, a `#` just read outside a class: the comment runs through the next line feed, or to the
+// pattern's end (§4).
+func:skip_comment = NIL(Parser->:p) never fails {
+    bool:more = true;
+    while (more && !(raw cursor_at_end(@p.c))) decreases p.c.src.len - p.c.pos {
+        more = (raw cursor_bump(@p.c)) != CH_LF;
+    }
+    pass NIL;
+};
+
+// A literal whose first byte `lead` was read at `at`: one codepoint, decoded -- unless it is white
+// space past ASCII under `x`, which is `ExtendedAmbiguity` (Y-42).
+func:literal = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:at, int32:lead) never fails {
     int64:n = raw utf8_len(lead => int64);
     int64:k = 1i64;
     while (k < n) decreases n - k {
         discard(raw cursor_bump(@p.c));
         k = k + 1i64;
     }
-    drop atom(out, @p.f, AstKind.Literal, raw decode_at(pat, at), at, n);
+    int64:cp = raw decode_at(pat, at);
+    if ((raw extended(p)) && (raw is_wide_space(cp))) { pass raw ambiguous(at, n, cp); }
+    drop atom(out, @p.f, AstKind.Literal, cp, at, n);
     pass NIL;
 };
 
@@ -1221,6 +1280,9 @@ func:class_range = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame-
             k = k + 1i64;
         }
         hi = raw decode_at(pat, at);
+        if ((raw extended(p)) && ((raw is_space(b)) || (b == CH_HASH) || (raw is_wide_space(hi)))) {
+            pass raw ambiguous(at, n, hi);
+        }
     }
     if (hi < lo.a) {
         pass raw pattern_error(PatternErrorKind.BadClassRange, lo.pos, p.c.pos - lo.pos, 0u32);
@@ -1278,7 +1340,10 @@ func:parse_class = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:open)
         int64:at = p.c.pos;
         int32:b = raw cursor_bump(@p.c);
         PatternError?:e = NIL;
-        if (b == CH_RBRACKET) {
+        if ((raw extended(p)) && ((raw is_space(b)) || (b == CH_HASH))) {
+            e = raw ambiguous(at, 1i64, b => int64);
+        }
+        else if (b == CH_RBRACKET) {
             e = raw class_close(out, @cf, p.f.flags, p.c.pos);
             if (e != NIL) { pass e; }
             if (p.classes.count == 0i64) {
@@ -1322,7 +1387,9 @@ func:parse_class = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:open)
                 discard(raw cursor_bump(@p.c));
                 k = k + 1i64;
             }
-            drop class_one(out, @cf, p.f.flags, raw decode_at(pat, at), at, n);
+            int64:cp = raw decode_at(pat, at);
+            if ((raw extended(p)) && (raw is_wide_space(cp))) { e = raw ambiguous(at, n, cp); }
+            else { drop class_one(out, @cf, p.f.flags, cp, at, n); }
         }
         if (e != NIL) { pass e; }
     }
@@ -1338,7 +1405,11 @@ func:parse_run = PatternError?(uint8[]:pat, Ast->:out, Parser->:p) never fails {
         int64:at = p.c.pos;
         int32:b = raw cursor_bump(@p.c);
         PatternError?:e = NIL;
-        if (b == CH_PIPE) {
+        if ((raw extended(p)) && ((raw is_space(b)) || (b == CH_HASH))) {
+            // under `x`, between two constructs: white space, skipped, or a comment (Y-42)
+            if (b == CH_HASH) { drop skip_comment(p); }
+        }
+        else if (b == CH_PIPE) {
             drop close_alt(out, @p.f, at);
             p.f.cat_pos = p.c.pos;
         }
@@ -1352,7 +1423,7 @@ func:parse_run = PatternError?(uint8[]:pat, Ast->:out, Parser->:p) never fails {
         else if (b == CH_DOLLAR) { drop atom(out, @p.f, AstKind.Anchor, 1i64, at, 1i64); }
         else if (b == CH_BACKSLASH) { e = raw escape(pat, out, p, at); }
         else if (b == CH_LBRACKET) { e = raw parse_class(pat, out, p, at); }
-        else { drop literal(pat, out, p, at, b); }
+        else { e = raw literal(pat, out, p, at, b); }
         if (e != NIL) { pass e; }
     }
     if (p.stack.count > 0i64) {

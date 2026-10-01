@@ -125,7 +125,7 @@ func:run = int32() never fails {
     if (!(raw same(raw pattern_error_text(en), "bad group name at byte 4: a name is ASCII letters, digits and `_`, and does not begin with a digit."))) { pass 39i32; }
     // every kind renders a sentence naming its byte
     int64:k = 0i64;
-    while (k < 37i64) decreases 37i64 - k {
+    while (k < 38i64) decreases 38i64 - k {
         PatternErrorKind:kind = (k =>! int32) =>! PatternErrorKind;
         string:s = raw pattern_error_text(raw pattern_error(kind, 7i64, 1i64, 0u32));
         if (!(raw has(s, " at byte 7"))) { pass 40i32; }
@@ -153,6 +153,11 @@ func:run = int32() never fails {
     if (!(raw says("(?i-m-s)", "second `-` in a group's flags at byte 5: the flags hold one `-`, and every flag after it is cleared. Write `(?i-ms)`, not `(?i-m-s)`."))) { pass 57i32; }
     if (!(raw says("(?i-i)", "flag named twice at byte 4: `i` already appears in this group's flags, set or cleared. Name each flag once."))) { pass 58i32; }
     if (!(raw says("(?xx)", "flag named twice at byte 3: `x` already appears in this group's flags. Perl's and PCRE2's `(?xx)` also ignores spaces and tabs in a class, and under nregex's `x` a space or a `#` in a class is refused instead: write `(?x)`, and `\\x20` or `\\#` in a class."))) { pass 59i32; }
+    // cycle 0.1.4's `x` (Y-39, Y-42)
+    if (!(raw says("(?x)[a b]", "white space in a class at byte 6 under `x`: Rust's `regex` and Java skip it here, and Perl, Python and .NET match it, so nregex refuses it. Write `\\x20` to match it, or remove it."))) { pass 60i32; }
+    if (!(raw says("(?x)[a\tb]", "white space in a class at byte 6 under `x`: Rust's `regex` and Java skip it here, and Perl, Python and .NET match it, so nregex refuses it. Write `\\t` to match it, or remove it."))) { pass 61i32; }
+    if (!(raw says("(?x)[a#b]", "`#` in a class at byte 6 under `x`: Rust's `regex` and Java begin a comment here, and Perl, Python and .NET match a `#`, so nregex refuses it. Write `\\#` to match a `#`."))) { pass 62i32; }
+    if (!(raw says("(?x)a\u{A0}b", "white space past ASCII at byte 5 under `x`: U+00A0 is skipped there by some engines and matched by others -- Rust's `regex` skips Unicode's White_Space, Perl its Pattern_White_Space, and Python and Java ASCII white space alone -- so nregex refuses it. Write `\\x{A0}` to match it, or remove it."))) { pass 63i32; }
     pass 0i32;
 };
 

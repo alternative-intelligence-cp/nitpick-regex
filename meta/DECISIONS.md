@@ -5195,3 +5195,44 @@ at the end as `UnknownFlag`, as Rust's "expected flag"** — `(?` at the end is 
 is this; **the `Flags` node pending, like an atom** — a quantifier would repeat a change of flags; **a `Group` with the
 flags of the frame it closes** — those say what its last alternative ended with, where its `(`'s say what was in force
 around it.
+
+### RX-207 — `x`: white space and comments are skipped between constructs and nowhere else, and what the engines read two ways is `ExtendedAmbiguity` — in a class, and past ASCII
+
+**2026-10-01, cycle 0.1.4 (the plan's PD-51), at compiler `5fbaf4a`** — `SYNTAX.md` Y-42 and Y-39, with §4's table and §9;
+per `meta/research/escape-flag-syntax-reference-engines.md`, as of 2026-10-01, and the UCD's `PropList.txt`, whose
+White_Space and Pattern_White_Space are the same in 16.0.0, 17.0.0 and 18.0.0. It makes RX-201's refusal, and adds
+the kind RX-201 said this cycle would.
+
+**What chose the rules.** §4 says `x` ignores white space and `#` to the end of the line — not where, nor which white
+space. Measured in Rust's `regex` 1.13.1, Perl 5.38.2, Python 3.12.3 and Java 21.0.12.1 (the plan's §1.6): between
+constructs all four skip the six ASCII white-space bytes and a `#` comment, and agree — `(?x)a b`, `a *`, `a | b`, a
+comment between an atom and its quantifier. Inside a construct they part: Rust skips white space inside `\x4 1`,
+`\x{ 41}`, `a{2, 3}` and `( ?:a)`, and between `a*` and its lazy `?`; Perl reads `\x4 1` as U+0004 and `1` and refuses
+`( ?:a)`; Python refuses `a* ?` and `( ?:a)` and reads `a{2, 3}` as text; Java reads `( ?:a)` as Rust does and refuses
+`a{ 2}`. Past ASCII they part again: Rust skips U+00A0, U+3000, U+2028 and U+0085 and not U+200E; Perl skips U+2028,
+U+0085 and U+200E and not U+00A0 or U+3000; Python and Java skip none.
+
+**The decision.** Y-42. Under `x` the walk skips the six ASCII white-space bytes, and a `#` through the next line
+feed, where a construct may begin — the reading all four share — and nowhere else: inside a construct white space is
+that construct's byte, read as without `x`, which refuses each shape the engines read two ways. A codepoint past ASCII
+in White_Space or Pattern_White_Space is `ExtendedAmbiguity` under `x`, in a class or out; inside a class every
+white-space byte and `#` is too (RX-201), a range's end included. `ExtendedAmbiguity` is a new kind after
+`WrongNamedGroupSpelling` — thirty-eight kinds — at the codepoint, spanning it, its detail the codepoint: 9 … 13 or 32
+for ASCII white space, 35 for `#`. The twenty-one codepoints past ASCII are named in `parse.npk` from `PropList.txt`,
+not taken from one of cycle 0.3's generated tables, since the parser reads no table (Y-37); Pattern_White_Space is
+closed by Unicode's stability policy, and cycle 0.3, which generates White_Space, can hold the list to it.
+
+**The text.** `tests/unit/pattern_error_text.npk` cases 60–63: white space in a class names what Rust and Java do with
+it, what Perl, Python and .NET do, and the escape to write — `\x20`, `\t`, `\n`, `\v`, `\f` or `\r`; a `#` in a
+class names `\#`; white space past ASCII names the codepoint, what each engine skips, and `\x{A0}`.
+
+**Measured at `5fbaf4a`.** `tests/unit/parse_flags.npk` cases 30–47 and `parse_flag_refusals.npk` cases 60–85 pass at
+−O0 and through `opt -O2`, and against the parser before this decision exit 30 and 60; each rule broken in a copy
+exits as the plan's §1.10 records.
+
+*Alternatives declined:* **Rust's reading, white space skipped inside constructs too** — Perl, Python and Java each
+read some of those shapes otherwise, so a pattern would change meaning between them with no word said; **white space
+past ASCII read as itself** — Python's and Java's reading, and a silent difference from Rust for U+00A0 and from Perl
+for U+2028; **skipped, as Rust skips it** — a silent difference from Perl, Python and Java; **a kind for each case —
+white space in a class, `#` in a class, white space past ASCII** — three kinds for one ambiguity, which the detail
+tells apart; **`UnknownFlag` or `ByteModeNonAscii` reused** — kinds named for something else.

@@ -258,6 +258,25 @@ func:run = int32() never fails {
     if (!(raw tree("(?i)(?<n>a)", "(cat{iu} (flags +i) (grp{iu} 1 <n> 'a'{iu}))", false))) { pass 25i32; }
     if (!(raw tree("(?i)\\b\\x41", "(cat{iu} (flags +i) \\b{iu} 'A'{iu})", false)))         { pass 26i32; }
     if (!(raw tree("(?i)()", "(cat{iu} (flags +i) (grp{iu} 1 E{iu}))", false)))           { pass 27i32; }
+    // `x` (Y-42): white space and comments skipped between constructs, outside a class
+    if (!(raw tree("(?x)a b", "(cat{xu} (flags +x) 'a'{xu} 'b'{xu})", false)))             { pass 30i32; }
+    if (!(raw tree("(?x)a # comment\nb", "(cat{xu} (flags +x) 'a'{xu} 'b'{xu})", false)))  { pass 31i32; }
+    if (!(raw tree("(?x)a *", "(cat{xu} (flags +x) (rep{xu} 0 - 'a'{xu}))", false)))       { pass 32i32; }
+    if (!(raw tree("(?x)a#c\n*", "(cat{xu} (flags +x) (rep{xu} 0 - 'a'{xu}))", false)))    { pass 33i32; }
+    if (!(raw tree("(?x)\\ \\#", "(cat{xu} (flags +x) #32{xu} '#'{xu})", false)))         { pass 34i32; }
+    if (!(raw tree("(?x)a#b", "(cat{xu} (flags +x) 'a'{xu})", false)))                     { pass 35i32; }
+    if (!(raw tree("(?x)a | b", "(alt{xu} (cat{xu} (flags +x) 'a'{xu}) 'b'{xu})", false)))  { pass 36i32; }
+    if (!(raw tree("(?x: a b )c", "(cat (grp (cat{xu} 'a'{xu} 'b'{xu})) 'c')", false)))     { pass 37i32; }
+    if (!(raw tree("(?x)a(?-x) b", "(cat (flags +x) 'a'{xu} (flags{xu} -x) #32 'b')", false))) { pass 38i32; }
+    if (!(raw tree("(?x)a\t\n\x0b\x0c\r b", "(cat{xu} (flags +x) 'a'{xu} 'b'{xu})", false))) { pass 39i32; }
+    if (!(raw tree("(?x)[a\\ b]", "(cat{xu} (flags +x) (cls{xu} 'a'{xu} #32{xu} 'b'{xu}))", false))) { pass 40i32; }
+    if (!(raw tree("(?x)(?<n>a )", "(cat{xu} (flags +x) (grp{xu} 1 <n> 'a'{xu}))", false))) { pass 41i32; }
+    if (!(raw tree("(?x) ^ a $ ", "(cat{xu} (flags +x) ^{xu} 'a'{xu} ${xu})", false)))    { pass 42i32; }
+    if (!(raw tree("(?x)\\x{A0}é", "(cat{xu} (flags +x) #160{xu} #233{xu})", false)))     { pass 43i32; }
+    if (!(raw tree("(?x)a#c\r\nb", "(cat{xu} (flags +x) 'a'{xu} 'b'{xu})", false)))       { pass 44i32; }
+    if (!(raw tree("(?x)a#", "(cat{xu} (flags +x) 'a'{xu})", false)))                      { pass 45i32; }
+    if (!(raw tree("(?x)a b", "(cat{xu}@0+7 (flags@0+4 +x) 'a'{xu}@4+1 'b'{xu}@6+1)", true))) { pass 46i32; }
+    if (!(raw tree("(?-x)[a b]", "(cat (flags -x) (cls 'a' #32 'b'))", false)))             { pass 47i32; }
     pass 0i32;
 };
 

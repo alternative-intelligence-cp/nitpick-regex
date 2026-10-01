@@ -43,6 +43,7 @@ use "../core/core.npk".*;
 // moved here is a red run, not a review comment. Thirty-six since cycle 0.1.1:
 // `EmptyAlternate` is retired, an empty alternative being `Y-27`'s `Empty` (RX-181).
 // *(2026-10-01, cycle 0.1.4 -- RX-206: thirty-seven, `DuplicateFlag` after `UnknownFlag`.)*
+// *(2026-10-01, cycle 0.1.4 -- RX-207: thirty-eight, `ExtendedAmbiguity` after `WrongNamedGroupSpelling`.)*
 pub enum:PatternErrorKind = {
     // structure
     UnclosedGroup;
@@ -79,6 +80,7 @@ pub enum:PatternErrorKind = {
     DuplicateFlag;
     TooManyCaptureGroups;
     WrongNamedGroupSpelling;
+    ExtendedAmbiguity;
 
     // refusals (§8)
     BackreferenceUnsupported;
@@ -488,6 +490,30 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
             drop put(@b, "wrong named-group spelling at byte "); drop num(@b, e.offset);
             if (e.detail == 39u32) { drop put(@b, ": `(?'name'...)` is the .NET spelling. Write `(?<name>...)`."); }
             else { drop put(@b, ": `(?P<name>...)` is Python's spelling. Write `(?<name>...)`."); }
+        },
+        (PatternErrorKind.ExtendedAmbiguity) {
+            if (e.detail == 35u32) {
+                drop put(@b, "`#` in a class at byte "); drop num(@b, e.offset);
+                drop put(@b, " under `x`: Rust's `regex` and Java begin a comment here, and Perl, Python and .NET match a `#`, so nregex refuses it. Write `\\#` to match a `#`.");
+            }
+            else if (e.detail < 128u32) {
+                drop put(@b, "white space in a class at byte "); drop num(@b, e.offset);
+                drop put(@b, " under `x`: Rust's `regex` and Java skip it here, and Perl, Python and .NET match it, so nregex refuses it. Write `");
+                if (e.detail == 9u32) { drop put(@b, "\\t"); }
+                else if (e.detail == 10u32) { drop put(@b, "\\n"); }
+                else if (e.detail == 11u32) { drop put(@b, "\\v"); }
+                else if (e.detail == 12u32) { drop put(@b, "\\f"); }
+                else if (e.detail == 13u32) { drop put(@b, "\\r"); }
+                else { drop put(@b, "\\x20"); }
+                drop put(@b, "` to match it, or remove it.");
+            }
+            else {
+                drop put(@b, "white space past ASCII at byte "); drop num(@b, e.offset);
+                drop put(@b, " under `x`: "); drop shown(@b, e.detail);
+                drop put(@b, " is skipped there by some engines and matched by others -- Rust's `regex` skips Unicode's White_Space, Perl its Pattern_White_Space, and Python and Java ASCII white space alone -- so nregex refuses it. Write `\\x{");
+                drop hex(@b, e.detail => int64, 1i64);
+                drop put(@b, "}` to match it, or remove it.");
+            }
         },
         (PatternErrorKind.BackreferenceUnsupported) {
             drop put(@b, "backreference at byte "); drop num(@b, e.offset);

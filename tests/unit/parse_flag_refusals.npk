@@ -61,6 +61,30 @@ func:run = int32() never fails {
     if (!(raw refused("(?i)*", PatternErrorKind.NothingToRepeat, 4i64, 1i64, 42u32)))    { pass 40i32; }
     if (!(raw refused("a(?i)+", PatternErrorKind.NothingToRepeat, 5i64, 1i64, 43u32)))   { pass 41i32; }
     if (!(raw refused("(?-i){2}", PatternErrorKind.NothingToRepeat, 5i64, 1i64, 123u32))) { pass 42i32; }
+    // `x` inside a class: white space and `#`, which the engines read two ways (Y-39)
+    if (!(raw refused("(?x)[a b]", PatternErrorKind.ExtendedAmbiguity, 6i64, 1i64, 32u32)))      { pass 60i32; }
+    if (!(raw refused("(?x)[a#b]", PatternErrorKind.ExtendedAmbiguity, 6i64, 1i64, 35u32)))      { pass 61i32; }
+    if (!(raw refused("(?x)[a\tb]", PatternErrorKind.ExtendedAmbiguity, 6i64, 1i64, 9u32)))      { pass 62i32; }
+    if (!(raw refused("(?x)[ ]", PatternErrorKind.ExtendedAmbiguity, 5i64, 1i64, 32u32)))        { pass 63i32; }
+    if (!(raw refused("(?x)[a- ]", PatternErrorKind.ExtendedAmbiguity, 7i64, 1i64, 32u32)))      { pass 64i32; }
+    if (!(raw refused("(?x)[a-#]", PatternErrorKind.ExtendedAmbiguity, 7i64, 1i64, 35u32)))      { pass 65i32; }
+    if (!(raw refused("(?x:[ ])", PatternErrorKind.ExtendedAmbiguity, 5i64, 1i64, 32u32)))       { pass 66i32; }
+    if (!(raw refused("(?x)[^\r]", PatternErrorKind.ExtendedAmbiguity, 6i64, 1i64, 13u32)))      { pass 67i32; }
+    // white space past ASCII, which some engines skip under `x` and others match (Y-42)
+    if (!(raw refused("(?x)a\u{A0}b", PatternErrorKind.ExtendedAmbiguity, 5i64, 2i64, 160u32)))  { pass 70i32; }
+    if (!(raw refused("(?x)a\u{2028}", PatternErrorKind.ExtendedAmbiguity, 5i64, 3i64, 8232u32)))  { pass 71i32; }
+    if (!(raw refused("(?x)\u{200E}", PatternErrorKind.ExtendedAmbiguity, 4i64, 3i64, 8206u32)))   { pass 72i32; }
+    if (!(raw refused("(?x)\u{85}", PatternErrorKind.ExtendedAmbiguity, 4i64, 2i64, 133u32)))    { pass 73i32; }
+    if (!(raw refused("(?x)[a\u{3000}]", PatternErrorKind.ExtendedAmbiguity, 6i64, 3i64, 12288u32))) { pass 74i32; }
+    if (!(raw refused("(?x)[a-\u{A0}]", PatternErrorKind.ExtendedAmbiguity, 7i64, 2i64, 160u32))) { pass 75i32; }
+    if (!(raw refused("(?x)\u{2000}\u{200A}", PatternErrorKind.ExtendedAmbiguity, 4i64, 3i64, 8192u32))) { pass 76i32; }
+    // never inside a construct, where white space is that construct's own byte (Y-42)
+    if (!(raw refused("(?x)\\x4 1", PatternErrorKind.BadHexEscape, 4i64, 4i64, 32u32)))          { pass 80i32; }
+    if (!(raw refused("(?x)a{2, 3}", PatternErrorKind.BadRepeatBounds, 5i64, 3i64, 0u32)))       { pass 81i32; }
+    if (!(raw refused("(?x)( ?:a)", PatternErrorKind.NothingToRepeat, 6i64, 1i64, 63u32)))      { pass 82i32; }
+    if (!(raw refused("(?x)a* ?", PatternErrorKind.DoubleRepeat, 7i64, 1i64, 63u32)))            { pass 83i32; }
+    if (!(raw refused("(?x)(?i x)", PatternErrorKind.UnknownFlag, 7i64, 1i64, 32u32)))           { pass 84i32; }
+    if (!(raw refused("(?x)(?<a b>c)", PatternErrorKind.BadGroupName, 8i64, 1i64, 32u32)))       { pass 85i32; }
     // the first refusal wins, left to right
     if (!(raw refused("(?qq)", PatternErrorKind.UnknownFlag, 2i64, 1i64, 113u32)))       { pass 50i32; }
     if (!(raw refused("(?iiq)", PatternErrorKind.DuplicateFlag, 3i64, 1i64, 105u32)))    { pass 51i32; }

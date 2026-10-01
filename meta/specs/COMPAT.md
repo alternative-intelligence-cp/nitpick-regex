@@ -40,6 +40,8 @@ The closest neighbour, so the list is short and each entry is deliberate.
 | `\u{41}`, `\U{1F600}` | a codepoint | refused, naming `\x{…}` | one spelling for a codepoint in braces (`SYNTAX.md` Y-40) — RX-204 |
 | `\<`, `\>` | the start and the end of a word | refused, naming `\b`, and `<` or `>` for the byte | Rust and GNU `grep` read a word assertion, Perl, PCRE, Python and Java the byte — RX-205 |
 | flags `U` and `R` | swap greed; CRLF mode | `(?U)` refused, `UnknownFlag`; `(?R)` refused as PCRE's recursion (`SYNTAX.md` Y-30) | flags nregex does not have — RX-206 |
+| `x` mode inside a construct | white space skipped inside escapes, bounds and group heads — `\x4 1`, `a{2, 3}`, `( ?:a)` — and before a lazy `?` | read as without `x`, so each refused | Perl, Python and Java read each of these otherwise (`SYNTAX.md` Y-42) — RX-207 |
+| white space past ASCII under `x` | Unicode's White_Space skipped | refused, `ExtendedAmbiguity` | Perl skips Pattern_White_Space, Python and Java ASCII white space alone (Y-42) — RX-207 |
 | replacement | closures **or** templates | templates and non-capturing function values | no closures (D-018) |
 | `Match` | a `&str` slice | byte offsets | borrows never pass up (D-004) |
 | DFA cache | pooled internally | an explicit `Cache` the caller owns | `ENGINES.md` §5 |
@@ -76,6 +78,8 @@ The list a user migrating from Python, PHP, Java or JavaScript needs.
 | `\<`, `\>` — the bytes in Perl, PCRE, Python and Java | refused, since Rust's `regex` and GNU `grep` read word assertions; write `<` or `>` (Y-40, RX-205) |
 | `(?i)` after the pattern's start — global in Python, which requires it first | from there to the enclosing group's `)`, across `|`, as in Perl, PCRE and Rust (`SYNTAX.md` Y-41, RX-206) |
 | `(?^)`, `(?a)`, `(?n)`, `(?U)` — Perl's, PCRE's and .NET's other flags | `UnknownFlag`: the flags are `i`, `m`, `s`, `x` and `u` (Y-41) |
+| blanks inside `a{2, 3}` and `\x{ 41 }`, which Perl reads since its 5.34 | refused, `BadRepeatBounds` and `BadHexEscape`, under `x` or not (`SYNTAX.md` Y-32, Y-42) |
+| white space past ASCII under `x` — U+2028, U+0085, U+200E skipped by Perl | refused, `ExtendedAmbiguity`; write `\x{2028}` (Y-42, RX-207) |
 
 **Rule K-1 — every refusal names the alternative in its message**, and where
 there is none it names the reason. `LookaroundUnsupported` says the pattern

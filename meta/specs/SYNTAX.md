@@ -372,6 +372,9 @@ The refusal's sentence names both: *"the `(` or `[` here would nest groups and c
 | `x` | extended: unescaped whitespace and `#`-to-end-of-line are ignored | off |
 | `u` | Unicode mode: `.` is a codepoint, classes are Unicode-aware | **on** |
 
+*(2026-10-01, cycle 0.1.4 — RX-207: `x` skips white space and comments outside a class and only between constructs
+(Y-42); inside a class it refuses them (Y-39).)*
+
 **Rule Y-12 — flags are scoped.** `(?i:…)` applies to the group; `(?i)` applies
 from that point to the end of the **enclosing** group, and is undone when the
 group closes. `(?-i)` clears. This is the standard scoping and there is no
@@ -397,6 +400,8 @@ white space and `#`-to-end-of-line (the table above). Inside one the engines dis
 Perl's `/x`, PCRE2's `x`, Python and .NET keep both as members, and Perl's and PCRE2's `xx` ignore a space or a tab —
 so under `x` a white-space byte or a `#` inside a class is refused at that byte, never read either way: `\x20`
 matches a space and `\#` a `#`. Cycle 0.1.4 parses the flags and makes the refusal, with a kind it adds to §9.
+*(2026-10-01, cycle 0.1.4 — RX-207: made — `ExtendedAmbiguity` at the byte, one byte long, its detail the byte: 9 … 13 or
+32 for white space, 35 for `#`; a range's end is read the same way, and white space past ASCII too (Y-42).)*
 
 **Rule Y-41 (RX-206) — a group head of flags.** After `(?`, a byte no other head names begins flags: the letters `i`,
 `m`, `s`, `x` and `u`, then at most one `-` and the letters it clears — at least one letter after `(?` and after the
@@ -412,6 +417,17 @@ flag may be is `UnknownFlag` at it, spanning it, its detail that codepoint — a
 inside the flags is `UnclosedGroup` at the `(`, spanning the head, as `(?` at the end is (Y-29). The heads Y-29 and
 Y-30 name are read first: `(?P` before a byte no head names stays `UnknownFlag` at the `P` (Y-31), and `(?-` and a
 digit is `RecursionUnsupported`.
+
+**Rule Y-42 (RX-207) — `x` outside a class.** Under `x`, the walk skips white space — tab, line feed, vertical tab,
+form feed, carriage return and space — and a `#` with every byte after it through the next line feed, or to the
+pattern's end, wherever a construct may begin: before an atom, a `|`, a `(`, a `)` or a quantifier. Never inside one —
+an escape, a group head, a name, a bound's braces, a property's braces, or between a quantifier and its lazy `?` —
+where a white-space byte is that construct's own, read as without `x`: `\x4 1` is `BadHexEscape`, `a{2, 3}`
+`BadRepeatBounds`, `( ?:a)` `NothingToRepeat`, `a* ?` `DoubleRepeat` and `(?i x)` `UnknownFlag`, where engines read
+each two ways. A codepoint past ASCII that Unicode names white space — White_Space, which Rust's `regex` skips under
+`x`, or Pattern_White_Space, which Perl skips: U+0085, U+00A0, U+1680, U+2000 … U+200A, U+200E, U+200F, U+2028,
+U+2029, U+202F, U+205F and U+3000 — is `ExtendedAmbiguity` under `x`, in a class or out, at it, spanning its bytes,
+its detail the codepoint; Python and Java read each as itself. `\ ` and `\x{A0}` write white space under `x`.
 
 ---
 
@@ -611,8 +627,9 @@ kind retires as `EmptyAlternate` did, is open question O-Y3, for cycle 0.3.4.)*
 `InvalidCodepoint` (a surrogate or above `U+10FFFF`).
 
 **Groups and flags**: `DuplicateGroupName`, `BadGroupName`, `UnknownFlag`,
-`DuplicateFlag`, `TooManyCaptureGroups`, `WrongNamedGroupSpelling`. *(`DuplicateFlag` since
-2026-10-01, cycle 0.1.4 — RX-206.)*
+`DuplicateFlag`, `TooManyCaptureGroups`, `WrongNamedGroupSpelling`, `ExtendedAmbiguity`.
+*(`DuplicateFlag` since 2026-10-01, cycle 0.1.4 — RX-206; `ExtendedAmbiguity` since 2026-10-01, cycle 0.1.4 —
+RX-207.)*
 
 **Refusals** (§8): `BackreferenceUnsupported`, `LookaroundUnsupported`,
 `AtomicGroupUnsupported`, `RecursionUnsupported`, `UnsupportedAnchor`,
@@ -674,6 +691,7 @@ RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-2
 | `InvalidCodepoint` (cycle 0.1.4) | an escape naming a surrogate or a value past U+10FFFF | the `\` | the escape | the surrogate's value; `NOT_A_CODEPOINT` past U+10FFFF |
 | `UnknownFlag` (cycle 0.1.4) | a byte that is no flag where one may be — a `)` or `:` where one is due, and a second `-`, among them | that byte | its bytes | its codepoint |
 | `DuplicateFlag` (cycle 0.1.4) | a flag named twice in one head, set or cleared | the second | 1 | the letter |
+| `ExtendedAmbiguity` (cycle 0.1.4) | under `x`, white space or `#` in a class; white space past ASCII anywhere | that codepoint | its bytes | its codepoint: 9 … 13, 32, 35, or one of Y-42's |
 
 *(2026-10-01, cycle 0.1.4 — RX-203: a detail whose domain is a codepoint — the one a refusal found where it wanted
 another — says what no codepoint can with `NOT_A_CODEPOINT`, U+110000, one past the last: that the pattern ended
@@ -681,6 +699,7 @@ where a codepoint was due. `UnknownUnicodeProperty`'s details are reasons, not c
 
 *(2026-09-27, cycle 0.1.1 — RX-181: thirty-six, `EmptyAlternate` retired.)*
 *(2026-10-01, cycle 0.1.4 — RX-206: thirty-seven, `DuplicateFlag` after `UnknownFlag`.)*
+*(2026-10-01, cycle 0.1.4 — RX-207: thirty-eight, `ExtendedAmbiguity` after `WrongNamedGroupSpelling`.)*
 *(2026-09-26, cycle 0.1.0 — RX-172: `src/syntax/pattern_error.npk`'s
 `PatternErrorKind` is this list, all thirty-seven, in this order, declared
 before the parser produces any of them, and `tests/unit/pattern_error_unit.npk`
