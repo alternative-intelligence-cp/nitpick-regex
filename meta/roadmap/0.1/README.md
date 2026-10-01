@@ -10,9 +10,11 @@ byte offset on every error.**
 > the core grammar, is DONE (2026-09-27)** — RX-181 … RX-187 in four work commits, `34b2801` … `1953d72`, 260/260 at
 > `5fbaf4a` and in CI run 36347047570 — **and [`0.1.1b`](0.1.1b.md), open question O-R3 — `Vec<T: Copy>`, the
 > bound on the type — is DONE (2026-09-28)** — RX-188 … RX-190 in four work commits, `3baefa6` … `975bdc8`, 238/238
-> at `5fbaf4a` and in CI run 36426481012 — **and [`0.1.2`](0.1.2.md), the explicit stack's bound, is PLANNED**
-> (2026-10-01, rehearsed at `5fbaf4a`). *(Until 0.1.2's plan this banner said "next, 0.1.2, the explicit stack, its
-> file a planner's to write".)* *(Until 0.1.1b's record it said 0.1.1b "is PLANNED (2026-09-27, rehearsed at
+> at `5fbaf4a` and in CI run 36426481012 — **and [`0.1.2`](0.1.2.md), the explicit stack's bound, is DONE
+> (2026-10-01)** — RX-191 … RX-195 in six work commits, `d7dbf65` … `857c4f8`, 242/242 at `5fbaf4a` and in CI run
+> 36846431405 — **next, 0.1.3**, classes, its file a planner's to write. *(Until 0.1.2's record this banner said
+> 0.1.2 "is PLANNED (2026-10-01, rehearsed at `5fbaf4a`)".)* *(Until 0.1.2's plan this banner said "next, 0.1.2,
+> the explicit stack, its file a planner's to write".)* *(Until 0.1.1b's record it said 0.1.1b "is PLANNED (2026-09-27, rehearsed at
 > `5fbaf4a`), then 0.1.2".)* *(Until 0.1.1b's plan this
 > banner said "Next, open question O-R3 as a subcycle of its own, then 0.1.2" (the board, 2026-09-27).)* *(Until
 > 0.1.1's record it said 0.1.1 "is next, planned and rehearsed at `5fbaf4a`".)*
@@ -54,7 +56,7 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
 | [0.1.0b](0.1.0b.md) | **The adoption of `5fbaf4a`, and the ecosystem audit's items** — probe 18 refused, `Pod` into `Copy`, the target pins held, D-332's count, EC4 EC5 EC11 ED1 ED3 ES4 EK2 | `250/250` at `5fbaf4a`, and CI asserting the emission |
 | [0.1.1](0.1.1.md) | **The core grammar** — literals, concatenation, alternation, groups, quantifiers — and the error text | `SYNTAX.md` §1's grammar minus classes, escapes and flags; every refusal at its byte, with a sentence saying what to write |
 | [0.1.1b](0.1.1b.md) | **`Vec<T: Copy>`** — open question O-R3: the bound on the type and every verb, the owning units and `vec_free_owning` retired, the element check restated | `Vec<string>` refused at the type and at each verb; `238/238` at `5fbaf4a` |
-| [0.1.2](0.1.2.md) | **The explicit stack** — nesting, `NREGEX_NEST_DEPTH`, and the refusal | 10 000 levels deep is a `NestTooDeep`, not a segfault |
+| [0.1.2](0.1.2.md) | **The explicit stack** — nesting, `NREGEX_NEST_DEPTH`, and the refusal | 10 000 levels deep is a `NestTooDeep`, not a segfault — *and the longest pattern, 65 536 levels, too; at `5fbaf4a` a recursion that deep traps `StackExhausted`, never a segfault (RX-191, RX-194; dated 2026-10-01, 0.1.2's record)* |
 | 0.1.3 | **Classes** — items, ranges, Perl and POSIX classes, nesting, `&&`/`--`/`~~` | every class form in §5, parsed to unresolved items |
 | 0.1.4 | **Escapes and flags** — every escape in §1, flag scoping, `(?-u)` | the escape table, and `(?i)` scoped correctly |
 | 0.1.5 | **The refusals** — every construct in §8, by name, with its offset | `BackreferenceUnsupported` names the guarantee, not "unsupported" |
@@ -106,11 +108,12 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
 - [x] the prose: the status, `238` units, `src/core/` at 37 unit programs, and what cycles 0.2 and C-1's inherit — **`975bdc8`**: `238/238`, `check_refs` `All clean.`; CI run 36426481012 on `975bdc8`; block 5's sweep `SAME`, every line read, and the one §7 did not account for — O-N22's list naming `drop_element` — dated in the record commit (`0.1.1b.md`'s record)
 
 ### 0.1.2 — the explicit stack
-- [ ] a `Vec<Frame>` bounded by `NREGEX_NEST_DEPTH`, **no native recursion anywhere** (RX-032)
-- [ ] `NestTooDeep` names the offset of the parenthesis that exceeded it — checked in `parse.npk`'s `push_group`, its sentence already written (`0.1.1.md` §8)
-- [ ] **the gate for this subcycle**: a 10 000-level pattern produces a clean refusal, and a wrapper script confirms the process exited normally rather than on a signal
-- [ ] `// stress: 40` on that test, because a stack overflow is timing-shaped
-- [ ] a tree check that greps `src/syntax/` for a function that calls itself
+- [x] a `Vec<Frame>` bounded by `NREGEX_NEST_DEPTH`, **no native recursion anywhere** (RX-032) — **RX-193, `d683a10`; RX-192, `8c6a082`**: `open_group` refuses a `(` read while the stack holds 250 frames, so the `Vec<Frame>` never holds more; `check_no_recursion` reads every function under `src/` — 90 in 17 files, 135 distinct edges, no cycle — and the compiler's own analysis agrees, all 90 `NITPICK-TYPE-075` with a `decreases` written on each (block 0b); RX-032's reason restated by RX-191 (`d7dbf65`), probe 19 exiting 106, `StackExhausted`, at −O0 and through `opt -O2`
+- [x] `NestTooDeep` names the offset of the parenthesis that exceeded it — checked in `parse.npk`'s `push_group`, its sentence already written (`0.1.1.md` §8) — **RX-193, `d683a10` — checked in `open_group`'s first line, not `push_group`**, which runs after the head is read and the capture number taken, so `((((…` would answer `TooManyCaptureGroups` there; `parse_limits` cases 15–18 — 251 nested `(?:` at byte 750, 251 nested `(` at byte 250, a lookahead and a trailing `(?` behind the 251st `(` — each `NestTooDeep`, length 1, detail 250, no node built; the sentence rewritten to say what to write instead and held to the letter by `pattern_error_text` case 23; against `HEAD`'s parser the two units exit 15 and 23; `240/240`
+- [x] **the gate for this subcycle**: a 10 000-level pattern produces a clean refusal, and a wrapper script confirms the process exited normally rather than on a signal — **RX-194, `c9ecb09` — the wrapper is the runner, shown by self-check case 31**: `tests/unit/parse_nest_deep.npk` — 10 000 levels, `(` 65 536 times and 65 536 bytes of `(?:`, each `NestTooDeep` at the 251st `(` — exits 0 at −O0 and through `opt -O2`, and 2 against the parser with its depth check deleted; the runner reads a killed process as `0 - signal`, and case 31 is red for stand-ins killed by SIGSEGV and SIGKILL (−11 and −9, three runs each) and itself red against a runner that reads a kill as a clean exit; `242/242`, the self-check 28 live of 32
+- [x] `// stress: 40` on that test, because a stack overflow is timing-shaped — **RX-194, `c9ecb09`; RX-191, `d7dbf65` — kept, though at `5fbaf4a` the overflow is not timing-shaped**: probe 19's edges — 16 911 and 16 912 levels at −O0, 52 425 and 52 426 through `opt -O2` — the same on twenty runs of each side; the forty runs hold the parse itself to one answer, about half a second for both legs
+- [x] a tree check that greps `src/syntax/` for a function that calls itself — **RX-192, `8c6a082` — every file under `src/` and every call cycle, not `src/syntax/` for a self-call**: `check_no_recursion`, 90 functions, 363 calls (366 after RX-193) and 135 distinct edges, no cycle; self-check case 30 fails five planted recursions by name and passes its clean control, and is red against a check that sees self-calls alone and against one that resolves a call to every function of its name; nine tree checks
+- [x] *(added at 0.1.2's record)* the board's `TMPDIR` item — why a `TMPDIR` inside this repository reddened the `repro` step on an unchanged tree — **RX-195, `1cfb065`**: the compiler's manifest root (its D-236) reached past `repro`'s copies to the repository's own `nitpick.toml`; each copy now carries the manifest and copy B sits below a decoy — without the copy the step is red under `/tmp` (57 250 against 57 822 bytes), with it byte-identical and the in-tree build's, under `/tmp` and inside the repository; `242/242` both ways
 
 ### 0.1.3 — classes
 - [ ] `[`'s provisional `UnclosedClass` (`SYNTAX.md` Y-31) replaced by the class parser, and each class kind's sentence held to the letter (`0.1.1.md` §8)
