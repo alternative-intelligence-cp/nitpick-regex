@@ -1,0 +1,66 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 52e1fe17c43aaad035c3cc6c3c92111e1b51b99a..fe55fc7011fd5d7ab2a9c34a06b3d45c463880ea 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -4833,3 +4833,31 @@ asks; **mask the site paths in the comparison** — B-4 exists to see a path in
+ real one; **build the copies under a fixed `/tmp`** — it overrides the environment the session chose and still
+ tests the no-manifest branch; **a self-check case that sets `TMPDIR` inside a project** — one environment, tested
+ in one case; the decoy puts the failing shape inside every run's own scratch.
++
++## Classes — cycle 0.1.3
++
++### RX-196 — class operators share one precedence and apply left to right, union binding tighter and negation last: Rust's order and UTS #18's, in place of Y-17's
++
++**@@DATE@@, cycle 0.1.3 (the plan's PD-40)** — `SYNTAX.md` Y-17, per `meta/research/class-syntax-reference-engines.md`,
++as of 2026-10-01. Y-17 ranked the operators — union, then `--`, then `~~`, then `&&` — "because it differs between
++engines". It does differ, and Y-17's order is no engine's. Rust's `regex` 1.13.1, this library's closest neighbour
++(`COMPAT.md` §1), binds ranges, then union, then *"intersection, difference, symmetric difference. All three have
++equivalent precedence, and are evaluated in left-to-right order"*, then negation. UTS #18 revision 25 requires no order,
++binds every operator at one level in its own example syntax, names union binding tighter as the other choice, and tells
++users to bracket. Measured with regex-syntax 0.8.11: `[a&&a~~b]` is `a` and `b` in Rust and would be `a` alone under
++Y-17; `[ab~~b--a]` matches nothing in Rust and would match `a`. A pattern written for Rust would compile here and match
++differently, with no word said.
++
++**The decision.** Members side by side are their union, binding tightest; `&&`, `--` and `~~` share one precedence and
++apply left to right, each to everything before it and the union after it; `^` complements the whole class, last. So
++`[a--b&&c]` is `[[a--b]&&c]`, and any other reading is one `[…]` away. A mix of `&&` and `--` alone reads the same
++either way; what moves is `~~` after `&&`, and `--` after `~~`. Cycle 0.1.3's parser builds the tree in this order, and
++cycle 0.3.4 evaluates the tree as built.
++
++*Alternatives declined:* **keep Y-17 and add a row to `COMPAT.md` §2** — a pattern that compiles in both engines and
++matches differently is the silent difference this library refuses wherever it can; **refuse two different operators
++in one class without brackets** — UTS #18's advice to users, but Rust's own documented example,
++`[\pL--\p{Greek}&&\p{Uppercase}]`, would stop compiling, and left to right is unambiguous once it is stated;
++**every operator and union at one level, UTS #18's illustrative syntax** — `[ab&&cd]` would be `[[[ab]&&c]d]`, where
++Rust and every engine that has the operators read `[[ab]&&[cd]]`; **decide at cycle 0.3.4, where the sets are
++computed** — the parser builds the tree the precedence shapes, so the parser's subcycle is where it is fixed.
+diff --git a/meta/roadmap/0.3/README.md b/meta/roadmap/0.3/README.md
+index 19e235cf97870125e615e57a352b3beb3d077394..2643dee9df8dfe2e2bc99c50dac20996a7282114 100644
+--- a/meta/roadmap/0.3/README.md
++++ b/meta/roadmap/0.3/README.md
+@@ -55,7 +55,7 @@ design; recorded when chosen).
+ 
+ ### 0.3.4 — class resolution
+ - [ ] 0.1's unresolved class items resolved to `ClassRange` lists
+-- [ ] union, intersection (`&&`), difference (`--`), symmetric difference (`~~`) over sorted range lists, with Y-17's precedence
++- [ ] union, intersection (`&&`), difference (`--`), symmetric difference (`~~`) over sorted range lists, with Y-17's precedence *(@@DATE@@, cycle 0.1.3 — RX-196 replaces Y-17's order: the three share one precedence and apply left to right, union tighter and negation last, and cycle 0.1.3's parser builds the tree in that order — this subcycle evaluates the tree as built)*
+ - [ ] negation within the correct universe
+ - [ ] folding applied **at resolution**, so the engine never folds (U-13)
+ - [ ] `NREGEX_CLASS_RANGES` enforced; `ClassTooLarge`
+diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
+index 6d1d3f77e329f7c16b1205a7a99ba2959573ba04..5a814e0bc66db1c822972df45a0b35e285fef1be 100644
+--- a/meta/specs/SYNTAX.md
++++ b/meta/specs/SYNTAX.md
+@@ -342,6 +342,12 @@ range set at compile time and set operations on sorted range lists are twenty
+ lines. Without them, `[\p{L}&&\p{ASCII}]` is written as an explicit range list
+ that goes stale when Unicode changes.
+ 
++> **SUPERSEDED by RX-196 (@@DATE@@)** — the order below is no engine's. Rust applies the three operators at one
++> precedence, left to right, union binding tighter and negation last, and UTS #18 requires no order and binds every
++> operator at one level in its own syntax ([`../research/class-syntax-reference-engines.md`](../research/class-syntax-reference-engines.md)).
++> So does this library now: `[a--b&&c]` is `[[a--b]&&c]`. Kept as written: how the rule was stated is part of the
++> record.
++
+ **Rule Y-17 — precedence inside a class is: union (implicit) binds tightest,
+ then `--`, then `~~`, then `&&`.** Stated because it differs between engines,
+ and a parenthesised nested class is always available where a reader would have

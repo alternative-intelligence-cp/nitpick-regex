@@ -1,0 +1,1649 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index fe55fc7011fd5d7ab2a9c34a06b3d45c463880ea..740605858f1820943535cc8f3fa92b46a1e860f2 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -4481,6 +4481,9 @@ trigger** — none is in §1's grammar, and a kind held for a construct nobody h
+ **leave it to cycle 0.1.6** — the decision is the grammar's, and 0.1.1 is where the grammar is written.
+ 
+ ### RX-182 — the parse is one explicit-stack walk that builds the arena bottom-up, the last atom held pending for a quantifier
++> **SUPERSEDED IN PART by RX-197 (@@DATE@@)** — *"then one `while` over the cursor"*: a class is read by a `while` of
++> its own, `parse_class`'s, which the walk's calls at a `[` — still once over the pattern, on an explicit stack of
++> its own (`SYNTAX.md` Y-33's note). The walk, its stack and its pending atom are as this decision says.
+ 
+ **2026-09-27, cycle 0.1.1 (the plan's PD-26), at compiler `5fbaf4a`** — `SYNTAX.md` Y-33. `parse_pattern(uint8[]:pat,
+ Ast->:out)` answers `PatternError?` (RX-175's shape): the length, the encoding (RX-183), then one `while` over the
+@@ -4751,6 +4754,9 @@ at a compile per root; **the gate unit alone** — it shows the
+ parser refusing on the patterns it builds, and nothing about a function it never calls.
+ 
+ ### RX-193 — `NREGEX_NEST_DEPTH` is decided at the `(`: a `(` that would nest groups deeper than 250 is `NestTooDeep` there, before a byte after it is read
++> **SUPERSEDED IN PART by RX-198 (@@DATE@@)** — the sentence it quotes, which named a `(` and groups alone: a `[` is
++> refused at the same bound, counted with the groups around it, and the sentence names both (`SYNTAX.md` Y-35). Every
++> `(` is as this decision says.
+ 
+ **2026-10-01, cycle 0.1.2 (the plan's PD-37), at compiler `5fbaf4a`** — `SYNTAX.md` Y-35, Y-9's bound. It supersedes in
+ part RX-185 and RX-186, for a `(` past the bound only, and completes RX-182's *"the stack is unbounded until cycle
+@@ -4861,3 +4867,83 @@ in one class without brackets** — UTS #18's advice to users, but Rust's own do
+ **every operator and union at one level, UTS #18's illustrative syntax** — `[ab&&cd]` would be `[[[ab]&&c]d]`, where
+ Rust and every engine that has the operators read `[[ab]&&[cd]]`; **decide at cycle 0.3.4, where the sets are
+ computed** — the parser builds the tree the precedence shapes, so the parser's subcycle is where it is fixed.
++
++### RX-197 — a class is read once, left to right: members, ranges and the operators between unions, each shape read as Rust reads it or refused
++
++**@@DATE@@, cycle 0.1.3 (the plan's PD-41), at compiler `5fbaf4a`** — `SYNTAX.md` Y-36, Y-37 and Y-38, with Y-16 and
++RX-196's order; per `meta/research/class-syntax-reference-engines.md`. It completes RX-186 for `[`, whose provisional
++`UnclosedClass` it replaces, and supersedes in part RX-182 — *"one `while` over the cursor"*.
++
++**What chose the rules.** `SYNTAX.md` §1 says what a class may hold and §5 what it means; neither says how `]`, `-` or
++a doubled `&`, `-` or `~` is read where it could be two things. Where Rust's `regex`, the closest neighbour (`COMPAT.md`
++§1), reads a shape one way and the backtracking engines agree, this library reads it so: `]` straight after `[` or `[^`
++is a member — so `[]` and `[^]` never close, as Rust, Perl and Python read them — and `-` first, last, after a range or
++after an operator is a member; `X-Y` between two codepoints is a range. Where the engines disagree, or where Rust reads
++a likely mistake in silence, it refuses with a sentence saying what to write: an operator with an empty side (`[a&&]`,
++`[--a]`, `[!--]` — Rust takes the empty set or a run of members, Perl and Python read the last two as ranges); a class
++at either end of a range (`[\w-.]`, which Rust and Python refuse and Perl reads as members; `[[a]-z]`, which Rust reads
++as members), and a `[` ending a range (`[!-[]`, which Rust reads as the range `!`–`[`), since a `[` inside a class always
++opens one; and `[:` that opens no known POSIX class (`[[:alpah:]]`, which Rust reads as a nested class of its bytes,
++and which this parser could not read so without going back, which its cursor does not — RX-173). Measured with regex
++1.13.1: Rust accepts every pattern `tests/unit/parse_classes.npk` accepts, and over 774 codepoints reads alike each of
++its classes whose set needs no Unicode table (49 of 54); of the patterns `parse_class_refusals.npk` refuses, Rust
++accepts those an operator's empty side, a bracketed class before a `-` or a `[:` makes, and refuses every other.
++
++**The tree, and the walk.** Y-27's kinds, as its note says: a class's members in order under its `Class`, or one
++`ClassOp` chain folded left, each union a `Class` of its own. Perl classes and properties stay unresolved (Y-37), so the
++parser reads no table and cycle 0.1 needs nothing of cycle 0.3. `parse_class`, a `while` of its own that the walk's
++calls at a `[`, reads the class to its `]`: a nested `[` saves the class being read on `Parser.classes`, a
++`Vec<ClassFrame>`, and its `]` takes it back — the groups' shape one level down, with no function calling itself
++(`check_no_recursion`: 110 functions, no cycle). `ClassFrame` owns nothing and derives `Copy`. The stack's bound is
++RX-198's.
++
++**The text.** Each refusal says what is wrong, at which byte, and what to write instead, held to the letter by
++`tests/unit/pattern_error_text.npk` (cases 24–34): `UnclosedClass` says, when the class began with one, that the `]`
++after `[` was a member; `BadClassRange` says to put a `-` first or last or write `\-`; `ClassOpMismatch` names its
++operator, with an example and the escape; `UnknownPosixClass` gives the form, the fourteen names — which now live in
++one place, `posix_class_name`, that the parser matches and the text renders — and `\:` for a `:`;
++`UnknownUnicodeProperty` names the forms a name takes.
++
++**Measured at `5fbaf4a`.** `parse_classes.npk` and `parse_class_refusals.npk` pass at −O0 and through `opt -O2`, and
++against the parser before this decision exit 1 and 3; each rule broken in a copy exits as the plan's §1.11 records —
++at the case written for it, or, with the test that keeps a `-` the pattern ends on out of a range removed, by the
++`OutOfBounds` trap a read past the pattern makes. No pattern reaches `EmptyClass`: every class the parser builds holds a
++member — open question O-Y3.
++
++*Alternatives declined:* **a class read inside the walk's own `while`, by a mode** — every byte of the walk would ask
++which mode it is in, where a class is a sub-language that never meets a group; **recursive descent for a nested
++class** — RX-032; **`[:` read as a nested class when it opens no POSIX class, as Rust reads it** — the cursor would have
++to go back over the name, which nothing else asks (RX-173), and a misspelt name would be a class of its bytes; **`]`
++never a member, so `[]` is `EmptyClass`** — ECMAScript's reading, which takes `[]` for a class that matches nothing
++(measured, node 24), where Rust, Perl and Python read `[]a]` as `]` and `a`; **an empty side of an operator taken as
++the empty set, as Rust takes it** — `[a&&]` would match nothing with no word said, and UTS #18 notes it is "common … to
++require a CHARACTER_CLASS on both sides"; **a run of `-` first in a class read as members, as Rust reads `[--a]`** —
++Perl and Python read the same bytes as the range `-`–`a`, so either reading surprises someone; **a `-` after a range,
++or before `]`, refused** — Rust, Perl and Python read both as a `-`.
++
++### RX-198 — groups and classes nest at most `NREGEX_NEST_DEPTH` deep together, decided at the `(` or `[` that would go deeper
++
++**@@DATE@@, cycle 0.1.3 (the plan's PD-42), at compiler `5fbaf4a`** — `SYNTAX.md` Y-35's last sentence, *"a class
++nests too from cycle 0.1.3, which bounds it"*, and `SAFETY.md` S-18. It supersedes in part RX-193 — the sentence that
++decision quotes, held by `tests/unit/pattern_error_text.npk` case 23, which named a `(` and groups alone.
++
++**The decision.** A `[` that would open a class while groups and classes — 250 together — are open around it is
++`NestTooDeep` at that `[`, length 1, detail the bound, before a byte after it is read. The count is one sum: the groups
++open, `p.stack.count`, and the classes open, the enclosing ones on `Parser.classes` and the one being read. A `(` is
++checked as RX-193 checks it, since no class is open where a `(` opens a group, and a POSIX class's `[:` opens no class.
++So the tree cycle 0.2 walks nests at most 250 groups and classes deep. The sentence names both: *"nesting too deep at
++byte 250: the `(` or `[` here would nest groups and classes 251 deep, and they may nest at most 250 deep
++(NREGEX_NEST_DEPTH). Nest fewer: write `(?:a)` as `a`, and `[[a]]` as `[a]`."*
++
++**Measured at `5fbaf4a`.** 250 nested classes parse and the 251st `[` is `NestTooDeep` at byte 250; so is a `[` inside
++250 groups, and the 126th `[` inside 125; 249 groups around a class parse (`parse_limits` cases 19–24). The gate,
++forty runs a leg: `[` 10 000 times with 10 000 closers, `[` 65 536 times, and 200 groups then `[` 10 000 times, each
++`NestTooDeep` at byte 250 (`parse_nest_deep` cases 7–12).
++
++*Alternatives declined:* **a bound of its own for classes** — a second number for one hazard, and 250 groups could then
++hold 250 classes, 500 levels where every walk was promised 250; **the two counted apart under one constant** — the same
++500; **the sentence left naming a `(`** — false for every refusal at a `[`, and the text is built from the four fields,
++none of which says which byte it was (Y-34); **a detail that says which** — a sentinel inside the bound's own domain,
++where `RegexOptions` may set the bound (`SAFETY.md` S-12); **each operator counted as a level, as Rust's nest limit
++counts every node** — a class's operators fold into a chain one node deeper per operator, which the pattern's length
++already bounds, and a flat `[a--b--c…]` would be refused for its length; S-19's walks hold their own stacks for it.
+diff --git a/meta/OPEN_QUESTIONS.md b/meta/OPEN_QUESTIONS.md
+index bb594614c2195d60e6195135f0e393c70f1d71bb..0247f8bd4743a1037de7e539b964f8b2481a4a57 100644
+--- a/meta/OPEN_QUESTIONS.md
++++ b/meta/OPEN_QUESTIONS.md
+@@ -918,6 +918,16 @@ movemask intrinsic, which is a better request than a speculative one.
+ - **O-Y2 — whether `x` mode ignores whitespace inside classes.** Rust does not;
+   Perl does with `xx`. **Recommendation:** do not, matching Rust, and refuse
+   `xx` with a message naming the escape. **Decide at cycle 0.1.**
++- **O-Y3 — what `EmptyClass` names, now that no pattern reaches it in the parser.** A `]` straight after `[` or
++  `[^` is a member (`SYNTAX.md` Y-36, RX-197), as Rust, Perl and Python read it, so every class the parser builds
++  holds one, and `EmptyClass` is a kind nothing produces — the shape Y-25 forbids. Two ways out: give it a trigger
++  where a class's set is computed — a class whose operators leave it matching nothing, as `[a&&b]` does, refused at
++  its `[` rather than compiled to a class that never matches, by `UNICODE.md` U-7's reasoning (Rust accepts `[a&&b]`
++  as a class that matches nothing) — or retire it, as RX-181 retired `EmptyAlternate`. **Recommendation:** the
++  trigger, refused at its `[`: a class that can never match is a mistake far more often than an intent, and only
++  resolution can see one. **Decide at cycle 0.3.4**, where a class's set is first computed; until then cycle
++  0.1.6's `check_error_kinds_tested` must count it among the kinds a later cycle provokes, as it must
++  `ClassTooLarge`.
+ 
+ ### Unicode
+ 
+diff --git a/meta/specs/COMPAT.md b/meta/specs/COMPAT.md
+index 4ef563fb4cb7da81b17ca8fd20be4d3ef16125a9..7c47c5a23a5360b2046b3186b012c60e5de8226f 100644
+--- a/meta/specs/COMPAT.md
++++ b/meta/specs/COMPAT.md
+@@ -34,6 +34,7 @@ The closest neighbour, so the list is short and each entry is deliberate.
+ | Unicode blocks | not supported | refused, naming `Script` | `UNICODE.md` §2.1 |
+ | case folding | simple | simple | same |
+ | `x` mode inside classes | whitespace significant | whitespace significant | same (O-Y2) |
++| a class's edge cases | an operator with an empty side is the empty set (`[a&&]`, `[!--]`), and a run of `-` first in a class is members (`[--a]`); `[:` that opens no POSIX class opens a nested class (`[[:alpah:]]`); a `-` after `[…]` or `[:name:]` is a member, and a `[` ending a range is a codepoint | each refused, with the kind and the fix `SYNTAX.md` Y-36 and Y-38 name | a reading the author may not have meant is a refusal that says what to write — RX-197 |
+ | replacement | closures **or** templates | templates and non-capturing function values | no closures (D-018) |
+ | `Match` | a `&str` slice | byte offsets | borrows never pass up (D-004) |
+ | DFA cache | pooled internally | an explicit `Cache` the caller owns | `ENGINES.md` §5 |
+@@ -59,6 +60,7 @@ The list a user migrating from Python, PHP, Java or JavaScript needs.
+ | `\p{InGreek}` | refused, naming `\p{Script=Greek}` |
+ | case folding of `ß`, `ﬁ` | **simple folding only** — `UNICODE.md` U-12 |
+ | `\w` | UTS #18 Annex C, not `[A-Za-z0-9_]` — `UNICODE.md` U-10 |
++| `[` inside a class; `&&`, `--`, `~~` | a nested class, and the class operators of UTS #18 and Rust: `[a[b]]` is `a` or `b`, and `[a--b]` is `a` but not `b` — write `\[` and `\-` for the bytes (`SYNTAX.md` Y-36, RX-197) |
+ 
+ **Rule K-1 — every refusal names the alternative in its message**, and where
+ there is none it names the reason. `LookaroundUnsupported` says the pattern
+diff --git a/meta/specs/SAFETY.md b/meta/specs/SAFETY.md
+index c0b4dac473c7c862328be55da7a1173ee89771ae..20721897c638543777407fd3e48da79d448fb9bd 100644
+--- a/meta/specs/SAFETY.md
++++ b/meta/specs/SAFETY.md
+@@ -370,7 +370,7 @@ nowhere else.** A tree check enforces it. Exceeding one at compile time is a
+ | Constant | Default | Bounds |
+ |---|---|---|
+ | `NREGEX_PATTERN_BYTES` | 65536 | the pattern text |
+-| `NREGEX_NEST_DEPTH` | 250 | group and alternation nesting — the parser's explicit stack (§8). *Counted in groups, since an alternation nests only inside one, and refused at the `(` that goes too deep — `SYNTAX.md` Y-35, RX-193, 2026-10-01* |
++| `NREGEX_NEST_DEPTH` | 250 | group and alternation nesting — the parser's explicit stack (§8). *Counted in groups, since an alternation nests only inside one, and refused at the `(` that goes too deep — `SYNTAX.md` Y-35, RX-193, 2026-10-01. And classes since cycle 0.1.3, counted together with groups and refused at the `[` that goes too deep — Y-35, RX-198, @@DATE@@* |
+ | `NREGEX_PROGRAM_INSTRUCTIONS` | 100000 | the compiled program |
+ | `NREGEX_REPEAT_MAX` | 1000 | a single `{n,m}` bound |
+ | `NREGEX_REPEAT_PRODUCT` | 100000 | the **product** across nested repetitions — §5.1 |
+@@ -871,6 +871,12 @@ survives is the frame the optimiser sizes and the stack the caller's thread was
+ given — a recursion of the parser's frame size runs 16 911 levels at −O0 and
+ 52 425 through `opt -O2` on the main thread's 8 MiB, neither the library's to
+ know.)*
++*(@@DATE@@, cycle 0.1.3 — RX-198: a class nests too, read on an explicit stack of its
++own, a `Vec<ClassFrame>`, and groups and classes together nest at most
++`NREGEX_NEST_DEPTH` deep, refused at the `(` or `[` that would go deeper (`SYNTAX.md`
++Y-35). A class's operators fold into a chain one node deeper per operator (Y-27's
++note), which the pattern's length bounds and this bound does not: a walk over a class
++(S-19) holds its explicit stack for that depth too.)*
+ 
+ **Rule S-19 — the same rule applies to every HIR and program walk.** Desugaring,
+ literal extraction and program emission all walk a tree that a pattern
+diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
+index 5a814e0bc66db1c822972df45a0b35e285fef1be..617c1ca01de8ae2590cb07f95fa7195132b1ef3d 100644
+--- a/meta/specs/SYNTAX.md
++++ b/meta/specs/SYNTAX.md
+@@ -46,6 +46,12 @@ Escape       ::= "\" (Punct | "n" | "r" | "t" | "f" | "v" | "0" | "a" | "e"
+ Name         ::= [A-Za-z_][A-Za-z0-9_]*
+ ```
+ 
++*(@@DATE@@, cycle 0.1.3 — RX-197: a `Class` is read as Y-36 says. Its operators stand between unions —
++`Class ::= "[" "^"? Union (ClassOp Union)* "]"`, `Union ::= ClassItem+` — never as an item among the members;
++`ClassAtom`, which the grammar leaves undefined, is one codepoint: any but `\`, `[` and `]`, or `\` and ASCII
++punctuation, with `]` and `-` members where Y-36 places them; and a `PosixClass`'s name is lowercase, one of §5.1's
++fourteen (Y-38).)*
++
+ **Rule Y-2 — a `\` before any ASCII punctuation is that punctuation,
+ literally.** `\@` is `@`. A `\` before an ASCII **letter or digit** that this
+ document does not list is a **refusal** (`UnknownEscape`), never a literal:
+@@ -107,6 +113,8 @@ pointer to anything that pushes or pops (`SAFETY.md` S-23b).)*
+ the bound; until then the pattern's length bounds the stack.)*
+ *(2026-10-01, cycle 0.1.2 — RX-193: bounded, and decided at the `(` before a byte
+ after it is read — Y-35.)*
++*(@@DATE@@, cycle 0.1.3 — RX-198: and a class's frames on a `Vec<ClassFrame>`, bounded with it: groups and classes
++together nest at most `NREGEX_NEST_DEPTH` deep, and a `[` that would go deeper is `NestTooDeep` at that `[` — Y-35.)*
+ 
+ **Rule Y-10 — every error carries a byte offset into the pattern**, and a
+ length where the construct spans more than a point. A user gets "unclosed
+@@ -173,6 +181,14 @@ A list's members — a `Concat`'s pieces, an `Alternate`'s alternatives, a
+ `Class`'s items — are its first member and each member's `next`, in the order
+ written. The subcycle that parses a construct produces its kind; the operands
+ are this table's until a decision says otherwise.
++*(@@DATE@@, cycle 0.1.3 — RX-197: what a class's nodes hold, as the parser builds them (Y-36). A `Class` with no
++operator holds its members in order; with operators it holds one item, the last `ClassOp`. A `ClassOp`'s `a` is
++everything before its operator — the first union, or the `ClassOp` before it — and its `b` the union after it, so
++operators fold left; each union an operator takes is a `Class` of its members, never negated, from its first member's
++first byte to its last member's last; a `ClassOp` spans its left operand's first byte through its right operand's
++last. A member that is one codepoint is a `ClassRange` from it to itself, spanning how it is written — `\]` is two
++bytes. A `PerlClass` spans two bytes, a `UnicodeClass` its `\` through its name's last byte or its `}`, a
++`PosixClass` its `[` through its `]`.)*
+ 
+ **Rule Y-28 (RX-183) — a pattern is UTF-8 text, checked whole before the grammar,
+ and every character is a literal but twelve.** After the length (RX-175), the pattern
+@@ -232,6 +248,11 @@ byte Y-29 and Y-30 do not name is `UnknownFlag` at the `P`, detail `P` (80), in
+ every cycle, since `P` is no flag (`parse_refusals.npk` case 64).
+ *(2026-10-01, cycle 0.1.2 — RX-193: not at a `(` past `NREGEX_NEST_DEPTH`, which is
+ `NestTooDeep` before what follows it is read (Y-35).)*
++*(@@DATE@@, cycle 0.1.3 — RX-197: `[` is no longer provisional: Y-36 reads a class and says what a pattern that ends
++inside one is — `UnclosedClass` at the innermost open `[`, its detail telling a `]` first in the class apart, unless it
++ends inside an escape, a property's name or a `[:`. Inside a class,
++`\d \D \w \W \s \S`, `\p` and `\P` are classes (Y-37); any other escape there, and every one outside a class
++but punctuation, is still refused provisionally.)*
+ 
+ **Rule Y-32 (RX-184) — quantifiers.** `*`, `+`, `?`, `{n}`, `{n,}` and `{n,m}`, each
+ followed by `?` to be lazy, wrap the atom before them in a `Repeat` — `a` the atom,
+@@ -262,6 +283,9 @@ its `(` through its `)`. Every node's `flags` are the flags in force — `AST_FL
+ until cycle 0.1.4 parses flags — with `AST_FLAG_LAZY` on a lazy `Repeat`. The first
+ refusal, left to right, is the answer; the tree's nodes are then partial, its root is
+ unchanged, and the caller frees them.
++*(@@DATE@@, cycle 0.1.3 — RX-197: a class is read by a `while` of its own, `parse_class`'s, which the walk's `while`
++calls at a `[` and which returns at the class's `]` — still once over the pattern, no byte read twice and no function
++calling itself, its frames on an explicit stack of their own, a `Vec<ClassFrame>` (Y-36).)*
+ 
+ **Rule Y-35 (RX-193) — groups nest at most `NREGEX_NEST_DEPTH` deep, and the bound
+ is decided at the `(`.** A `(` read while `NREGEX_NEST_DEPTH` groups — 250 — are open
+@@ -273,6 +297,11 @@ past `NREGEX_CAPTURE_GROUPS` (Y-29; 251 nested `(` are `NestTooDeep` at byte 250
+ head §8 refuses (Y-30), a construct refused provisionally (Y-31), or the end of the
+ pattern. 250 nested groups parse. The bound counts groups, the one construct that
+ nests here; a class nests too from cycle 0.1.3, which bounds it.
++*(@@DATE@@, cycle 0.1.3 — RX-198: classes nest, and count with groups. A `[` that would open a class while groups and
++classes — `NREGEX_NEST_DEPTH`, 250, together — are open around it is `NestTooDeep` at that `[`, length 1, detail the
++bound, before a byte after it is read; a POSIX class's `[:` opens no class and nests nothing. So 250 nested classes
++parse and the 251st `[` is `NestTooDeep` at byte 250, and so is a `[` inside 250 groups, or the 126th `[` inside 125.
++The refusal's sentence names both: *"the `(` or `[` here would nest groups and classes 251 deep"*.)*
+ 
+ ---
+ 
+@@ -353,6 +382,53 @@ then `--`, then `~~`, then `&&`.** Stated because it differs between engines,
+ and a parenthesised nested class is always available where a reader would have
+ to think.
+ 
++### 5.4 How a class is read
++
++*(@@DATE@@, cycle 0.1.3 — RX-197.)*
++
++**Rule Y-36 (RX-197) — a class is read once, left to right: its members, its ranges, and the operators between
++unions.** `[` outside a class opens one, `[^` a negated one, and the class ends at its `]`.
++
++- **Its members are codepoints and classes.** A codepoint is written as itself — any but `\`, `[` and `]`, decoded
++  from UTF-8 (Y-11), white space and every metacharacter of Y-28 included — or as `\` and ASCII punctuation (Y-2). A
++  class is `\d \D \w \W \s \S` or `\p…` `\P…` (Y-37), `[:name:]` (Y-38), or a nested class: `[`, its own
++  members, its own `]`. Any other escape is cycle 0.1.4's (Y-31).
++- **`]` straight after `[` or `[^` is a member**, not the end, and so is a `-` straight after that `]`. So `[]a]`
++  holds `]` and `a`, and `[]` and `[^]` never end. A pattern that ends inside a class — not inside an escape
++  (`TrailingBackslash`, Y-28), a property's name (Y-37) or a `[:` (Y-38) — is `UnclosedClass` at the innermost open
++  `[`, length 1, its detail `]` (93) when that class's first member is a `]`, else 0.
++- **A range** is a codepoint, `-` and a codepoint: `a-z`. Both ends must be codepoints, the first not above the second
++  — else `BadClassRange` at the range's first byte, spanning through the byte that made it bad, its detail 0 for an
++  end below its start (`[z-a]`) and 1 for a class at either end (`[\w-.]`, `[a-\d]`, `[[a]-z]`, `[a-[b]]`). The end
++  is read whatever it is: `[!-&&a]` is the range `!-&` and the members `&` and `a`.
++- **A `-` is a member** where a member would start — first in the class, straight after the first `]`, after a range,
++  after an operator — and straight before the class's `]`. `[-a]`, `[]-a]`, `[a-]` and `[a-c-e]` each hold a `-`.
++- **`&&`, `--` and `~~` are its operators** (Y-16): two of those bytes together, read where a member would start or
++  straight after one; a lone `&` or `~` is a member. Members side by side are a union, and an operator takes the
++  union before it and the one after it, each of which must hold a member — else `ClassOpMismatch` at the operator,
++  length 2, its detail the operator's byte (`[&&a]`, `[a--]`, `[a&&&&b]`, `[--a]`). The operators apply left to
++  right at one precedence, and `^` complements the result (RX-196).
++- **The tree** is Y-27's, as its note says: a `Class` from `[` through `]`, `AST_FLAG_NEGATED` for `[^`.
++- **The nesting** is bounded with groups' (Y-35).
++
++No class the parser builds is empty, so no pattern reaches `EmptyClass` here (§9; O-Y3). Where Rust's `regex` reads a
++shape one way and this rule another, this rule refuses it (`COMPAT.md` §2).
++
++**Rule Y-37 (RX-197) — Perl classes and Unicode properties are parsed, never resolved.** `\d`, `\w` and `\s` are
++`PerlClass` 0, 1 and 2, and `\D`, `\W` and `\S` the same, negated. `\p` names a Unicode property — one ASCII
++letter, `\pL`, or a name in braces up to the first `}`, `\p{Script=Greek}` — kept as text: a `UnicodeClass` holding
++the name's offset and length, negated for `\P`. Cycle 0.3 resolves both (`UNICODE.md` §2, §3), and the parser reads
++no table. A name that cannot be read is `UnknownUnicodeProperty` at the `\`, spanning what was read: detail 1 when
++neither an ASCII letter nor `{` follows the `p`, 2 when the braces never close, 3 when they hold nothing. Each is a
++member of a class (Y-36).
++
++**Rule Y-38 (RX-197) — POSIX classes, inside a class only.** Where a member would start inside a class, `[:` begins
++a POSIX class: `[:name:]`, or `[:^name:]` for its complement, its name lowercase and one of §5.1's fourteen — a
++`PosixClass` holding the name's place in that list. Anything else after `[:` — a name not on the list, no `:]`, a
++capital — is `UnknownPosixClass` at the `[`, spanning what was read, detail 0: never a nested class instead, as Rust
++reads one, because the cursor does not go back (RX-173). Outside a class, `[:` opens a class whose first member is
++`:`.
++
+ ---
+ 
+ ## 6. Anchors and boundaries
+@@ -431,6 +507,9 @@ The closed list. Normative; `SAFETY.md` §4.1 references it.
+ 2026-09-27, cycle 0.1.1 (RX-181): an empty alternative is Y-27's `Empty`, accepted, as
+ in every engine this document compares against (`COMPAT.md`), so no pattern could
+ provoke the kind, and Y-25 forbids a kind nothing produces.*
++*(@@DATE@@, cycle 0.1.3 — RX-197: no pattern reaches `EmptyClass` in the parser: a `]` straight after `[` or `[^` is a
++member (Y-36), so every class it builds holds one. Whether a class that RESOLVES to nothing is `EmptyClass`, or the
++kind retires as `EmptyAlternate` did, is open question O-Y3, for cycle 0.3.4.)*
+ 
+ **Quantifiers**: `NothingToRepeat`, `DoubleRepeat`, `BadRepeatBounds`
+ (`{3,1}`), `RepeatTooLarge`, `RepeatProductTooLarge`.
+@@ -469,7 +548,8 @@ diffs the enum against the tests, so a kind nothing can produce is caught. This
+ is the compiler's `check_codes_tested` in this library's terms.
+ 
+ **What each refusal cycle 0.1.1 makes carries** — Y-10's offset and length, and the
+-detail a message is built from (Y-29 … Y-32):
++detail a message is built from (Y-29 … Y-32) *(and, since @@DATE@@, each cycle 0.1.3's classes make — Y-36 … Y-38,
++RX-197)*:
+ 
+ | Kind | Raised when | Offset | Length | Detail |
+ |---|---|---|---|---|
+@@ -488,7 +568,12 @@ detail a message is built from (Y-29 … Y-32):
+ | `AtomicGroupUnsupported` | a quantifier made possessive | the quantifier | through the `+` | 43 |
+ | `InvalidPatternEncoding` | ill-formed UTF-8 | the sequence's first byte | through the byte that broke it | that byte; 0 when cut short |
+ | `PatternTooLong` (cycle 0.1.0) | over `NREGEX_PATTERN_BYTES` | the first byte past the bound | the bytes over it | the bound |
+-| `NestTooDeep` (cycle 0.1.2) | a `(` that would nest groups deeper than `NREGEX_NEST_DEPTH` (Y-35) | that `(` | 1 | the bound |
++| `NestTooDeep` (cycle 0.1.2) | a `(` that would nest groups deeper than `NREGEX_NEST_DEPTH` (Y-35) — *and since cycle 0.1.3 a `[` that would nest groups and classes deeper, counted together (RX-198)* | that `(` *or `[`* | 1 | the bound |
++| `UnclosedClass` (cycle 0.1.3) | the pattern ends inside a class — not inside an escape, a property's name or a `[:` | the innermost open `[` | 1 | 93 when that class's first member is a `]`; 0 |
++| `BadClassRange` (cycle 0.1.3) | a range's end below its start; a class at either end | the range's first byte | through the byte that made it bad | 0; 1 |
++| `ClassOpMismatch` (cycle 0.1.3) | `&&`, `--` or `~~` with no member before it or after it | the operator | 2 | its byte: 38, 45 or 126 |
++| `UnknownPosixClass` (cycle 0.1.3) | `[:` inside a class that opens no `[:name:]` or `[:^name:]` with a name of §5.1 | its `[` | what was read | 0 |
++| `UnknownUnicodeProperty` (cycle 0.1.3) | `\p` or `\P` whose name cannot be read | the `\` | what was read | 1, no letter or `{` after it; 2, no `}`; 3, empty braces — 0 is cycle 0.3's, a name it does not know |
+ 
+ *(2026-09-27, cycle 0.1.1 — RX-181: thirty-six, `EmptyAlternate` retired.)*
+ *(2026-09-26, cycle 0.1.0 — RX-172: `src/syntax/pattern_error.npk`'s
+@@ -506,3 +591,5 @@ cycle 0.1.6's.)*
+ - **O-Y2 — whether `x` mode should ignore whitespace inside classes.** Rust
+   does not; Perl does with `xx`. Recommendation: do not, matching Rust, and
+   refuse `xx` with a message naming the escape. Decide at cycle 0.1.
++- **O-Y3 — what `EmptyClass` names, now that no pattern reaches it in the parser** (Y-36). Recommendation: a class
++  that resolves to no codepoint, refused at its `[`. Decide at cycle 0.3.4. `../OPEN_QUESTIONS.md` has the argument.
+diff --git a/src/core/limits.npk b/src/core/limits.npk
+index f19ab90b13fa381829c77bc3041b8a72a6ee4093..18937901fed137bcdc95cb41178d708cfcf2c325 100644
+--- a/src/core/limits.npk
++++ b/src/core/limits.npk
+@@ -43,6 +43,8 @@ pub fixed int64:NREGEX_PATTERN_BYTES = 65536i64;
+ // probe 19) — and a trap ends the whole program, so the explicit stack stands.)*
+ // *(2026-10-01, cycle 0.1.2 — RX-193: `parse.npk`'s `open_group` refuses at it, at the
+ // `(`, before a byte after it is read — `SYNTAX.md` Y-35.)*
++// *(@@DATE@@, cycle 0.1.3 — RX-198: and classes, counted together with groups, refused
++// at the `[` that would go deeper — `parse_class`; Y-35.)*
+ pub fixed int64:NREGEX_NEST_DEPTH = 250i64;
+ 
+ // ---- the compiled program --------------------------------------------------
+diff --git a/src/syntax/parse.npk b/src/syntax/parse.npk
+index 76f769ff50b82a389e6e83d8511b55bcfeae3324..26bf9a79ffdce606618650834f8ed399e6f3ae40 100644
+--- a/src/syntax/parse.npk
++++ b/src/syntax/parse.npk
+@@ -1,6 +1,7 @@
+ // `src/syntax/parse.npk` — THE PARSER: PATTERN TEXT TO AN AST. Cycle 0.1.0 wrote
+ // its entry's first refusal (RX-175); cycle 0.1.1 writes the core grammar
+-// (RX-182 … RX-186; `meta/specs/SYNTAX.md` §1 and Y-28 … Y-33).
++// (RX-182 … RX-186; `meta/specs/SYNTAX.md` §1 and Y-28 … Y-33); cycle 0.1.3 its
++// classes (RX-197, RX-198; Y-35 … Y-38).
+ //
+ // HOW `syntax` SAYS A PATTERN IS WRONG: WITH A VALUE. The library's one `error:`
+ // identity, `ERegexPattern`, is `api`'s (`SAFETY.md` S-8), and `syntax` sits
+@@ -20,6 +21,11 @@
+ // says so on every run (RX-192). `NREGEX_NEST_DEPTH` bounds the stack since cycle
+ // 0.1.2: a `(` that would nest groups deeper is `NestTooDeep` at that `(`, before
+ // a byte after it is read (Y-35, RX-193). Until then the pattern's length bounded it.
++// *(@@DATE@@, cycle 0.1.3 -- RX-197, RX-198: a class is read by a `while` of its own,
++// `parse_class`'s, which the walk's calls at a `[` -- still once over the pattern, on
++// an explicit stack of its own, `Vec<ClassFrame>` -- and groups and classes nest at
++// most `NREGEX_NEST_DEPTH` deep together, refused at the `(` or `[` that would go
++// deeper.)*
+ //
+ // THE TREE IS BUILT BOTTOM-UP INTO THE ARENA (Y-26, Y-27, Y-33). A frame keeps two
+ // lists: the alternatives closed so far, and the pieces of the current one. A
+@@ -62,15 +68,23 @@ fixed int32:CH_GT = 62i32;           // `>`
+ fixed int32:CH_QUESTION = 63i32;     // `?`
+ fixed int32:CH_AT = 64i32;           // `@`, the last punctuation before the capitals
+ fixed int32:CH_UPPER_A = 65i32;
++fixed int32:CH_UPPER_D = 68i32;      // `\D`, not a digit (Y-37)
+ fixed int32:CH_UPPER_P = 80i32;
+ fixed int32:CH_UPPER_R = 82i32;
++fixed int32:CH_UPPER_S = 83i32;      // `\S`, not white space
++fixed int32:CH_UPPER_W = 87i32;      // `\W`, not a word codepoint
+ fixed int32:CH_UPPER_Z = 90i32;
+ fixed int32:CH_LBRACKET = 91i32;     // `[`, the first punctuation after the capitals
+ fixed int32:CH_BACKSLASH = 92i32;    // `\`
++fixed int32:CH_RBRACKET = 93i32;     // `]`
+ fixed int32:CH_CARET = 94i32;        // `^`
+ fixed int32:CH_UNDERSCORE = 95i32;   // `_`
+ fixed int32:CH_BACKTICK = 96i32;     // the last punctuation before the small letters
+ fixed int32:CH_LOWER_A = 97i32;
++fixed int32:CH_LOWER_D = 100i32;     // `\d`, a digit (Y-37)
++fixed int32:CH_LOWER_P = 112i32;     // `\p`, a Unicode property (Y-37)
++fixed int32:CH_LOWER_S = 115i32;     // `\s`, white space
++fixed int32:CH_LOWER_W = 119i32;     // `\w`, a word codepoint
+ fixed int32:CH_LOWER_Z = 122i32;
+ fixed int32:CH_LBRACE = 123i32;      // `{`, the first punctuation after the small letters
+ fixed int32:CH_PIPE = 124i32;        // `|`
+@@ -94,6 +108,14 @@ fixed int64:U8_F3 = 243i64;          // 0xF1 … 0xF3: four bytes, any continuat
+ fixed int64:U8_F4 = 244i64;          // 0xF4: four bytes, the second 0x80 … 0x8F (no more than U+10FFFF)
+ fixed int64:U8_F4_SECOND = 143i64;   // 0x8F
+ 
++// ---- the class operators and what a class read last (Y-27, Y-36) ------------
++fixed int64:CLASS_AND = 0i64;        // `&&`, Y-27's `ClassOp` code
++fixed int64:CLASS_DIFF = 1i64;       // `--`
++fixed int64:CLASS_XOR = 2i64;        // `~~`
++fixed int64:AFTER_START = 0i64;      // a member may start: the class's start, after its first `]`, a range or an operator
++fixed int64:AFTER_ONE = 1i64;        // one codepoint, which a `-` joins to the next in a range
++fixed int64:AFTER_CLASS = 2i64;      // a class -- `\d`, `\p{…}`, `[:name:]`, `[…]` -- which no `-` may join
++
+ // One open group, or the pattern itself at the bottom of the stack: the two
+ // lists being built at its level, and what its `Group` node will carry.
+ #[derive(Copy)]
+@@ -121,7 +143,25 @@ struct:GroupName = {
+     int64:cap;           // its group's capture index
+ };
+ 
+-// The whole state of one parse. MOVE-ONLY, because it holds two `Vec`s
++// One open class (Y-36): the union of members being read, the operators before it
++// folded left, and what its `Class` node will carry.
++#[derive(Copy)]
++struct:ClassFrame = {
++    int64:open;          // its `[`
++    uint32:neg;          // AST_FLAG_NEGATED for `[^`, else 0
++    bool:lead;           // its first member is a `]`, which an unclosed class's message names
++    int64:expr;          // the unions and operators before the current union, folded left; AST_NONE before the first operator
++    int64:op;            // the operator after `expr`: CLASS_AND, CLASS_DIFF or CLASS_XOR
++    int64:op_at;         // that operator's first byte
++    int64:first;         // the union being read: its first member, its last, how many
++    int64:last;
++    int64:count;
++    int64:upos;          // where the union starts
++    int64:uend;          // where its last member ends
++    int64:after;         // AFTER_START, AFTER_ONE or AFTER_CLASS
++};
++
++// The whole state of one parse. MOVE-ONLY, because it holds three `Vec`s
+ // (`SAFETY.md` S-23b): built by `parse_pattern`, lent by pointer, freed there.
+ struct:Parser = {
+     Cursor:c;                  // the pattern, read once, left to right
+@@ -129,6 +169,7 @@ struct:Parser = {
+     int64:next_cap;            // the next capture index to hand out, from 1
+     Vec<Frame>:stack;          // the frames of the enclosing groups, innermost last
+     Vec<GroupName>:names;      // every named group so far
++    Vec<ClassFrame>:classes;   // the classes enclosing the one being read, innermost last
+ };
+ 
+ // ---- characters --------------------------------------------------------------
+@@ -149,6 +190,23 @@ func:is_name_char = bool(int32:b) never fails {
+     pass raw is_name_start(b);
+ };
+ 
++func:is_lower = bool(int32:b) never fails {
++    pass (b >= CH_LOWER_A) && (b <= CH_LOWER_Z);
++};
++
++func:is_letter = bool(int32:b) never fails {
++    if (raw is_lower(b)) { pass true; }
++    pass (b >= CH_UPPER_A) && (b <= CH_UPPER_Z);
++};
++
++// The letters after `\` that make a class rather than a codepoint: `\d \D \w \W
++// \s \S` and `\p \P` (Y-37).
++func:is_class_letter = bool(int32:b) never fails {
++    if ((b == CH_LOWER_D) || (b == CH_UPPER_D) || (b == CH_LOWER_W) || (b == CH_UPPER_W)) { pass true; }
++    if ((b == CH_LOWER_S) || (b == CH_UPPER_S)) { pass true; }
++    pass (b == CH_LOWER_P) || (b == CH_UPPER_P);
++};
++
+ // ASCII punctuation: `!` … `/`, `:` … `@`, `[` … the backtick, `{` … `~` (Y-2).
+ func:is_ascii_punct = bool(int32:b) never fails {
+     if ((b >= CH_BANG) && (b <= CH_SLASH)) { pass true; }
+@@ -568,6 +626,53 @@ func:quantify = PatternError?(Ast->:out, Parser->:p, int64:at, int32:b) never fa
+ 
+ // ---- escapes and literals (Y-2, Y-28) --------------------------------------
+ 
++// `\p` or `\P` read, its `\` at `at`: the name -- one ASCII letter, or everything up to
++// the first `}` after a `{` -- read past and kept as text for cycle 0.3 to resolve
++// (Y-37). `UnknownUnicodeProperty` at the `\` when the name cannot be read: detail 1,
++// neither an ASCII letter nor `{` after the `p`; 2, a `{` with no `}`; 3, braces with
++// nothing between.
++func:read_property = PatternError?(Parser->:p, int64:at) never fails {
++    int32:b = raw cursor_peek(@p.c);
++    if (b == CH_LBRACE) {
++        discard(raw cursor_bump(@p.c));
++        int64:start = p.c.pos;
++        while ((!(raw cursor_at_end(@p.c))) && ((raw cursor_peek(@p.c)) != CH_RBRACE)) decreases p.c.src.len - p.c.pos {
++            discard(raw cursor_bump(@p.c));
++        }
++        if (raw cursor_at_end(@p.c)) {
++            pass raw pattern_error(PatternErrorKind.UnknownUnicodeProperty, at, p.c.pos - at, 2u32);
++        }
++        bool:empty = p.c.pos == start;
++        discard(raw cursor_bump(@p.c));
++        if (empty) {
++            pass raw pattern_error(PatternErrorKind.UnknownUnicodeProperty, at, p.c.pos - at, 3u32);
++        }
++        pass NIL;
++    }
++    if (raw is_letter(b)) {
++        discard(raw cursor_bump(@p.c));
++        pass NIL;
++    }
++    pass raw pattern_error(PatternErrorKind.UnknownUnicodeProperty, at, 2i64, 1u32);
++};
++
++// `\d \D \w \W \s \S` or `\p…` `\P…` (Y-37), its `\` at `at` and its name read
++// up to `upto`: the node, unresolved -- which class a Perl letter names, or where a
++// property's name is in the pattern; cycle 0.3 resolves both. A capital negates.
++func:escape_class_node = AstNode(uint8[]:pat, uint32:flags, int64:at, int32:d, int64:upto) never fails {
++    uint32:bits = flags;
++    if ((d == CH_UPPER_D) || (d == CH_UPPER_W) || (d == CH_UPPER_S) || (d == CH_UPPER_P)) {
++        bits = bits + AST_FLAG_NEGATED;
++    }
++    if ((d == CH_LOWER_D) || (d == CH_UPPER_D)) { pass raw node(AstKind.PerlClass, bits, 0i64, 0i64, 0i64, at, 2i64); }
++    if ((d == CH_LOWER_W) || (d == CH_UPPER_W)) { pass raw node(AstKind.PerlClass, bits, 1i64, 0i64, 0i64, at, 2i64); }
++    if ((d == CH_LOWER_S) || (d == CH_UPPER_S)) { pass raw node(AstKind.PerlClass, bits, 2i64, 0i64, 0i64, at, 2i64); }
++    if ((pat[at + 2i64] => int32) == CH_LBRACE) {
++        pass raw node(AstKind.UnicodeClass, bits, at + 3i64, upto - at - 4i64, 0i64, at, upto - at);
++    }
++    pass raw node(AstKind.UnicodeClass, bits, at + 2i64, 1i64, 0i64, at, upto - at);
++};
++
+ // `\` read at `at`. ASCII punctuation after it is that punctuation (Y-2); every
+ // other escape is cycle 0.1.4's, and until then provisionally `UnknownEscape` (Y-31).
+ func:escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:at) never fails {
+@@ -596,6 +701,314 @@ func:literal = NIL(uint8[]:pat, Ast->:out, Parser->:p, int64:at, int32:lead) nev
+     pass NIL;
+ };
+ 
++// ---- classes (Y-36 … Y-38) ------------------------------------------------------
++//
++// A CLASS IS READ BY ITS OWN `while`, ON ITS OWN EXPLICIT STACK. `[` outside a class
++// hands the walk to `parse_class`, which reads to the `]` that closes it: a nested
++// `[` saves the class being read on `p.classes` and starts the inner one, and its `]`
++// takes the saved one back, the inner `Class` a member of it -- `p.stack`'s shape for
++// groups, one level down. Nothing here calls `parse_run`, `open_group` or itself, and
++// `check_no_recursion` says so (RX-192). Groups and classes nest at most
++// `NREGEX_NEST_DEPTH` deep together, decided at the `(` or `[` that would go deeper
++// (Y-35, RX-198).
++//
++// MEMBERS SIDE BY SIDE ARE A UNION, AND THE OPERATORS FOLD THE UNIONS LEFT TO RIGHT
++// (Y-36). A frame holds the union being read and, once an operator has been read,
++// everything before it folded into one node: the first union, then a `ClassOp` of that
++// and the next, and so on -- so `[a--b&&c]` is `((a -- b) && c)`. Each union an
++// operator takes is a `Class` node of its own; a class with no operator holds its
++// members directly.
++
++func:class_frame = ClassFrame(int64:open, uint32:neg, int64:upos) never fails {
++    pass ClassFrame{ open: open, neg: neg, lead: false, expr: AST_NONE, op: CLASS_AND, op_at: open,
++                     first: AST_NONE, last: AST_NONE, count: 0i64, upos: upos, uend: upos,
++                     after: AFTER_START };
++};
++
++// Links member `n`, which starts at `at` and ends at `upto`, into the union; `after`
++// says what the next `-` may do (Y-36).
++func:class_add = NIL(Ast->:out, ClassFrame->:cf, int64:n, int64:at, int64:upto, int64:after) never fails {
++    if (cf.last == AST_NONE) {
++        cf.first = n;
++        cf.upos = at;
++    }
++    else { drop link(out, cf.last, n); }
++    cf.last = n;
++    cf.count = cf.count + 1i64;
++    cf.uend = upto;
++    cf.after = after;
++    pass NIL;
++};
++
++// A member that is one codepoint, `cp`, written in `len` bytes at `at`: a `ClassRange`
++// from it to itself, which a `-` may yet widen (Y-27).
++func:class_one = NIL(Ast->:out, ClassFrame->:cf, uint32:flags, int64:cp, int64:at, int64:len) never fails {
++    int64:n = raw ast_push(out, raw node(AstKind.ClassRange, flags, cp, cp, 0i64, at, len));
++    drop class_add(out, cf, n, at, at + len, AFTER_ONE);
++    pass NIL;
++};
++
++// The `[` read at `open` begins a class: `^` negates it, and a `]` straight after
++// either is its first member, after which a `-` is a member too (Y-36).
++func:class_start = ClassFrame(Ast->:out, Parser->:p, int64:open) never fails {
++    uint32:neg = 0u32;
++    if (raw cursor_eat(@p.c, CH_CARET =>! uint8)) { neg = AST_FLAG_NEGATED; }
++    ClassFrame:cf = raw class_frame(open, neg, p.c.pos);
++    if (raw cursor_peek(@p.c) == CH_RBRACKET) {
++        int64:at = p.c.pos;
++        discard(raw cursor_bump(@p.c));
++        drop class_one(out, @cf, p.f.flags, CH_RBRACKET => int64, at, 1i64);
++        cf.lead = true;
++        cf.after = AFTER_START;
++    }
++    pass cf;
++};
++
++// The union read so far as an operator's operand: a `Class` of its members, never
++// negated (Y-27). At least one member is there: the caller has checked.
++func:class_union = int64(Ast->:out, ClassFrame->:cf, uint32:flags) never fails {
++    pass raw ast_push(out, raw node(AstKind.Class, flags, cf.first, cf.count, 0i64, cf.upos, cf.uend - cf.upos));
++};
++
++// `expr`, the operator after it and the union just read, folded into one `ClassOp`.
++func:class_fold = int64(Ast->:out, ClassFrame->:cf, uint32:flags) never fails {
++    int64:u = raw class_union(out, cf, flags);
++    if (cf.expr == AST_NONE) { pass u; }
++    AstNode:x = raw ast_get(<-out, cf.expr);
++    pass raw ast_push(out, raw node(AstKind.ClassOp, flags, cf.expr, u, cf.op, x.pos, cf.uend - x.pos));
++};
++
++// An operator, `&&`, `--` or `~~`, its first byte `b` read at `at` and its second just
++// eaten: the union before it is its left operand, so it must have a member
++// (`ClassOpMismatch` otherwise, detail the operator's byte); then a new union starts.
++func:class_op = PatternError?(Ast->:out, ClassFrame->:cf, uint32:flags, int64:at, int32:b) never fails {
++    if (cf.count == 0i64) {
++        pass raw pattern_error(PatternErrorKind.ClassOpMismatch, at, 2i64, b =>! uint32);
++    }
++    cf.expr = raw class_fold(out, cf, flags);
++    cf.op = CLASS_AND;
++    if (b == CH_MINUS) { cf.op = CLASS_DIFF; }
++    if (b == CH_TILDE) { cf.op = CLASS_XOR; }
++    cf.op_at = at;
++    cf.first = AST_NONE;
++    cf.last = AST_NONE;
++    cf.count = 0i64;
++    cf.upos = at + 2i64;
++    cf.uend = at + 2i64;
++    cf.after = AFTER_START;
++    pass NIL;
++};
++
++// The class's `]` read, `upto` just past it: its node -- its members, or the operators
++// folded with the last union -- negated if it began `[^` (Y-27). The last operator, if
++// any, must have a member after it.
++func:class_close = PatternError?(Ast->:out, ClassFrame->:cf, uint32:flags, int64:upto) never fails {
++    if (cf.expr != AST_NONE) {
++        if (cf.count == 0i64) {
++            int32:b = CH_AMP;
++            if (cf.op == CLASS_DIFF) { b = CH_MINUS; }
++            if (cf.op == CLASS_XOR) { b = CH_TILDE; }
++            pass raw pattern_error(PatternErrorKind.ClassOpMismatch, cf.op_at, 2i64, b =>! uint32);
++        }
++        cf.first = raw class_fold(out, cf, flags);
++        cf.count = 1i64;
++    }
++    cf.expr = raw ast_push(out, raw node(AstKind.Class, flags + cf.neg, cf.first, cf.count, 0i64,
++                                         cf.open, upto - cf.open));
++    pass NIL;
++};
++
++// `\` read at `at` inside a class: ASCII punctuation is that codepoint (Y-2); a Perl
++// class or a property is a class member; any other escape is cycle 0.1.4's, and until
++// then provisionally `UnknownEscape` (Y-31).
++func:class_escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame->:cf, int64:at) never fails {
++    int32:d = raw cursor_peek(@p.c);
++    if (d == CURSOR_END) {
++        pass raw pattern_error(PatternErrorKind.TrailingBackslash, at, 1i64, 0u32);
++    }
++    if (raw is_ascii_punct(d)) {
++        discard(raw cursor_bump(@p.c));
++        drop class_one(out, cf, p.f.flags, d => int64, at, 2i64);
++        pass NIL;
++    }
++    if (raw is_class_letter(d)) {
++        discard(raw cursor_bump(@p.c));
++        if ((d == CH_LOWER_P) || (d == CH_UPPER_P)) {
++            PatternError?:bad = raw read_property(p, at);
++            if (bad != NIL) { pass bad; }
++        }
++        int64:n = raw ast_push(out, raw escape_class_node(pat, p.f.flags, at, d, p.c.pos));
++        drop class_add(out, cf, n, at, p.c.pos, AFTER_CLASS);
++        pass NIL;
++    }
++    pass raw pattern_error(PatternErrorKind.UnknownEscape, at, 1i64 + raw utf8_len(d => int64),
++                           raw decode_at(pat, at + 1i64) =>! uint32);
++};
++
++// Does the pattern hold `want` at `off`, `len` bytes long?
++func:holds = bool(uint8[]:pat, int64:off, int64:len, string:want) never fails {
++    uint8[]:w = string_bytes(want);
++    if (w.len != len) { pass false; }
++    int64:k = 0i64;
++    while (k < len) decreases len - k {
++        if (pat[off + k] != w[k]) { pass false; }
++        k = k + 1i64;
++    }
++    pass true;
++};
++
++// The place in `SYNTAX.md` §5.1's list of the POSIX name at `off`, `len` bytes long, or
++// AST_NONE when it is none of them.
++func:posix_index = int64(uint8[]:pat, int64:off, int64:len) never fails {
++    int64:k = 0i64;
++    while (k < POSIX_CLASS_NAMES) decreases POSIX_CLASS_NAMES - k {
++        if (raw holds(pat, off, len, raw posix_class_name(k))) { pass k; }
++        k = k + 1i64;
++    }
++    pass AST_NONE;
++};
++
++// `[:` read inside a class, its `[` at `at`: a POSIX class, `[:name:]` or `[:^name:]`,
++// the name one of §5.1's (Y-38). Anything else is `UnknownPosixClass` at the `[`,
++// spanning what was read, detail 0 -- never a nested class, since the cursor does not
++// go back.
++func:posix_class = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame->:cf, int64:at) never fails {
++    uint32:bits = p.f.flags;
++    if (raw cursor_eat(@p.c, CH_CARET =>! uint8)) { bits = bits + AST_FLAG_NEGATED; }
++    int64:name = p.c.pos;
++    while (raw is_lower(raw cursor_peek(@p.c))) decreases pat.len - p.c.pos {
++        discard(raw cursor_bump(@p.c));
++    }
++    int64:len = p.c.pos - name;
++    if (!(raw cursor_eat(@p.c, CH_COLON =>! uint8))) {
++        pass raw pattern_error(PatternErrorKind.UnknownPosixClass, at, p.c.pos - at, 0u32);
++    }
++    if (!(raw cursor_eat(@p.c, CH_RBRACKET =>! uint8))) {
++        pass raw pattern_error(PatternErrorKind.UnknownPosixClass, at, p.c.pos - at, 0u32);
++    }
++    int64:k = raw posix_index(pat, name, len);
++    if (k == AST_NONE) {
++        pass raw pattern_error(PatternErrorKind.UnknownPosixClass, at, p.c.pos - at, 0u32);
++    }
++    int64:n = raw ast_push(out, raw node(AstKind.PosixClass, bits, k, 0i64, 0i64, at, p.c.pos - at));
++    drop class_add(out, cf, n, at, p.c.pos, AFTER_CLASS);
++    pass NIL;
++};
++
++// The `-` just read joins the member before it -- one codepoint, the frame's last --
++// to the one after it, which the caller has seen is there and is no `]` (Y-36): a
++// codepoint or an escaped punctuation, not below the first (`BadClassRange`, detail 0);
++// a class there is `BadClassRange`, detail 1. Each spans from the range's first byte
++// through the byte that made it bad.
++func:class_range = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame->:cf) never fails {
++    AstNode:lo = raw ast_get(<-out, cf.last);
++    int64:at = p.c.pos;
++    int32:b = raw cursor_peek(@p.c);
++    int64:hi = 0i64;
++    if (b == CH_LBRACKET) {
++        discard(raw cursor_bump(@p.c));
++        pass raw pattern_error(PatternErrorKind.BadClassRange, lo.pos, p.c.pos - lo.pos, 1u32);
++    }
++    if (b == CH_BACKSLASH) {
++        discard(raw cursor_bump(@p.c));
++        int32:d = raw cursor_peek(@p.c);
++        if (d == CURSOR_END) {
++            pass raw pattern_error(PatternErrorKind.TrailingBackslash, at, 1i64, 0u32);
++        }
++        if (raw is_class_letter(d)) {
++            discard(raw cursor_bump(@p.c));
++            pass raw pattern_error(PatternErrorKind.BadClassRange, lo.pos, p.c.pos - lo.pos, 1u32);
++        }
++        if (!(raw is_ascii_punct(d))) {
++            pass raw pattern_error(PatternErrorKind.UnknownEscape, at, 1i64 + raw utf8_len(d => int64),
++                                   raw decode_at(pat, at + 1i64) =>! uint32);
++        }
++        discard(raw cursor_bump(@p.c));
++        hi = d => int64;
++    }
++    else {
++        int64:n = raw utf8_len(b => int64);
++        int64:k = 0i64;
++        while (k < n) decreases n - k {
++            discard(raw cursor_bump(@p.c));
++            k = k + 1i64;
++        }
++        hi = raw decode_at(pat, at);
++    }
++    if (hi < lo.a) {
++        pass raw pattern_error(PatternErrorKind.BadClassRange, lo.pos, p.c.pos - lo.pos, 0u32);
++    }
++    lo.b = hi;
++    lo.len = p.c.pos - lo.pos;
++    drop ast_set(out, cf.last, lo);
++    cf.uend = p.c.pos;
++    cf.after = AFTER_START;
++    pass NIL;
++};
++
++// `[` read at `open`, outside any class: the class, every class nested in it and
++// every member, in one `while` (Y-36); its node becomes the frame's pending atom. A
++// class needs no `(` and no `)`, so nothing in here meets a group.
++func:parse_class = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:open) never fails {
++    if (p.stack.count >= NREGEX_NEST_DEPTH) {
++        pass raw pattern_error(PatternErrorKind.NestTooDeep, open, 1i64, NREGEX_NEST_DEPTH =>! uint32);
++    }
++    ClassFrame:cf = raw class_start(out, p, open);
++    while (!(raw cursor_at_end(@p.c))) decreases pat.len - p.c.pos {
++        int64:at = p.c.pos;
++        int32:b = raw cursor_bump(@p.c);
++        PatternError?:e = NIL;
++        if (b == CH_RBRACKET) {
++            e = raw class_close(out, @cf, p.f.flags, p.c.pos);
++            if (e != NIL) { pass e; }
++            if (p.classes.count == 0i64) {
++                drop commit(out, @p.f);
++                p.f.pending = cf.expr;
++                pass NIL;
++            }
++            int64:inner = cf.expr;
++            int64:inner_at = cf.open;
++            cf = raw vec_pop(@p.classes);
++            drop class_add(out, @cf, inner, inner_at, p.c.pos, AFTER_CLASS);
++        }
++        else if (b == CH_LBRACKET) {
++            if (raw cursor_eat(@p.c, CH_COLON =>! uint8)) { e = raw posix_class(pat, out, p, @cf, at); }
++            else if ((p.stack.count + p.classes.count + 1i64) >= NREGEX_NEST_DEPTH) {
++                e = raw pattern_error(PatternErrorKind.NestTooDeep, at, 1i64, NREGEX_NEST_DEPTH =>! uint32);
++            }
++            else {
++                drop vec_push(@p.classes, cf);
++                cf = raw class_start(out, p, at);
++            }
++        }
++        else if (b == CH_BACKSLASH) { e = raw class_escape(pat, out, p, @cf, at); }
++        else if (((b == CH_AMP) || (b == CH_TILDE) || (b == CH_MINUS)) && (raw cursor_eat(@p.c, b =>! uint8))) {
++            e = raw class_op(out, @cf, p.f.flags, at, b);
++        }
++        else if ((b == CH_MINUS) && (cf.after != AFTER_START) && ((raw cursor_peek(@p.c)) != CH_RBRACKET)
++                 && ((raw cursor_peek(@p.c)) != CURSOR_END)) {
++            if (cf.after == AFTER_CLASS) {
++                AstNode:x = raw ast_get(<-out, cf.last);
++                e = raw pattern_error(PatternErrorKind.BadClassRange, x.pos, p.c.pos - x.pos, 1u32);
++            }
++            else { e = raw class_range(pat, out, p, @cf); }
++        }
++        else {
++            int64:n = raw utf8_len(b => int64);
++            int64:k = 1i64;
++            while (k < n) decreases n - k {
++                discard(raw cursor_bump(@p.c));
++                k = k + 1i64;
++            }
++            drop class_one(out, @cf, p.f.flags, raw decode_at(pat, at), at, n);
++        }
++        if (e != NIL) { pass e; }
++    }
++    uint32:why = 0u32;
++    if (cf.lead) { why = CH_RBRACKET =>! uint32; }
++    pass raw pattern_error(PatternErrorKind.UnclosedClass, cf.open, 1i64, why);
++};
++
+ // ---- the walk --------------------------------------------------------------
+ 
+ func:parse_run = PatternError?(uint8[]:pat, Ast->:out, Parser->:p) never fails {
+@@ -616,10 +1029,7 @@ func:parse_run = PatternError?(uint8[]:pat, Ast->:out, Parser->:p) never fails {
+         else if (b == CH_CARET) { drop atom(out, @p.f, AstKind.Anchor, 0i64, at, 1i64); }
+         else if (b == CH_DOLLAR) { drop atom(out, @p.f, AstKind.Anchor, 1i64, at, 1i64); }
+         else if (b == CH_BACKSLASH) { e = raw escape(pat, out, p, at); }
+-        else if (b == CH_LBRACKET) {
+-            // cycle 0.1.3's: until then, provisionally unclosed (Y-31)
+-            e = raw pattern_error(PatternErrorKind.UnclosedClass, at, 1i64, 0u32);
+-        }
++        else if (b == CH_LBRACKET) { e = raw parse_class(pat, out, p, at); }
+         else { drop literal(pat, out, p, at, b); }
+         if (e != NIL) { pass e; }
+     }
+@@ -646,9 +1056,11 @@ pub func:parse_pattern = PatternError?(uint8[]:pat, Ast->:out) never fails {
+     if (bad != NIL) { pass bad; }
+     Parser:p = Parser{ c: raw cursor_init(pat), f: raw frame(AST_NONE, 0i64, 0i64, 0i64, AST_FLAG_U),
+                        next_cap: 1i64, stack: raw vec_init::<Frame>(8i64),
+-                       names: raw vec_init::<GroupName>(4i64) };
++                       names: raw vec_init::<GroupName>(4i64),
++                       classes: raw vec_init::<ClassFrame>(4i64) };
+     PatternError?:e = raw parse_run(pat, out, @p);
+     drop vec_free(@p.stack);
+     drop vec_free(@p.names);
++    drop vec_free(@p.classes);
+     pass e;
+ };
+diff --git a/src/syntax/pattern_error.npk b/src/syntax/pattern_error.npk
+index 87df7efe11f7fa667ff09ba5ee35aac8b8ed2a92..e7ad781a2a6d1df49ea12da15b79d051cf0645b4 100644
+--- a/src/syntax/pattern_error.npk
++++ b/src/syntax/pattern_error.npk
+@@ -118,6 +118,35 @@ pub func:pattern_error = PatternError(PatternErrorKind:kind, int64:offset, int64
+     pass PatternError{ kind: kind, offset: offset, span_len: span_len, detail: detail };
+ };
+ 
++// ---- the POSIX class names (`SYNTAX.md` §5.1, Y-38; RX-197) ----------------------
++
++// How many names §5.1 lists. A `PosixClass` node's `a` is a name's place in that list,
++// from 0 (Y-27), and these are the only names a class may write as `[:name:]`.
++pub fixed int64:POSIX_CLASS_NAMES = 14i64;
++
++// obligation: never fails
++//
++// The `k`th name of `SYNTAX.md` §5.1's list, in its order -- `""` for a `k` outside it.
++// The ONE home of the list: the parser matches a written name against it and the text
++// below renders from it, so the two cannot disagree.
++pub func:posix_class_name = string(int64:k) never fails {
++    if (k == 0i64)  { pass "alpha"; }
++    if (k == 1i64)  { pass "digit"; }
++    if (k == 2i64)  { pass "alnum"; }
++    if (k == 3i64)  { pass "space"; }
++    if (k == 4i64)  { pass "upper"; }
++    if (k == 5i64)  { pass "lower"; }
++    if (k == 6i64)  { pass "punct"; }
++    if (k == 7i64)  { pass "print"; }
++    if (k == 8i64)  { pass "graph"; }
++    if (k == 9i64)  { pass "cntrl"; }
++    if (k == 10i64) { pass "xdigit"; }
++    if (k == 11i64) { pass "blank"; }
++    if (k == 12i64) { pass "word"; }
++    if (k == 13i64) { pass "ascii"; }
++    pass "";
++};
++
+ // ---- the text a person reads (RX-187; `SYNTAX.md` Y-34) -------------------------
+ 
+ func:put = NIL(Bytes->:b, string:s) never fails {
+@@ -164,7 +193,12 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
+         },
+         (PatternErrorKind.UnclosedClass) {
+             drop put(@b, "unclosed class at byte "); drop num(@b, e.offset);
+-            drop put(@b, ": this `[` has no matching `]`. Add a `]`, or write `\\[` to match a bracket.");
++            if (e.detail == 93u32) {
++                drop put(@b, ": this `[` has no matching `]` -- a `]` straight after `[` or `[^` is a member of the class, not its end. Add a `]`, as in `[]]` for a class of `]`, or write `\\[` to match a bracket.");
++            }
++            else {
++                drop put(@b, ": this `[` has no matching `]`. Add a `]`, or write `\\[` to match a bracket.");
++            }
+         },
+         (PatternErrorKind.EmptyClass) {
+             drop put(@b, "empty class at byte "); drop num(@b, e.offset);
+@@ -172,9 +206,9 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
+         },
+         (PatternErrorKind.NestTooDeep) {
+             drop put(@b, "nesting too deep at byte "); drop num(@b, e.offset);
+-            drop put(@b, ": this `(` would nest groups "); drop num(@b, (e.detail => int64) + 1i64);
++            drop put(@b, ": the `(` or `[` here would nest groups and classes "); drop num(@b, (e.detail => int64) + 1i64);
+             drop put(@b, " deep, and they may nest at most "); drop num(@b, e.detail => int64);
+-            drop put(@b, " deep (NREGEX_NEST_DEPTH). Nest fewer groups: a non-capturing group around one item, as in `(?:a)`, can be written without it.");
++            drop put(@b, " deep (NREGEX_NEST_DEPTH). Nest fewer: write `(?:a)` as `a`, and `[[a]]` as `[a]`.");
+         },
+         (PatternErrorKind.TrailingBackslash) {
+             drop put(@b, "trailing backslash at byte "); drop num(@b, e.offset);
+@@ -212,19 +246,48 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
+         },
+         (PatternErrorKind.BadClassRange) {
+             drop put(@b, "bad class range at byte "); drop num(@b, e.offset);
+-            drop put(@b, ": a range must not end before it starts. Write the lower bound first.");
++            if (e.detail == 1u32) {
++                drop put(@b, ": a range joins two codepoints, and an end of this one is a class. To match `-` itself, put it first or last in the class, or write `\\-`.");
++            }
++            else {
++                drop put(@b, ": a range must not end before it starts. Write the lower bound first.");
++            }
+         },
+         (PatternErrorKind.UnknownPosixClass) {
+             drop put(@b, "unknown POSIX class at byte "); drop num(@b, e.offset);
+-            drop put(@b, ": the names are alpha, digit, alnum, space, upper, lower, punct, print, graph, cntrl, xdigit, blank, word and ascii.");
++            drop put(@b, ": a POSIX class is `[:name:]` inside a class, as in `[[:alpha:]]`, and the names are ");
++            int64:k = 0i64;
++            while (k < POSIX_CLASS_NAMES) decreases POSIX_CLASS_NAMES - k {
++                if (k > 0i64) {
++                    if ((k + 1i64) == POSIX_CLASS_NAMES) { drop put(@b, " and "); }
++                    else { drop put(@b, ", "); }
++                }
++                drop put(@b, raw posix_class_name(k));
++                k = k + 1i64;
++            }
++            drop put(@b, ". Write `\\:` to match a `:`.");
+         },
+         (PatternErrorKind.UnknownUnicodeProperty) {
+             drop put(@b, "unknown Unicode property at byte "); drop num(@b, e.offset);
+-            drop put(@b, ": nregex does not know this property.");
++            if (e.detail == 1u32) {
++                drop put(@b, ": `\\p` and `\\P` take a one-letter name, as in `\\pL`, or a name in braces, as in `\\p{Greek}`.");
++            }
++            else if (e.detail == 2u32) {
++                drop put(@b, ": the name in braces has no closing `}`. End it with `}`, as in `\\p{Greek}`.");
++            }
++            else if (e.detail == 3u32) {
++                drop put(@b, ": the braces hold no name. Write one between them, as in `\\p{Greek}`.");
++            }
++            else {
++                drop put(@b, ": nregex does not know this property.");
++            }
+         },
+         (PatternErrorKind.ClassOpMismatch) {
+             drop put(@b, "class operator at byte "); drop num(@b, e.offset);
+-            drop put(@b, " is missing an operand: `&&`, `--` and `~~` each need a class on both sides.");
++            drop put(@b, " is missing an operand: `"); drop ch(@b, e.detail); drop ch(@b, e.detail);
++            drop put(@b, "` needs members on both sides, as in `[a-z"); drop ch(@b, e.detail); drop ch(@b, e.detail);
++            drop put(@b, "aeiou]`. Write `\\"); drop ch(@b, e.detail);
++            drop put(@b, "` to match `"); drop ch(@b, e.detail); drop put(@b, "` itself.");
+         },
+         (PatternErrorKind.ClassTooLarge) {
+             drop put(@b, "class too large at byte "); drop num(@b, e.offset);
+diff --git a/src/syntax/syntax.npk b/src/syntax/syntax.npk
+index af25f767ecfc37c3bb36322e928133a4c33ffe27..bc81fd5559591d21d60edf1b46dd9deba2259d35 100644
+--- a/src/syntax/syntax.npk
++++ b/src/syntax/syntax.npk
+@@ -18,6 +18,10 @@
+ // punctuation, and flags are the subcycles' after it (Y-31).
+ // SINCE CYCLE 0.1.2 ITS STACK IS BOUNDED: a `(` that would nest groups deeper than
+ // `NREGEX_NEST_DEPTH` is `NestTooDeep` at that `(` (Y-35, RX-193).
++// SINCE CYCLE 0.1.3 IT PARSES CLASSES -- members, ranges, nested classes, the
++// operators, Perl classes, properties and POSIX classes inside a class, unresolved
++// (Y-36 … Y-38, RX-197) -- groups and classes nesting at most `NREGEX_NEST_DEPTH` deep
++// together (RX-198).
+ //
+ // EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1
+ // and 3): `use` is not transitive, a plain `use` re-exports nothing, and one
+@@ -35,6 +39,10 @@ pub use "./pattern_error.npk".PatternError;
+ pub use "./pattern_error.npk".pattern_error;
+ pub use "./pattern_error.npk".pattern_error_text;
+ 
++// ---- the POSIX class names, `SYNTAX.md` §5.1's list (Y-38) -----------------------
++pub use "./pattern_error.npk".POSIX_CLASS_NAMES;
++pub use "./pattern_error.npk".posix_class_name;
++
+ // ---- the byte cursor (RX-173) ----------------------------------------------
+ pub use "./cursor.npk".CURSOR_END;
+ pub use "./cursor.npk".Cursor;
+diff --git a/tests/unit/parse_class_refusals.npk b/tests/unit/parse_class_refusals.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..36afce0946b83f63df41515c2bf231c38e50e76a
+--- /dev/null
++++ b/tests/unit/parse_class_refusals.npk
+@@ -0,0 +1,117 @@
++// expect-exit: 0
++//
++// CLASSES, REFUSED: EVERY REFUSAL CYCLE 0.1.3 MAKES INSIDE A CLASS, WITH ITS OFFSET,
++// LENGTH AND DETAIL (`SYNTAX.md` §9's table, Y-36 … Y-38).
++//
++// Each case parses one pattern through `syntax.npk`'s re-exports and requires the
++// refusal to be EXACTLY this kind at this offset, spanning this many bytes, with this
++// detail -- the four fields a message is built from (Y-10, Y-34). A case that differs
++// exits with its number. An escape other than punctuation, a Perl class or a property
++// is refused PROVISIONALLY inside a class as outside it (Y-31) and is not pinned here:
++// cycle 0.1.4 changes it. `NestTooDeep` at a `[` is `parse_limits`' and
++// `parse_nest_deep`'s.
++mod:parse_class_refusals;
++
++use "../../src/core/core.npk".*;
++use "../../src/syntax/syntax.npk".*;
++
++func:refused = bool(string:pattern, PatternErrorKind:kind, int64:off, int64:len, uint32:detail) never fails {
++    Ast:t = raw ast_init(8i64);
++    PatternError?:r = raw parse_pattern(string_bytes(pattern), @t);
++    drop ast_free(@t);
++    if (r == NIL) { pass false; }
++    PatternError:e = r ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
++    if (e.kind != kind)     { pass false; }
++    if (e.offset != off)    { pass false; }
++    if (e.span_len != len)  { pass false; }
++    pass e.detail == detail;
++};
++
++func:run = int32() never fails {
++    // unclosed: at the innermost open `[`; detail `]` when its first member is a `]`
++    if (!(raw refused("[", PatternErrorKind.UnclosedClass, 0i64, 1i64, 0u32)))              { pass 1i32; }
++    if (!(raw refused("[a", PatternErrorKind.UnclosedClass, 0i64, 1i64, 0u32)))             { pass 2i32; }
++    if (!(raw refused("[]", PatternErrorKind.UnclosedClass, 0i64, 1i64, 93u32)))            { pass 3i32; }
++    if (!(raw refused("[^]", PatternErrorKind.UnclosedClass, 0i64, 1i64, 93u32)))           { pass 4i32; }
++    if (!(raw refused("[^]a", PatternErrorKind.UnclosedClass, 0i64, 1i64, 93u32)))          { pass 5i32; }
++    if (!(raw refused("[a[b]", PatternErrorKind.UnclosedClass, 0i64, 1i64, 0u32)))          { pass 6i32; }
++    if (!(raw refused("[a[b", PatternErrorKind.UnclosedClass, 2i64, 1i64, 0u32)))           { pass 7i32; }
++    if (!(raw refused("a[b-", PatternErrorKind.UnclosedClass, 1i64, 1i64, 0u32)))           { pass 8i32; }
++    if (!(raw refused("[[:alpha:]", PatternErrorKind.UnclosedClass, 0i64, 1i64, 0u32)))     { pass 9i32; }
++    if (!(raw refused("[\\]", PatternErrorKind.UnclosedClass, 0i64, 1i64, 0u32)))           { pass 10i32; }
++    if (!(raw refused("[a&&", PatternErrorKind.UnclosedClass, 0i64, 1i64, 0u32)))           { pass 11i32; }
++    if (!(raw refused("[[]", PatternErrorKind.UnclosedClass, 1i64, 1i64, 93u32)))           { pass 12i32; }
++    // ranges: an end above the other (detail 0), or a class at either end (detail 1)
++    if (!(raw refused("[z-a]", PatternErrorKind.BadClassRange, 1i64, 3i64, 0u32)))          { pass 13i32; }
++    if (!(raw refused("[é-a]", PatternErrorKind.BadClassRange, 1i64, 4i64, 0u32)))          { pass 14i32; }
++    if (!(raw refused("[\\--!]", PatternErrorKind.BadClassRange, 1i64, 4i64, 0u32)))        { pass 15i32; }
++    if (!(raw refused("[\\w-.]", PatternErrorKind.BadClassRange, 1i64, 3i64, 1u32)))        { pass 16i32; }
++    if (!(raw refused("[a-\\d]", PatternErrorKind.BadClassRange, 1i64, 4i64, 1u32)))        { pass 17i32; }
++    if (!(raw refused("[a-[b]]", PatternErrorKind.BadClassRange, 1i64, 3i64, 1u32)))        { pass 18i32; }
++    if (!(raw refused("[[:alpha:]-z]", PatternErrorKind.BadClassRange, 1i64, 10i64, 1u32))) { pass 19i32; }
++    if (!(raw refused("[[a]-z]", PatternErrorKind.BadClassRange, 1i64, 4i64, 1u32)))        { pass 20i32; }
++    if (!(raw refused("[\\pL-z]", PatternErrorKind.BadClassRange, 1i64, 4i64, 1u32)))       { pass 21i32; }
++    if (!(raw refused("[a-\\pL]", PatternErrorKind.BadClassRange, 1i64, 4i64, 1u32)))       { pass 22i32; }
++    // an operator with no member on one side: at the operator, detail its byte
++    if (!(raw refused("[&&a]", PatternErrorKind.ClassOpMismatch, 1i64, 2i64, 38u32)))       { pass 23i32; }
++    if (!(raw refused("[a&&]", PatternErrorKind.ClassOpMismatch, 2i64, 2i64, 38u32)))       { pass 24i32; }
++    if (!(raw refused("[a&&&&b]", PatternErrorKind.ClassOpMismatch, 4i64, 2i64, 38u32)))    { pass 25i32; }
++    if (!(raw refused("[--a]", PatternErrorKind.ClassOpMismatch, 1i64, 2i64, 45u32)))       { pass 26i32; }
++    if (!(raw refused("[a--]", PatternErrorKind.ClassOpMismatch, 2i64, 2i64, 45u32)))       { pass 27i32; }
++    if (!(raw refused("[~~a]", PatternErrorKind.ClassOpMismatch, 1i64, 2i64, 126u32)))      { pass 28i32; }
++    if (!(raw refused("[a~~]", PatternErrorKind.ClassOpMismatch, 2i64, 2i64, 126u32)))      { pass 29i32; }
++    if (!(raw refused("[!--]", PatternErrorKind.ClassOpMismatch, 2i64, 2i64, 45u32)))       { pass 30i32; }
++    if (!(raw refused("[a&&--b]", PatternErrorKind.ClassOpMismatch, 4i64, 2i64, 45u32)))    { pass 31i32; }
++    if (!(raw refused("[^&&a]", PatternErrorKind.ClassOpMismatch, 2i64, 2i64, 38u32)))      { pass 32i32; }
++    if (!(raw refused("[]&&]", PatternErrorKind.ClassOpMismatch, 2i64, 2i64, 38u32)))       { pass 33i32; }
++    if (!(raw refused("[a&&b~~]", PatternErrorKind.ClassOpMismatch, 5i64, 2i64, 126u32)))   { pass 34i32; }
++    // `[:` inside a class is a POSIX class or nothing: at its `[`, spanning what was read
++    if (!(raw refused("[[:foo:]]", PatternErrorKind.UnknownPosixClass, 1i64, 7i64, 0u32)))  { pass 35i32; }
++    if (!(raw refused("[[:alpha]]", PatternErrorKind.UnknownPosixClass, 1i64, 7i64, 0u32))) { pass 36i32; }
++    if (!(raw refused("[[:alpha:", PatternErrorKind.UnknownPosixClass, 1i64, 8i64, 0u32)))  { pass 37i32; }
++    if (!(raw refused("[[:]]", PatternErrorKind.UnknownPosixClass, 1i64, 2i64, 0u32)))      { pass 38i32; }
++    if (!(raw refused("[[:ALPHA:]]", PatternErrorKind.UnknownPosixClass, 1i64, 2i64, 0u32))) { pass 39i32; }
++    if (!(raw refused("[[:^:]]", PatternErrorKind.UnknownPosixClass, 1i64, 5i64, 0u32)))    { pass 40i32; }
++    if (!(raw refused("[[:alpha1:]]", PatternErrorKind.UnknownPosixClass, 1i64, 7i64, 0u32))) { pass 41i32; }
++    // a property's name that cannot be read: at the `\`; 1 nothing usable, 2 no `}`, 3 empty
++    if (!(raw refused("[\\p]", PatternErrorKind.UnknownUnicodeProperty, 1i64, 2i64, 1u32))) { pass 42i32; }
++    if (!(raw refused("[\\p", PatternErrorKind.UnknownUnicodeProperty, 1i64, 2i64, 1u32)))  { pass 43i32; }
++    if (!(raw refused("[\\p{", PatternErrorKind.UnknownUnicodeProperty, 1i64, 3i64, 2u32))) { pass 44i32; }
++    if (!(raw refused("[\\p{Greek", PatternErrorKind.UnknownUnicodeProperty, 1i64, 8i64, 2u32))) { pass 45i32; }
++    if (!(raw refused("[\\p{}]", PatternErrorKind.UnknownUnicodeProperty, 1i64, 4i64, 3u32))) { pass 46i32; }
++    if (!(raw refused("[\\p1]", PatternErrorKind.UnknownUnicodeProperty, 1i64, 2i64, 1u32))) { pass 47i32; }
++    if (!(raw refused("[\\pé]", PatternErrorKind.UnknownUnicodeProperty, 1i64, 2i64, 1u32))) { pass 48i32; }
++    if (!(raw refused("[\\P]", PatternErrorKind.UnknownUnicodeProperty, 1i64, 2i64, 1u32))) { pass 49i32; }
++    // a class that ends inside an escape
++    if (!(raw refused("[\\", PatternErrorKind.TrailingBackslash, 1i64, 1i64, 0u32)))        { pass 50i32; }
++    if (!(raw refused("[a-\\", PatternErrorKind.TrailingBackslash, 3i64, 1i64, 0u32)))      { pass 51i32; }
++    // the first refusal wins, left to right
++    if (!(raw refused("[z-a", PatternErrorKind.BadClassRange, 1i64, 3i64, 0u32)))           { pass 52i32; }
++    if (!(raw refused("[[:foo:]", PatternErrorKind.UnknownPosixClass, 1i64, 7i64, 0u32)))   { pass 53i32; }
++    if (!(raw refused("[\\p{}", PatternErrorKind.UnknownUnicodeProperty, 1i64, 4i64, 3u32))) { pass 54i32; }
++    if (!(raw refused("[\\d-", PatternErrorKind.UnclosedClass, 0i64, 1i64, 0u32)))        { pass 55i32; }
++    pass 0i32;
++};
++
++func:main = int32(cstring[]:_~argv) {
++    int32:r = raw run();
++    exit r;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/parse_classes.npk b/tests/unit/parse_classes.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..70287dd29530d137671d2a54d02b023b0c96ab62
+--- /dev/null
++++ b/tests/unit/parse_classes.npk
+@@ -0,0 +1,296 @@
++// expect-exit: 0
++//
++// CLASSES, ACCEPTED: EVERY SHAPE CYCLE 0.1.3 PARSES, AS THE TREE IT BUILDS
++// (`SYNTAX.md` Y-27, Y-36 … Y-38).
++//
++// Each case parses one pattern through `syntax.npk`'s re-exports and writes the tree
++// back as text -- `(cls …)` a class and `(cls^ …)` a negated one; `'a'` a member that is
++// one codepoint and `'a'-'z'` a range, a codepoint outside printable ASCII as `#233`;
++// `\d` `\w` `\s` a Perl class, a capital when negated; `[:alpha:]` and `[:^alpha:]` a
++// POSIX class, named from `posix_class_name`; `\p{…}` and `\P{…}` a property, its text
++// as the pattern holds it, braces or not; `(&& L R)`, `(-- L R)` and `(~~ L R)` an
++// operator. Outside a class, parse_grammar's forms: `(cat …)`, `(alt …)`, `(rep MIN MAX
++// X)`, `(grp N …)`. The span form adds `@pos+len` after each head. The dump also checks
++// what the text cannot show: a list holds exactly `b` members and its last one's `next`
++// is `AST_NONE` (`!short`, `!long`); a node an operator or a `Repeat` holds is in no
++// list (`!next`); a class holds only member kinds (`!kind`); and every node's flags are
++// `AST_FLAG_U`, plus `AST_FLAG_NEGATED` on the four kinds a `^`, a capital or a `\P`
++// negates and `AST_FLAG_LAZY` on a lazy `Repeat` (`!flags`). A case that differs exits
++// with its number.
++//
++// THE DUMP RECURSES; the parser does not. `check_no_recursion` reads `src/` and not
++// `tests/` (RX-192).
++mod:parse_classes;
++
++use "../../src/core/core.npk".*;
++use "../../src/syntax/syntax.npk".*;
++
++func:put = NIL(Bytes->:b, string:s) never fails {
++    drop bytes_extend_str(b, s);
++    pass NIL;
++};
++
++func:num = NIL(Bytes->:b, int64:n) never fails {
++    drop bytes_put_uint(b, n =>! uint64);
++    pass NIL;
++};
++
++func:span = NIL(Bytes->:b, AstNode:n, bool:spans) never fails {
++    if (!spans) { pass NIL; }
++    drop put(b, "@"); drop num(b, n.pos); drop put(b, "+"); drop num(b, n.len);
++    pass NIL;
++};
++
++func:cp = NIL(Bytes->:b, int64:c) never fails {
++    if ((c > 32i64) && (c < 127i64)) {
++        drop put(b, "'"); drop bytes_push(b, c =>! uint8); drop put(b, "'");
++    }
++    else { drop put(b, "#"); drop num(b, c); }
++    pass NIL;
++};
++
++func:negatable = bool(AstKind:k) never fails {
++    if ((k == AstKind.Class) || (k == AstKind.PerlClass)) { pass true; }
++    pass (k == AstKind.PosixClass) || (k == AstKind.UnicodeClass);
++};
++
++func:member = bool(AstKind:k) never fails {
++    if (raw negatable(k)) { pass true; }
++    pass (k == AstKind.ClassRange) || (k == AstKind.ClassOp);
++};
++
++// A node's list: `count` members from `first`, each dumped after a space.
++func:list = NIL(uint8[]:pat, Ast:t, int64:first, int64:count, Bytes->:b, bool:spans, bool:inclass) never fails {
++    int64:k = 0i64;
++    int64:m = first;
++    while (k < count) decreases count - k {
++        drop put(b, " ");
++        if (m == AST_NONE) { drop put(b, "!short"); k = count; }
++        else {
++            AstNode:x = raw ast_get(t, m);
++            if (inclass && !(raw member(x.kind))) { drop put(b, "!kind"); }
++            drop dump(pat, t, m, b, spans);
++            m = x.next;
++            k = k + 1i64;
++        }
++    }
++    if (m != AST_NONE) { drop put(b, " !long"); }
++    pass NIL;
++};
++
++// A node an operator or a `Repeat` holds, which no list holds.
++func:held = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
++    drop put(b, " ");
++    AstNode:x = raw ast_get(t, i);
++    if (x.next != AST_NONE) { drop put(b, "!next"); }
++    drop dump(pat, t, i, b, spans);
++    pass NIL;
++};
++
++func:dump = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
++    AstNode:n = raw ast_get(t, i);
++    uint32:want = AST_FLAG_U;
++    if ((n.kind == AstKind.Repeat) && (n.flags == AST_FLAG_U + AST_FLAG_LAZY)) { want = n.flags; }
++    if ((raw negatable(n.kind)) && (n.flags == AST_FLAG_U + AST_FLAG_NEGATED)) { want = n.flags; }
++    if (n.flags != want) { drop put(b, "!flags"); }
++    bool:neg = n.flags == AST_FLAG_U + AST_FLAG_NEGATED;
++    if (n.kind == AstKind.Literal) { drop cp(b, n.a); drop span(b, n, spans); }
++    else if (n.kind == AstKind.ClassRange) {
++        drop cp(b, n.a);
++        if (n.b != n.a) { drop put(b, "-"); drop cp(b, n.b); }
++        drop span(b, n, spans);
++    }
++    else if (n.kind == AstKind.PerlClass) {
++        if (n.a == 0i64) { if (neg) { drop put(b, "\\D"); } else { drop put(b, "\\d"); } }
++        else if (n.a == 1i64) { if (neg) { drop put(b, "\\W"); } else { drop put(b, "\\w"); } }
++        else if (n.a == 2i64) { if (neg) { drop put(b, "\\S"); } else { drop put(b, "\\s"); } }
++        else { drop put(b, "!perl"); }
++        drop span(b, n, spans);
++    }
++    else if (n.kind == AstKind.PosixClass) {
++        drop put(b, "[:");
++        if (neg) { drop put(b, "^"); }
++        drop put(b, raw posix_class_name(n.a));
++        drop put(b, ":]");
++        drop span(b, n, spans);
++    }
++    else if (n.kind == AstKind.UnicodeClass) {
++        if (neg) { drop put(b, "\\P{"); } else { drop put(b, "\\p{"); }
++        int64:k = 0i64;
++        while (k < n.b) decreases n.b - k {
++            drop bytes_push(b, pat[n.a + k]);
++            k = k + 1i64;
++        }
++        drop put(b, "}");
++        drop span(b, n, spans);
++    }
++    else if (n.kind == AstKind.Class) {
++        if (neg) { drop put(b, "(cls^"); } else { drop put(b, "(cls"); }
++        drop span(b, n, spans);
++        drop list(pat, t, n.a, n.b, b, spans, true);
++        drop put(b, ")");
++    }
++    else if (n.kind == AstKind.ClassOp) {
++        if (n.c == 0i64) { drop put(b, "(&&"); }
++        else if (n.c == 1i64) { drop put(b, "(--"); }
++        else if (n.c == 2i64) { drop put(b, "(~~"); }
++        else { drop put(b, "(!op"); }
++        drop span(b, n, spans);
++        drop held(pat, t, n.a, b, spans);
++        drop held(pat, t, n.b, b, spans);
++        drop put(b, ")");
++    }
++    else if ((n.kind == AstKind.Concat) || (n.kind == AstKind.Alternate)) {
++        if (n.kind == AstKind.Concat) { drop put(b, "(cat"); } else { drop put(b, "(alt"); }
++        drop span(b, n, spans);
++        drop list(pat, t, n.a, n.b, b, spans, false);
++        drop put(b, ")");
++    }
++    else if (n.kind == AstKind.Repeat) {
++        if (n.flags == AST_FLAG_U + AST_FLAG_LAZY) { drop put(b, "(rep?"); } else { drop put(b, "(rep"); }
++        drop span(b, n, spans);
++        drop put(b, " "); drop num(b, n.b); drop put(b, " ");
++        if (n.c == AST_NONE) { drop put(b, "-"); } else { drop num(b, n.c); }
++        drop held(pat, t, n.a, b, spans);
++        drop put(b, ")");
++    }
++    else if (n.kind == AstKind.Group) {
++        drop put(b, "(grp");
++        drop span(b, n, spans);
++        if (n.b > 0i64) { drop put(b, " "); drop num(b, n.b); }
++        drop held(pat, t, n.a, b, spans);
++        drop put(b, ")");
++    }
++    else { drop put(b, "?"); }
++    pass NIL;
++};
++
++func:same = bool(Bytes->:b, string:want) never fails {
++    uint8[]:w = string_bytes(want);
++    if ((raw bytes_len(b)) != w.len) { pass false; }
++    int64:i = 0i64;
++    while (i < w.len) decreases w.len - i {
++        if ((raw bytes_get(b, i)) != w[i]) { pass false; }
++        i = i + 1i64;
++    }
++    pass true;
++};
++
++// Parses `pattern`, dumps its tree, and compares the text with `want`.
++func:tree = bool(string:pattern, string:want, bool:spans) never fails {
++    uint8[]:pat = string_bytes(pattern);
++    Ast:t = raw ast_init(8i64);
++    PatternError?:e = raw parse_pattern(pat, @t);
++    Bytes:b = raw bytes_init(64i64);
++    if (e != NIL) { drop put(@b, "!refused"); }
++    else {
++        AstNode:r = raw ast_get(t, t.root);
++        if (r.next != AST_NONE) { drop put(@b, "!next"); }
++        drop dump(pat, t, t.root, @b, spans);
++    }
++    drop ast_free(@t);
++    pass raw same(@b, want);
++};
++
++func:run = int32() never fails {
++    // members and ranges (Y-36)
++    if (!(raw tree("[a]", "(cls 'a')", false)))                              { pass 1i32; }
++    if (!(raw tree("[abc]", "(cls 'a' 'b' 'c')", false)))                    { pass 2i32; }
++    if (!(raw tree("[aa]", "(cls 'a' 'a')", false)))                         { pass 3i32; }
++    if (!(raw tree("[a-z]", "(cls 'a'-'z')", false)))                        { pass 4i32; }
++    if (!(raw tree("[a-zA-Z0-9_]", "(cls 'a'-'z' 'A'-'Z' '0'-'9' '_')", false))) { pass 5i32; }
++    if (!(raw tree("[^a]", "(cls^ 'a')", false)))                            { pass 6i32; }
++    if (!(raw tree("[!-/]", "(cls '!'-'/')", false)))                        { pass 7i32; }
++    if (!(raw tree("[(){}|*+?.$^]", "(cls '(' ')' '{' '}' '|' '*' '+' '?' '.' '$' '^')", false))) { pass 8i32; }
++    if (!(raw tree("[a b]", "(cls 'a' #32 'b')", false)))                    { pass 9i32; }
++    if (!(raw tree("[é]", "(cls #233)", false)))                             { pass 10i32; }
++    if (!(raw tree("[à-ÿ€]", "(cls #224-#255 #8364)", false)))               { pass 11i32; }
++    if (!(raw tree("[😀-😂]", "(cls #128512-#128514)", false)))              { pass 12i32; }
++    // `]` and `-` where they are members (Y-36)
++    if (!(raw tree("[]]", "(cls ']')", false)))                              { pass 13i32; }
++    if (!(raw tree("[]a]", "(cls ']' 'a')", false)))                         { pass 14i32; }
++    if (!(raw tree("[^]]", "(cls^ ']')", false)))                            { pass 15i32; }
++    if (!(raw tree("[-]", "(cls '-')", false)))                              { pass 16i32; }
++    if (!(raw tree("[-a]", "(cls '-' 'a')", false)))                         { pass 17i32; }
++    if (!(raw tree("[a-]", "(cls 'a' '-')", false)))                         { pass 18i32; }
++    if (!(raw tree("[^-]", "(cls^ '-')", false)))                            { pass 19i32; }
++    if (!(raw tree("[]-a]", "(cls ']' '-' 'a')", false)))                    { pass 20i32; }
++    if (!(raw tree("[a-c-e]", "(cls 'a'-'c' '-' 'e')", false)))              { pass 21i32; }
++    if (!(raw tree("[a-c-e-g]", "(cls 'a'-'c' '-' 'e'-'g')", false)))        { pass 22i32; }
++    if (!(raw tree("[a&b~c]", "(cls 'a' '&' 'b' '~' 'c')", false)))          { pass 23i32; }
++    if (!(raw tree("[!-&&a]", "(cls '!'-'&' '&' 'a')", false)))              { pass 24i32; }
++    if (!(raw tree("[a-~~]", "(cls 'a'-'~' '~')", false)))                   { pass 25i32; }
++    // escapes in a class: punctuation (Y-2), Perl classes and properties (Y-37)
++    if (!(raw tree("[\\]\\-\\[\\\\\\^]", "(cls ']' '-' '[' '\\' '^')", false))) { pass 26i32; }
++    if (!(raw tree("[\\--\\]]", "(cls '-'-']')", false)))                   { pass 27i32; }
++    if (!(raw tree("[\\d\\D\\w\\W\\s\\S]", "(cls \\d \\D \\w \\W \\s \\S)", false))) { pass 28i32; }
++    if (!(raw tree("[\\d-]", "(cls \\d '-')", false)))                       { pass 29i32; }
++    if (!(raw tree("[\\pL\\PN]", "(cls \\p{L} \\P{N})", false)))             { pass 30i32; }
++    if (!(raw tree("[\\p{Greek}\\P{Script=Greek}]", "(cls \\p{Greek} \\P{Script=Greek})", false))) { pass 31i32; }
++    if (!(raw tree("[\\p{ Old Italic }]", "(cls \\p{ Old Italic })", false))) { pass 32i32; }
++    // POSIX classes, inside a class only (Y-38)
++    if (!(raw tree("[[:alpha:]]", "(cls [:alpha:])", false)))                { pass 33i32; }
++    if (!(raw tree("[[:^digit:]x]", "(cls [:^digit:] 'x')", false)))         { pass 34i32; }
++    if (!(raw tree("[[:alpha:][:digit:][:alnum:][:space:][:upper:][:lower:][:punct:][:print:][:graph:][:cntrl:][:xdigit:][:blank:][:word:][:ascii:]]",
++                   "(cls [:alpha:] [:digit:] [:alnum:] [:space:] [:upper:] [:lower:] [:punct:] [:print:] [:graph:] [:cntrl:] [:xdigit:] [:blank:] [:word:] [:ascii:])", false))) { pass 35i32; }
++    // nested classes (Y-36; bounded by Y-35)
++    if (!(raw tree("[a[b-c]]", "(cls 'a' (cls 'b'-'c'))", false)))           { pass 36i32; }
++    if (!(raw tree("[[a]]", "(cls (cls 'a'))", false)))                      { pass 37i32; }
++    if (!(raw tree("[a[^b]c]", "(cls 'a' (cls^ 'b') 'c')", false)))          { pass 38i32; }
++    if (!(raw tree("[[[a]]]", "(cls (cls (cls 'a')))", false)))              { pass 39i32; }
++    if (!(raw tree("[[]]]", "(cls (cls ']'))", false)))                      { pass 40i32; }
++    // the operators, left to right, union tighter, negation last (Y-36)
++    if (!(raw tree("[a&&b]", "(cls (&& (cls 'a') (cls 'b')))", false)))     { pass 41i32; }
++    if (!(raw tree("[a--b]", "(cls (-- (cls 'a') (cls 'b')))", false)))     { pass 42i32; }
++    if (!(raw tree("[a~~b]", "(cls (~~ (cls 'a') (cls 'b')))", false)))     { pass 43i32; }
++    if (!(raw tree("[a-z&&[^aeiou]]", "(cls (&& (cls 'a'-'z') (cls (cls^ 'a' 'e' 'i' 'o' 'u'))))", false))) { pass 44i32; }
++    if (!(raw tree("[ab&&cd]", "(cls (&& (cls 'a' 'b') (cls 'c' 'd')))", false))) { pass 45i32; }
++    if (!(raw tree("[a--b&&c]", "(cls (&& (-- (cls 'a') (cls 'b')) (cls 'c')))", false))) { pass 46i32; }
++    if (!(raw tree("[a&&b~~c]", "(cls (~~ (&& (cls 'a') (cls 'b')) (cls 'c')))", false))) { pass 47i32; }
++    if (!(raw tree("[a~~b--c]", "(cls (-- (~~ (cls 'a') (cls 'b')) (cls 'c')))", false))) { pass 48i32; }
++    if (!(raw tree("[^a&&b]", "(cls^ (&& (cls 'a') (cls 'b')))", false)))   { pass 49i32; }
++    if (!(raw tree("[a-c--e]", "(cls (-- (cls 'a'-'c') (cls 'e')))", false))) { pass 50i32; }
++    if (!(raw tree("[a---b]", "(cls (-- (cls 'a') (cls '-' 'b')))", false))) { pass 51i32; }
++    if (!(raw tree("[a&&-]", "(cls (&& (cls 'a') (cls '-')))", false)))     { pass 52i32; }
++    if (!(raw tree("[]--a]", "(cls (-- (cls ']') (cls 'a')))", false)))     { pass 53i32; }
++    if (!(raw tree("[\\w&&[:ascii:]--\\d]", "(cls (-- (&& (cls \\w) (cls [:ascii:])) (cls \\d)))", false))) { pass 54i32; }
++    // a class is an atom (Y-36)
++    if (!(raw tree("[a-z]+", "(rep 1 - (cls 'a'-'z'))", false)))             { pass 55i32; }
++    if (!(raw tree("a[bc]d", "(cat 'a' (cls 'b' 'c') 'd')", false)))         { pass 56i32; }
++    if (!(raw tree("([a])|[b]*?", "(alt (grp 1 (cls 'a')) (rep? 0 - (cls 'b')))", false))) { pass 57i32; }
++    // the spans (Y-27's `pos` and `len`)
++    if (!(raw tree("[a-z]", "(cls@0+5 'a'-'z'@1+3)", true)))                 { pass 60i32; }
++    if (!(raw tree("[a-a]", "(cls@0+5 'a'@1+3)", true)))                     { pass 61i32; }
++    if (!(raw tree("[^]a]", "(cls^@0+5 ']'@2+1 'a'@3+1)", true)))            { pass 62i32; }
++    if (!(raw tree("[a&&bc]", "(cls@0+7 (&&@1+5 (cls@1+1 'a'@1+1) (cls@4+2 'b'@4+1 'c'@5+1)))", true))) { pass 63i32; }
++    if (!(raw tree("[a--b&&c]", "(cls@0+9 (&&@1+7 (--@1+4 (cls@1+1 'a'@1+1) (cls@4+1 'b'@4+1)) (cls@7+1 'c'@7+1)))", true))) { pass 64i32; }
++    if (!(raw tree("[\\p{Greek}\\pL\\D]", "(cls@0+16 \\p{Greek}@1+9 \\p{L}@10+3 \\D@13+2)", true))) { pass 65i32; }
++    if (!(raw tree("[[:alpha:]\\]]", "(cls@0+13 [:alpha:]@1+9 ']'@10+2)", true))) { pass 66i32; }
++    if (!(raw tree("[é-ü]", "(cls@0+7 #233-#252@1+5)", true)))               { pass 67i32; }
++    if (!(raw tree("[a[b]]", "(cls@0+6 'a'@1+1 (cls@2+3 'b'@3+1))", true)))  { pass 68i32; }
++    if (!(raw tree("x[y]+", "(cat@0+5 'x'@0+1 (rep@1+4 1 - (cls@1+3 'y'@2+1)))", true))) { pass 69i32; }
++    pass 0i32;
++};
++
++func:main = int32(cstring[]:_~argv) {
++    int32:r = raw run();
++    exit r;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/parse_limits.npk b/tests/unit/parse_limits.npk
+index 93aedda8b8dc2d4b95dbb807029333b2e1c8f307..06d9e046944f4e36d3a0545a200e39aa1f400600 100644
+--- a/tests/unit/parse_limits.npk
++++ b/tests/unit/parse_limits.npk
+@@ -13,6 +13,10 @@
+ // open, never read. (`NREGEX_REPEAT_MAX` is `parse_grammar`'s case 31 and
+ // `parse_refusals`' 33; 10 000 levels and the longest pattern's are
+ // `parse_nest_deep`'s.)
++// *(@@DATE@@, cycle 0.1.3 -- RX-198: classes nest too, and groups and classes count
++// together against `NREGEX_NEST_DEPTH` (Y-35): 250 nested classes parse and the 251st
++// `[` is `NestTooDeep` at byte 250; so is a `[` inside 250 groups, and the 126th `[`
++// inside 125 groups; 249 groups around a class parse (cases 19-23).)*
+ mod:parse_limits;
+ 
+ use "../../src/core/core.npk".*;
+@@ -45,6 +49,42 @@ func:too_deep = bool(int64:groups, string:piece, string:tail, int64:at) never fa
+     pass nodes == 0i64;
+ };
+ 
++// `first` `n` times, then `second` `m` times, then `tail`.
++func:two = Bytes(string:first, int64:n, string:second, int64:m, string:tail) never fails {
++    Bytes:b = raw many(n, first, "");
++    int64:i = 0i64;
++    while (i < m) decreases m - i {
++        drop bytes_extend_str(@b, second);
++        i = i + 1i64;
++    }
++    drop bytes_extend_str(@b, tail);
++    pass move(b);
++};
++
++// The pattern parses?
++func:parses = bool(Bytes->:b) never fails {
++    string:s = raw bytes_copy_string(b);
++    Ast:t = raw ast_init(8i64);
++    PatternError?:r = raw parse_pattern(string_bytes(s), @t);
++    drop ast_free(@t);
++    pass r == NIL;
++};
++
++// The pattern is `NestTooDeep` at byte `at`, one byte long, its detail the bound, with no
++// node built?
++func:deep_at = bool(Bytes->:b, int64:at) never fails {
++    string:s = raw bytes_copy_string(b);
++    Ast:t = raw ast_init(8i64);
++    PatternError?:r = raw parse_pattern(string_bytes(s), @t);
++    int64:nodes = raw ast_len(t);
++    drop ast_free(@t);
++    if (r == NIL) { pass false; }
++    PatternError:e = r ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
++    if (e.kind != PatternErrorKind.NestTooDeep) { pass false; }
++    if ((e.offset != at) || (e.span_len != 1i64) || (e.detail != 250u32)) { pass false; }
++    pass nodes == 0i64;
++};
++
+ func:run = int32() never fails {
+     // 250 capture groups: accepted, the root a `Concat` of 250, the last group number 250
+     Bytes:ok = raw many(250i64, "()", "");
+@@ -121,6 +161,42 @@ func:run = int32() never fails {
+     // what the 251st `(` would open is never read: a lookahead, and `(?` at the end
+     if (!(raw too_deep(250i64, "(?:", "(?=a)", 750i64))) { pass 17i32; }
+     if (!(raw too_deep(250i64, "(?:", "(?", 750i64))) { pass 18i32; }
++    // classes nest too, and count with groups (Y-35): 250 nested classes around `a` parse,
++    // the innermost member `a` at the bottom of 250 levels
++    Bytes:cl = raw two("[", 250i64, "a", 1i64, "");
++    int64:j = 0i64;
++    while (j < 250i64) decreases 250i64 - j {
++        drop bytes_extend_str(@cl, "]");
++        j = j + 1i64;
++    }
++    string:cs = raw bytes_copy_string(@cl);
++    Ast:ct = raw ast_init(8i64);
++    PatternError?:cr = raw parse_pattern(string_bytes(cs), @ct);
++    if (cr != NIL) { drop ast_free(@ct); pass 19i32; }
++    int64:depth = 0i64;
++    AstNode:cn = raw ast_get(ct, ct.root);
++    while ((cn.kind == AstKind.Class) && (depth <= 250i64)) decreases 251i64 - depth {
++        depth = depth + 1i64;
++        cn = raw ast_get(ct, cn.a);
++    }
++    drop ast_free(@ct);
++    if ((depth != 250i64) || (cn.kind != AstKind.ClassRange) || (cn.a != 97i64)) { pass 20i32; }
++    // the 251st `[`, at byte 250
++    Bytes:c1 = raw two("[", 251i64, "", 0i64, "");
++    if (!(raw deep_at(@c1, 250i64))) { pass 21i32; }
++    // a `[` inside 250 groups, at byte 250 -- and inside 249 groups a class parses
++    Bytes:c2 = raw two("(", 250i64, "[a]", 1i64, "");
++    if (!(raw deep_at(@c2, 250i64))) { pass 22i32; }
++    Bytes:c3 = raw two("(", 249i64, "[a]", 1i64, "");
++    int64:k3 = 0i64;
++    while (k3 < 249i64) decreases 249i64 - k3 {
++        drop bytes_extend_str(@c3, ")");
++        k3 = k3 + 1i64;
++    }
++    if (!(raw parses(@c3))) { pass 23i32; }
++    // the 126th `[` inside 125 groups, at byte 250
++    Bytes:c4 = raw two("(", 125i64, "[", 126i64, "");
++    if (!(raw deep_at(@c4, 250i64))) { pass 24i32; }
+     pass 0i32;
+ };
+ 
+diff --git a/tests/unit/parse_nest_deep.npk b/tests/unit/parse_nest_deep.npk
+index 53479f4504f76fcfc07ddb01060dc117116934b5..dc0118e2eb8f82b7c4b56c9170a1a45a6418e5be 100644
+--- a/tests/unit/parse_nest_deep.npk
++++ b/tests/unit/parse_nest_deep.npk
+@@ -12,6 +12,11 @@
+ //   3. `(?:` 21 845 times and `a` -- 65 536 bytes, no group capturing, so the
+ //      capture bound plays no part -- byte 750.
+ //
++// *(@@DATE@@, cycle 0.1.3 -- RX-198: and classes, which nest too and count with groups
++// (Y-35): `[` 10 000 times and `]` 10 000 times, and `[` 65 536 times, each `NestTooDeep`
++// at the 251st `[`, byte 250; and `(` 200 times then `[` 10 000 times, at the 51st `[`,
++// byte 250 (cases 7-12).)*
++//
+ // WHY 65 536 AND NOT 10 000 ALONE. At `5fbaf4a` a recursive descent of the parser's
+ // frame size runs 10 000 levels at both legs without exhausting the main thread's
+ // stack, and traps `StackExhausted` at 65 536 at both (probe 19, RX-191). So 10 000
+@@ -80,6 +85,24 @@ func:run = int32() never fails {
+     uint8[]:vc = string_bytes(sc);
+     if (vc.len != 65536i64) { pass 5i32; }
+     if (!(raw refused_at(sc, 750i64))) { pass 6i32; }
++    // 4. 10 000 nested classes, and their 10 000 closers
++    Bytes:d = raw pattern("[", 10000i64, "]", 10000i64);
++    string:sd = raw bytes_copy_string(@d);
++    uint8[]:vd = string_bytes(sd);
++    if (vd.len != 20000i64) { pass 7i32; }
++    if (!(raw refused_at(sd, 250i64))) { pass 8i32; }
++    // 5. the longest pattern there is, every byte a `[`
++    Bytes:f = raw pattern("[", 65536i64, "", 0i64);
++    string:sf = raw bytes_copy_string(@f);
++    uint8[]:vf = string_bytes(sf);
++    if (vf.len != 65536i64) { pass 9i32; }
++    if (!(raw refused_at(sf, 250i64))) { pass 10i32; }
++    // 6. groups and classes together: 200 groups, then the 51st `[` is the 251st level
++    Bytes:g = raw pattern("(", 200i64, "[", 10000i64);
++    string:sg = raw bytes_copy_string(@g);
++    uint8[]:vg = string_bytes(sg);
++    if (vg.len != 10200i64) { pass 11i32; }
++    if (!(raw refused_at(sg, 250i64))) { pass 12i32; }
+     pass 0i32;
+ };
+ 
+diff --git a/tests/unit/parse_refusals.npk b/tests/unit/parse_refusals.npk
+index a781c039a7843680f929868f32283a5a9b29fdf0..d35d7ec3e1e88b35a746cf69f0a0cf929be98fc7 100644
+--- a/tests/unit/parse_refusals.npk
++++ b/tests/unit/parse_refusals.npk
+@@ -11,6 +11,8 @@
+ // are not pinned here: cycles 0.1.3 and 0.1.4 change them. Case 64 is not one of
+ // them: `(?P` before a byte no head names is `UnknownFlag` at the `P` in every
+ // cycle, since `P` is no flag (Y-31).
++// *(@@DATE@@, cycle 0.1.3 -- RX-197: a class is no longer provisional, and
++// `parse_classes` and `parse_class_refusals` hold it.)*
+ mod:parse_refusals;
+ 
+ use "../../src/core/core.npk".*;
+diff --git a/tests/unit/pattern_error_text.npk b/tests/unit/pattern_error_text.npk
+index 4a566e7b79679633550c4cb99e0cd6070f005ba5..8f2225f6e28342f349aeca6c0a22143bdc89bd4e 100644
+--- a/tests/unit/pattern_error_text.npk
++++ b/tests/unit/pattern_error_text.npk
+@@ -2,10 +2,11 @@
+ //
+ // WHAT A PERSON READS (`SYNTAX.md` Y-34; RX-187): `pattern_error_text` says what
+ // is wrong, at which byte, and what to write instead, for every refusal cycle
+-// 0.1.1 makes, and cycle 0.1.2's `NestTooDeep` (23; RX-193) -- each case parses a
+-// pattern and holds the text to the letter, so a message changed by accident is a
+-// red run. Then every kind, built by `pattern_error` at byte 7, renders a text that
+-// names byte 7 (40), so no kind is left without a sentence.
++// 0.1.1 makes, cycle 0.1.2's `NestTooDeep` (23; RX-193), and every one cycle 0.1.3's
++// classes make (24-35; RX-197, RX-198) -- each case parses a pattern and holds the
++// text to the letter, so a message changed by accident is a red run. Then every kind,
++// built by `pattern_error` at byte 7, renders a text that names byte 7 (40), so no
++// kind is left without a sentence.
+ mod:pattern_error_text;
+ 
+ use "../../src/core/core.npk".*;
+@@ -88,7 +89,28 @@ func:run = int32() never fails {
+         n = n + 1i64;
+     }
+     string:ds = raw bytes_copy_string(@deep);
+-    if (!(raw says(ds, "nesting too deep at byte 250: this `(` would nest groups 251 deep, and they may nest at most 250 deep (NREGEX_NEST_DEPTH). Nest fewer groups: a non-capturing group around one item, as in `(?:a)`, can be written without it."))) { pass 23i32; }
++    if (!(raw says(ds, "nesting too deep at byte 250: the `(` or `[` here would nest groups and classes 251 deep, and they may nest at most 250 deep (NREGEX_NEST_DEPTH). Nest fewer: write `(?:a)` as `a`, and `[[a]]` as `[a]`."))) { pass 23i32; }
++    // cycle 0.1.3's classes (Y-36 … Y-38), each sentence to the letter
++    if (!(raw says("[a", "unclosed class at byte 0: this `[` has no matching `]`. Add a `]`, or write `\\[` to match a bracket."))) { pass 24i32; }
++    if (!(raw says("[]", "unclosed class at byte 0: this `[` has no matching `]` -- a `]` straight after `[` or `[^` is a member of the class, not its end. Add a `]`, as in `[]]` for a class of `]`, or write `\\[` to match a bracket."))) { pass 25i32; }
++    if (!(raw says("[z-a]", "bad class range at byte 1: a range must not end before it starts. Write the lower bound first."))) { pass 26i32; }
++    if (!(raw says("[\\w-.]", "bad class range at byte 1: a range joins two codepoints, and an end of this one is a class. To match `-` itself, put it first or last in the class, or write `\\-`."))) { pass 27i32; }
++    if (!(raw says("[a&&]", "class operator at byte 2 is missing an operand: `&&` needs members on both sides, as in `[a-z&&aeiou]`. Write `\\&` to match `&` itself."))) { pass 28i32; }
++    if (!(raw says("[--a]", "class operator at byte 1 is missing an operand: `--` needs members on both sides, as in `[a-z--aeiou]`. Write `\\-` to match `-` itself."))) { pass 29i32; }
++    if (!(raw says("[a~~]", "class operator at byte 2 is missing an operand: `~~` needs members on both sides, as in `[a-z~~aeiou]`. Write `\\~` to match `~` itself."))) { pass 30i32; }
++    if (!(raw says("[[:alpah:]]", "unknown POSIX class at byte 1: a POSIX class is `[:name:]` inside a class, as in `[[:alpha:]]`, and the names are alpha, digit, alnum, space, upper, lower, punct, print, graph, cntrl, xdigit, blank, word and ascii. Write `\\:` to match a `:`."))) { pass 31i32; }
++    if (!(raw says("[\\p]", "unknown Unicode property at byte 1: `\\p` and `\\P` take a one-letter name, as in `\\pL`, or a name in braces, as in `\\p{Greek}`."))) { pass 32i32; }
++    if (!(raw says("[\\p{Greek", "unknown Unicode property at byte 1: the name in braces has no closing `}`. End it with `}`, as in `\\p{Greek}`."))) { pass 33i32; }
++    if (!(raw says("[\\p{}]", "unknown Unicode property at byte 1: the braces hold no name. Write one between them, as in `\\p{Greek}`."))) { pass 34i32; }
++    // 251 classes nested: the 251st `[`, byte 250 (Y-35)
++    Bytes:cdeep = raw bytes_init(256i64);
++    int64:cn = 0i64;
++    while (cn < 251i64) decreases 251i64 - cn {
++        drop bytes_extend_str(@cdeep, "[");
++        cn = cn + 1i64;
++    }
++    string:cds = raw bytes_copy_string(@cdeep);
++    if (!(raw says(cds, "nesting too deep at byte 250: the `(` or `[` here would nest groups and classes 251 deep, and they may nest at most 250 deep (NREGEX_NEST_DEPTH). Nest fewer: write `(?:a)` as `a`, and `[[a]]` as `[a]`."))) { pass 35i32; }
+     // every kind renders a sentence naming its byte
+     int64:k = 0i64;
+     while (k < 36i64) decreases 36i64 - k {

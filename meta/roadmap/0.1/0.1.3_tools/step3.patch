@@ -1,0 +1,175 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 740605858f1820943535cc8f3fa92b46a1e860f2..6d7c9a29e212394cde02e3dabcce4e684aea881a 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -4947,3 +4947,22 @@ none of which says which byte it was (Y-34); **a detail that says which** — a
+ where `RegexOptions` may set the bound (`SAFETY.md` S-12); **each operator counted as a level, as Rust's nest limit
+ counts every node** — a class's operators fold into a chain one node deeper per operator, which the pattern's length
+ already bounds, and a flat `[a--b--c…]` would be refused for its length; S-19's walks hold their own stacks for it.
++
++### RX-199 — a Perl class and a property are atoms outside a class too, as Y-27 names them
++
++**@@DATE@@, cycle 0.1.3 (the plan's PD-43), at compiler `5fbaf4a`** — `SYNTAX.md` Y-37 and §1's `Atom`. Y-27 says a
++`PerlClass` is *"`\d` `\w` `\s`, in a class or out"*, but §1's grammar lists `PerlClass` and `UnicodeClass` only among
++a class's items, its `Atom` naming neither, and the cycle 0.1 README gives cycle 0.1.4 *"every escape in §1's `Escape`
++production"*, which holds neither either — so `\d` outside a class was no subcycle's. It is this one's, which reads
++the same two inside a class: outside one, `\d \D \w \W \s \S` and `\p…` `\P…` are atoms — a `PerlClass` or a
++`UnicodeClass`, unresolved, which a quantifier may repeat — with Y-37's refusals at the `\`.
++
++**Measured at `5fbaf4a`.** `tests/unit/parse_classes.npk` cases 70–77 and `parse_class_refusals.npk` cases 56–61 pass
++at −O0 and through `opt -O2`, and `pattern_error_text.npk` case 36 holds the sentence outside a class; against the
++parser before this decision the first two exit 70 and 56, each pattern refused provisionally, `UnknownEscape` (Y-31).
++
++*Alternatives declined:* **left to cycle 0.1.4, with the other escapes** — the escapes 0.1.4 reads name codepoints and
++anchors, and these two are read by the code the class parser already holds; **inside a class only** — `\d+` is the
++commonest class there is, and Y-27 already says *"in a class or out"*; **each wrapped in a `Class`, so one class kind
++stands outside a class** — a node per atom that no reader asks for, where cycle 0.2's desugaring makes every class a
++`Class` anyway (`HIR.md` H-5).
+diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
+index 617c1ca01de8ae2590cb07f95fa7195132b1ef3d..505a4a19f68f99139f944f87e6a54f368de86529 100644
+--- a/meta/specs/SYNTAX.md
++++ b/meta/specs/SYNTAX.md
+@@ -51,6 +51,8 @@ Name         ::= [A-Za-z_][A-Za-z0-9_]*
+ `ClassAtom`, which the grammar leaves undefined, is one codepoint: any but `\`, `[` and `]`, or `\` and ASCII
+ punctuation, with `]` and `-` members where Y-36 places them; and a `PosixClass`'s name is lowercase, one of §5.1's
+ fourteen (Y-38).)*
++*(@@DATE@@, cycle 0.1.3 — RX-199: `Atom` holds `PerlClass` and `UnicodeClass` too, outside a class as in one — as Y-27
++already says of `\d`, "in a class or out".)*
+ 
+ **Rule Y-2 — a `\` before any ASCII punctuation is that punctuation,
+ literally.** `\@` is `@`. A `\` before an ASCII **letter or digit** that this
+@@ -253,6 +255,8 @@ inside one is — `UnclosedClass` at the innermost open `[`, its detail telling
+ ends inside an escape, a property's name or a `[:`. Inside a class,
+ `\d \D \w \W \s \S`, `\p` and `\P` are classes (Y-37); any other escape there, and every one outside a class
+ but punctuation, is still refused provisionally.)*
++*(@@DATE@@, cycle 0.1.3 — RX-199: outside a class too, `\d \D \w \W \s \S`, `\p` and `\P` are classes (Y-37);
++every other escape but punctuation is still refused provisionally, until cycle 0.1.4.)*
+ 
+ **Rule Y-32 (RX-184) — quantifiers.** `*`, `+`, `?`, `{n}`, `{n,}` and `{n,m}`, each
+ followed by `?` to be lazy, wrap the atom before them in a `Repeat` — `a` the atom,
+@@ -421,6 +425,7 @@ the name's offset and length, negated for `\P`. Cycle 0.3 resolves both (`UNICOD
+ no table. A name that cannot be read is `UnknownUnicodeProperty` at the `\`, spanning what was read: detail 1 when
+ neither an ASCII letter nor `{` follows the `p`, 2 when the braces never close, 3 when they hold nothing. Each is a
+ member of a class (Y-36).
++*(@@DATE@@, cycle 0.1.3 — RX-199: and outside a class, an atom, which a quantifier may repeat.)*
+ 
+ **Rule Y-38 (RX-197) — POSIX classes, inside a class only.** Where a member would start inside a class, `[:` begins
+ a POSIX class: `[:name:]`, or `[:^name:]` for its complement, its name lowercase and one of §5.1's fourteen — a
+diff --git a/src/syntax/parse.npk b/src/syntax/parse.npk
+index 26bf9a79ffdce606618650834f8ed399e6f3ae40..a6faaed4d2625219bec159c5f4cba410c655e8e9 100644
+--- a/src/syntax/parse.npk
++++ b/src/syntax/parse.npk
+@@ -337,6 +337,14 @@ func:atom = NIL(Ast->:out, Frame->:f, AstKind:k, int64:a, int64:pos, int64:len)
+     pass NIL;
+ };
+ 
++// The same, for an atom whose node is built already: a Perl class or a property
++// outside a class (Y-37).
++func:atom_node = NIL(Ast->:out, Frame->:f, AstNode:n) never fails {
++    drop commit(out, f);
++    f.pending = raw ast_push(out, n);
++    pass NIL;
++};
++
+ // Closes the current alternative, which ends at `upto`, into ONE piece -- `Empty`
+ // if it has none, the piece itself if it has one, a `Concat` if more -- and adds
+ // it to the alternation.
+@@ -673,8 +681,9 @@ func:escape_class_node = AstNode(uint8[]:pat, uint32:flags, int64:at, int32:d, i
+     pass raw node(AstKind.UnicodeClass, bits, at + 2i64, 1i64, 0i64, at, upto - at);
+ };
+ 
+-// `\` read at `at`. ASCII punctuation after it is that punctuation (Y-2); every
+-// other escape is cycle 0.1.4's, and until then provisionally `UnknownEscape` (Y-31).
++// `\` read at `at`. ASCII punctuation after it is that punctuation (Y-2); a Perl
++// class or a property is a class, unresolved, here as in a class (Y-37); every other
++// escape is cycle 0.1.4's, and until then provisionally `UnknownEscape` (Y-31).
+ func:escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:at) never fails {
+     int32:d = raw cursor_peek(@p.c);
+     if (d == CURSOR_END) {
+@@ -685,6 +694,15 @@ func:escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:at) never
+         drop atom(out, @p.f, AstKind.Literal, d => int64, at, 2i64);
+         pass NIL;
+     }
++    if (raw is_class_letter(d)) {
++        discard(raw cursor_bump(@p.c));
++        if ((d == CH_LOWER_P) || (d == CH_UPPER_P)) {
++            PatternError?:bad = raw read_property(p, at);
++            if (bad != NIL) { pass bad; }
++        }
++        drop atom_node(out, @p.f, raw escape_class_node(pat, p.f.flags, at, d, p.c.pos));
++        pass NIL;
++    }
+     pass raw pattern_error(PatternErrorKind.UnknownEscape, at, 1i64 + raw utf8_len(d => int64),
+                            raw decode_at(pat, at + 1i64) =>! uint32);
+ };
+diff --git a/tests/unit/parse_class_refusals.npk b/tests/unit/parse_class_refusals.npk
+index 36afce0946b83f63df41515c2bf231c38e50e76a..c5455e646d421ea7d75a56e4d1567c81c6713dc7 100644
+--- a/tests/unit/parse_class_refusals.npk
++++ b/tests/unit/parse_class_refusals.npk
+@@ -6,7 +6,8 @@
+ // Each case parses one pattern through `syntax.npk`'s re-exports and requires the
+ // refusal to be EXACTLY this kind at this offset, spanning this many bytes, with this
+ // detail -- the four fields a message is built from (Y-10, Y-34). A case that differs
+-// exits with its number. An escape other than punctuation, a Perl class or a property
++// exits with its number. Since RX-199 a property's name is read the same way outside a
++// class (cases 56-61). An escape other than punctuation, a Perl class or a property
+ // is refused PROVISIONALLY inside a class as outside it (Y-31) and is not pinned here:
+ // cycle 0.1.4 changes it. `NestTooDeep` at a `[` is `parse_limits`' and
+ // `parse_nest_deep`'s.
+@@ -90,6 +91,13 @@ func:run = int32() never fails {
+     if (!(raw refused("[[:foo:]", PatternErrorKind.UnknownPosixClass, 1i64, 7i64, 0u32)))   { pass 53i32; }
+     if (!(raw refused("[\\p{}", PatternErrorKind.UnknownUnicodeProperty, 1i64, 4i64, 3u32))) { pass 54i32; }
+     if (!(raw refused("[\\d-", PatternErrorKind.UnclosedClass, 0i64, 1i64, 0u32)))        { pass 55i32; }
++    // a property outside a class reads its name the same way (Y-37, RX-199)
++    if (!(raw refused("\\p", PatternErrorKind.UnknownUnicodeProperty, 0i64, 2i64, 1u32)))   { pass 56i32; }
++    if (!(raw refused("\\p{", PatternErrorKind.UnknownUnicodeProperty, 0i64, 3i64, 2u32)))  { pass 57i32; }
++    if (!(raw refused("\\p{}", PatternErrorKind.UnknownUnicodeProperty, 0i64, 4i64, 3u32))) { pass 58i32; }
++    if (!(raw refused("\\p1", PatternErrorKind.UnknownUnicodeProperty, 0i64, 2i64, 1u32)))  { pass 59i32; }
++    if (!(raw refused("a\\P", PatternErrorKind.UnknownUnicodeProperty, 1i64, 2i64, 1u32)))  { pass 60i32; }
++    if (!(raw refused("\\p{Gr", PatternErrorKind.UnknownUnicodeProperty, 0i64, 5i64, 2u32))) { pass 61i32; }
+     pass 0i32;
+ };
+ 
+diff --git a/tests/unit/parse_classes.npk b/tests/unit/parse_classes.npk
+index 70287dd29530d137671d2a54d02b023b0c96ab62..3c3e32170e7bbf2ea2097f27d41375f103b3e9fe 100644
+--- a/tests/unit/parse_classes.npk
++++ b/tests/unit/parse_classes.npk
+@@ -1,7 +1,8 @@
+ // expect-exit: 0
+ //
+ // CLASSES, ACCEPTED: EVERY SHAPE CYCLE 0.1.3 PARSES, AS THE TREE IT BUILDS
+-// (`SYNTAX.md` Y-27, Y-36 … Y-38).
++// (`SYNTAX.md` Y-27, Y-36 … Y-38) -- and since RX-199 a Perl class or a property
++// outside a class too (cases 70-77).
+ //
+ // Each case parses one pattern through `syntax.npk`'s re-exports and writes the tree
+ // back as text -- `(cls …)` a class and `(cls^ …)` a negated one; `'a'` a member that is
+@@ -269,6 +270,15 @@ func:run = int32() never fails {
+     if (!(raw tree("[é-ü]", "(cls@0+7 #233-#252@1+5)", true)))               { pass 67i32; }
+     if (!(raw tree("[a[b]]", "(cls@0+6 'a'@1+1 (cls@2+3 'b'@3+1))", true)))  { pass 68i32; }
+     if (!(raw tree("x[y]+", "(cat@0+5 'x'@0+1 (rep@1+4 1 - (cls@1+3 'y'@2+1)))", true))) { pass 69i32; }
++    // outside a class, a Perl class or a property is an atom (Y-37)
++    if (!(raw tree("\\d", "\\d", false)))                                   { pass 70i32; }
++    if (!(raw tree("\\D+", "(rep 1 - \\D)", false)))                         { pass 71i32; }
++    if (!(raw tree("a\\wb", "(cat 'a' \\w 'b')", false)))                    { pass 72i32; }
++    if (!(raw tree("\\s\\S", "(cat \\s \\S)", false)))                     { pass 73i32; }
++    if (!(raw tree("\\pL", "\\p{L}", false)))                                { pass 74i32; }
++    if (!(raw tree("\\P{Greek}*", "(rep 0 - \\P{Greek})", false)))           { pass 75i32; }
++    if (!(raw tree("(\\p{Script=Greek}|\\d)", "(grp 1 (alt \\p{Script=Greek} \\d))", false))) { pass 76i32; }
++    if (!(raw tree("x\\pN\\p{Lu}\\W", "(cat@0+12 'x'@0+1 \\p{N}@1+3 \\p{Lu}@4+6 \\W@10+2)", true))) { pass 77i32; }
+     pass 0i32;
+ };
+ 
+diff --git a/tests/unit/pattern_error_text.npk b/tests/unit/pattern_error_text.npk
+index 8f2225f6e28342f349aeca6c0a22143bdc89bd4e..858c592f8fb941736d37d1f50734512525706e87 100644
+--- a/tests/unit/pattern_error_text.npk
++++ b/tests/unit/pattern_error_text.npk
+@@ -111,6 +111,8 @@ func:run = int32() never fails {
+     }
+     string:cds = raw bytes_copy_string(@cdeep);
+     if (!(raw says(cds, "nesting too deep at byte 250: the `(` or `[` here would nest groups and classes 251 deep, and they may nest at most 250 deep (NREGEX_NEST_DEPTH). Nest fewer: write `(?:a)` as `a`, and `[[a]]` as `[a]`."))) { pass 35i32; }
++    // outside a class, the same sentence (Y-37, RX-199)
++    if (!(raw says("\\p", "unknown Unicode property at byte 0: `\\p` and `\\P` take a one-letter name, as in `\\pL`, or a name in braces, as in `\\p{Greek}`."))) { pass 36i32; }
+     // every kind renders a sentence naming its byte
+     int64:k = 0i64;
+     while (k < 36i64) decreases 36i64 - k {

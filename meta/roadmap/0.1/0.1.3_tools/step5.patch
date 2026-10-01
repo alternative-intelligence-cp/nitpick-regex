@@ -1,0 +1,125 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 0bf7e57bece7c57bdf6c3a1e433e734f7a4b3d33..4a8b5b809e73c1c3070437d5d600ddcfdf6c197c 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -5004,3 +5004,28 @@ same surprise; **refuse every outermost class whose members begin and end with `
+ are classes written as classes, and `[:foo\:]` is the refusal's own advice followed; **refuse every outermost class that
+ begins with `:`** — `[:;,]` is a class of punctuation someone means; **a kind of its own** — `UnknownPosixClass` is the
+ POSIX class's kind already, and its detail says which case.
++
++### RX-201 — under `x`, white space and `#` inside a class are refused: the engines disagree, so neither reading is guessed — open question O-Y2, decided
++
++**@@DATE@@, cycle 0.1.3 (the plan's PD-45)** — `SYNTAX.md` Y-39, per `meta/research/class-syntax-reference-engines.md`,
++as of 2026-10-01. O-Y2 asked whether `x` mode ignores white space inside a class and recommended *"do not, matching
++Rust, and refuse `xx` with a message naming the escape"*. Its premise is false: Rust's `regex` 1.13.1 ignores white
++space "everywhere, including within character classes", and a `#` comment there too — measured, `(?x)[a b]` is `a` or
++`b`, and `(?x)[a#b]` an unclosed class — and so does Java's `COMMENTS`. Perl's `/x`, PCRE2's `x`, Python's `VERBOSE` and
++.NET's `IgnorePatternWhitespace` keep both as members, and Perl's and PCRE2's `xx` ignore a space or a tab only. So
++`(?x)[a b]` matches a space in four engines and not in two, and the recommendation would have read Rust's patterns
++otherwise than Rust, with no word said.
++
++**The decision.** Under `x`, a white-space byte or a `#` inside a class is refused at that byte rather than read either
++way, so a pattern from either family is told, not reinterpreted: `\x20` writes a space and `\#` a `#`. Outside a class
++`x` does what §4 says. `(?xx)` is a flag written twice — cycle 0.1.4's, and Rust refuses a repeated flag — whose
++sentence can say what `xx` means elsewhere and what to write here. Cycle 0.1.4, which parses flags, makes the refusal,
++adds its kind to §9 and holds its sentence to the letter; until then no flag turns `x` on (Y-31), so the parser does
++not change here.
++
++*Alternatives declined:* **keep white space as members, the recommendation's reading** — Perl's, Python's and .NET's,
++and a silent difference from Rust and Java for every `(?x)` pattern with a spaced class; **ignore it, as Rust and Java
++do** — the closest neighbour's reading, and a silent difference from Perl, PCRE2, Python and .NET, where a spaced class
++is how a space is often matched under `x`; **ignore a space and a tab only, as `xx` does** — a third reading, and each
++family's surprise at once; **leave it to cycle 0.1.4, with the flags** — the cycle 0.1 README puts the question with
++the class parser, whose reading of a class's bytes this is.
+diff --git a/meta/OPEN_QUESTIONS.md b/meta/OPEN_QUESTIONS.md
+index 0247f8bd4743a1037de7e539b964f8b2481a4a57..6c004e40b63a4b200f2975c502ab5f1dd325d1c7 100644
+--- a/meta/OPEN_QUESTIONS.md
++++ b/meta/OPEN_QUESTIONS.md
+@@ -915,9 +915,13 @@ movemask intrinsic, which is a better request than a speculative one.
+ - **O-Y1 — leftmost-longest (POSIX) mode.** Cheap in a Pike VM — a different
+   rule for which thread wins a slot — and wanted by nobody yet.
+   **Recommendation:** deferred; revisit if a consumer asks.
+-- **O-Y2 — whether `x` mode ignores whitespace inside classes.** Rust does not;
++- ~~**O-Y2 — whether `x` mode ignores whitespace inside classes.** Rust does not;
+   Perl does with `xx`. **Recommendation:** do not, matching Rust, and refuse
+-  `xx` with a message naming the escape. **Decide at cycle 0.1.**
++  `xx` with a message naming the escape. **Decide at cycle 0.1.**~~ — **DECIDED, RX-201 (cycle 0.1.3, @@DATE@@):
++  under `x`, a white-space byte or a `#` inside a class is refused (`SYNTAX.md` Y-39).** The premise was false: Rust's
++  `regex` 1.13.1 ignores white space inside a class under `x`, and `#` comments there too, as Java does; Perl's `/x`,
++  PCRE2's `x`, Python and .NET keep them as members (`research/class-syntax-reference-engines.md`). So the
++  recommendation's reading would have differed from Rust's in silence, and neither reading is guessed.
+ - **O-Y3 — what `EmptyClass` names, now that no pattern reaches it in the parser.** A `]` straight after `[` or
+   `[^` is a member (`SYNTAX.md` Y-36, RX-197), as Rust, Perl and Python read it, so every class the parser builds
+   holds one, and `EmptyClass` is a kind nothing produces — the shape Y-25 forbids. Two ways out: give it a trigger
+diff --git a/meta/roadmap/0.1/README.md b/meta/roadmap/0.1/README.md
+index d4db006f11cc0783fd2f3723e5117da2e32a9632..e64ac14270a119c01e0a721fb45adb380a34ad7a 100644
+--- a/meta/roadmap/0.1/README.md
++++ b/meta/roadmap/0.1/README.md
+@@ -48,6 +48,8 @@ RX-010, RX-013, RX-017, RX-032, RX-060. Settled.
+ 
+ **Open questions to settle:** O-Y2 (does `x` mode ignore whitespace inside
+ classes? recommendation: no, matching Rust, and refuse `xx`).
++*(@@DATE@@, cycle 0.1.3: decided by RX-201 — under `x`, a white-space byte or a `#` inside a class is refused
++(`SYNTAX.md` Y-39); the recommendation's premise, that Rust keeps them, was false.)*
+ 
+ ## Subcycles
+ 
+@@ -134,7 +136,7 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
+ - [ ] **`\` before an unlisted ASCII letter or digit is `UnknownEscape`, never a literal** (Y-2) — a test per unassigned letter
+ - [ ] `\x41`, `\x{1F600}`, `A`, `\U0001F600`, with `BadHexEscape`, `BadUnicodeEscape`, `InvalidCodepoint` (surrogates and above `U+10FFFF`)
+ - [ ] flags `imsxu`, scoped per Y-12: `(?i:…)` to the group, `(?i)` to the end of the enclosing group, `(?-i)` clearing
+-- [ ] `x` mode: whitespace and `#`-to-end-of-line ignored, per O-Y2's answer
++- [ ] `x` mode: whitespace and `#`-to-end-of-line ignored, per O-Y2's answer *(@@DATE@@ — RX-201: outside a class; inside one, a white-space byte or a `#` is refused at it (Y-39), with a kind this subcycle adds to §9 and a sentence naming `\x20` and `\#`; `(?xx)`, a repeated flag, refused saying so)*
+ - [ ] `(?-u)` byte mode, and `ByteModeNonAscii` when a non-ASCII literal appears under it (Y-14) — **naming the codepoint**
+ - [ ] `UnknownFlag`
+ 
+diff --git a/meta/specs/COMPAT.md b/meta/specs/COMPAT.md
+index 013c3a706e0465281e982268c6bad370e9d71f0d..d5cd9a001022f6530eeaaa085fb00fc6f2370dcb 100644
+--- a/meta/specs/COMPAT.md
++++ b/meta/specs/COMPAT.md
+@@ -33,7 +33,7 @@ The closest neighbour, so the list is short and each entry is deliberate.
+ | `\Q…\E` | not supported | refused, naming `regex_escape()` | same, with a better message |
+ | Unicode blocks | not supported | refused, naming `Script` | `UNICODE.md` §2.1 |
+ | case folding | simple | simple | same |
+-| `x` mode inside classes | whitespace significant | whitespace significant | same (O-Y2) |
++| `x` mode inside classes | ~~whitespace significant~~ white space and `#` comments ignored (measured, regex 1.13.1) | ~~whitespace significant~~ a white-space byte or a `#` refused (`SYNTAX.md` Y-39) | ~~same (O-Y2)~~ the engines disagree, so neither reading is guessed — RX-201, @@DATE@@; this row said Rust kept white space, and it does not |
+ | a POSIX class as a whole class, `[:alpha:]` | a class of `:`, `a`, `h`, `l`, `p` | refused, saying a POSIX class goes inside a class — as GNU `grep` refuses it | a class of five bytes where every letter was meant — RX-200 |
+ | a class's edge cases | an operator with an empty side is the empty set (`[a&&]`, `[!--]`), and a run of `-` first in a class is members (`[--a]`); `[:` that opens no POSIX class opens a nested class (`[[:alpah:]]`); a `-` after `[…]` or `[:name:]` is a member, and a `[` ending a range is a codepoint | each refused, with the kind and the fix `SYNTAX.md` Y-36 and Y-38 name | a reading the author may not have meant is a refusal that says what to write — RX-197 |
+ | replacement | closures **or** templates | templates and non-capturing function values | no closures (D-018) |
+@@ -61,6 +61,7 @@ The list a user migrating from Python, PHP, Java or JavaScript needs.
+ | `\p{InGreek}` | refused, naming `\p{Script=Greek}` |
+ | case folding of `ß`, `ﬁ` | **simple folding only** — `UNICODE.md` U-12 |
+ | `\w` | UTS #18 Annex C, not `[A-Za-z0-9_]` — `UNICODE.md` U-10 |
++| `x` mode inside a class | a white-space byte or a `#` refused under `x`, where Perl's `/x`, PCRE2's `x`, Python and .NET read them as members and `xx` ignores a space or a tab — write `\x20` or `\#` (`SYNTAX.md` Y-39, RX-201) |
+ | `[` inside a class; `&&`, `--`, `~~` | a nested class, and the class operators of UTS #18 and Rust: `[a[b]]` is `a` or `b`, and `[a--b]` is `a` but not `b` — write `\[` and `\-` for the bytes (`SYNTAX.md` Y-36, RX-197) |
+ 
+ **Rule K-1 — every refusal names the alternative in its message**, and where
+diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
+index 15eb26faa5a9b6bd6644549f90f04199fe876046..3d66281add21c6fc289ff2c4f09776358dc62909 100644
+--- a/meta/specs/SYNTAX.md
++++ b/meta/specs/SYNTAX.md
+@@ -337,6 +337,12 @@ refused** (`ByteModeNonAscii`). In byte mode a literal `é` would be two byte
+ literals, and `[é]` would be a class of two unrelated bytes — a silent
+ nonsense. The refusal names the codepoint.
+ 
++**Rule Y-39 (RX-201) — under `x`, a class holds no unescaped white space and no `#`.** Outside a class, `x` ignores
++white space and `#`-to-end-of-line (the table above). Inside one the engines disagree — Rust and Java ignore both,
++Perl's `/x`, PCRE2's `x`, Python and .NET keep both as members, and Perl's and PCRE2's `xx` ignore a space or a tab —
++so under `x` a white-space byte or a `#` inside a class is refused at that byte, never read either way: `\x20`
++matches a space and `\#` a `#`. Cycle 0.1.4 parses the flags and makes the refusal, with a kind it adds to §9.
++
+ ---
+ 
+ ## 5. Classes
+@@ -600,8 +606,9 @@ cycle 0.1.6's.)*
+ 
+ - **O-Y1 — leftmost-longest (POSIX) mode.** Cheap to add to the Pike VM and
+   wanted by nobody yet. Recommendation: deferred; revisit if a consumer asks.
+-- **O-Y2 — whether `x` mode should ignore whitespace inside classes.** Rust
++- ~~**O-Y2 — whether `x` mode should ignore whitespace inside classes.** Rust
+   does not; Perl does with `xx`. Recommendation: do not, matching Rust, and
+-  refuse `xx` with a message naming the escape. Decide at cycle 0.1.
++  refuse `xx` with a message naming the escape. Decide at cycle 0.1.~~ —
++  **DECIDED, RX-201 (@@DATE@@): refused under `x` (Y-39).** Rust in fact ignores it.
+ - **O-Y3 — what `EmptyClass` names, now that no pattern reaches it in the parser** (Y-36). Recommendation: a class
+   that resolves to no codepoint, refused at its `[`. Decide at cycle 0.3.4. `../OPEN_QUESTIONS.md` has the argument.
