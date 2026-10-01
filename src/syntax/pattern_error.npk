@@ -172,8 +172,9 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
         },
         (PatternErrorKind.NestTooDeep) {
             drop put(@b, "nesting too deep at byte "); drop num(@b, e.offset);
-            drop put(@b, ": groups may nest at most "); drop num(@b, e.detail => int64);
-            drop put(@b, " deep (NREGEX_NEST_DEPTH).");
+            drop put(@b, ": this `(` would nest groups "); drop num(@b, (e.detail => int64) + 1i64);
+            drop put(@b, " deep, and they may nest at most "); drop num(@b, e.detail => int64);
+            drop put(@b, " deep (NREGEX_NEST_DEPTH). Nest fewer groups: a non-capturing group around one item, as in `(?:a)`, can be written without it.");
         },
         (PatternErrorKind.TrailingBackslash) {
             drop put(@b, "trailing backslash at byte "); drop num(@b, e.offset);

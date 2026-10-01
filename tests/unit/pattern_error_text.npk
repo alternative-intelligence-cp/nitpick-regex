@@ -2,10 +2,10 @@
 //
 // WHAT A PERSON READS (`SYNTAX.md` Y-34; RX-187): `pattern_error_text` says what
 // is wrong, at which byte, and what to write instead, for every refusal cycle
-// 0.1.1 makes -- each case parses a pattern and holds the text to the letter,
-// so a message changed by accident is a red run. Then every kind, built by
-// `pattern_error` at byte 7, renders a text that names byte 7 (40), so no kind
-// is left without a sentence.
+// 0.1.1 makes, and cycle 0.1.2's `NestTooDeep` (23; RX-193) -- each case parses a
+// pattern and holds the text to the letter, so a message changed by accident is a
+// red run. Then every kind, built by `pattern_error` at byte 7, renders a text that
+// names byte 7 (40), so no kind is left without a sentence.
 mod:pattern_error_text;
 
 use "../../src/core/core.npk".*;
@@ -80,6 +80,15 @@ func:run = int32() never fails {
     PatternError:e = r ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
     string:enc = raw pattern_error_text(e);
     if (!(raw same(enc, "invalid UTF-8 at byte 0: a pattern is UTF-8 text, and this sequence is not well-formed."))) { pass 22i32; }
+    // 251 groups nested: the 251st `(`, byte 250 (Y-35)
+    Bytes:deep = raw bytes_init(256i64);
+    int64:n = 0i64;
+    while (n < 251i64) decreases 251i64 - n {
+        drop bytes_extend_str(@deep, "(");
+        n = n + 1i64;
+    }
+    string:ds = raw bytes_copy_string(@deep);
+    if (!(raw says(ds, "nesting too deep at byte 250: this `(` would nest groups 251 deep, and they may nest at most 250 deep (NREGEX_NEST_DEPTH). Nest fewer groups: a non-capturing group around one item, as in `(?:a)`, can be written without it."))) { pass 23i32; }
     // every kind renders a sentence naming its byte
     int64:k = 0i64;
     while (k < 36i64) decreases 36i64 - k {

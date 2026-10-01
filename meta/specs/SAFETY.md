@@ -370,7 +370,7 @@ nowhere else.** A tree check enforces it. Exceeding one at compile time is a
 | Constant | Default | Bounds |
 |---|---|---|
 | `NREGEX_PATTERN_BYTES` | 65536 | the pattern text |
-| `NREGEX_NEST_DEPTH` | 250 | group and alternation nesting — the parser's explicit stack (§8) |
+| `NREGEX_NEST_DEPTH` | 250 | group and alternation nesting — the parser's explicit stack (§8). *Counted in groups, since an alternation nests only inside one, and refused at the `(` that goes too deep — `SYNTAX.md` Y-35, RX-193, 2026-10-01* |
 | `NREGEX_PROGRAM_INSTRUCTIONS` | 100000 | the compiled program |
 | `NREGEX_REPEAT_MAX` | 1000 | a single `{n,m}` bound |
 | `NREGEX_REPEAT_PRODUCT` | 100000 | the **product** across nested repetitions — §5.1 |

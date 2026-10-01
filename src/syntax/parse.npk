@@ -16,8 +16,10 @@
 // AN EXPLICIT STACK, NEVER NATIVE RECURSION (RX-032, `SAFETY.md` S-18). One
 // `while` walks the pattern once. A `(` saves the frame being built on a
 // `Vec<Frame>` and starts the group's; its `)` builds the group's node and takes
-// the saved frame back. No function here calls itself. Cycle 0.1.2 bounds the
-// stack by `NREGEX_NEST_DEPTH`; until then the pattern's length bounds it.
+// the saved frame back. No function here calls itself, and `check_no_recursion`
+// says so on every run (RX-192). `NREGEX_NEST_DEPTH` bounds the stack since cycle
+// 0.1.2: a `(` that would nest groups deeper is `NestTooDeep` at that `(`, before
+// a byte after it is read (Y-35, RX-193). Until then the pattern's length bounded it.
 //
 // THE TREE IS BUILT BOTTOM-UP INTO THE ARENA (Y-26, Y-27, Y-33). A frame keeps two
 // lists: the alternatives closed so far, and the pieces of the current one. A
@@ -311,7 +313,10 @@ func:close_body = int64(Ast->:out, Frame->:f, int64:upto) never fails {
 
 // ---- groups (Y-29, Y-30) ---------------------------------------------------
 
-// Starts a group's frame: the one being built is saved on the stack.
+// Starts a group's frame: the one being built is saved on the stack. Every call is
+// made after `open_group`'s first line -- there, or in `named_group`, which only
+// `open_group` calls -- so the stack never holds more than `NREGEX_NEST_DEPTH` frames
+// (Y-35).
 func:push_group = NIL(Parser->:p, int64:open, int64:cap, int64:name_len) never fails {
     uint32:fl = p.f.flags;
     drop vec_push(@p.stack, p.f);
@@ -385,8 +390,14 @@ func:head_refused = PatternError?(Parser->:p, PatternErrorKind:k, int64:open, in
     pass raw pattern_error(k, open, p.c.pos - open, b =>! uint32);
 };
 
-// `(` read at `open`. What follows decides the group (Y-29), or the refusal (Y-30).
+// `(` read at `open`. First the depth (Y-35): a `(` that would nest groups deeper
+// than `NREGEX_NEST_DEPTH` is `NestTooDeep` here, before a byte after it is read --
+// so no frame past the bound is pushed, and the parse stops where the bound is.
+// Then what follows decides the group (Y-29), or the refusal (Y-30).
 func:open_group = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:open) never fails {
+    if (p.stack.count >= NREGEX_NEST_DEPTH) {
+        pass raw pattern_error(PatternErrorKind.NestTooDeep, open, 1i64, NREGEX_NEST_DEPTH =>! uint32);
+    }
     drop commit(out, @p.f);
     if (!(raw cursor_eat(@p.c, CH_QUESTION =>! uint8))) {
         PatternError?:full = raw take_cap(p, open);

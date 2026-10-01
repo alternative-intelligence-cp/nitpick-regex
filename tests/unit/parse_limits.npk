@@ -6,8 +6,13 @@
 // same); `NREGEX_PATTERN_BYTES` through `parse_pattern` -- 65 536 bytes parse and
 // one more is `PatternTooLong` before anything reads a byte. And 250 groups
 // nested, which the explicit stack holds without a native frame per level
-// (RX-032): `NREGEX_NEST_DEPTH` is 250, and cycle 0.1.2 refuses the 251st.
-// (`NREGEX_REPEAT_MAX` is `parse_grammar`'s case 31 and `parse_refusals`' 33.)
+// (RX-032): `NREGEX_NEST_DEPTH` is 250, and since cycle 0.1.2 the 251st `(` is
+// `NestTooDeep` at it, before a byte after it is read (Y-35, RX-193) -- 251
+// non-capturing groups at byte 750; 251 capturing groups at byte 250, past both
+// bounds, the depth decided first; and a lookahead or a `(?` the 251st `(` would
+// open, never read. (`NREGEX_REPEAT_MAX` is `parse_grammar`'s case 31 and
+// `parse_refusals`' 33; 10 000 levels and the longest pattern's are
+// `parse_nest_deep`'s.)
 mod:parse_limits;
 
 use "../../src/core/core.npk".*;
@@ -22,6 +27,22 @@ func:many = Bytes(int64:groups, string:piece, string:tail) never fails {
     }
     drop bytes_extend_str(@b, tail);
     pass move(b);
+};
+
+// `piece` `groups` times then `tail`: `NestTooDeep` at byte `at`, one byte long, its
+// detail the bound, and no node built?
+func:too_deep = bool(int64:groups, string:piece, string:tail, int64:at) never fails {
+    Bytes:b = raw many(groups, piece, tail);
+    string:s = raw bytes_copy_string(@b);
+    Ast:t = raw ast_init(8i64);
+    PatternError?:r = raw parse_pattern(string_bytes(s), @t);
+    int64:nodes = raw ast_len(t);
+    drop ast_free(@t);
+    if (r == NIL) { pass false; }
+    PatternError:e = r ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
+    if (e.kind != PatternErrorKind.NestTooDeep) { pass false; }
+    if ((e.offset != at) || (e.span_len != 1i64) || (e.detail != 250u32)) { pass false; }
+    pass nodes == 0i64;
 };
 
 func:run = int32() never fails {
@@ -91,6 +112,15 @@ func:run = int32() never fails {
     PatternError:g = mr ?? raw pattern_error(PatternErrorKind.UnclosedGroup, 0i64, 0i64, 0u32);
     if ((g.kind != PatternErrorKind.PatternTooLong) || (g.offset != 65536i64) || (g.detail != 65536u32)) { pass 13i32; }
     if (nodes != 0i64) { pass 14i32; }
+    // the depth (Y-35): 251 non-capturing groups nested -- refused at the 251st `(`,
+    // byte 750, its detail the bound
+    if (!(raw too_deep(251i64, "(?:", "a", 750i64))) { pass 15i32; }
+    // 251 capturing groups nested: the 251st `(` is past NREGEX_CAPTURE_GROUPS too,
+    // and the depth is decided first -- NestTooDeep at byte 250, not TooManyCaptureGroups
+    if (!(raw too_deep(251i64, "(", "", 250i64))) { pass 16i32; }
+    // what the 251st `(` would open is never read: a lookahead, and `(?` at the end
+    if (!(raw too_deep(250i64, "(?:", "(?=a)", 750i64))) { pass 17i32; }
+    if (!(raw too_deep(250i64, "(?:", "(?", 750i64))) { pass 18i32; }
     pass 0i32;
 };
 

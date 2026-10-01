@@ -41,6 +41,8 @@ pub fixed int64:NREGEX_PATTERN_BYTES = 65536i64;
 // *(2026-10-01, cycle 0.1.2 — RX-191: since `c3bdae2` the language has that guard —
 // a recursion deeper than its stack traps `StackExhausted` (the compiler's D-305;
 // probe 19) — and a trap ends the whole program, so the explicit stack stands.)*
+// *(2026-10-01, cycle 0.1.2 — RX-193: `parse.npk`'s `open_group` refuses at it, at the
+// `(`, before a byte after it is read — `SYNTAX.md` Y-35.)*
 pub fixed int64:NREGEX_NEST_DEPTH = 250i64;
 
 // ---- the compiled program --------------------------------------------------

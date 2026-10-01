@@ -105,6 +105,8 @@ pointer to anything that pushes or pops (`SAFETY.md` S-23b).)*
 *(2026-09-27, cycle 0.1.1 — RX-182: the parser holds it — `src/syntax/parse.npk`'s
 `Parser`, freed by `parse_pattern` on every path (Y-33) — and cycle 0.1.2 adds
 the bound; until then the pattern's length bounds the stack.)*
+*(2026-10-01, cycle 0.1.2 — RX-193: bounded, and decided at the `(` before a byte
+after it is read — Y-35.)*
 
 **Rule Y-10 — every error carries a byte offset into the pattern**, and a
 length where the construct spans more than a point. A user gets "unclosed
@@ -201,6 +203,10 @@ a group is `UnclosedGroup` at the INNERMOST open `(`, its detail how many are op
 `(?` as the pattern's last two bytes is `UnclosedGroup` spanning both. `(?P<` and
 `(?'` are `WrongNamedGroupSpelling` (Y-7) at the `(`, spanning the head, detail `P`
 (80) or `'` (39).
+*(2026-10-01, cycle 0.1.2 — RX-193: unless the `(` would nest groups deeper than
+`NREGEX_NEST_DEPTH`. Then it is `NestTooDeep` before anything this rule decides — its
+number, its name, or a `(?` the pattern ends on — so 251 nested `(` are `NestTooDeep`
+at byte 250, never `TooManyCaptureGroups` (Y-35).)*
 
 **Rule Y-30 (RX-185) — the refusals of §8 that a group head or a quantifier spells
 are made where they are read**, each at the `(`, spanning the head read, its detail
@@ -211,6 +217,8 @@ the head's last byte: `(?=`, `(?!`, `(?<=`, `(?<!` are `LookaroundUnsupported`;
 quantifier — `a*+`, `a{2}+` — is `AtomicGroupUnsupported` at the quantifier,
 spanning through the `+`, detail `+` (43). §8's escapes (`\1`, `\k<…>`, `\G`,
 `\Z`, `\Q`) are cycle 0.1.5's, after 0.1.4 parses escapes.
+*(2026-10-01, cycle 0.1.2 — RX-193: a head a `(` past `NREGEX_NEST_DEPTH` would open is
+never read; that `(` is `NestTooDeep` (Y-35).)*
 
 **Rule Y-31 (RX-186) — until its parser exists, a construct is refused
 PROVISIONALLY**, with the kind its parser gives a member it does not know: `[` is
@@ -222,6 +230,8 @@ character's codepoint (cycle 0.1.4); `(?` before anything Y-29 and Y-30 do not n
 replaces it. One answer among them is final, and a test pins it: `(?P` before a
 byte Y-29 and Y-30 do not name is `UnknownFlag` at the `P`, detail `P` (80), in
 every cycle, since `P` is no flag (`parse_refusals.npk` case 64).
+*(2026-10-01, cycle 0.1.2 — RX-193: not at a `(` past `NREGEX_NEST_DEPTH`, which is
+`NestTooDeep` before what follows it is read (Y-35).)*
 
 **Rule Y-32 (RX-184) — quantifiers.** `*`, `+`, `?`, `{n}`, `{n,}` and `{n,m}`, each
 followed by `?` to be lazy, wrap the atom before them in a `Repeat` — `a` the atom,
@@ -252,6 +262,17 @@ its `(` through its `)`. Every node's `flags` are the flags in force — `AST_FL
 until cycle 0.1.4 parses flags — with `AST_FLAG_LAZY` on a lazy `Repeat`. The first
 refusal, left to right, is the answer; the tree's nodes are then partial, its root is
 unchanged, and the caller frees them.
+
+**Rule Y-35 (RX-193) — groups nest at most `NREGEX_NEST_DEPTH` deep, and the bound
+is decided at the `(`.** A `(` read while `NREGEX_NEST_DEPTH` groups — 250 — are open
+around it is `NestTooDeep` at that `(`, length 1, detail the bound, and it is decided
+BEFORE any byte after the `(` is read: no frame past the bound is pushed, nothing
+past the `(` is read, and the parse stops where the bound is rather than where the
+pattern ends. So it is the answer whatever would have followed — a capture numbered
+past `NREGEX_CAPTURE_GROUPS` (Y-29; 251 nested `(` are `NestTooDeep` at byte 250), a
+head §8 refuses (Y-30), a construct refused provisionally (Y-31), or the end of the
+pattern. 250 nested groups parse. The bound counts groups, the one construct that
+nests here; a class nests too from cycle 0.1.3, which bounds it.
 
 ---
 
@@ -453,7 +474,7 @@ detail a message is built from (Y-29 … Y-32):
 | `DoubleRepeat` | a quantifier after a quantifier | the second one | 1 | its first byte |
 | `BadRepeatBounds` | a `{` that is no bounded repeat; a minimum above the maximum | the `{` | what was read | 0; 1 |
 | `RepeatTooLarge` | a bound above `NREGEX_REPEAT_MAX` | its first digit | its digits | the bound |
-| `TooManyCaptureGroups` | a group numbered past `NREGEX_CAPTURE_GROUPS` | its `(` | 1 | the bound |
+| `TooManyCaptureGroups` | a group numbered past `NREGEX_CAPTURE_GROUPS` — *not one nested past `NREGEX_NEST_DEPTH`, which is `NestTooDeep` first (Y-35)* | its `(` | 1 | the bound |
 | `DuplicateGroupName` | a name already used | the second name | its length | the first group's number |
 | `BadGroupName` | an empty, malformed or unfinished name | the bad character; for an unfinished one the name | the character's bytes; what was read | its codepoint; 62 when empty; 0 when unfinished |
 | `WrongNamedGroupSpelling` | `(?P<` or `(?'` | the `(` | the head | 80 or 39 |
@@ -461,6 +482,7 @@ detail a message is built from (Y-29 … Y-32):
 | `AtomicGroupUnsupported` | a quantifier made possessive | the quantifier | through the `+` | 43 |
 | `InvalidPatternEncoding` | ill-formed UTF-8 | the sequence's first byte | through the byte that broke it | that byte; 0 when cut short |
 | `PatternTooLong` (cycle 0.1.0) | over `NREGEX_PATTERN_BYTES` | the first byte past the bound | the bytes over it | the bound |
+| `NestTooDeep` (cycle 0.1.2) | a `(` that would nest groups deeper than `NREGEX_NEST_DEPTH` (Y-35) | that `(` | 1 | the bound |
 
 *(2026-09-27, cycle 0.1.1 — RX-181: thirty-six, `EmptyAlternate` retired.)*
 *(2026-09-26, cycle 0.1.0 — RX-172: `src/syntax/pattern_error.npk`'s

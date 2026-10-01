@@ -16,6 +16,8 @@
 // re-exports alone. SINCE CYCLE 0.1.1 `parse.npk` PARSES THE CORE GRAMMAR --
 // `parse_pattern`, RX-182 … RX-186 -- and classes, escapes other than
 // punctuation, and flags are the subcycles' after it (Y-31).
+// SINCE CYCLE 0.1.2 ITS STACK IS BOUNDED: a `(` that would nest groups deeper than
+// `NREGEX_NEST_DEPTH` is `NestTooDeep` at that `(` (Y-35, RX-193).
 //
 // EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1
 // and 3): `use` is not transitive, a plain `use` re-exports nothing, and one

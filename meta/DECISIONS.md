@@ -4530,6 +4530,10 @@ rule; **a possessive `+` read as `DoubleRepeat` until 0.1.5** — a kind 0.1.5 w
 writes; **`RepeatTooLarge` at the `{`** — the number is what is wrong.
 
 ### RX-185 — groups: numbered at the `(`, named by §1's `Name`, closed innermost-first — and the refusals of §8 a group head spells are made at the head
+> **SUPERSEDED IN PART by RX-193 (2026-10-01)** — for a `(` that would nest groups deeper than
+> `NREGEX_NEST_DEPTH` only: *"the 251st is `TooManyCaptureGroups` at its `(`"*, and a head's refusal *"made
+> where the head is read"* — that `(` is `NestTooDeep` before its number is taken or its head read (`SYNTAX.md`
+> Y-35). Every other group is as this decision says.
 
 **2026-09-27, cycle 0.1.1 (the plan's PD-29)** — `SYNTAX.md` Y-29 and Y-30, with Y-6, Y-7 and Y-8. The capture index
 is handed out at the `(`, named groups included; the 251st is `TooManyCaptureGroups` at its `(` (detail the bound,
@@ -4546,6 +4550,8 @@ the bound is what the author can act on, and the number is one more; **§8's hea
 0.1.1 writes the dispatch, and a provisional branch there would be rewritten.
 
 ### RX-186 — until its parser exists, a class, an escape and a flag are refused provisionally, with the kind their parser gives an unknown member
+> **SUPERSEDED IN PART by RX-193 (2026-10-01)** — for a `(` that would nest groups deeper than
+> `NREGEX_NEST_DEPTH` only: it is `NestTooDeep` before the flag or other head it opens is read (`SYNTAX.md` Y-35).
 
 **2026-09-27, cycle 0.1.1 (the plan's PD-30)** — `SYNTAX.md` Y-31. `[` is `UnclosedClass` until 0.1.3; `\` before
 anything but ASCII punctuation is `UnknownEscape` until 0.1.4; `(?` before a flag, or anything Y-29 and Y-30 do not
@@ -4743,3 +4749,29 @@ reads text; it stays the plan's cross-check; **the call graph in the emitted IR*
 to the floor (B-2's second layer), and widened it would give the emitter's names rather than the source's places,
 at a compile per root; **the gate unit alone** — it shows the
 parser refusing on the patterns it builds, and nothing about a function it never calls.
+
+### RX-193 — `NREGEX_NEST_DEPTH` is decided at the `(`: a `(` that would nest groups deeper than 250 is `NestTooDeep` there, before a byte after it is read
+
+**2026-10-01, cycle 0.1.2 (the plan's PD-37), at compiler `5fbaf4a`** — `SYNTAX.md` Y-35, Y-9's bound. It supersedes in
+part RX-185 and RX-186, for a `(` past the bound only, and completes RX-182's *"the stack is unbounded until cycle
+0.1.2"*. `open_group`'s first line refuses a `(` read while the stack holds `NREGEX_NEST_DEPTH` frames:
+`NestTooDeep` at that `(`, length 1, detail the bound. So no frame past the bound is pushed, nothing past that `(` is
+read, and the parse stops where the bound is rather than where the pattern ends — probe 05's property, in the
+parser. `pattern_error_text` says what to do, held to the letter by `tests/unit/pattern_error_text.npk` case 23:
+*"nesting too deep at byte 250: this `(` would nest groups 251 deep, and they may nest at most 250 deep
+(NREGEX_NEST_DEPTH). Nest fewer groups: a non-capturing group around one item, as in `(?:a)`, can be written without
+it."*
+
+**Measured at `5fbaf4a`** (`tests/unit/parse_limits.npk` cases 15–18). 250 nested groups parse, as before; 251
+nested `(?:` are `NestTooDeep` at byte 750; 251 nested `(` are `NestTooDeep` at byte 250 — where the unbounded
+parser answered `TooManyCaptureGroups` at the same byte, the capture bound being 250 too, so the deep pattern an
+attacker writes first was refused for a reason that was not its own; and a lookahead, or a `(?` the pattern ends
+on, opened by the 251st `(` is `NestTooDeep` at that `(`. No node is built in any of the four.
+
+*Alternatives declined:* **the check in `push_group`, as 0.1.1's §8 suggested** — it runs after the head is read
+and after the capture number is taken, so `(` repeated 10 000 times would answer `TooManyCaptureGroups` and never
+its depth, and a named group's name would be read and judged first; **after the head is read and before the number
+is taken** — a head refused at depth 251 would answer for its head and an accepted one for its depth, two rules
+where one serves; **at the `)` or at the pattern's end** — the stack would hold every level first, which is what
+the bound exists to prevent (probe 05: checked before the push); **a bound on the stack's bytes rather than its
+frames** — `SAFETY.md` §5 names the count, and the count is what a pattern's author can read and act on.
