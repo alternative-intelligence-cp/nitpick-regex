@@ -6,18 +6,21 @@ Guidance for Claude Code sessions working in this repository.
 
 `nregex` — a regular-expression library for **Nitpick**, the safety-critical
 systems language at `../../nitpick`. **Status: cycle 0.1, the pattern parser, is
-open, and its 0.1.0, 0.1.0b, 0.1.1 and 0.1.1b are done** — the pieces the parser is written
+open, and its 0.1.0, 0.1.0b, 0.1.1, 0.1.1b and 0.1.2 are done** — the pieces the parser is written
 in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/0.1/0.1.0.md`); the adoption of
 compiler `5fbaf4a` (RX-176 … RX-180, `0.1.0b.md`); and the core grammar —
 `parse_pattern` builds the AST for literals, `.`, `^`, `$`, groups, alternation and
 quantifiers, refuses what is wrong with the byte it is at, and
 `pattern_error_text` says what to write instead (RX-181 … RX-187, `0.1.1.md`); and
 the bound on `Vec`'s type — `Vec<T: Copy>`, an owning element refused wherever it is
-written (RX-188 … RX-190, `0.1.1b.md`).
+written (RX-188 … RX-190, `0.1.1b.md`); and the explicit stack's bound — a `(` that would
+nest groups past `NREGEX_NEST_DEPTH` is `NestTooDeep` at it, 10 000 levels and the longest
+pattern refused so, no function under `src/` on a call cycle, and the reason restated: a
+recursion deeper than its stack traps (RX-191 … RX-195, `0.1.2.md`).
 Cycle 0.0, foundations, CLOSED on 2026-09-26 — the sixth audit accepted it, and
 it is archived in `meta/roadmap/done/0.0/`. The
 specifications, the decisions and the roadmap are complete; `tests/probe/` holds
-**32** language probes with recorded verdicts, split **24 / 8** by kind (16 / 7,
+**33** language probes with recorded verdicts, split **25 / 8** by kind (16 / 7,
 then 17 / 6 when the `94874ce` re-pin discharged O-N10 and `probe02b` stopped
 being refused — RX-125; then 19 / 6 when the `3d15ac9` re-pin made
 `limit<Rules>` live and `probe13b` stopped being refused — RX-127; then 22 / 5
@@ -30,7 +33,8 @@ parameter shows — RX-161, RX-162; then 25 / 7 when cycle 0.0.4e moved probe 15
 of `refused/` and probe 17 into it — the compiler's lexer and its loan rule fixed —
 and added probe 18, a compiler defect an impl's `move` shows — RX-168 … RX-170;
 then 24 / 8 when cycle 0.1.0b moved probe 18 into `refused/`, refused
-`NITPICK-TYPE-014` at `5fbaf4a` — RX-176);
+`NITPICK-TYPE-014` at `5fbaf4a` — RX-176; then 25 / 8 when cycle 0.1.2 added probe 19,
+a recursion deeper than its stack trapping `StackExhausted` — RX-191);
 `tests/rejection/` holds twenty-four consumer-facing refusals (five of them the
 containers' seal, since 0.0.4c; one a `Bytes` copy refused `TYPE-046`, since the
 fourth triage; since 0.0.4d five `Vec` and `SparseSet` copies refused
@@ -55,11 +59,14 @@ parser's pieces** — `pattern_error.npk`, `cursor.npk`, `ast.npk` and `parse.np
 behind its layer entry, with ten unit programs and three refusals of their own —
 **and since 0.1.1 it parses the core grammar**, with five unit programs more:
 `parse_grammar`, `parse_refusals`, `parse_encoding`, `parse_limits` and
-`pattern_error_text`. A class, an escape other than punctuation, and a flag are
+`pattern_error_text` — **and since 0.1.2 its stack is bounded**: a `(` that would nest
+groups past `NREGEX_NEST_DEPTH` is `NestTooDeep` at it, before a byte after it is read
+(`SYNTAX.md` Y-35), with one unit program more, `parse_nest_deep`, the gate at 10 000
+levels and at the longest pattern, forty runs a leg. A class, an escape other than punctuation, and a flag are
 refused provisionally until 0.1.3 and 0.1.4 (`SYNTAX.md` Y-31). **No matching happens yet**: `src/hir/`,
 `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are still one
 placeholder module each. A full green run at compiler `5fbaf4a` is
-**238 units** (after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus eight tree checks; take those numbers from the runner's
+**242 units** (after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus nine tree checks (eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
 summary rather than from here. **Nothing is PENDING any more**:
 `tests/unit/bytes_copy_string_empty.npk` was committed red under
 `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
@@ -368,6 +375,15 @@ evidence.
   reported SITE, not once per code (D-332, B-7b, RX-178); and CI asserts the emission's
   digest (RX-180). Landing 78's move-only `cstring` refuses nothing here: every
   `cstring` in the tree is `main`'s `argv`.
+- **A recursion deeper than its stack is a `StackExhausted` trap, not a segfault — and
+  the explicit stack stands** (cycle 0.1.2, RX-191, measured at `5fbaf4a`). Since
+  `c3bdae2` every emitted function checks its stack before its frame exists (the
+  compiler's D-305), so the reason RX-032 and `SAFETY.md` S-18 gave — *"no stack-depth
+  guard … a segfault"* — is false: `tests/probe/probe19_native_recursion_traps.npk` leaves
+  through `failsafe`'s arm, 106, at both legs. A recursion of the parser's frame size runs
+  16 911 levels at −O0 and 52 425 through `opt -O2`, the same on every run, so 10 000
+  levels trap at neither leg and the gate asks the length bound's 65 536 too. The rule
+  stands because a trap ends the whole program, where a refusal returns.
 - **A sealed field is read anywhere and written only by its own module; a
   hidden one is not even read outside it** (the compiler's D-313 and D-314,
   measured here at `c3bdae2`, cycle 0.0.4c, RX-153). `Vec.items` is hidden and
@@ -433,7 +449,9 @@ PENDING on stages that do not exist until 0.3, 0.5 and 0.8 — the runner prints
 many of each, from `harness/selfcheck.py`'s own list. Three of its cases are the
 `pending-until:` marker's reds, because a marker takes a unit out of the denominator
 and must name the exit it excuses and a line in `harness/baseline/PENDING.txt`
-(RX-154). `harness/README.md` states the boundary. CI (`.github/workflows/ci.yml`) pins the
+(RX-154). `harness/README.md` states the boundary. `TMPDIR` may sit anywhere, this
+repository's `.internal/` included: the `repro` step's two copies each carry the manifest
+since cycle 0.1.2 (RX-195). CI (`.github/workflows/ci.yml`) pins the
 compiler by full commit sha and LLVM by exact patch release, and **asserts**
 both rather than reporting them.
 

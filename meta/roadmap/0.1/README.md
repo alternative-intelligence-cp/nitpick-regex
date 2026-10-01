@@ -120,6 +120,7 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
 - [ ] POSIX bracket classes, **inside a class only**
 - [ ] `\p{…}` / `\P{…}` parsed with the property spec kept as text, resolved at 0.3
 - [ ] nested classes `[a[b-c]]`
+- [ ] a class's nesting held on an explicit stack and bounded, refused at the `[` that goes too deep (`SAFETY.md` S-18; `SYNTAX.md` Y-35's last sentence) — *added 2026-10-01 by cycle 0.1.2*
 - [ ] `&&`, `--`, `~~` with the precedence in Y-17, and `ClassOpMismatch`
 - [ ] O-Y2 decided and recorded
 

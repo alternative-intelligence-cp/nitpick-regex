@@ -53,7 +53,7 @@ cycle 0.0.
 | Cycle | Topic | Gated on |
 |---|---|---|
 | **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **DONE 2026-09-26, archived to [`done/0.0/`](done/0.0/README.md).** The sixth W-22 audit ACCEPTED the close at compiler `c970483`, after five refusals — three on 2026-09-06, two on 2026-09-25 — and two inserted subcycles, 0.0.4d (`Vec` move-only) and 0.0.4e (the re-pin that refused the loan). The close is [`done/0.0/0.0.5.md`](done/0.0/0.0.5.md) §13 | — |
-| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **OPEN: [`0.1.0`](0.1/0.1.0.md), the cursor and the AST, done; [`0.1.0b`](0.1/0.1.0b.md), the adoption of `5fbaf4a` and the ecosystem audit's items, done; [`0.1.1`](0.1/0.1.1.md), the core grammar, done; [`0.1.1b`](0.1/0.1.1b.md), open question O-R3 — `Vec<T: Copy>` — done; next, 0.1.2, the explicit stack's bound** | 0.0 |
+| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **OPEN: [`0.1.0`](0.1/0.1.0.md), the cursor and the AST, done; [`0.1.0b`](0.1/0.1.0b.md), the adoption of `5fbaf4a` and the ecosystem audit's items, done; [`0.1.1`](0.1/0.1.1.md), the core grammar, done; [`0.1.1b`](0.1/0.1.1b.md), open question O-R3 — `Vec<T: Copy>` — done; [`0.1.2`](0.1/0.1.2.md), the explicit stack's bound, done; next, 0.1.3, classes** | 0.0 |
 | **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction | 0.1 |
 | **0.3** | **Unicode** — generated tables, properties, scripts, simple case folding | 0.0 |
 | **0.4** | **UTF-8 automata** — codepoint ranges to byte ranges, alphabet compression | 0.3 |
@@ -185,6 +185,10 @@ thirty-six; decisions through RX-187.)*
 *(After cycle 0.1.1b, the same compiler: **238** units — the ten owning-element units and
 `vec_oob_free_owning_after_free` retired with `Vec<T: Copy>`, and the parse sweep's eleven
 fewer files — `src/core/` with **37** unit programs; decisions through RX-190.)*
+*(After cycle 0.1.2, the same compiler: **242** units — probe 19 and `parse_nest_deep`, each
+run as a program and swept as a root — **33** probes, split 25 / 8; **nine** tree checks,
+`check_no_recursion` the ninth; a self-check of **32** cases, 28 live; decisions through
+RX-195.)*
 
 **Two probes refuted their own hypothesis**, which is the cycle's best return:
 `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler
