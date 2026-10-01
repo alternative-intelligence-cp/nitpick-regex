@@ -342,6 +342,12 @@ range set at compile time and set operations on sorted range lists are twenty
 lines. Without them, `[\p{L}&&\p{ASCII}]` is written as an explicit range list
 that goes stale when Unicode changes.
 
+> **SUPERSEDED by RX-196 (2026-10-01)** — the order below is no engine's. Rust applies the three operators at one
+> precedence, left to right, union binding tighter and negation last, and UTS #18 requires no order and binds every
+> operator at one level in its own syntax ([`../research/class-syntax-reference-engines.md`](../research/class-syntax-reference-engines.md)).
+> So does this library now: `[a--b&&c]` is `[[a--b]&&c]`. Kept as written: how the rule was stated is part of the
+> record.
+
 **Rule Y-17 — precedence inside a class is: union (implicit) binds tightest,
 then `--`, then `~~`, then `&&`.** Stated because it differs between engines,
 and a parenthesised nested class is always available where a reader would have

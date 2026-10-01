@@ -55,7 +55,7 @@ design; recorded when chosen).
 
 ### 0.3.4 — class resolution
 - [ ] 0.1's unresolved class items resolved to `ClassRange` lists
-- [ ] union, intersection (`&&`), difference (`--`), symmetric difference (`~~`) over sorted range lists, with Y-17's precedence
+- [ ] union, intersection (`&&`), difference (`--`), symmetric difference (`~~`) over sorted range lists, with Y-17's precedence *(2026-10-01, cycle 0.1.3 — RX-196 replaces Y-17's order: the three share one precedence and apply left to right, union tighter and negation last, and cycle 0.1.3's parser builds the tree in that order — this subcycle evaluates the tree as built)*
 - [ ] negation within the correct universe
 - [ ] folding applied **at resolution**, so the engine never folds (U-13)
 - [ ] `NREGEX_CLASS_RANGES` enforced; `ClassTooLarge`
