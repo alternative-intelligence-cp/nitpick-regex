@@ -5155,3 +5155,43 @@ work in every later cycle for a spelling the families read two ways, where `\b` 
 which is why regex-syntax refused `\<` before it read it (its comment: *"we can turn them into something else in the
 future without it being a backwards incompatible change"*); **refused outside a class and the bytes inside** — one
 spelling with two answers by where it stands, and Rust refuses it in a class as well.
+
+### RX-206 — flags: `(?flags)` and `(?flags:…)` read as Y-41 says, scoped to the enclosing group across `|`, and a flag named twice is `DuplicateFlag`
+
+**2026-10-01, cycle 0.1.4 (the plan's PD-50), at compiler `5fbaf4a`** — `SYNTAX.md` Y-41, with Y-12, Y-26, Y-27, Y-29,
+Y-31, Y-33 and §9; per `meta/research/escape-flag-syntax-reference-engines.md`, as of 2026-10-01. It completes RX-186
+for flags, whose provisional `UnknownFlag` it replaces, and adds a kind to §9.
+
+**What chose the rules.** §1's `Flags` and Y-12 say what a flag group is and how far it reaches — not what a flag
+named twice, an empty head or a `-` with nothing after it is, nor what the tree records. Measured in Rust's `regex`
+1.13.1: `(?ii)`, `(?i-i)` and `(?xx)` are *"duplicate flag"*; `(?-)` and `(?i-)` *"dangling flag negation operator"*;
+`(?--i)` and `(?i-m-s)` *"flag negation operator repeated"*; `(?)` and `(?i)*` are refused, nothing to repeat; and
+`a(?i)b|c` matches `C` — a flag holds across `|` to the group's end, as Perl and PCRE2 read it too — while
+`(a(?i)b)c` does not match `aBC`. Rust's `U`, which swaps greed, and `R`, CRLF mode, are flags nregex does not have.
+
+**The decision.** Y-41. The parse keeps the flags in force in each frame: a scoped head starts the group's frame with
+them changed, and a `Flags` node changes the current frame's from there on, so a `|` keeps them and the `)` restores
+the parent's. Each node carries the flags in force where it is built, and a `Group` its parent's — the flags at its
+`(` — where until now it took the frame being closed, which no flag had changed. A `Flags` node is linked into its
+alternative at once, never pending. The refusals: `UnknownFlag` for a byte that is no flag where one may be, its
+detail that codepoint — so a `)` or `:` where a flag is due, and a second `-`, each read a sentence of their own;
+`DuplicateFlag`, a new kind after `UnknownFlag` — thirty-seven kinds — for a flag named twice in one head, set or
+cleared, at the second; and `UnclosedGroup` for a pattern that ends inside the flags. `(?Px)` stays `UnknownFlag` at
+the `P` (`tests/unit/parse_refusals.npk` case 64).
+
+**The text.** `tests/unit/pattern_error_text.npk` cases 55–59: an unknown flag names the five; a missing one says
+where a flag is due; a second `-` gives `(?i-ms)` for `(?i-m-s)`; a flag named twice says to name each once, and for
+`x` says what `(?xx)` does in Perl and PCRE2 and what to write here — `(?x)`, and `\x20` or `\#` in a class (RX-201).
+
+**Measured at `5fbaf4a`.** `tests/unit/parse_flags.npk` and `parse_flag_refusals.npk` pass at −O0 and through
+`opt -O2`, and against the parser before this decision exit 1 and 2; each rule broken in a copy exits as the plan's
+§1.10 records.
+
+*Alternatives declined:* **flags reset at `|`** — Python's reading, where an inline flag is global and must lead the
+pattern; Rust and PCRE carry it to the group's end, as Y-12 says; **`(?)` accepted as an empty flag group** — Rust
+refuses it, and it changes nothing; **a flag named twice as `UnknownFlag`, its letter the detail** — one kind fewer,
+but a kind that calls a known flag unknown, where `DuplicateGroupName` beside `BadGroupName` is the precedent; **`(?i`
+at the end as `UnknownFlag`, as Rust's "expected flag"** — `(?` at the end is `UnclosedGroup` already (Y-29), and so
+is this; **the `Flags` node pending, like an atom** — a quantifier would repeat a change of flags; **a `Group` with the
+flags of the frame it closes** — those say what its last alternative ended with, where its `(`'s say what was in force
+around it.

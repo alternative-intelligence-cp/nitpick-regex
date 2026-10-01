@@ -42,6 +42,7 @@ use "../core/core.npk".*;
 // list to that order with an exhaustive `pick`, so a kind added, dropped or
 // moved here is a red run, not a review comment. Thirty-six since cycle 0.1.1:
 // `EmptyAlternate` is retired, an empty alternative being `Y-27`'s `Empty` (RX-181).
+// *(2026-10-01, cycle 0.1.4 -- RX-206: thirty-seven, `DuplicateFlag` after `UnknownFlag`.)*
 pub enum:PatternErrorKind = {
     // structure
     UnclosedGroup;
@@ -75,6 +76,7 @@ pub enum:PatternErrorKind = {
     DuplicateGroupName;
     BadGroupName;
     UnknownFlag;
+    DuplicateFlag;
     TooManyCaptureGroups;
     WrongNamedGroupSpelling;
 
@@ -452,8 +454,29 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
             }
         },
         (PatternErrorKind.UnknownFlag) {
-            drop put(@b, "unknown flag at byte "); drop num(@b, e.offset);
-            drop put(@b, ": a flag is one of `i`, `m`, `s`, `x` and `u`.");
+            if ((e.detail == 41u32) || (e.detail == 58u32)) {
+                drop put(@b, "missing flag at byte "); drop num(@b, e.offset);
+                drop put(@b, ": the flags end here before one is named. Name at least one of `i`, `m`, `s`, `x` and `u` after `(?` and after a `-`, as in `(?i)` or `(?i-s:...)`.");
+            }
+            else if (e.detail == 45u32) {
+                drop put(@b, "second `-` in a group's flags at byte "); drop num(@b, e.offset);
+                drop put(@b, ": the flags hold one `-`, and every flag after it is cleared. Write `(?i-ms)`, not `(?i-m-s)`.");
+            }
+            else {
+                drop put(@b, "unknown flag at byte "); drop num(@b, e.offset);
+                drop put(@b, ": "); drop shown(@b, e.detail);
+                drop put(@b, " is not a flag. The flags are `i`, `m`, `s`, `x` and `u`, as in `(?i)` or `(?-u:...)`.");
+            }
+        },
+        (PatternErrorKind.DuplicateFlag) {
+            drop put(@b, "flag named twice at byte "); drop num(@b, e.offset);
+            drop put(@b, ": `"); drop ch(@b, e.detail);
+            if (e.detail == 120u32) {
+                drop put(@b, "` already appears in this group's flags. Perl's and PCRE2's `(?xx)` also ignores spaces and tabs in a class, and under nregex's `x` a space or a `#` in a class is refused instead: write `(?x)`, and `\\x20` or `\\#` in a class.");
+            }
+            else {
+                drop put(@b, "` already appears in this group's flags, set or cleared. Name each flag once.");
+            }
         },
         (PatternErrorKind.TooManyCaptureGroups) {
             drop put(@b, "too many capture groups at byte "); drop num(@b, e.offset);

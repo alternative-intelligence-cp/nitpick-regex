@@ -190,6 +190,8 @@ long as the AST lives. `flags` holds the pattern flags in force at the node —
 on a `Repeat`, `AST_FLAG_NEGATED` 512 on a `Class`, `PerlClass`, `PosixClass` or
 `UnicodeClass`, and `AST_FLAG_BYTE` 1024 on a `Literal` that is a byte under
 `(?-u)` (Y-13). `#size_of<AstNode>()` is 56, measured, with no padding.
+*(2026-10-01, cycle 0.1.4 — RX-206: "the flags in force at the node" are its frame's when it is built — a `Group`'s its
+parent's, a `Flags` node's before its change (Y-41).)*
 
 **Rule Y-27 (RX-174) — the node kinds are a closed list of sixteen**, one for
 each construct of §1 that survives parsing; a refusal (§8) produces none.
@@ -228,6 +230,8 @@ bytes. A `PerlClass` spans two bytes, a `UnicodeClass` its `\` through its name'
 *(2026-10-01, cycle 0.1.4 — RX-204: an escape that names a codepoint is a `Literal`, or in a class a `ClassRange`, spanning
 the escape — `\x{1F600}` nine bytes; `\A` and `\z` are `Anchor` 2 and 3, and `\b` and `\B` `WordBoundary` 0 and 1,
 each spanning two bytes (Y-40).)*
+*(2026-10-01, cycle 0.1.4 — RX-206: a `Flags` node spans its `(` through its `)`, `a` the bits it sets and `b` the bits it
+clears, as `AST_FLAG_` values; a group `(?flags:…)` is a `Group` capturing nothing, its body built with them (Y-41).)*
 
 **Rule Y-28 (RX-183) — a pattern is UTF-8 text, checked whole before the grammar,
 and every character is a literal but twelve.** After the length (RX-175), the pattern
@@ -266,6 +270,8 @@ number, its name, or a `(?` the pattern ends on — so 251 nested `(` are `NestT
 at byte 250, never `TooManyCaptureGroups` (Y-35).)*
 *(2026-10-01, cycle 0.1.4 — RX-203: where the pattern ends inside a name, the detail is `NOT_A_CODEPOINT`, U+110000,
 not 0, which is U+0000's value too: a NUL in a name is `BadGroupName` at the NUL, detail 0.)*
+*(2026-10-01, cycle 0.1.4 — RX-206: and a pattern that ends inside a head of flags, `(?i`, is `UnclosedGroup` spanning
+the head, as `(?` is (Y-41).)*
 
 **Rule Y-30 (RX-185) — the refusals of §8 that a group head or a quantifier spells
 are made where they are read**, each at the `(`, spanning the head read, its detail
@@ -300,6 +306,8 @@ but punctuation, is still refused provisionally.)*
 every other escape but punctuation is still refused provisionally, until cycle 0.1.4.)*
 *(2026-10-01, cycle 0.1.4 — RX-204: every escape is read as Y-40 says, and none is provisional but §8's — `\1` … `\9`,
 `\k`, `\G`, `\Z`, `\Q` and `\E` — each `UnknownEscape` until cycle 0.1.5 refuses it by its own kind (Y-30).)*
+*(2026-10-01, cycle 0.1.4 — RX-206: and a flag is read as Y-41 says; `(?P` before a byte no head names is `UnknownFlag` at
+the `P`, as this rule has said since cycle 0.1.1.)*
 
 **Rule Y-32 (RX-184) — quantifiers.** `*`, `+`, `?`, `{n}`, `{n,}` and `{n,m}`, each
 followed by `?` to be lazy, wrap the atom before them in a `Repeat` — `a` the atom,
@@ -333,6 +341,8 @@ unchanged, and the caller frees them.
 *(2026-10-01, cycle 0.1.3 — RX-197: a class is read by a `while` of its own, `parse_class`'s, which the walk's `while`
 calls at a `[` and which returns at the class's `]` — still once over the pattern, no byte read twice and no function
 calling itself, its frames on an explicit stack of their own, a `Vec<ClassFrame>` (Y-36).)*
+*(2026-10-01, cycle 0.1.4 — RX-206: "`AST_FLAG_U` until cycle 0.1.4 parses flags": since then the flags in force in the
+node's frame when it is built (Y-41).)*
 
 **Rule Y-35 (RX-193) — groups nest at most `NREGEX_NEST_DEPTH` deep, and the bound
 is decided at the `(`.** A `(` read while `NREGEX_NEST_DEPTH` groups — 250 — are open
@@ -368,6 +378,8 @@ group closes. `(?-i)` clears. This is the standard scoping and there is no
 global-flag argument to `regex_compile` — a pattern's behaviour is a property
 of the pattern text, which is what makes a pattern copy-pasteable between
 programs.
+*(2026-10-01, cycle 0.1.4 — RX-206: read as Y-41 says. A flag `(?i)` sets holds across `|` to the enclosing group's `)`,
+as in Rust's `regex` and PCRE: `a(?i)b|c` matches `C`.)*
 
 **Rule Y-13 — `(?-u)` is the byte mode and it is a real mode, not a
 performance hint.** With Unicode off, `.` matches one **byte**, `\w` is ASCII,
@@ -385,6 +397,21 @@ white space and `#`-to-end-of-line (the table above). Inside one the engines dis
 Perl's `/x`, PCRE2's `x`, Python and .NET keep both as members, and Perl's and PCRE2's `xx` ignore a space or a tab —
 so under `x` a white-space byte or a `#` inside a class is refused at that byte, never read either way: `\x20`
 matches a space and `\#` a `#`. Cycle 0.1.4 parses the flags and makes the refusal, with a kind it adds to §9.
+
+**Rule Y-41 (RX-206) — a group head of flags.** After `(?`, a byte no other head names begins flags: the letters `i`,
+`m`, `s`, `x` and `u`, then at most one `-` and the letters it clears — at least one letter after `(?` and after the
+`-`. Then `:` opens a non-capturing group with them in force, and `)` ends a `Flags` node — `a` the bits it sets, `b`
+the bits it clears (Y-26, Y-27) — which changes the flags in force from there to the enclosing group's `)`, across
+`|`. A `Flags` node is linked into its alternative at once, so no quantifier can take it: `(?i)*` is
+`NothingToRepeat`. A node carries the flags in force in its frame when it is built — a leaf where it is read, a
+`Repeat` at its quantifier, a `Concat`, an `Alternate` or an `Empty` where its list closes, a `Group` in its parent's
+frame, so the flags at its `(`, and a `Flags` node before its own change. Refused: a byte that is no flag where a
+flag may be is `UnknownFlag` at it, spanning it, its detail that codepoint — a `)` or `:` where a flag is due
+(`(?)`, `(?i-)`), and a second `-` (`(?i-m-s)`), included; a flag named twice in one head, set or cleared, is
+`DuplicateFlag` at the second, one byte, its detail the letter (`(?ii)`, `(?i-i)`, `(?xx)`); and a pattern that ends
+inside the flags is `UnclosedGroup` at the `(`, spanning the head, as `(?` at the end is (Y-29). The heads Y-29 and
+Y-30 name are read first: `(?P` before a byte no head names stays `UnknownFlag` at the `P` (Y-31), and `(?-` and a
+digit is `RecursionUnsupported`.
 
 ---
 
@@ -584,7 +611,8 @@ kind retires as `EmptyAlternate` did, is open question O-Y3, for cycle 0.3.4.)*
 `InvalidCodepoint` (a surrogate or above `U+10FFFF`).
 
 **Groups and flags**: `DuplicateGroupName`, `BadGroupName`, `UnknownFlag`,
-`TooManyCaptureGroups`, `WrongNamedGroupSpelling`.
+`DuplicateFlag`, `TooManyCaptureGroups`, `WrongNamedGroupSpelling`. *(`DuplicateFlag` since
+2026-10-01, cycle 0.1.4 — RX-206.)*
 
 **Refusals** (§8): `BackreferenceUnsupported`, `LookaroundUnsupported`,
 `AtomicGroupUnsupported`, `RecursionUnsupported`, `UnsupportedAnchor`,
@@ -644,12 +672,15 @@ RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-2
 | `BadHexEscape` (cycle 0.1.4) | `\x` not followed by two hex digits, or by hex digits in braces | the `\` | through the byte found; what was read | that byte's codepoint; `NOT_A_CODEPOINT` when the pattern ends |
 | `BadUnicodeEscape` (cycle 0.1.4) | `\u` not followed by four hex digits, `\U` by eight | the `\` | through the byte found; what was read | that byte's codepoint; `NOT_A_CODEPOINT` when the pattern ends |
 | `InvalidCodepoint` (cycle 0.1.4) | an escape naming a surrogate or a value past U+10FFFF | the `\` | the escape | the surrogate's value; `NOT_A_CODEPOINT` past U+10FFFF |
+| `UnknownFlag` (cycle 0.1.4) | a byte that is no flag where one may be — a `)` or `:` where one is due, and a second `-`, among them | that byte | its bytes | its codepoint |
+| `DuplicateFlag` (cycle 0.1.4) | a flag named twice in one head, set or cleared | the second | 1 | the letter |
 
 *(2026-10-01, cycle 0.1.4 — RX-203: a detail whose domain is a codepoint — the one a refusal found where it wanted
 another — says what no codepoint can with `NOT_A_CODEPOINT`, U+110000, one past the last: that the pattern ended
 where a codepoint was due. `UnknownUnicodeProperty`'s details are reasons, not codepoints, and keep their values.)*
 
 *(2026-09-27, cycle 0.1.1 — RX-181: thirty-six, `EmptyAlternate` retired.)*
+*(2026-10-01, cycle 0.1.4 — RX-206: thirty-seven, `DuplicateFlag` after `UnknownFlag`.)*
 *(2026-09-26, cycle 0.1.0 — RX-172: `src/syntax/pattern_error.npk`'s
 `PatternErrorKind` is this list, all thirty-seven, in this order, declared
 before the parser produces any of them, and `tests/unit/pattern_error_unit.npk`

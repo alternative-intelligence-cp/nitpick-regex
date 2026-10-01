@@ -1,0 +1,92 @@
+// expect-exit: 0
+//
+// FLAGS, REFUSED: EVERY REFUSAL CYCLE 0.1.4 MAKES IN A FLAG GROUP'S HEAD, WITH ITS OFFSET, LENGTH
+// AND DETAIL (`SYNTAX.md` §9's table, Y-41; RX-206).
+//
+// Each case parses one pattern through `syntax.npk`'s re-exports and requires the refusal to be
+// EXACTLY this kind at this offset, spanning this many bytes, with this detail -- the four fields a
+// message is built from (Y-10, Y-34). A case that differs exits with its number. `(?Px)` is
+// `parse_refusals`' case 64, `UnknownFlag` at the `P` since cycle 0.1.1.
+mod:parse_flag_refusals;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+
+func:refused = bool(string:pattern, PatternErrorKind:kind, int64:off, int64:len, uint32:detail) never fails {
+    Ast:t = raw ast_init(8i64);
+    PatternError?:r = raw parse_pattern(string_bytes(pattern), @t);
+    drop ast_free(@t);
+    if (r == NIL) { pass false; }
+    PatternError:e = r ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
+    if (e.kind != kind)     { pass false; }
+    if (e.offset != off)    { pass false; }
+    if (e.span_len != len)  { pass false; }
+    pass e.detail == detail;
+};
+
+func:run = int32() never fails {
+    // a byte that is no flag, where a flag may be: at it, its codepoint
+    if (!(raw refused("(?q)", PatternErrorKind.UnknownFlag, 2i64, 1i64, 113u32)))        { pass 1i32; }
+    if (!(raw refused("(?iq)", PatternErrorKind.UnknownFlag, 3i64, 1i64, 113u32)))       { pass 2i32; }
+    if (!(raw refused("(?i-q)", PatternErrorKind.UnknownFlag, 4i64, 1i64, 113u32)))      { pass 3i32; }
+    if (!(raw refused("(?ié)", PatternErrorKind.UnknownFlag, 3i64, 2i64, 233u32)))       { pass 4i32; }
+    if (!(raw refused("(?U)a*", PatternErrorKind.UnknownFlag, 2i64, 1i64, 85u32)))       { pass 5i32; }
+    if (!(raw refused("(?^)", PatternErrorKind.UnknownFlag, 2i64, 1i64, 94u32)))         { pass 6i32; }
+    if (!(raw refused("(?a)", PatternErrorKind.UnknownFlag, 2i64, 1i64, 97u32)))         { pass 7i32; }
+    if (!(raw refused("(?i x)", PatternErrorKind.UnknownFlag, 3i64, 1i64, 32u32)))       { pass 8i32; }
+    if (!(raw refused("(?I)", PatternErrorKind.UnknownFlag, 2i64, 1i64, 73u32)))         { pass 9i32; }
+    // `)` or `:` where a flag is due -- after `(?`, or after a `-`
+    if (!(raw refused("(?)", PatternErrorKind.UnknownFlag, 2i64, 1i64, 41u32)))          { pass 10i32; }
+    if (!(raw refused("(?-)", PatternErrorKind.UnknownFlag, 3i64, 1i64, 41u32)))         { pass 11i32; }
+    if (!(raw refused("(?i-)", PatternErrorKind.UnknownFlag, 4i64, 1i64, 41u32)))        { pass 12i32; }
+    if (!(raw refused("(?-:a)", PatternErrorKind.UnknownFlag, 3i64, 1i64, 58u32)))       { pass 13i32; }
+    if (!(raw refused("(?i-:a)", PatternErrorKind.UnknownFlag, 4i64, 1i64, 58u32)))      { pass 14i32; }
+    // a second `-`
+    if (!(raw refused("(?--i)", PatternErrorKind.UnknownFlag, 3i64, 1i64, 45u32)))       { pass 15i32; }
+    if (!(raw refused("(?i-m-s)", PatternErrorKind.UnknownFlag, 5i64, 1i64, 45u32)))     { pass 16i32; }
+    // a flag named twice, set or cleared: at the second, its letter
+    if (!(raw refused("(?ii)", PatternErrorKind.DuplicateFlag, 3i64, 1i64, 105u32)))     { pass 20i32; }
+    if (!(raw refused("(?i-i)", PatternErrorKind.DuplicateFlag, 4i64, 1i64, 105u32)))    { pass 21i32; }
+    if (!(raw refused("(?-ii)", PatternErrorKind.DuplicateFlag, 4i64, 1i64, 105u32)))    { pass 22i32; }
+    if (!(raw refused("(?xx)", PatternErrorKind.DuplicateFlag, 3i64, 1i64, 120u32)))     { pass 23i32; }
+    if (!(raw refused("(?ix-ims)", PatternErrorKind.DuplicateFlag, 5i64, 1i64, 105u32))) { pass 24i32; }
+    if (!(raw refused("(?-uu:a)", PatternErrorKind.DuplicateFlag, 4i64, 1i64, 117u32)))  { pass 25i32; }
+    if (!(raw refused("(?msm)", PatternErrorKind.DuplicateFlag, 4i64, 1i64, 109u32)))    { pass 26i32; }
+    // the pattern ends inside the flags: the group is unclosed, spanning its head, as `(?` at the end
+    if (!(raw refused("(?i", PatternErrorKind.UnclosedGroup, 0i64, 3i64, 1u32)))         { pass 30i32; }
+    if (!(raw refused("((?i-", PatternErrorKind.UnclosedGroup, 1i64, 4i64, 2u32)))       { pass 31i32; }
+    if (!(raw refused("a(?i:", PatternErrorKind.UnclosedGroup, 1i64, 1i64, 1u32)))       { pass 32i32; }
+    if (!(raw refused("(?i:a", PatternErrorKind.UnclosedGroup, 0i64, 1i64, 1u32)))       { pass 33i32; }
+    // a flag group is no atom: nothing for a quantifier to repeat
+    if (!(raw refused("(?i)*", PatternErrorKind.NothingToRepeat, 4i64, 1i64, 42u32)))    { pass 40i32; }
+    if (!(raw refused("a(?i)+", PatternErrorKind.NothingToRepeat, 5i64, 1i64, 43u32)))   { pass 41i32; }
+    if (!(raw refused("(?-i){2}", PatternErrorKind.NothingToRepeat, 5i64, 1i64, 123u32))) { pass 42i32; }
+    // the first refusal wins, left to right
+    if (!(raw refused("(?qq)", PatternErrorKind.UnknownFlag, 2i64, 1i64, 113u32)))       { pass 50i32; }
+    if (!(raw refused("(?iiq)", PatternErrorKind.DuplicateFlag, 3i64, 1i64, 105u32)))    { pass 51i32; }
+    if (!(raw refused("(?i)(?q)", PatternErrorKind.UnknownFlag, 6i64, 1i64, 113u32)))    { pass 52i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:r = raw run();
+    exit r;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

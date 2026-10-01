@@ -86,6 +86,8 @@ fixed int32:CH_LOWER_B = 98i32;      // `\b`, a word boundary (§6)
 fixed int32:CH_LOWER_D = 100i32;     // `\d`, a digit (Y-37)
 fixed int32:CH_LOWER_E = 101i32;     // `\e`, escape
 fixed int32:CH_LOWER_F = 102i32;     // `\f`, form feed; and the last small hex digit
+fixed int32:CH_LOWER_I = 105i32;     // `i`, the flag: case-insensitive (§4)
+fixed int32:CH_LOWER_M = 109i32;     // `m`, the flag: multi-line
 fixed int32:CH_LOWER_N = 110i32;     // `\n`, line feed
 fixed int32:CH_LOWER_P = 112i32;     // `\p`, a Unicode property (Y-37)
 fixed int32:CH_LOWER_R = 114i32;     // `\r`, carriage return
@@ -147,7 +149,7 @@ struct:Frame = {
     int64:open;          // the group's `(`, or AST_NONE for the pattern itself
     int64:cap;           // its capture index, 0 if it captures nothing (Y-6)
     int64:name_len;      // its name's length, the name at `open + 3` (Y-27); 0 if unnamed
-    uint32:flags;        // the flags in force (Y-12): AST_FLAG_U until cycle 0.1.4
+    uint32:flags;        // the flags in force (Y-12, Y-41): AST_FLAG_U until a flag group changes them
 };
 
 // A named group seen so far, for `DuplicateGroupName` (Y-8).
@@ -260,6 +262,17 @@ func:control_cp = int64(int32:d) never fails {
     if (d == CH_LOWER_R) { pass 13i64; }
     if (d == CH_LOWER_E) { pass 27i64; }
     pass -1i64;
+};
+
+// The bit a flag's letter sets -- `i`, `m`, `s`, `x`, `u`, Y-26's `AST_FLAG_` bits (§4) -- or 0 for a
+// byte that is no flag.
+func:flag_bit = uint32(int32:b) never fails {
+    if (b == CH_LOWER_I) { pass AST_FLAG_I; }
+    if (b == CH_LOWER_M) { pass AST_FLAG_M; }
+    if (b == CH_LOWER_S) { pass AST_FLAG_S; }
+    if (b == CH_LOWER_X) { pass AST_FLAG_X; }
+    if (b == CH_LOWER_U) { pass AST_FLAG_U; }
+    pass 0u32;
 };
 
 // The length of the UTF-8 sequence a lead byte begins, in a VALIDATED pattern.
@@ -500,6 +513,66 @@ func:named_group = PatternError?(uint8[]:pat, Parser->:p, int64:open) never fail
     pass NIL;
 };
 
+// `(?` read at `open`, then flags (Y-12, Y-41; §1's `Flags`): the letters `imsxu`, at most one `-`,
+// and at least one letter after `(?` and after the `-` -- `neg` says the `-` came first, `(?-i)`.
+// Then `:` opens a group with them in force, and `)` ends a `Flags` node that sets them for the rest
+// of the enclosing group, linked at once, so no quantifier can take it (RX-206). A byte that is no
+// flag is `UnknownFlag` at it, its detail that codepoint -- a `)` or `:` where a flag is due, and a
+// second `-`, included; a flag named twice is `DuplicateFlag` at the second, its detail the letter;
+// and a pattern that ends inside the flags is `UnclosedGroup` spanning them, as `(?` at the end is.
+func:read_flags = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:open, bool:neg) never fails {
+    uint32:set = 0u32;
+    uint32:clear = 0u32;
+    bool:minus = neg;
+    bool:named = false;
+    while (!(raw cursor_at_end(@p.c))) decreases pat.len - p.c.pos {
+        int64:at = p.c.pos;
+        int32:b = raw cursor_peek(@p.c);
+        if ((b == CH_COLON) || (b == CH_RPAREN)) {
+            if (!named) {
+                pass raw pattern_error(PatternErrorKind.UnknownFlag, at, 1i64, b =>! uint32);
+            }
+            discard(raw cursor_bump(@p.c));
+            uint32:fl = (p.f.flags | set) & ~clear;
+            if (b == CH_COLON) {
+                drop push_group(p, open, 0i64, 0i64);
+                p.f.flags = fl;
+                pass NIL;
+            }
+            drop commit(out, @p.f);
+            p.f.pending = raw ast_push(out, raw node(AstKind.Flags, p.f.flags, set => int64, clear => int64, 0i64,
+                                                     open, p.c.pos - open));
+            drop commit(out, @p.f);
+            p.f.flags = fl;
+            pass NIL;
+        }
+        else if (b == CH_MINUS) {
+            if (minus) {
+                pass raw pattern_error(PatternErrorKind.UnknownFlag, at, 1i64, CH_MINUS =>! uint32);
+            }
+            minus = true;
+            named = false;
+            discard(raw cursor_bump(@p.c));
+        }
+        else {
+            uint32:bit = raw flag_bit(b);
+            if (bit == 0u32) {
+                pass raw pattern_error(PatternErrorKind.UnknownFlag, at, raw utf8_len(b => int64),
+                                       raw decode_at(pat, at) =>! uint32);
+            }
+            if (((set | clear) & bit) != 0u32) {
+                pass raw pattern_error(PatternErrorKind.DuplicateFlag, at, 1i64, b =>! uint32);
+            }
+            if (minus) { clear = clear | bit; }
+            else { set = set | bit; }
+            named = true;
+            discard(raw cursor_bump(@p.c));
+        }
+    }
+    pass raw pattern_error(PatternErrorKind.UnclosedGroup, open, p.c.pos - open,
+                           (p.stack.count + 1i64) =>! uint32);
+};
+
 // A refusal of a group head, spanning it from its `(` through the byte just read.
 func:head_refused = PatternError?(Parser->:p, PatternErrorKind:k, int64:open, int32:b) never fails {
     pass raw pattern_error(k, open, p.c.pos - open, b =>! uint32);
@@ -584,25 +657,23 @@ func:open_group = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:open) 
             discard(raw cursor_bump(@p.c));
             pass raw head_refused(p, PatternErrorKind.RecursionUnsupported, open, d);
         }
-        // `(?-` and a flag: cycle 0.1.4's (Y-31). Until then, provisional.
-        pass raw pattern_error(PatternErrorKind.UnknownFlag, open + 2i64, 1i64, CH_MINUS =>! uint32);
+        pass raw read_flags(pat, out, p, open, true);
     }
-    // A flag, or anything else after `(?`: cycle 0.1.4 parses flags (Y-31).
-    int64:at = p.c.pos;
-    pass raw pattern_error(PatternErrorKind.UnknownFlag, at, raw utf8_len(b => int64),
-                           raw decode_at(pat, at) =>! uint32);
+    // A flag, or any other byte no head names: the flags (Y-41, RX-206).
+    pass raw read_flags(pat, out, p, open, false);
 };
 
-// `)` read at `at`: the group's node, which becomes its parent's pending atom.
+// `)` read at `at`: the group's node, which becomes its parent's pending atom. Its flags are the ones
+// in force at its `(`, the parent's -- a `(?i)` inside it ends with it (Y-12, RX-206).
 func:close_group = PatternError?(Ast->:out, Parser->:p, int64:at) never fails {
     if (p.stack.count == 0i64) {
         pass raw pattern_error(PatternErrorKind.UnopenedGroup, at, 1i64, 0u32);
     }
     int64:body = raw close_body(out, @p.f, at);
-    int64:g = raw ast_push(out, raw node(AstKind.Group, p.f.flags, body, p.f.cap, p.f.name_len,
-                                         p.f.open, p.c.pos - p.f.open));
+    Frame:inner = p.f;
     p.f = raw vec_pop(@p.stack);
-    p.f.pending = g;
+    p.f.pending = raw ast_push(out, raw node(AstKind.Group, p.f.flags, body, inner.cap, inner.name_len,
+                                             inner.open, p.c.pos - inner.open));
     pass NIL;
 };
 
