@@ -350,6 +350,10 @@ finds the next one. *(Made a rule by the ecosystem audit of 2026-09-26, its ED1:
 `nitpick-time` had one, TM-202, and this repository — whose reader time's is a
 port of — had none. The first re-read, `c970483` to `5fbaf4a`: a character
 literal's width (DEF-145), not its span; the mirror did not move.)*
+*(2026-10-01, cycle 0.1.4 — RX-202: and `LEXICAL_REFERENCE.md` §6.2, with the lexer's scan of a numeric
+literal, which `harness/treecheck.py`'s literal reader for `check_constants_named` mirrors: a token from a
+decimal digit through letters, digits and `_`, its base suffix and its width suffix. A change there is a
+change to that reader, and self-check case 32 holds six of its spellings.)*
 
 **Rule B-1a (RX-176) — the manifest pins the target, and the runner holds every
 emission it links to it.** `[toolchain]` carries `triple` and `datalayout`

@@ -5029,3 +5029,33 @@ do** — the closest neighbour's reading, and a silent difference from Perl, PCR
 is how a space is often matched under `x`; **ignore a space and a tab only, as `xx` does** — a third reading, and each
 family's surprise at once; **leave it to cycle 0.1.4, with the flags** — the cycle 0.1 README puts the question with
 the class parser, whose reading of a class's bytes this is.
+
+## Escapes and flags — cycle 0.1.4
+
+### RX-202 — `check_constants_named` reads a literal as the compiler's lexer does: every base, separator and width suffix, on either side of the comparison
+
+**2026-10-01, cycle 0.1.4 (the plan's PD-46), at compiler `5fbaf4a`** — `SAFETY.md` S-12 (RX-062), `TESTING.md` V-20.
+The check found a bound by one pattern — `<`, `>`, `<=` or `>=`, then decimal digits and one of eight width
+suffixes — so it read neither a literal written another way nor one left of the comparison. The compiler's
+lexer reads more (`LEXICAL_REFERENCE.md` §6.2): `_` between digits, ignored; a base suffix, `hex`, `bin`,
+`oct`, and the balanced `t`, `ter`, `tri` and `n`, `non`; and every width suffix it lists. Measured at
+`5fbaf4a` on one file planted in `src/core/`: `n > 1_000_000i64`, `n > 10FFFFhexi64`, `n > 0D800hex`,
+`n >= 1111_0100bin`, `n < 777oct`, `1_000_000i64 < n` and `n > 1_0i64` compile, link and run, each value as
+written, and the check passed the file — seven bounds, no failure.
+
+**The decision.** A literal is what the lexer reads as one — a token that begins with a decimal digit and runs
+on through letters, digits and `_` (the compiler's D-147) — and its value is the lexer's: the separators
+dropped, the width suffix stripped, the base its suffix names. The check reads a literal on either side of a
+comparison, never at a shift or an arrow, and passes it only when its value is one of the small values it always
+passed; a token it cannot read is reported by its text, never passed. Self-check case 32 plants six spellings,
+each alone — a digit-separated decimal, a hex, a binary and an octal literal, a width suffix past `u64`, and a
+literal left of the comparison — each required to fail naming its text and its value, and a clean control holding
+each spelling at a small value, a shift, a bound in a comment and in a string, and one in `limits.npk`. Against
+the check before this decision all six pass; against a reader that skips the left side, or one that never reads
+a base suffix, the case is red. `BUILD.md` B-4e's re-read takes in §6.2, which this reader mirrors.
+
+*Alternatives declined:* **`_` added to the old pattern** — the measured case alone, leaving hex, binary, octal,
+the wider widths and the left side as blind as before; **every literal above some size outside `limits.npk`,
+compared or not** — another check, the one its own docstring says would be switched off within a week; **the
+reader in `harness/lexical.py`** — that module finds the spans that are not code and nothing else, and one check
+reads numbers; **the blindness left to the compiler** — the rule is this library's (S-12), not the language's.

@@ -709,6 +709,45 @@ def _case31(d):
     return None                                   # handled by `_run_case31`
 
 
+def _zz(cmp):
+    """A `src/core/zz.npk` whose function compares `n` as `cmp` writes it, on line 4."""
+    return ("mod:zz;\n\npub func:zz_over = bool(int64:n) never fails {\n"
+            f"    if ({cmp}) {{ pass true; }}\n    pass false;\n}};\n")
+
+
+def _run_case32(case):
+    """Case 32, on the instrument: `check_constants_named` over six planted bounds, each a
+    spelling the pinned compiler accepts and the check's first pattern could not read -- a
+    digit-separated decimal, a hex, a binary and an octal literal, a width suffix past the eight it
+    listed, and a literal on the LEFT of the comparison -- and a clean control holding each spelling
+    at a small value, a shift, a bound in a comment and in a string, and one in `limits.npk`, the
+    file that may hold them (RX-202)."""
+    lim = os.path.join("src", "core", "limits.npk")
+    with open(os.path.join(ROOT, lim), encoding="utf-8") as fh:
+        limits = fh.read()
+    return _run_plants(case, "check_constants_named", [
+        ("a digit-separated decimal", {"src/core/zz.npk": _zz("n > 1_000_000i64")},
+         ["src/core/zz.npk:4", "`1_000_000i64` (1000000)"]),
+        ("a hex literal", {"src/core/zz.npk": _zz("n > 10FFFFhexi64")},
+         ["src/core/zz.npk:4", "`10FFFFhexi64` (1114111)"]),
+        ("a binary literal", {"src/core/zz.npk": _zz("n >= 1111_0100bin")},
+         ["src/core/zz.npk:4", "`1111_0100bin` (244)"]),
+        ("an octal literal", {"src/core/zz.npk": _zz("n < 777oct")},
+         ["src/core/zz.npk:4", "`777oct` (511)"]),
+        ("a width suffix past `u64`", {"src/core/zz.npk": _zz("n > 1000i128")},
+         ["src/core/zz.npk:4", "`1000i128` (1000)"]),
+        ("a literal left of the comparison", {"src/core/zz.npk": _zz("65_536i64 <= n")},
+         ["src/core/zz.npk:4", "`65_536i64` (65536)"]),
+    ], {"src/core/zz.npk": _zz("(n > 0FFhex) || (n >= 1_00i64) || (1_0_0i64 < n) || ((n >> 6i64) < 4i64)")
+                           + "\n// n > 1_000_000i64, in a comment\n"
+                           + "pub func:zz_s = string() never fails {\n    pass \"n > 99_999\";\n};\n",
+        lim: limits + "\npub func:zz_l = bool(int64:n) never fails {\n    pass n > 1_000_000i64;\n};\n"})
+
+
+def _case32(d):
+    return None                                   # handled by `_run_case32`
+
+
 def _case19(d):
     """A RED UNIT HIDDEN BY TWO LONE CARRIAGE RETURNS -- the fifth audit's BL-9 (a).
 
@@ -1109,6 +1148,11 @@ CASES = [
          "RX-194: the gate's 'not on a signal' is the runner reading a killed process "
          "as `0 - signal` -- shown red here, so `expect-exit: 0` is met by a normal exit alone",
          _case31, ()),
+    Case(32, "a bound compared in each spelling the compiler accepts: digit-separated, hex, "
+             "binary, octal, a wide width suffix, and left of the operator",
+         "RX-202: `check_constants_named` read a literal as decimal digits after the operator "
+         "and passed all six -- a spelling it cannot read is a bound it cannot see",
+         _case32, ()),
 ]
 
 
@@ -1214,6 +1258,8 @@ def _run_case(case, keep):
         return _run_case30(case)
     if case.num == 31:
         return _run_case31(case)
+    if case.num == 32:
+        return _run_case32(case)
     d = tempfile.mkdtemp(prefix=f"nregex-selfcheck-{case.num}-")
     try:
         toml = case.build_tree(d)

@@ -317,6 +317,60 @@ _SMALL = {0, 1, 2, 3, 4, 7, 8, 15, 16, 24, 31, 32, 63, 64, 100, 127, 128, 255, 2
 # and `>>` from both ends.
 _CMP_LITERAL = re.compile(
     r'(?<![<>])[<>]=?(?![<>])\s*(\d+)(?:i8|i16|i32|i64|u8|u16|u32|u64)?\b')
+# *(2026-10-01, cycle 0.1.4 -- RX-202: that pattern read a literal only as decimal digits and one of
+# eight width suffixes, after the operator -- so `> 1_000_000i64`, `> 10FFFFhexi64`, `> 777oct`,
+# `> 1000i128` and `65_536i64 < n` all passed, every one a spelling the pinned compiler accepts,
+# measured at `5fbaf4a`. It is kept above as it was written, and read by nothing; the three below
+# replace it, and self-check case 32 plants each spelling.)*
+#
+# AN INTEGER LITERAL AS THE COMPILER'S LEXER READS ONE (`LEXICAL_REFERENCE.md` §6.2, read at
+# `5fbaf4a`; `BUILD.md` B-4e re-reads it at every adoption). It begins with a decimal digit, which
+# no identifier does (the compiler's D-147), and runs on through letters, digits and `_`; the
+# underscores are ignored; its base is a SUFFIX -- `hex`, `bin`, `oct`, or the balanced `t`, `ter`,
+# `tri` (digits 0, 1 and `T` for -1) and `n`, `non` (digits 0 … 4 and `a` … `d` for -1 … -4) --
+# and a width suffix may follow it. A C prefix, `0x`, is a lexer error there (`NITPICK-LEX-003`),
+# so it is no literal here.
+_NUM = r"[0-9][0-9A-Za-z_]*"
+_WIDTH = re.compile(r"(?:[iu](?:8|16|32|64|128|256|512|1024|2048|4096)|tbb(?:8|16|32|64|128|256)"
+                    r"|f(?:32|64|128)|tfp(?:32|64|128|256)|dim256|char(?:8|16|32))$")
+_BASES = (("hex", 16), ("bin", 2), ("oct", 8), ("ter", 3), ("tri", 3), ("non", 9), ("t", 3), ("n", 9))
+# A comparison, `<`, `>`, `<=` or `>=` -- never a shift (`<<`, `>>`), an arrow (`->`, `=>`) or an
+# `==` -- with the literal on EITHER side of it: a bound is spent whichever side it is written on.
+_CMP_RIGHT = re.compile(r"(?<![<>=-])[<>]=?(?![<>=])\s*-?\s*(" + _NUM + ")")
+_CMP_LEFT = re.compile(r"(?<![0-9A-Za-z_.])(" + _NUM + r")\s*(?<![<>=-])[<>]=?(?![<>=])")
+
+
+def _int_value(tok):
+    """The value of the integer literal `tok`, or None when it is no literal this reader can
+    read -- which the check reports by its text rather than passing: a spelling it cannot read
+    is a spelling it cannot clear."""
+    t = _WIDTH.sub("", tok)
+    base, body = 10, t
+    for suffix, b in _BASES:
+        if t.endswith(suffix) and len(t) > len(suffix):
+            base, body = b, t[:-len(suffix)]
+            break
+    body = body.replace("_", "")
+    if not body:
+        return None
+    if base in (3, 9):
+        neg = {"t": -1, "T": -1} if base == 3 else {"a": -1, "b": -2, "c": -3, "d": -4,
+                                                      "A": -1, "B": -2, "C": -3, "D": -4}
+        top = "1" if base == 3 else "4"
+        v = 0
+        for c in body:
+            if c in neg:
+                d = neg[c]
+            elif "0" <= c <= top:
+                d = int(c)
+            else:
+                return None
+            v = v * base + d
+        return v
+    try:
+        return int(body, base)
+    except ValueError:
+        return None
 
 
 def check_constants_named(root):
@@ -338,11 +392,17 @@ def check_constants_named(root):
         except OSError:
             continue
         for ln, code in enumerate(lexical.blank(text).split("\n"), 1):
-            for m in _CMP_LITERAL.finditer(code):
-                v = int(m.group(1))
+            seen = set()
+            for m in list(_CMP_RIGHT.finditer(code)) + list(_CMP_LEFT.finditer(code)):
+                if m.start(1) in seen:
+                    continue
+                seen.add(m.start(1))
+                tok = m.group(1)
+                v = _int_value(tok)
                 if v in _SMALL:
                     continue
-                fl.append(f"{rel}:{ln}: the literal `{v}` is compared against outside "
+                said = f"`{tok}`" if v is None or tok == str(v) else f"`{tok}` ({v})"
+                fl.append(f"{rel}:{ln}: the literal {said} is compared against outside "
                           f"`{LIMITS_FILE}`. EVERY BOUND IS A NAMED CONSTANT THERE "
                           f"(SAFETY.md S-12, RX-062), with the specification rule that "
                           f"set it beside it -- a bound written inline is a bound "
