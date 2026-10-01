@@ -48,6 +48,8 @@ RX-010, RX-013, RX-017, RX-032, RX-060. Settled.
 
 **Open questions to settle:** O-Y2 (does `x` mode ignore whitespace inside
 classes? recommendation: no, matching Rust, and refuse `xx`).
+*(2026-10-01, cycle 0.1.3: decided by RX-201 — under `x`, a white-space byte or a `#` inside a class is refused
+(`SYNTAX.md` Y-39); the recommendation's premise, that Rust keeps them, was false.)*
 
 ## Subcycles
 
@@ -134,7 +136,7 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
 - [ ] **`\` before an unlisted ASCII letter or digit is `UnknownEscape`, never a literal** (Y-2) — a test per unassigned letter
 - [ ] `\x41`, `\x{1F600}`, `A`, `\U0001F600`, with `BadHexEscape`, `BadUnicodeEscape`, `InvalidCodepoint` (surrogates and above `U+10FFFF`)
 - [ ] flags `imsxu`, scoped per Y-12: `(?i:…)` to the group, `(?i)` to the end of the enclosing group, `(?-i)` clearing
-- [ ] `x` mode: whitespace and `#`-to-end-of-line ignored, per O-Y2's answer
+- [ ] `x` mode: whitespace and `#`-to-end-of-line ignored, per O-Y2's answer *(2026-10-01 — RX-201: outside a class; inside one, a white-space byte or a `#` is refused at it (Y-39), with a kind this subcycle adds to §9 and a sentence naming `\x20` and `\#`; `(?xx)`, a repeated flag, refused saying so)*
 - [ ] `(?-u)` byte mode, and `ByteModeNonAscii` when a non-ASCII literal appears under it (Y-14) — **naming the codepoint**
 - [ ] `UnknownFlag`
 

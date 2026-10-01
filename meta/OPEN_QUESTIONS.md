@@ -915,9 +915,13 @@ movemask intrinsic, which is a better request than a speculative one.
 - **O-Y1 — leftmost-longest (POSIX) mode.** Cheap in a Pike VM — a different
   rule for which thread wins a slot — and wanted by nobody yet.
   **Recommendation:** deferred; revisit if a consumer asks.
-- **O-Y2 — whether `x` mode ignores whitespace inside classes.** Rust does not;
+- ~~**O-Y2 — whether `x` mode ignores whitespace inside classes.** Rust does not;
   Perl does with `xx`. **Recommendation:** do not, matching Rust, and refuse
-  `xx` with a message naming the escape. **Decide at cycle 0.1.**
+  `xx` with a message naming the escape. **Decide at cycle 0.1.**~~ — **DECIDED, RX-201 (cycle 0.1.3, 2026-10-01):
+  under `x`, a white-space byte or a `#` inside a class is refused (`SYNTAX.md` Y-39).** The premise was false: Rust's
+  `regex` 1.13.1 ignores white space inside a class under `x`, and `#` comments there too, as Java does; Perl's `/x`,
+  PCRE2's `x`, Python and .NET keep them as members (`research/class-syntax-reference-engines.md`). So the
+  recommendation's reading would have differed from Rust's in silence, and neither reading is guessed.
 - **O-Y3 — what `EmptyClass` names, now that no pattern reaches it in the parser.** A `]` straight after `[` or
   `[^` is a member (`SYNTAX.md` Y-36, RX-197), as Rust, Perl and Python read it, so every class the parser builds
   holds one, and `EmptyClass` is a kind nothing produces — the shape Y-25 forbids. Two ways out: give it a trigger

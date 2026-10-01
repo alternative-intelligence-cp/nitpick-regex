@@ -337,6 +337,12 @@ refused** (`ByteModeNonAscii`). In byte mode a literal `é` would be two byte
 literals, and `[é]` would be a class of two unrelated bytes — a silent
 nonsense. The refusal names the codepoint.
 
+**Rule Y-39 (RX-201) — under `x`, a class holds no unescaped white space and no `#`.** Outside a class, `x` ignores
+white space and `#`-to-end-of-line (the table above). Inside one the engines disagree — Rust and Java ignore both,
+Perl's `/x`, PCRE2's `x`, Python and .NET keep both as members, and Perl's and PCRE2's `xx` ignore a space or a tab —
+so under `x` a white-space byte or a `#` inside a class is refused at that byte, never read either way: `\x20`
+matches a space and `\#` a `#`. Cycle 0.1.4 parses the flags and makes the refusal, with a kind it adds to §9.
+
 ---
 
 ## 5. Classes
@@ -600,8 +606,9 @@ cycle 0.1.6's.)*
 
 - **O-Y1 — leftmost-longest (POSIX) mode.** Cheap to add to the Pike VM and
   wanted by nobody yet. Recommendation: deferred; revisit if a consumer asks.
-- **O-Y2 — whether `x` mode should ignore whitespace inside classes.** Rust
+- ~~**O-Y2 — whether `x` mode should ignore whitespace inside classes.** Rust
   does not; Perl does with `xx`. Recommendation: do not, matching Rust, and
-  refuse `xx` with a message naming the escape. Decide at cycle 0.1.
+  refuse `xx` with a message naming the escape. Decide at cycle 0.1.~~ —
+  **DECIDED, RX-201 (2026-10-01): refused under `x` (Y-39).** Rust in fact ignores it.
 - **O-Y3 — what `EmptyClass` names, now that no pattern reaches it in the parser** (Y-36). Recommendation: a class
   that resolves to no codepoint, refused at its `[`. Decide at cycle 0.3.4. `../OPEN_QUESTIONS.md` has the argument.

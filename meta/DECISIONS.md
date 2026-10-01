@@ -5004,3 +5004,28 @@ same surprise; **refuse every outermost class whose members begin and end with `
 are classes written as classes, and `[:foo\:]` is the refusal's own advice followed; **refuse every outermost class that
 begins with `:`** — `[:;,]` is a class of punctuation someone means; **a kind of its own** — `UnknownPosixClass` is the
 POSIX class's kind already, and its detail says which case.
+
+### RX-201 — under `x`, white space and `#` inside a class are refused: the engines disagree, so neither reading is guessed — open question O-Y2, decided
+
+**2026-10-01, cycle 0.1.3 (the plan's PD-45)** — `SYNTAX.md` Y-39, per `meta/research/class-syntax-reference-engines.md`,
+as of 2026-10-01. O-Y2 asked whether `x` mode ignores white space inside a class and recommended *"do not, matching
+Rust, and refuse `xx` with a message naming the escape"*. Its premise is false: Rust's `regex` 1.13.1 ignores white
+space "everywhere, including within character classes", and a `#` comment there too — measured, `(?x)[a b]` is `a` or
+`b`, and `(?x)[a#b]` an unclosed class — and so does Java's `COMMENTS`. Perl's `/x`, PCRE2's `x`, Python's `VERBOSE` and
+.NET's `IgnorePatternWhitespace` keep both as members, and Perl's and PCRE2's `xx` ignore a space or a tab only. So
+`(?x)[a b]` matches a space in four engines and not in two, and the recommendation would have read Rust's patterns
+otherwise than Rust, with no word said.
+
+**The decision.** Under `x`, a white-space byte or a `#` inside a class is refused at that byte rather than read either
+way, so a pattern from either family is told, not reinterpreted: `\x20` writes a space and `\#` a `#`. Outside a class
+`x` does what §4 says. `(?xx)` is a flag written twice — cycle 0.1.4's, and Rust refuses a repeated flag — whose
+sentence can say what `xx` means elsewhere and what to write here. Cycle 0.1.4, which parses flags, makes the refusal,
+adds its kind to §9 and holds its sentence to the letter; until then no flag turns `x` on (Y-31), so the parser does
+not change here.
+
+*Alternatives declined:* **keep white space as members, the recommendation's reading** — Perl's, Python's and .NET's,
+and a silent difference from Rust and Java for every `(?x)` pattern with a spaced class; **ignore it, as Rust and Java
+do** — the closest neighbour's reading, and a silent difference from Perl, PCRE2, Python and .NET, where a spaced class
+is how a space is often matched under `x`; **ignore a space and a tab only, as `xx` does** — a third reading, and each
+family's surprise at once; **leave it to cycle 0.1.4, with the flags** — the cycle 0.1 README puts the question with
+the class parser, whose reading of a class's bytes this is.
