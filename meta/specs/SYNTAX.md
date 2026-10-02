@@ -88,6 +88,9 @@ end of a word, and Perl, PCRE, Python and Java as the bytes, so each is `Unknown
 - **Any other letter or digit, and any codepoint past ASCII,** is `UnknownEscape` at the `\`, spanning it and that
   codepoint, its detail the codepoint — §8's escapes among them, `\1` … `\9`, `\k`, `\G`, `\Z`, `\Q` and `\E`,
   until cycle 0.1.5 refuses each by its own kind (Y-30).
+  *(2026-10-02, cycle 0.1.5 — RX-209: §8's escapes are refused by their own kinds (Y-44): outside a class `\1` … `\9`,
+  `\k`, `\G`, `\Z`, `\Q` and `\E`, and in a class `\Q` and `\E`; in a class a digit, `\k`, `\G` and `\Z` stay
+  `UnknownEscape`, this rule's refusal, no longer provisional.)*
 
 An escape that names a codepoint is a `Literal` spanning the escape, and inside a class a member, which a `-` may make
 either end of a range (Y-36). `COMPAT.md` §2 and §3 list where other engines read these otherwise.
@@ -286,6 +289,15 @@ spanning through the `+`, detail `+` (43). §8's escapes (`\1`, `\k<…>`, `\G`,
 `\Z`, `\Q`) are cycle 0.1.5's, after 0.1.4 parses escapes.
 *(2026-10-01, cycle 0.1.2 — RX-193: a head a `(` past `NREGEX_NEST_DEPTH` would open is
 never read; that `(` is `NestTooDeep` (Y-35).)*
+*(2026-10-02, cycle 0.1.5 — RX-209: made — Y-44.)*
+
+**Rule Y-44 (RX-209) — the refusals of §8 that an escape spells are made where the escape is read**, each at the `\`,
+spanning it and the byte after it, its detail that byte, whatever follows. Outside a class, a `\` before a digit `1` …
+`9` or before `k` is `BackreferenceUnsupported` — `\1`, `\12` (at its `\1`), `\k<name>`, `\k'name'`, `\k{name}` —
+and before `G` or `Z` `UnsupportedAnchor`; in a class or out, a `\` before `Q` or `E` is `UnsupportedQuoting`, a lone
+`\E` among them. Inside a class a `\` before a digit, `k`, `G` or `Z` is `UnknownEscape` (Y-40): a class holds
+codepoints, no engine reads a group or a position there, and Perl, PCRE and Python read `[\1]` … `[\7]` as octal.
+`tests/unit/parse_declined.npk` holds every spelling.
 
 **Rule Y-31 (RX-186) — until its parser exists, a construct is refused
 PROVISIONALLY**, with the kind its parser gives a member it does not know: `[` is
@@ -310,6 +322,8 @@ every other escape but punctuation is still refused provisionally, until cycle 0
 `\k`, `\G`, `\Z`, `\Q` and `\E` — each `UnknownEscape` until cycle 0.1.5 refuses it by its own kind (Y-30).)*
 *(2026-10-01, cycle 0.1.4 — RX-206: and a flag is read as Y-41 says; `(?P` before a byte no head names is `UnknownFlag` at
 the `P`, as this rule has said since cycle 0.1.1.)*
+*(2026-10-02, cycle 0.1.5 — RX-209: and §8's escapes are refused by their own kinds (Y-44), so no construct is refused
+provisionally any more.)*
 
 **Rule Y-32 (RX-184) — quantifiers.** `*`, `+`, `?`, `{n}`, `{n,}` and `{n,m}`, each
 followed by `?` to be lazy, wrap the atom before them in a `Repeat` — `a` the atom,
@@ -613,6 +627,10 @@ rather than saying "unsupported":
 | `\Z` | `UnsupportedAnchor` — names `\n?\z` |
 | `\Q…\E` | `UnsupportedQuoting` — names `regex_escape()` |
 
+*(2026-10-02, cycle 0.1.5 — RX-209: every row is refused by its own kind — the escapes where they are read (Y-44), the
+group heads and the possessive quantifier as Y-30 says — and a lone `\E`, which ends Perl's and PCRE's quotation, is
+`UnsupportedQuoting` as `\Q` is.)*
+
 **Rule Y-24 — `regex_escape(text)` is the supported way to match a literal
 string**, returning a pattern that matches exactly it. `\Q…\E` is refused
 rather than implemented because it is a second, in-band quoting mechanism whose
@@ -674,7 +692,8 @@ is the compiler's `check_codes_tested` in this library's terms.
 
 **What each refusal cycle 0.1.1 makes carries** — Y-10's offset and length, and the
 detail a message is built from (Y-29 … Y-32) *(and, since 2026-10-01, each cycle 0.1.3's classes make — Y-36 … Y-38,
-RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-204)*:
+RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-204)* *(and, since 2026-10-02, each refusal of
+§8 an escape spells — Y-44, RX-209)*:
 
 | Kind | Raised when | Offset | Length | Detail |
 |---|---|---|---|---|
@@ -710,6 +729,10 @@ RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-2
 | `DuplicateFlag` (cycle 0.1.4) | a flag named twice in one head, set or cleared | the second | 1 | the letter |
 | `ExtendedAmbiguity` (cycle 0.1.4) | under `x`, white space or `#` in a class; white space past ASCII anywhere | that codepoint | its bytes | its codepoint: 9 … 13, 32, 35, or one of Y-42's |
 | `ByteModeNonAscii` (cycle 0.1.4) | under `(?-u)`, a codepoint past ASCII written as itself or by an escape but `\xHH`; `\p` or `\P` | that codepoint; the `\` | its bytes or the escape; 2 | the codepoint; 112 or 80 |
+| `BackreferenceUnsupported` (cycle 0.1.5, RX-209) | `\1` … `\9` or `\k`, outside a class | the `\` | 2 | the digit or `k`: 49 … 57, 107 |
+| `UnsupportedAnchor` (cycle 0.1.5, RX-209) | `\G` or `\Z`, outside a class | the `\` | 2 | 71 or 90 |
+| `UnsupportedQuoting` (cycle 0.1.5, RX-209) | `\Q` or `\E`, in a class or out | the `\` | 2 | 81 or 69 |
+| `UnknownEscape` (cycle 0.1.5, RX-209) | in a class, a `\` before a digit `1` … `9`, `k`, `G` or `Z` | the `\` | 2 | that byte |
 
 *(2026-10-01, cycle 0.1.4 — RX-203: a detail whose domain is a codepoint — the one a refusal found where it wanted
 another — says what no codepoint can with `NOT_A_CODEPOINT`, U+110000, one past the last: that the pattern ended

@@ -77,6 +77,9 @@ The list a user migrating from Python, PHP, Java or JavaScript needs.
 | Perl's `\u` and `\U`, which change case | `\u` takes four hex digits and `\U` eight, as in Python and Rust (Y-40) |
 | `\uD83D\uDE00` — a UTF-16 pair, one codepoint in Java and JavaScript | refused at the first half; write `\x{1F600}` (Y-40) |
 | `\<`, `\>` — the bytes in Perl, PCRE, Python and Java | refused, since Rust's `regex` and GNU `grep` read word assertions; write `<` or `>` (Y-40, RX-205) |
+| `\E` alone — ignored by Perl and PCRE, refused by Java | refused, `UnsupportedQuoting`, as `\Q` is (`SYNTAX.md` Y-44, RX-209) |
+| `[\1]` … `[\7]` — octal in a class in Perl, PCRE and Python | refused, `UnknownEscape`; write the hex form, `\x01` (Y-44) |
+| `[\k]`, `[\G]`, `[\Z]` — the letter in Perl | refused, `UnknownEscape`, as any letter no rule names in a class (Y-44) |
 | `(?i)` after the pattern's start — global in Python, which requires it first | from there to the enclosing group's `)`, across `|`, as in Perl, PCRE and Rust (`SYNTAX.md` Y-41, RX-206) |
 | `(?^)`, `(?a)`, `(?n)`, `(?U)` — Perl's, PCRE's and .NET's other flags | `UnknownFlag`: the flags are `i`, `m`, `s`, `x` and `u` (Y-41) |
 | blanks inside `a{2, 3}` and `\x{ 41 }`, which Perl reads since its 5.34 | refused, `BadRepeatBounds` and `BadHexEscape`, under `x` or not (`SYNTAX.md` Y-32, Y-42) |

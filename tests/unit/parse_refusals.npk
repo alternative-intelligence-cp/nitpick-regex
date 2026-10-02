@@ -19,6 +19,8 @@
 // *(2026-10-01, cycle 0.1.4 -- RX-204, RX-206: nor is any escape but §8's, which cycle 0.1.5
 // refuses by their own kinds, nor a flag: `parse_escapes`, `parse_escape_refusals`,
 // `parse_flags` and `parse_flag_refusals` hold them.)*
+// *(2026-10-02, cycle 0.1.5 -- RX-209: nor are §8's escapes, which `parse_declined` holds; nothing is
+// refused provisionally any more.)*
 mod:parse_refusals;
 
 use "../../src/core/core.npk".*;

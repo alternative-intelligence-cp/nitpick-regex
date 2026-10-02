@@ -5266,3 +5266,49 @@ pattern would change meaning between the two, silently; **a codepoint past ASCII
 `(?-u)` left to cycle 0.3, which resolves properties** — the parser knows the flags, no reading of a property is a
 byte class, and Rust refuses it when it parses; **`AST_FLAG_BYTE` on a byte past ASCII only** — every literal under
 `(?-u)` is a byte, and a bit on some would leave a reader asking the flags for the rest.
+
+## The refusals — cycle 0.1.5
+
+### RX-209 — the escapes §8 declines are refused by their own kinds, and the cycle's "rejection test per refusal" is a unit holding each one's four fields
+
+**2026-10-02, cycle 0.1.5 (the plan's PD-53), at compiler `5fbaf4a`** — `SYNTAX.md` Y-44, with Y-23, Y-30, Y-31 and Y-40;
+per `meta/research/refusal-syntax-reference-engines.md`, as of 2026-10-01. It completes RX-186 for escapes: RX-204 left
+§8's escapes `UnknownEscape`, the last refusal anything here made provisionally.
+
+**What chose the rules.** Measured in Rust's `regex` 1.13.1, Perl 5.38.2, Python 3.12.3, Java 21.0.12.1, node 24.21.0
+and PCRE2 10.42: outside a class every engine that reads `\1` … `\9` reads a backreference, and Rust refuses each,
+*"backreferences are not supported"*; `\k<n>`, `\k'n'` and `\k{n}` are named backreferences in Perl and PCRE, and Java
+and node read `\k<n>`; `\G` and `\Z` are anchors in Perl, PCRE and Java; `\Q…\E` quotes in Perl, PCRE and Java, and a
+lone `\E` is ignored by Perl and PCRE and refused by Java. Rust refuses every one; Python reads `\1` … `\9` and
+`\Z`, and node under `u` `\1` … `\9` and `\k<n>`, and each refuses the rest. Inside a class no engine reads a
+group or a position: `[\1]` … `[\7]` are octal in Perl, PCRE and Python, `[\8]` the digit in Perl and PCRE, and
+`[\k]`, `[\G]` and `[\Z]` the letter in Perl, refused by PCRE, Python, Java and Rust; and `\Q…\E` quotes in a
+class too.
+
+**The decision.** Y-44. Outside a class `\1` … `\9` and `\k` are `BackreferenceUnsupported`, `\G` and `\Z`
+`UnsupportedAnchor`, and `\Q` and `\E` `UnsupportedQuoting`, each at the `\`, spanning it and the byte after it, its
+detail that byte, whatever follows. Inside a class `\Q` and `\E` are `UnsupportedQuoting` as outside, and a digit,
+`\k`, `\G` and `\Z` stay `UnknownEscape` — Y-40's refusal, final now. No construct is refused provisionally any more
+(Y-31).
+
+**A rejection test per refusal.** The cycle README asks for *"a rejection test per refusal in `tests/rejection/`, with
+the exact-code rule"*, a line written with the cycle plan, before that directory held anything. `tests/rejection/` is
+the `check` stage: each file must be refused by the COMPILER with exactly the codes it names (`BUILD.md` B-6, B-7). A
+refused pattern is a value `parse_pattern` answers at run time — no pattern is compiled when the program is (O-G1) —
+so a fixture there compiles, measured at `5fbaf4a`, and the stage fails it. The rule's terms for a value are its four
+fields: `tests/unit/parse_declined.npk` holds one case per spelling, each requiring exactly the kind, the offset, the
+length and the detail, so a construct refused for the wrong reason is red, as B-7's code-set equality makes a fixture
+refused for the wrong code red. Every construct of §8's table has such a case: the escapes there, the group heads and
+the possessive quantifier in `parse_refusals.npk` cases 21–23 and 51–63, since cycle 0.1.1.
+
+**Measured at `5fbaf4a`.** `parse_declined.npk` passes at −O0 and through `opt -O2`, and against the parser before this
+decision exits 1 (`\1` was `UnknownEscape`); each rule broken in a copy exits as the plan's §1.12 records.
+
+*Alternatives declined:* **`\12` read as group 12, spanning its digits** — Python reads group 12, Java group 1 and a
+`2`, Perl and PCRE octal or a group by how many groups precede it, so the refusal at its first digit is right whichever
+was meant; **a digit in a class refused as a backreference, as Rust refuses it** — no engine reads a group there and
+four read octal; **`\G` and `\Z` in a class refused as anchors** — a class holds no position, as RX-204 made `\A` and
+`\z` there `UnknownEscape`; **a lone `\E` as `UnknownEscape`** — its one reading anywhere is the end of a quotation;
+**the tests in `tests/rejection/`** — a pattern's refusal is not the compiler's, and a fixture there would be red;
+**§8's group heads repeated in the new unit** — two homes for one assertion drift, and `parse_refusals.npk` has held
+them since 0.1.1.

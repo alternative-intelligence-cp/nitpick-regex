@@ -74,8 +74,11 @@ fixed int32:CH_QUESTION = 63i32;     // `?`
 fixed int32:CH_UPPER_A = 65i32;
 fixed int32:CH_UPPER_B = 66i32;      // `\B`, not a word boundary (§6)
 fixed int32:CH_UPPER_D = 68i32;      // `\D`, not a digit (Y-37)
+fixed int32:CH_UPPER_E = 69i32;      // `\E`, which ends Perl's quotation (§8)
 fixed int32:CH_UPPER_F = 70i32;      // the last capital hex digit
+fixed int32:CH_UPPER_G = 71i32;      // `\G`, Perl's anchor at the previous match's end (§8)
 fixed int32:CH_UPPER_P = 80i32;
+fixed int32:CH_UPPER_Q = 81i32;      // `\Q`, which begins Perl's quotation (§8)
 fixed int32:CH_UPPER_R = 82i32;
 fixed int32:CH_UPPER_S = 83i32;      // `\S`, not white space
 fixed int32:CH_UPPER_U = 85i32;      // `\U` and eight hex digits (§1's `Escape`)
@@ -92,6 +95,7 @@ fixed int32:CH_LOWER_D = 100i32;     // `\d`, a digit (Y-37)
 fixed int32:CH_LOWER_E = 101i32;     // `\e`, escape
 fixed int32:CH_LOWER_F = 102i32;     // `\f`, form feed; and the last small hex digit
 fixed int32:CH_LOWER_I = 105i32;     // `i`, the flag: case-insensitive (§4)
+fixed int32:CH_LOWER_K = 107i32;     // `\k`, a backreference by name (§8)
 fixed int32:CH_LOWER_M = 109i32;     // `m`, the flag: multi-line
 fixed int32:CH_LOWER_N = 110i32;     // `\n`, line feed
 fixed int32:CH_LOWER_P = 112i32;     // `\p`, a Unicode property (Y-37)
@@ -960,19 +964,39 @@ func:escape_cp = PatternError?(uint8[]:pat, Parser->:p, int64:at, Esc->:e) never
     pass NIL;
 };
 
-// `UnknownEscape` for the `\` at `at`: spanning it and the codepoint after it, its detail that
-// codepoint (Y-2, Y-31).
-func:unknown_escape = PatternError?(uint8[]:pat, int64:at) never fails {
+// The `\` at `at` begins an escape no rule reads, in a class or out (Y-2, Y-40, Y-44): `\Q` and `\E`, the
+// quotation `SYNTAX.md` §8 declines, are `UnsupportedQuoting`, spanning the two bytes, their detail the letter;
+// any other is `UnknownEscape`, spanning the `\` and the codepoint after it, its detail that codepoint.
+func:escape_refused = PatternError?(uint8[]:pat, int64:at) never fails {
+    int32:d = pat[at + 1i64] => int32;
+    if ((d == CH_UPPER_Q) || (d == CH_UPPER_E)) {
+        pass raw pattern_error(PatternErrorKind.UnsupportedQuoting, at, 2i64, d =>! uint32);
+    }
     pass raw pattern_error(PatternErrorKind.UnknownEscape, at, 1i64 + raw utf8_len(pat[at + 1i64] => int64),
                            raw decode_at(pat, at + 1i64) =>! uint32);
 };
 
+// `\` read at `at` outside a class, and `d`, the byte after it, unread: the escapes `SYNTAX.md` §8 declines
+// that name a group or a position (Y-44) -- `\1` … `\9` and `\k`, which match again what a group captured,
+// are `BackreferenceUnsupported`, and `\G` and `\Z`, anchors nregex does not keep, `UnsupportedAnchor`; each
+// at the `\`, spanning it and `d`, its detail `d`. `NIL` for any other escape. A digit here is never `0`,
+// which `escape_cp` has read.
+func:declined_escape = PatternError?(int64:at, int32:d) never fails {
+    if ((raw is_digit(d)) || (d == CH_LOWER_K)) {
+        pass raw pattern_error(PatternErrorKind.BackreferenceUnsupported, at, 2i64, d =>! uint32);
+    }
+    if ((d == CH_UPPER_G) || (d == CH_UPPER_Z)) {
+        pass raw pattern_error(PatternErrorKind.UnsupportedAnchor, at, 2i64, d =>! uint32);
+    }
+    pass NIL;
+};
+
 // `\` read at `at`, outside a class. An escape naming a codepoint is a `Literal` spanning it (Y-2, §1's
 // `Escape`); a Perl class or a property is a class, unresolved, here as in a class (Y-37); `\A` and `\z`
-// are anchors 2 and 3, and `\b` and `\B` word boundaries 0 and 1 (§1's `Anchor`, Y-27); and a `\`
-// before any other letter or digit, or before a non-ASCII codepoint, is `UnknownEscape` (RX-204) --
-// §8's escapes among them, until cycle 0.1.5 refuses each by its own kind (Y-30) -- and so is a `\`
-// before `<` or `>` (RX-205).
+// are anchors 2 and 3, and `\b` and `\B` word boundaries 0 and 1 (§1's `Anchor`, Y-27); §8's escapes are
+// each refused by its own kind (`declined_escape`, `escape_refused`; Y-44); and a `\` before any other
+// letter or digit, or before a non-ASCII codepoint, is `UnknownEscape` (RX-204) -- and so is a `\` before
+// `<` or `>` (RX-205).
 func:escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:at) never fails {
     int32:d = raw cursor_peek(@p.c);
     if (d == CURSOR_END) {
@@ -1012,7 +1036,9 @@ func:escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:at) never 
         drop atom(out, @p.f, AstKind.WordBoundary, k, at, 2i64);
         pass NIL;
     }
-    pass raw unknown_escape(pat, at);
+    PatternError?:declined = raw declined_escape(at, d);
+    if (declined != NIL) { pass declined; }
+    pass raw escape_refused(pat, at);
 };
 
 // The flag `x` is in force (§4).
@@ -1200,9 +1226,10 @@ func:class_close = PatternError?(Ast->:out, ClassFrame->:cf, uint32:flags, int64
 };
 
 // `\` read at `at` inside a class: an escape naming a codepoint is a member, which a `-` may make a
-// range's first end (Y-36, RX-204); a Perl class or a property is a class member (Y-37); every other
-// escape is `UnknownEscape` -- `\b`, `\B`, `\A` and `\z` too, since a class holds codepoints and they
-// name positions, and `\<` and `\>` (RX-205).
+// range's first end (Y-36, RX-204); a Perl class or a property is a class member (Y-37); `\Q` and `\E` are
+// `UnsupportedQuoting`, as outside a class (Y-44); every other escape is `UnknownEscape` -- `\b`, `\B`, `\A`
+// and `\z` too, since a class holds codepoints and they name positions, `\<` and `\>` (RX-205), and the
+// digits, `\k`, `\G` and `\Z`, which no engine reads in a class as a group or a position (Y-44).
 func:class_escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame->:cf, int64:at) never fails {
     int32:d = raw cursor_peek(@p.c);
     if (d == CURSOR_END) {
@@ -1229,7 +1256,7 @@ func:class_escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame
         drop class_add(out, cf, n, at, p.c.pos, AFTER_CLASS);
         pass NIL;
     }
-    pass raw unknown_escape(pat, at);
+    pass raw escape_refused(pat, at);
 };
 
 // Does the pattern hold `want` at `off`, `len` bytes long?
@@ -1309,7 +1336,7 @@ func:class_range = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame-
         Esc:e = Esc{ named: false, byte: false, cp: 0i64 };
         PatternError?:bad = raw escape_cp(pat, p, at, @e);
         if (bad != NIL) { pass bad; }
-        if (!e.named) { pass raw unknown_escape(pat, at); }
+        if (!e.named) { pass raw escape_refused(pat, at); }
         PatternError?:wide = raw byte_mode(p, at, p.c.pos - at, e.cp, e.byte);
         if (wide != NIL) { pass wide; }
         hi = e.cp;

@@ -1,0 +1,101 @@
+// expect-exit: 0
+//
+// WHAT `SYNTAX.md` §8 DECLINES, REFUSED BY ITS OWN KIND: EVERY ESCAPE §8 NAMES, WITH ITS OFFSET,
+// LENGTH AND DETAIL (§9's table, Y-23, Y-44; RX-209).
+//
+// One case per spelling, each parsing one pattern through `syntax.npk`'s re-exports and requiring the
+// refusal to be EXACTLY this kind at this offset, spanning this many bytes, with this detail -- the four
+// fields a message is built from (Y-10, Y-34). A case that differs exits with its number. Each refusal is
+// at the `\`, spanning it and the byte after it, its detail that byte. Outside a class `\1` … `\9` and
+// `\k` are `BackreferenceUnsupported` (1-8), `\G` and `\Z` `UnsupportedAnchor` (9-12), and `\Q` and `\E`
+// `UnsupportedQuoting` (13-16); inside one `\Q` and `\E` stay `UnsupportedQuoting` (20-22), and the rest
+// are `UnknownEscape`, since no engine reads a group or a position in a class (23-30). Then the first
+// refusal wins, left to right, and `x` and `(?-u)` change none of them (40-45).
+//
+// THIS IS THE CYCLE README'S "A REJECTION TEST PER REFUSAL". `tests/rejection/` holds what the COMPILER
+// refuses, each file with its exact codes (`BUILD.md` B-7); a refused pattern is a value `parse_pattern`
+// answers at run time, so a fixture there would compile and the `check` stage would fail it. The exact-code
+// rule here is the four fields. §8's group heads and its possessive quantifier, made by cycle 0.1.1, are
+// `parse_refusals.npk`'s cases 21-23 and 51-63, held the same way.
+mod:parse_declined;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+
+func:refused = bool(string:pattern, PatternErrorKind:kind, int64:off, int64:len, uint32:detail) never fails {
+    Ast:t = raw ast_init(8i64);
+    PatternError?:r = raw parse_pattern(string_bytes(pattern), @t);
+    drop ast_free(@t);
+    if (r == NIL) { pass false; }
+    PatternError:e = r ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
+    if (e.kind != kind)     { pass false; }
+    if (e.offset != off)    { pass false; }
+    if (e.span_len != len)  { pass false; }
+    pass e.detail == detail;
+};
+
+func:run = int32() never fails {
+    // backreferences: a digit, and `\k` with whatever follows it
+    if (!(raw refused("\\1", PatternErrorKind.BackreferenceUnsupported, 0i64, 2i64, 49u32)))           { pass 1i32; }
+    if (!(raw refused("\\9", PatternErrorKind.BackreferenceUnsupported, 0i64, 2i64, 57u32)))           { pass 2i32; }
+    if (!(raw refused("(a)\\1", PatternErrorKind.BackreferenceUnsupported, 3i64, 2i64, 49u32)))        { pass 3i32; }
+    if (!(raw refused("a\\12", PatternErrorKind.BackreferenceUnsupported, 1i64, 2i64, 49u32)))         { pass 4i32; }
+    if (!(raw refused("\\k<n>", PatternErrorKind.BackreferenceUnsupported, 0i64, 2i64, 107u32)))       { pass 5i32; }
+    if (!(raw refused("(?<n>a)\\k'n'", PatternErrorKind.BackreferenceUnsupported, 7i64, 2i64, 107u32))) { pass 6i32; }
+    if (!(raw refused("\\k{n}", PatternErrorKind.BackreferenceUnsupported, 0i64, 2i64, 107u32)))       { pass 7i32; }
+    if (!(raw refused("a\\k", PatternErrorKind.BackreferenceUnsupported, 1i64, 2i64, 107u32)))         { pass 8i32; }
+    // anchors nregex does not keep
+    if (!(raw refused("\\G", PatternErrorKind.UnsupportedAnchor, 0i64, 2i64, 71u32)))                  { pass 9i32; }
+    if (!(raw refused("a\\Gb", PatternErrorKind.UnsupportedAnchor, 1i64, 2i64, 71u32)))                { pass 10i32; }
+    if (!(raw refused("\\Z", PatternErrorKind.UnsupportedAnchor, 0i64, 2i64, 90u32)))                  { pass 11i32; }
+    if (!(raw refused("a\\Z", PatternErrorKind.UnsupportedAnchor, 1i64, 2i64, 90u32)))                 { pass 12i32; }
+    // the quotation
+    if (!(raw refused("\\Q", PatternErrorKind.UnsupportedQuoting, 0i64, 2i64, 81u32)))                 { pass 13i32; }
+    if (!(raw refused("\\Qa.b\\E", PatternErrorKind.UnsupportedQuoting, 0i64, 2i64, 81u32)))           { pass 14i32; }
+    if (!(raw refused("\\E", PatternErrorKind.UnsupportedQuoting, 0i64, 2i64, 69u32)))                 { pass 15i32; }
+    if (!(raw refused("a\\E", PatternErrorKind.UnsupportedQuoting, 1i64, 2i64, 69u32)))                { pass 16i32; }
+    // in a class, the quotation as outside one -- a member and a range's end alike
+    if (!(raw refused("[\\Q]", PatternErrorKind.UnsupportedQuoting, 1i64, 2i64, 81u32)))               { pass 20i32; }
+    if (!(raw refused("[a\\E]", PatternErrorKind.UnsupportedQuoting, 2i64, 2i64, 69u32)))              { pass 21i32; }
+    if (!(raw refused("[a-\\Q]", PatternErrorKind.UnsupportedQuoting, 3i64, 2i64, 81u32)))             { pass 22i32; }
+    // in a class, no group and no position: each is the escape nregex does not read
+    if (!(raw refused("[\\1]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 49u32)))                    { pass 23i32; }
+    if (!(raw refused("[\\7]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 55u32)))                    { pass 24i32; }
+    if (!(raw refused("[\\8]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 56u32)))                    { pass 25i32; }
+    if (!(raw refused("[\\9]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 57u32)))                    { pass 26i32; }
+    if (!(raw refused("[\\k]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 107u32)))                   { pass 27i32; }
+    if (!(raw refused("[\\G]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 71u32)))                    { pass 28i32; }
+    if (!(raw refused("[\\Z]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 90u32)))                    { pass 29i32; }
+    if (!(raw refused("[a-\\1]", PatternErrorKind.UnknownEscape, 3i64, 2i64, 49u32)))                  { pass 30i32; }
+    // the first refusal wins, left to right; `x` and `(?-u)` change no escape
+    if (!(raw refused("\\1(", PatternErrorKind.BackreferenceUnsupported, 0i64, 2i64, 49u32)))          { pass 40i32; }
+    if (!(raw refused("(\\Z", PatternErrorKind.UnsupportedAnchor, 1i64, 2i64, 90u32)))                 { pass 41i32; }
+    if (!(raw refused("\\q\\1", PatternErrorKind.UnknownEscape, 0i64, 2i64, 113u32)))                  { pass 42i32; }
+    if (!(raw refused("\\x{41}\\1", PatternErrorKind.BackreferenceUnsupported, 6i64, 2i64, 49u32)))    { pass 43i32; }
+    if (!(raw refused("(?x)\\Q", PatternErrorKind.UnsupportedQuoting, 4i64, 2i64, 81u32)))             { pass 44i32; }
+    if (!(raw refused("(?-u)\\k", PatternErrorKind.BackreferenceUnsupported, 5i64, 2i64, 107u32)))     { pass 45i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:r = raw run();
+    exit r;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

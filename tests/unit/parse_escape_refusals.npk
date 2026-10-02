@@ -11,6 +11,8 @@
 // or `NOT_A_CODEPOINT` for any value past U+10FFFF. §8's escapes -- `\1` … `\9`, `\k`, `\G`, `\Z`,
 // `\Q`, `\E` -- are refused PROVISIONALLY as `UnknownEscape` until cycle 0.1.5 refuses each by its
 // own kind (Y-30), and are not pinned here.
+// *(2026-10-02, cycle 0.1.5 -- RX-209: each is refused by its own kind now, and `parse_declined.npk`
+// holds them.)*
 mod:parse_escape_refusals;
 
 use "../../src/core/core.npk".*;
