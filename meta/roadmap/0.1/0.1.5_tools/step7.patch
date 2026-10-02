@@ -1,0 +1,155 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 7de16cfdb9ffe6582f71a2baad3c5b6b969edf7f..2673671765ecf6e29cc7ed8b7cc06777c460fbf5 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -6,7 +6,7 @@ Guidance for Claude Code sessions working in this repository.
+ 
+ `nregex` — a regular-expression library for **Nitpick**, the safety-critical
+ systems language at `../../nitpick`. **Status: cycle 0.1, the pattern parser, is
+-open, and its 0.1.0, 0.1.0b, 0.1.1, 0.1.1b, 0.1.2, 0.1.3 and 0.1.4 are done** — the pieces the parser is written
++open, and its 0.1.0, 0.1.0b, 0.1.1, 0.1.1b, 0.1.2, 0.1.3, 0.1.4 and 0.1.5 are done** — the pieces the parser is written
+ in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/0.1/0.1.0.md`); the adoption of
+ compiler `5fbaf4a` (RX-176 … RX-180, `0.1.0b.md`); and the core grammar —
+ `parse_pattern` builds the AST for literals, `.`, `^`, `$`, groups, alternation and
+@@ -24,7 +24,9 @@ and flags — every escape of §1 read as a codepoint, a class or an anchor, in
+ with what to write, `\<` and `\>` among them; flag groups scoped to their enclosing group; `x` skipping white space
+ between constructs and refusing what the engines read two ways; `(?-u)` reading every literal as a byte; a detail
+ that names no codepoint for the end of the pattern; and `check_constants_named` reading every spelling of an integer
+-(RX-202 … RX-208, `0.1.4.md`).
++(RX-202 … RX-208, `0.1.4.md`); and the refusals — every escape §8 declines refused by its own kind, `\g` among them,
++each sentence saying what is wrong, where, and the guarantee or what to write, none that it is unsupported, and
++`regex_escape` writing a text as a pattern that matches exactly it (RX-209 … RX-213, `0.1.5.md`).
+ Cycle 0.0, foundations, CLOSED on 2026-09-26 — the sixth audit accepted it, and
+ it is archived in `meta/roadmap/done/0.0/`. The
+ specifications, the decisions and the roadmap are complete; `tests/probe/` holds
+@@ -73,12 +75,13 @@ groups past `NREGEX_NEST_DEPTH` is `NestTooDeep` at it, before a byte after it i
+ levels and at the longest pattern, forty runs a leg — **and since 0.1.3 it parses classes**
+ (`SYNTAX.md` Y-36 … Y-38), with two unit programs more, `parse_classes` and
+ `parse_class_refusals` — **and since 0.1.4 it reads escapes and flags** (`SYNTAX.md` Y-40 … Y-43), with four
+-unit programs more, `parse_escapes`, `parse_escape_refusals`, `parse_flags` and `parse_flag_refusals`. Only §8's
+-escapes — `\1` … `\9`, `\k`, `\G`, `\Z`, `\Q`, `\E` — are refused provisionally, until 0.1.5 (`SYNTAX.md` Y-30,
+-Y-31). **No matching happens yet**: `src/hir/`,
++unit programs more, `parse_escapes`, `parse_escape_refusals`, `parse_flags` and `parse_flag_refusals` — **and since
++0.1.5 it refuses what §8 declines by its own kind and writes a text as a pattern** (`SYNTAX.md` Y-44, Y-45), with two
++unit programs more, `parse_declined` and `regex_escape`; nothing is refused provisionally any more. **No matching
++happens yet**: `src/hir/`,
+ `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are still one
+ placeholder module each. A full green run at compiler `5fbaf4a` is
+-**254 units** (after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus nine tree checks (eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
++**258 units** (after cycle 0.1.5; 254 after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus nine tree checks (eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
+ summary rather than from here. **Nothing is PENDING any more**:
+ `tests/unit/bytes_copy_string_empty.npk` was committed red under
+ `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
+diff --git a/README.md b/README.md
+index 71552312bf05a5f0315119a973dd339b32105ba6..b0e5041654faa91d416473c6e2c9c3d80c236438 100644
+--- a/README.md
++++ b/README.md
+@@ -23,8 +23,10 @@ makes the guarantee below possible.
+ > ranges, nested classes, `&&` `--` `~~`, `\d`, `\p{…}` and `[:alpha:]` — reading every
+ > shape as Rust's `regex` reads it or refusing it with what to write. Cycle 0.1.4 reads
+ > every escape — `\x{1F600}`, `\u00E9`, `\A`, `\b` — and the flags `i`, `m`, `s`, `x` and
+-> `u`, scoped to their group, refusing what the engines read two ways. Nothing matches a
+-> pattern yet.
++> `u`, scoped to their group, refusing what the engines read two ways. Cycle 0.1.5 refuses
++> what nregex declines — a backreference, lookaround, `\Q…\E` — each by its own kind, with a
++> sentence saying why and what to write instead, and `regex_escape` writes any text as a
++> pattern that matches exactly it. Nothing matches a pattern yet.
+ > The specification set is in [`meta/specs/`](meta/specs/) and the plan in
+ > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
+ > discipline the compiler used — specs first, then a cycle map, then
+diff --git a/meta/roadmap/0.1/README.md b/meta/roadmap/0.1/README.md
+index 06f2cfb89fff03603568e6540272da2a870c6c7c..0dc669ffeec3619f32d76022fbffc4bcbb97cff1 100644
+--- a/meta/roadmap/0.1/README.md
++++ b/meta/roadmap/0.1/README.md
+@@ -154,7 +154,7 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
+ - [ ] a rejection test per refusal in `tests/rejection/`, with the exact-code rule
+ 
+ ### 0.1.6 — close
+-- [ ] **`check_error_kinds_tested` live and green**: every `PatternErrorKind` in `SYNTAX.md` §9 has a test that provokes it *(2026-10-01 — RX-197: no pattern reaches `EmptyClass` in the parser, open question O-Y3 for cycle 0.3.4, so the check counts it with the kinds a later cycle provokes, as it does `ClassTooLarge`)* *(2026-10-01 — cycle 0.1.4: thirty-eight kinds; `DuplicateFlag` and `ExtendedAmbiguity` are new, each provoked by `parse_flag_refusals`)*
++- [ ] **`check_error_kinds_tested` live and green**: every `PatternErrorKind` in `SYNTAX.md` §9 has a test that provokes it *(2026-10-01 — RX-197: no pattern reaches `EmptyClass` in the parser, open question O-Y3 for cycle 0.3.4, so the check counts it with the kinds a later cycle provokes, as it does `ClassTooLarge`)* *(2026-10-01 — cycle 0.1.4: thirty-eight kinds; `DuplicateFlag` and `ExtendedAmbiguity` are new, each provoked by `parse_flag_refusals`)* *(@@DATE@@ — cycle 0.1.5: `UnsupportedAnchor` and `UnsupportedQuoting`, which no pattern reached before, are provoked by `parse_declined`; `UnknownUnicodeProperty`'s detail 4, a block, is cycle 0.3.1's to raise, and the kind is provoked already)*
+ - [ ] a fuzz pass over random byte strings as patterns: never traps, always terminates, always produces a program or an error with a valid offset
+ - [ ] findings written; `0.2.0.md` written; archived
+ 
+diff --git a/meta/roadmap/ROADMAP.md b/meta/roadmap/ROADMAP.md
+index 0554cf3419b96e2c7c35ed393f12d9d1a8838c28..00cfd79210fe67de0a5448c63a4b45d1a8a52dc9 100644
+--- a/meta/roadmap/ROADMAP.md
++++ b/meta/roadmap/ROADMAP.md
+@@ -53,7 +53,7 @@ cycle 0.0.
+ | Cycle | Topic | Gated on |
+ |---|---|---|
+ | **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **DONE 2026-09-26, archived to [`done/0.0/`](done/0.0/README.md).** The sixth W-22 audit ACCEPTED the close at compiler `c970483`, after five refusals — three on 2026-09-06, two on 2026-09-25 — and two inserted subcycles, 0.0.4d (`Vec` move-only) and 0.0.4e (the re-pin that refused the loan). The close is [`done/0.0/0.0.5.md`](done/0.0/0.0.5.md) §13 | — |
+-| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **OPEN: [`0.1.0`](0.1/0.1.0.md), the cursor and the AST, done; [`0.1.0b`](0.1/0.1.0b.md), the adoption of `5fbaf4a` and the ecosystem audit's items, done; [`0.1.1`](0.1/0.1.1.md), the core grammar, done; [`0.1.1b`](0.1/0.1.1b.md), open question O-R3 — `Vec<T: Copy>` — done; [`0.1.2`](0.1/0.1.2.md), the explicit stack's bound, done; [`0.1.3`](0.1/0.1.3.md), classes, done; [`0.1.4`](0.1/0.1.4.md), escapes and flags, done; next, 0.1.5, the refusals** | 0.0 |
++| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **OPEN: [`0.1.0`](0.1/0.1.0.md), the cursor and the AST, done; [`0.1.0b`](0.1/0.1.0b.md), the adoption of `5fbaf4a` and the ecosystem audit's items, done; [`0.1.1`](0.1/0.1.1.md), the core grammar, done; [`0.1.1b`](0.1/0.1.1b.md), open question O-R3 — `Vec<T: Copy>` — done; [`0.1.2`](0.1/0.1.2.md), the explicit stack's bound, done; [`0.1.3`](0.1/0.1.3.md), classes, done; [`0.1.4`](0.1/0.1.4.md), escapes and flags, done; [`0.1.5`](0.1/0.1.5.md), the refusals, done; next, 0.1.6, the close** | 0.0 |
+ | **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction | 0.1 |
+ | **0.3** | **Unicode** — generated tables, properties, scripts, simple case folding | 0.0 |
+ | **0.4** | **UTF-8 automata** — codepoint ranges to byte ranges, alphabet compression | 0.3 |
+@@ -195,6 +195,8 @@ RX-201.)*
+ *(After cycle 0.1.4, the same compiler: **254** units — `parse_escapes`, `parse_escape_refusals`,
+ `parse_flags` and `parse_flag_refusals`, each run as a program and swept as a root; a self-check
+ of **33** cases, 29 live; **thirty-eight** pattern error kinds; decisions through RX-208.)*
++*(After cycle 0.1.5, the same compiler: **258** units — `parse_declined` and `regex_escape`, each
++run as a program and swept as a root; decisions through RX-213.)*
+ 
+ **Two probes refuted their own hypothesis**, which is the cycle's best return:
+ `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler
+diff --git a/src/syntax/README.md b/src/syntax/README.md
+index d8cde9443a05bfb6918dcba3808294912715c76a..55f2ebd7c72f585a923302b8bd1fd5490fdafd13 100644
+--- a/src/syntax/README.md
++++ b/src/syntax/README.md
+@@ -14,15 +14,17 @@ groups past `NREGEX_NEST_DEPTH` is `NestTooDeep` at it, before a byte after it i
+ operators, Perl classes, properties and POSIX classes, unresolved (Y-36 … Y-38) — and
+ groups and classes nest at most `NREGEX_NEST_DEPTH` deep together. Since cycle 0.1.4 it reads
+ every escape, in a class and out (Y-40), and the flags — groups of them, `x` and `(?-u)`
+-(Y-41 … Y-43); only §8's escapes are refused provisionally, until cycle 0.1.5 (Y-30, Y-31):
++(Y-41 … Y-43). Since cycle 0.1.5 it refuses each escape §8 declines by its own kind (Y-44), so
++nothing is refused provisionally any more, and `regex_escape` writes a text as a pattern that
++matches exactly it (Y-45):
+ 
+ | File | What |
+ |---|---|
+ | `syntax.npk` | the layer entry: every name the layer offers, `pub use`, one per line |
+-| `pattern_error.npk` | `PatternErrorKind` (`SYNTAX.md` §9), `PatternError` (`SAFETY.md` S-9), and `pattern_error`, the only way to build one — RX-172; `pattern_error_text`, what is wrong, at which byte, and what to write instead — RX-187; `posix_class_name`, §5.1's fourteen names in one place — RX-197; and `NOT_A_CODEPOINT`, the detail no codepoint takes — RX-203 |
++| `pattern_error.npk` | `PatternErrorKind` (`SYNTAX.md` §9), `PatternError` (`SAFETY.md` S-9), and `pattern_error`, the only way to build one — RX-172; `pattern_error_text`, what is wrong, at which byte, and what to write instead — RX-187 — none saying a construct is unsupported, RX-212; `posix_class_name`, §5.1's fourteen names in one place — RX-197; and `NOT_A_CODEPOINT`, the detail no codepoint takes — RX-203 |
+ | `cursor.npk` | the byte cursor: one byte of lookahead, moved by nothing outside it — RX-173 |
+ | `ast.npk` | the AST arena: sixteen kinds of 56-byte node that own nothing (`SYNTAX.md` Y-26, Y-27) — RX-174 |
+-| `parse.npk` | the parser: `parse_check_length`, the first refusal — RX-175; `parse_check_encoding`, the pattern checked whole as UTF-8 — RX-183; and `parse_pattern`, one explicit-stack walk that builds the AST — RX-182, RX-184 … RX-186 — its stack bounded at the `(`, RX-193; a class read by `parse_class`'s own `while` on a stack of its own — RX-197, RX-199, RX-200 — bounded with the groups', RX-198; every escape read by `escape_cp`, in a class and out — RX-204, RX-205; and the flags by `read_flags`, with `x` and `(?-u)` — RX-206 … RX-208 |
++| `parse.npk` | the parser: `parse_check_length`, the first refusal — RX-175; `parse_check_encoding`, the pattern checked whole as UTF-8 — RX-183; and `parse_pattern`, one explicit-stack walk that builds the AST — RX-182, RX-184 … RX-186 — its stack bounded at the `(`, RX-193; a class read by `parse_class`'s own `while` on a stack of its own — RX-197, RX-199, RX-200 — bounded with the groups', RX-198; every escape read by `escape_cp`, in a class and out — RX-204, RX-205; and the flags by `read_flags`, with `x` and `(?-u)` — RX-206 … RX-208; §8's escapes refused by their own kinds — RX-209, RX-210 — and a `{` after a word boundary named — RX-213; and `regex_escape`, the reading inverted, text to a pattern — RX-211 |
+ 
+ `tests/unit/syntax_skeleton.npk` composes the pieces through `syntax.npk` alone,
+ and `parse_grammar`, `parse_refusals`, `parse_encoding`, `parse_limits` and
+@@ -31,4 +33,6 @@ way; `parse_nest_deep` holds the bound at 10 000 levels and at the longest patte
+ forty runs a leg (RX-194); `parse_classes` and `parse_class_refusals` hold every
+ class shape and every class refusal (RX-197); and `parse_escapes`, `parse_escape_refusals`,
+ `parse_flags` and `parse_flag_refusals` hold every escape, every flag, and each refusal of
+-either (RX-203 … RX-208).
++either (RX-203 … RX-208); and `parse_declined` holds every escape §8 declines, each exact in its
++four fields, and `regex_escape` what that function writes and what it parses back to (RX-209 …
++RX-211).
+diff --git a/src/syntax/parse.npk b/src/syntax/parse.npk
+index 6763d0b457b4846818959c30ebe9ea27902c5c98..8c5b0a986d9901fb5ca9b97ddbdc7ed0509f1db1 100644
+--- a/src/syntax/parse.npk
++++ b/src/syntax/parse.npk
+@@ -2,7 +2,8 @@
+ // its entry's first refusal (RX-175); cycle 0.1.1 writes the core grammar
+ // (RX-182 … RX-186; `meta/specs/SYNTAX.md` §1 and Y-28 … Y-33); cycle 0.1.3 its
+ // classes (RX-197, RX-198; Y-35 … Y-38); cycle 0.1.4 its escapes and flags (RX-203 …
+-// RX-208; Y-40 … Y-43).
++// RX-208; Y-40 … Y-43); cycle 0.1.5 its refusals of what §8 declines, and `regex_escape`
++// (RX-209 … RX-213; Y-44, Y-45).
+ //
+ // HOW `syntax` SAYS A PATTERN IS WRONG: WITH A VALUE. The library's one `error:`
+ // identity, `ERegexPattern`, is `api`'s (`SAFETY.md` S-8), and `syntax` sits
+diff --git a/src/syntax/syntax.npk b/src/syntax/syntax.npk
+index 0c02f935709ab43c052bc1416bbf5ccb2bd0623b..28f1e7329f5d2c821efef0f558f2fe876526761e 100644
+--- a/src/syntax/syntax.npk
++++ b/src/syntax/syntax.npk
+@@ -24,6 +24,9 @@
+ // together (RX-198).
+ // SINCE CYCLE 0.1.4 IT READS ESCAPES AND FLAGS -- every escape of §1, in a class and out,
+ // and `(?flags)` and `(?flags:...)`, with `x` and `(?-u)` (Y-40 … Y-43, RX-203 … RX-208).
++// SINCE CYCLE 0.1.5 IT REFUSES WHAT §8 DECLINES, EACH BY ITS OWN KIND -- no construct is refused
++// provisionally any more -- AND WRITES A TEXT AS A PATTERN, `regex_escape` (Y-44, Y-45, RX-209 …
++// RX-213).
+ //
+ // EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1
+ // and 3): `use` is not transitive, a plain `use` re-exports nothing, and one

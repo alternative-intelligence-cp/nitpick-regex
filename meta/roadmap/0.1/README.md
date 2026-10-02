@@ -15,8 +15,9 @@ byte offset on every error.**
 > 36846431405 — **and [`0.1.3`](0.1.3.md), classes, is DONE (2026-10-01)** — RX-196 … RX-201 in six work commits,
 > `b0c53d4` … `8cd79af`, 246/246 at `5fbaf4a` and in CI run 36892463133 — **and [`0.1.4`](0.1.4.md), escapes and
 > flags, is DONE (2026-10-01)** — RX-202 … RX-208 in eight work commits, `9ec6a2d` … `9f25d69`, 254/254 at `5fbaf4a`
-> and in CI run 36941691688 — next, 0.1.5, the refusals, its file a planner's to write. *(Until 0.1.4's record this
-> banner said 0.1.4 "is PLANNED (2026-10-01, rehearsed at `5fbaf4a`)".)* *(Until 0.1.4's plan this banner said "next,
+> and in CI run 36941691688 — **and [`0.1.5`](0.1.5.md), the refusals, is PLANNED (2026-10-01, rehearsed at
+> `5fbaf4a`)**. *(Until 0.1.5's plan this banner said "next, 0.1.5, the refusals, its file a planner's to write".)*
+> *(Until 0.1.4's record this banner said 0.1.4 "is PLANNED (2026-10-01, rehearsed at `5fbaf4a`)".)* *(Until 0.1.4's plan this banner said "next,
 > 0.1.4, escapes and flags, its file a planner's to write".)* *(Until 0.1.3's record this banner said 0.1.3 "is PLANNED (2026-10-01,
 > rehearsed at `5fbaf4a`)".)* *(Until
 > 0.1.3's plan this banner said "next, 0.1.3, classes, its file a planner's to write".)* *(Until 0.1.2's record this banner said
@@ -68,7 +69,7 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
 | [0.1.2](0.1.2.md) | **The explicit stack** — nesting, `NREGEX_NEST_DEPTH`, and the refusal | 10 000 levels deep is a `NestTooDeep`, not a segfault — *and the longest pattern, 65 536 levels, too; at `5fbaf4a` a recursion that deep traps `StackExhausted`, never a segfault (RX-191, RX-194; dated 2026-10-01, 0.1.2's record)* |
 | [0.1.3](0.1.3.md) | **Classes** — items, ranges, Perl and POSIX classes, nesting, `&&`/`--`/`~~` | every class form in §5, parsed to unresolved items |
 | [0.1.4](0.1.4.md) | **Escapes and flags** — every escape in §1, flag scoping, `(?-u)` | the escape table, and `(?i)` scoped correctly |
-| 0.1.5 | **The refusals** — every construct in §8, by name, with its offset | `BackreferenceUnsupported` names the guarantee, not "unsupported" |
+| [0.1.5](0.1.5.md) | **The refusals** — every construct in §8, by name, with its offset | `BackreferenceUnsupported` names the guarantee, not "unsupported" |
 | 0.1.6 | **Close** — `check_error_kinds_tested` live | `done/0.1/`, `0.2.0.md` written |
 
 ## Checklist

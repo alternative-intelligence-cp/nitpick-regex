@@ -1,0 +1,78 @@
+diff --git a/harness/run.py b/harness/run.py
+index d6fcbdba0bdf67b95780c5b221a630932c4a7a34..9a31e8b122a662107e4cf641402f56dfe5aaa8d3 100755
+--- a/harness/run.py
++++ b/harness/run.py
+@@ -40,9 +40,12 @@ stub this replaced could assert almost nothing:
+   * the live TREE CHECKS agreed with the specifications they diff against
+     (`check_layering`, `check_error_budget`, `check_constants_named`,
+     `check_no_division`, `check_accessor_confinement`,
+-    `check_vec_elements_own_nothing`, `check_dated_measurements`, and
+-    `check_specs_current` which reports rather than fails -- `treecheck.ALL` is
+-    the list, and the run prints each);
++    `check_vec_elements_own_nothing`, `check_no_recursion`,
++    `check_dated_measurements`, and `check_specs_current` which reports rather
++    than fails -- `treecheck.ALL` is the list, and the run prints each);
++    *(@@DATE@@, cycle 0.1.5: this list named eight until then and left out
++    `check_no_recursion`, the ninth since cycle 0.1.2 (RX-192) -- found by cycle
++    0.1.4's record.)*
+   * every unit a `pending-until:` marker took out of the denominator is on the
+     reviewed list `harness/baseline/PENDING.txt`, gave exactly the exit its
+     marker names on every leg and every run, and did not meet its expectation
+diff --git a/meta/roadmap/0.10/README.md b/meta/roadmap/0.10/README.md
+index cc520801b3fad1e2eef7d903ab37212f70068054..b5260d0c66a3376f587a791b2ce5465340c91609 100644
+--- a/meta/roadmap/0.10/README.md
++++ b/meta/roadmap/0.10/README.md
+@@ -10,6 +10,9 @@ RX-050, RX-051, RX-052, RX-054, RX-034, RX-060, RX-061. Settled.
+ **Open questions to settle:** O-A1 (does `Matches` implement the prelude
+ `Iterator` trait? — probe 12 has the answer), O-S1 (`RegexOptions` a value, not
+ a `comptime` parameter — recommendation: a value).
++*(@@DATE@@, cycle 0.1.5: and O-A3 — whether `RegexOptions` may set a flag that
++changes a pattern's meaning, which `SYNTAX.md` Y-12 forbids and `API.md` A-7
++plans; recommendation: keep Y-12. Decide it before 0.10.2 writes `RegexOptions`.)*
+ 
+ ## Subcycles
+ 
+@@ -40,7 +43,7 @@ a `comptime` parameter — recommendation: a value).
+ 
+ ### 0.10.2 — `RegexOptions`
+ - [ ] every bound from `SAFETY.md` §5 settable
+-- [ ] the meaning flags settable, with **the inline pattern flag winning** where both appear (A-7) — the pattern is the more local statement
++- [ ] the meaning flags settable, with **the inline pattern flag winning** where both appear (A-7) — the pattern is the more local statement *(@@DATE@@ — open question O-A3 first: `SYNTAX.md` Y-12 says no setting outside the pattern changes its meaning)*
+ - [ ] chained setters take `move Self` and return `Self` (A-8); no `Default` derive
+ - [ ] O-S1 decided and recorded
+ 
+diff --git a/meta/specs/API.md b/meta/specs/API.md
+index d6fbd9e99914cfdb97e724b610aaaf4c4a317c9d..8a77809028aaccc1e9175814a77f75afdc6599d6 100644
+--- a/meta/specs/API.md
++++ b/meta/specs/API.md
+@@ -153,6 +153,9 @@ is. Flags that affect *meaning* — `i`, `m`, `s`, `x`, `u` — are also settabl
+ and are equivalent to writing the inline flag at the start of the pattern; the
+ inline form wins where both appear, because the pattern is the more local
+ statement.
++*(@@DATE@@, cycle 0.1.5: `SYNTAX.md` Y-12 says no setting outside the pattern
++changes what it means. Which rule stands is open question O-A3, for cycle 0.10 to
++decide before `RegexOptions` is written; nothing is decided here.)*
+ 
+ **Rule A-8 — chained setters take `move Self` and return `Self`** (the
+ ecosystem's builder convention, `nitpick-tui`'s W-5), because there are no
+@@ -285,3 +288,7 @@ worth knowing before it appears in a loop.
+   reported three days earlier. RX-135.)*
+ - **O-A2 — a `RegexSet` API over `COMPILE.md` §6's multi-pattern programs.**
+   The format supports it at 1.0; the API does not. Cycle 1.1.
++- **O-A3 — whether `RegexOptions` may set a meaning flag** (A-7 against
++  `SYNTAX.md` Y-12). Recommendation: keep Y-12 and strike the meaning flags from
++  A-7. Decide at cycle 0.10, before 0.10.2. `meta/OPEN_QUESTIONS.md` has the
++  argument. *(Raised @@DATE@@ by cycle 0.1.5.)*
+diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
+index 4b3fe50424d80434cc28b60d561b6cf78eb1450f..d60b9c946e18fd83131f0a82c3713434fed97085 100644
+--- a/meta/specs/SYNTAX.md
++++ b/meta/specs/SYNTAX.md
+@@ -385,6 +385,8 @@ of the pattern text, which is what makes a pattern copy-pasteable between
+ programs.
+ *(2026-10-01, cycle 0.1.4 — RX-206: read as Y-41 says. A flag `(?i)` sets holds across `|` to the enclosing group's `)`,
+ as in Rust's `regex` and PCRE: `a(?i)b|c` matches `C`.)*
++*(@@DATE@@, cycle 0.1.5: `API.md` A-7 makes `i`, `m`, `s`, `x` and `u` settable outside the pattern too. Which rule
++stands is open question O-A3, for cycle 0.10; nothing is decided here.)*
+ 
+ **Rule Y-13 — `(?-u)` is the byte mode and it is a real mode, not a
+ performance hint.** With Unicode off, `.` matches one **byte**, `\w` is ASCII,

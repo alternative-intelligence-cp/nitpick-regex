@@ -1,0 +1,180 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index f00086af24453962b1a520235e667d5ef3c4c62d..08d58dd92a61e12d79aa845b7398e8ef052d8801 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -5086,6 +5086,9 @@ kind per sentinel, where one constant serves every kind with a codepoint for a d
+ name is read** — the name's rule refuses it already, and what was wrong was the field.
+ 
+ ### RX-204 — every escape of §1 is read — a codepoint, a class, an anchor, or a refusal saying what to write — in a class and out
++> **SUPERSEDED IN PART by RX-210 (@@DATE@@)** — for `\g` alone: *"a test for each letter no rule assigns: `c g h …`"*.
++> Outside a class `\g` is Perl's and PCRE's backreference and PCRE's call of a group, refused by those kinds
++> (`SYNTAX.md` Y-44). Every other letter is as this decision says.
+ 
+ **2026-10-01, cycle 0.1.4 (the plan's PD-48), at compiler `5fbaf4a`** — `SYNTAX.md` Y-40, with Y-2, Y-27, Y-28 and Y-36;
+ per `meta/research/escape-flag-syntax-reference-engines.md`, as of 2026-10-01. It completes RX-186 for escapes, whose
+@@ -5312,3 +5315,27 @@ four read octal; **`\G` and `\Z` in a class refused as anchors** — a class hol
+ **the tests in `tests/rejection/`** — a pattern's refusal is not the compiler's, and a fixture there would be red;
+ **§8's group heads repeated in the new unit** — two homes for one assertion drift, and `parse_refusals.npk` has held
+ them since 0.1.1.
++
++### RX-210 — `\g` is refused as what it is where it means anything: a backreference, and before `<` or `'` a call of a group
++
++**@@DATE@@, cycle 0.1.5 (the plan's PD-54), at compiler `5fbaf4a`** — `SYNTAX.md` Y-44; per
++`meta/research/refusal-syntax-reference-engines.md`, as of 2026-10-01. RX-204 refused `\g` as a letter no rule names,
++`UnknownEscape`, whose sentence tells the author to write `g`. Measured: Perl 5.38.2 and PCRE2 10.42 read `\g1`,
++`\g{1}`, `\g{-1}` and `\g{name}` as backreferences, and PCRE2 reads `\g<1>` and `\g'1'` as a call of group 1, which
++Perl refuses; Python, Java, Rust and node under `u` refuse every `\g`. So wherever `\g` means anything it is one of
++§8's constructs, and its author wanted a backreference or a call — never a `g`.
++
++**The decision.** Outside a class `\g` is `BackreferenceUnsupported` at the `\`, spanning it and the `g`, its detail
++`g` (103) — but before `<` or `'` it is `RecursionUnsupported`, spanning the three bytes, its detail the third, as
++Y-30's `(?P>` and `(?1)` are. In a class `\g` stays `UnknownEscape`: Perl and PCRE read `[\g]` as `g`, and no engine
++reads a group there. `tests/unit/parse_declined.npk` cases 50–57; `parse_escape_refusals.npk`'s case 33, which held
++`\g` as an unknown letter, is retired.
++
++**Measured at `5fbaf4a`.** `parse_declined.npk` passes at −O0 and through `opt -O2`, and against the parser before this
++decision exits 50; with `\g` dropped from the backreference's letters it exits 50, and with the call read as a
++backreference 55.
++
++*Alternatives declined:* **`\g` left `UnknownEscape`** — its sentence tells a Perl author to write `g`; **every `\g` a
++backreference** — PCRE's `\g<1>` runs group 1's pattern again, not its text, and the backreference's sentence would
++say the wrong thing; **`\K`, Perl's reset of a match's start, refused as lookaround as well** — not one of §8's
++constructs, and Y-2's refusal of a letter no rule names stands for it (`COMPAT.md` §3).
+diff --git a/meta/specs/COMPAT.md b/meta/specs/COMPAT.md
+index aedc13974a8e840c6e696e610834f7874f8cda75..f482358acb8bea9dbb45e9fcfe87b60262c8e036 100644
+--- a/meta/specs/COMPAT.md
++++ b/meta/specs/COMPAT.md
+@@ -80,6 +80,7 @@ The list a user migrating from Python, PHP, Java or JavaScript needs.
+ | `\E` alone — ignored by Perl and PCRE, refused by Java | refused, `UnsupportedQuoting`, as `\Q` is (`SYNTAX.md` Y-44, RX-209) |
+ | `[\1]` … `[\7]` — octal in a class in Perl, PCRE and Python | refused, `UnknownEscape`; write the hex form, `\x01` (Y-44) |
+ | `[\k]`, `[\G]`, `[\Z]` — the letter in Perl | refused, `UnknownEscape`, as any letter no rule names in a class (Y-44) |
++| `\g1`, `\g{-1}`, `\g{name}` — Perl's and PCRE's backreferences; `\g<1>`, `\g'1'` — PCRE's call of a group | refused, `BackreferenceUnsupported` and `RecursionUnsupported` (`SYNTAX.md` Y-44, RX-210) |
+ | `(?i)` after the pattern's start — global in Python, which requires it first | from there to the enclosing group's `)`, across `|`, as in Perl, PCRE and Rust (`SYNTAX.md` Y-41, RX-206) |
+ | `(?^)`, `(?a)`, `(?n)`, `(?U)` — Perl's, PCRE's and .NET's other flags | `UnknownFlag`: the flags are `i`, `m`, `s`, `x` and `u` (Y-41) |
+ | blanks inside `a{2, 3}` and `\x{ 41 }`, which Perl reads since its 5.34 | refused, `BadRepeatBounds` and `BadHexEscape`, under `x` or not (`SYNTAX.md` Y-32, Y-42) |
+diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
+index be4166092b8c7a5b87db2246a5e2adb82f22201b..9fc82c3610da8c7a6769be4e69630fc515af0fd5 100644
+--- a/meta/specs/SYNTAX.md
++++ b/meta/specs/SYNTAX.md
+@@ -298,6 +298,9 @@ and before `G` or `Z` `UnsupportedAnchor`; in a class or out, a `\` before `Q` o
+ `\E` among them. Inside a class a `\` before a digit, `k`, `G` or `Z` is `UnknownEscape` (Y-40): a class holds
+ codepoints, no engine reads a group or a position there, and Perl, PCRE and Python read `[\1]` … `[\7]` as octal.
+ `tests/unit/parse_declined.npk` holds every spelling.
++*(@@DATE@@, cycle 0.1.5 — RX-210: and `\g`, outside a class, is `BackreferenceUnsupported` — Perl's and PCRE's `\g1`,
++`\g{-1}`, `\g{name}` — but before `<` or `'`, PCRE's call of a group, `RecursionUnsupported`, spanning the three bytes,
++its detail the third, as Y-30's `(?P>` is; in a class `\g` stays `UnknownEscape`.)*
+ 
+ **Rule Y-31 (RX-186) — until its parser exists, a construct is refused
+ PROVISIONALLY**, with the kind its parser gives a member it does not know: `[` is
+@@ -630,6 +633,8 @@ rather than saying "unsupported":
+ *(@@DATE@@, cycle 0.1.5 — RX-209: every row is refused by its own kind — the escapes where they are read (Y-44), the
+ group heads and the possessive quantifier as Y-30 says — and a lone `\E`, which ends Perl's and PCRE's quotation, is
+ `UnsupportedQuoting` as `\Q` is.)*
++*(@@DATE@@, cycle 0.1.5 — RX-210: and `\g`, Perl's and PCRE's backreference and PCRE's call of a group, by those two
++kinds (Y-44).)*
+ 
+ **Rule Y-24 — `regex_escape(text)` is the supported way to match a literal
+ string**, returning a pattern that matches exactly it. `\Q…\E` is refused
+@@ -733,6 +738,8 @@ RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-2
+ | `UnsupportedAnchor` (cycle 0.1.5, RX-209) | `\G` or `\Z`, outside a class | the `\` | 2 | 71 or 90 |
+ | `UnsupportedQuoting` (cycle 0.1.5, RX-209) | `\Q` or `\E`, in a class or out | the `\` | 2 | 81 or 69 |
+ | `UnknownEscape` (cycle 0.1.5, RX-209) | in a class, a `\` before a digit `1` … `9`, `k`, `G` or `Z` | the `\` | 2 | that byte |
++| `BackreferenceUnsupported` (cycle 0.1.5, RX-210) | `\g` outside a class, but before `<` or `'` | the `\` | 2 | 103 |
++| `RecursionUnsupported` (cycle 0.1.5, RX-210) | `\g<` or `\g'` outside a class | the `\` | 3 | 60 or 39 |
+ 
+ *(2026-10-01, cycle 0.1.4 — RX-203: a detail whose domain is a codepoint — the one a refusal found where it wanted
+ another — says what no codepoint can with `NOT_A_CODEPOINT`, U+110000, one past the last: that the pattern ended
+diff --git a/src/syntax/parse.npk b/src/syntax/parse.npk
+index 6c607ddedea5796f9b01d6778c5c72806bb374e4..d254f7b684955eb9b6e3fa22db867ec859d49a01 100644
+--- a/src/syntax/parse.npk
++++ b/src/syntax/parse.npk
+@@ -94,6 +94,7 @@ fixed int32:CH_LOWER_B = 98i32;      // `\b`, a word boundary (§6)
+ fixed int32:CH_LOWER_D = 100i32;     // `\d`, a digit (Y-37)
+ fixed int32:CH_LOWER_E = 101i32;     // `\e`, escape
+ fixed int32:CH_LOWER_F = 102i32;     // `\f`, form feed; and the last small hex digit
++fixed int32:CH_LOWER_G = 103i32;     // `\g`, Perl's and PCRE's backreference, and PCRE's call (§8)
+ fixed int32:CH_LOWER_I = 105i32;     // `i`, the flag: case-insensitive (§4)
+ fixed int32:CH_LOWER_K = 107i32;     // `\k`, a backreference by name (§8)
+ fixed int32:CH_LOWER_M = 109i32;     // `m`, the flag: multi-line
+@@ -980,9 +981,18 @@ func:escape_refused = PatternError?(uint8[]:pat, int64:at) never fails {
+ // that name a group or a position (Y-44) -- `\1` … `\9` and `\k`, which match again what a group captured,
+ // are `BackreferenceUnsupported`, and `\G` and `\Z`, anchors nregex does not keep, `UnsupportedAnchor`; each
+ // at the `\`, spanning it and `d`, its detail `d`. `NIL` for any other escape. A digit here is never `0`,
+-// which `escape_cp` has read.
+-func:declined_escape = PatternError?(int64:at, int32:d) never fails {
+-    if ((raw is_digit(d)) || (d == CH_LOWER_K)) {
++// which `escape_cp` has read. `\g` is Perl's and PCRE's backreference too, `\g1`, `\g{-1}`, `\g{name}` --
++// but before `<` or `'` it is PCRE's subroutine call, `RecursionUnsupported`, spanning the three bytes, its
++// detail the third (RX-210).
++func:declined_escape = PatternError?(Parser->:p, int64:at, int32:d) never fails {
++    if (d == CH_LOWER_G) {
++        discard(raw cursor_bump(@p.c));
++        int32:n = raw cursor_peek(@p.c);
++        if ((n == CH_LT) || (n == CH_QUOTE)) {
++            pass raw pattern_error(PatternErrorKind.RecursionUnsupported, at, 3i64, n =>! uint32);
++        }
++    }
++    if ((raw is_digit(d)) || (d == CH_LOWER_K) || (d == CH_LOWER_G)) {
+         pass raw pattern_error(PatternErrorKind.BackreferenceUnsupported, at, 2i64, d =>! uint32);
+     }
+     if ((d == CH_UPPER_G) || (d == CH_UPPER_Z)) {
+@@ -1036,7 +1046,7 @@ func:escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:at) never
+         drop atom(out, @p.f, AstKind.WordBoundary, k, at, 2i64);
+         pass NIL;
+     }
+-    PatternError?:declined = raw declined_escape(at, d);
++    PatternError?:declined = raw declined_escape(p, at, d);
+     if (declined != NIL) { pass declined; }
+     pass raw escape_refused(pat, at);
+ };
+diff --git a/tests/unit/parse_declined.npk b/tests/unit/parse_declined.npk
+index 24e1649d14f29f5888fa840ac623cbfe1cbaaa5b..c8ff147f6856dc625cd2aa6b05865ccf61b0613b 100644
+--- a/tests/unit/parse_declined.npk
++++ b/tests/unit/parse_declined.npk
+@@ -11,6 +11,9 @@
+ // `UnsupportedQuoting` (13-16); inside one `\Q` and `\E` stay `UnsupportedQuoting` (20-22), and the rest
+ // are `UnknownEscape`, since no engine reads a group or a position in a class (23-30). Then the first
+ // refusal wins, left to right, and `x` and `(?-u)` change none of them (40-45).
++// *(@@DATE@@, cycle 0.1.5 -- RX-210: and `\g`, Perl's and PCRE's backreference, `BackreferenceUnsupported`
++// at the `\` -- but before `<` or `'`, PCRE's subroutine call, `RecursionUnsupported` spanning three bytes
++// (50-57).)*
+ //
+ // THIS IS THE CYCLE README'S "A REJECTION TEST PER REFUSAL". `tests/rejection/` holds what the COMPILER
+ // refuses, each file with its exact codes (`BUILD.md` B-7); a refused pattern is a value `parse_pattern`
+@@ -74,6 +77,15 @@ func:run = int32() never fails {
+     if (!(raw refused("\\x{41}\\1", PatternErrorKind.BackreferenceUnsupported, 6i64, 2i64, 49u32)))    { pass 43i32; }
+     if (!(raw refused("(?x)\\Q", PatternErrorKind.UnsupportedQuoting, 4i64, 2i64, 81u32)))             { pass 44i32; }
+     if (!(raw refused("(?-u)\\k", PatternErrorKind.BackreferenceUnsupported, 5i64, 2i64, 107u32)))     { pass 45i32; }
++    // `\g`: a backreference in Perl and PCRE, and before `<` or `'` PCRE's call of a group (RX-210)
++    if (!(raw refused("(a)\\g1", PatternErrorKind.BackreferenceUnsupported, 3i64, 2i64, 103u32)))       { pass 50i32; }
++    if (!(raw refused("(a)\\g{-1}", PatternErrorKind.BackreferenceUnsupported, 3i64, 2i64, 103u32)))    { pass 51i32; }
++    if (!(raw refused("(?<n>a)\\g{n}", PatternErrorKind.BackreferenceUnsupported, 7i64, 2i64, 103u32))) { pass 52i32; }
++    if (!(raw refused("a\\g", PatternErrorKind.BackreferenceUnsupported, 1i64, 2i64, 103u32)))          { pass 53i32; }
++    if (!(raw refused("\\gx", PatternErrorKind.BackreferenceUnsupported, 0i64, 2i64, 103u32)))          { pass 54i32; }
++    if (!(raw refused("(a)\\g<1>", PatternErrorKind.RecursionUnsupported, 3i64, 3i64, 60u32)))          { pass 55i32; }
++    if (!(raw refused("(?<n>a)\\g'n'", PatternErrorKind.RecursionUnsupported, 7i64, 3i64, 39u32)))      { pass 56i32; }
++    if (!(raw refused("[\\g]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 103u32)))                    { pass 57i32; }
+     pass 0i32;
+ };
+ 
+diff --git a/tests/unit/parse_escape_refusals.npk b/tests/unit/parse_escape_refusals.npk
+index a865b6b03e41e0c81f2e7844d138eae22179895f..08e059b16d127e3e37f69268a80482d0c962b4be 100644
+--- a/tests/unit/parse_escape_refusals.npk
++++ b/tests/unit/parse_escape_refusals.npk
+@@ -13,6 +13,8 @@
+ // own kind (Y-30), and are not pinned here.
+ // *(@@DATE@@, cycle 0.1.5 -- RX-209: each is refused by its own kind now, and `parse_declined.npk`
+ // holds them.)*
++// *(@@DATE@@, cycle 0.1.5 -- RX-210: and `\g`, Perl's and PCRE's backreference, which case 33 held as
++// an unknown letter until then; `parse_declined.npk`'s cases 53 and 54 hold it.)*
+ mod:parse_escape_refusals;
+ 
+ use "../../src/core/core.npk".*;
+@@ -73,7 +75,6 @@ func:run = int32() never fails {
+     if (!(raw refused("[a-\\uDFFF]", PatternErrorKind.InvalidCodepoint, 3i64, 6i64, 57343u32))) { pass 31i32; }
+     // a `\` before a letter that names nothing is never the letter (Y-2): every unassigned one
+     if (!(raw unknown("\\c", 99u32)))  { pass 32i32; }
+-    if (!(raw unknown("\\g", 103u32))) { pass 33i32; }
+     if (!(raw unknown("\\h", 104u32))) { pass 34i32; }
+     if (!(raw unknown("\\i", 105u32))) { pass 35i32; }
+     if (!(raw unknown("\\j", 106u32))) { pass 36i32; }

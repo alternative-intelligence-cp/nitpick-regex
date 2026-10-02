@@ -1,0 +1,147 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 1357a73120da8de12b673fc3f14141d3943bda9c..550fb773e106a4f3fa4909350944c486c1e56831 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -5412,3 +5412,28 @@ and `\p{Inscriptional_Pahlavi}` are scripts, and the parser reads no table; **a
+ names `UnknownUnicodeProperty`, and a detail tells the sentence which, as RX-200's does for `UnknownPosixClass`; **the
+ block's sentence left to cycle 0.3.1 with its trigger** — the checklist holds it here, and the author reads the
+ sentences together.
++
++### RX-213 — a `{` after `\b` or `\B` that holds no number is `BadRepeatBounds` with detail 2, its sentence naming Rust's `\b{start}` and Perl's `\b{wb}`
++
++**@@DATE@@, cycle 0.1.5 (the plan's PD-57), at compiler `5fbaf4a`** — `SYNTAX.md` Y-32; per
++`meta/research/refusal-syntax-reference-engines.md`, as of 2026-10-01; cycle 0.1.4's hand-on, *"`\b{start}` Rust's
++start-of-word assertion, read as a bad bound"*. Measured: Rust's `regex` 1.13.1 reads `\b{start}`, `\b{end}`,
++`\b{start-half}` and `\b{end-half}` as word assertions and refuses any other name in the braces; Perl 5.38.2 reads
++`\b{wb}`, `\b{sb}`, `\b{gcb}`, `\b{lb}` and `\B{wb}` as Unicode boundaries and refuses any other, `\b{2}` included;
++PCRE2 and Python read `\b` and then the braces as text; Java refuses `\b{start}`. Here `\b` then `{` begins a
++repetition (Y-32), so `\b{start}` was `BadRepeatBounds`, detail 0, telling the author to write `\{` for a brace —
++PCRE's and Python's reading, and silent about the two engines that read a boundary.
++
++**The decision.** The same kind at the same byte, spanning what was read; when the atom the `{` follows is `\b` or
++`\B` and no digit follows it, detail 2, and the sentence names Rust's `\b{start}` and `\b{end}`, Perl's `\b{wb}`, and
++what to write: `\b` or `\B` alone, or `\{` for a brace. `\b{2}` stays a repetition of `\b`, legal (Y-22), as in Rust
++and Java; a bound that goes wrong later, `\b{2,x}`, keeps detail 0.
++
++**Measured at `5fbaf4a`.** `parse_refusals.npk` cases 72–75 and `pattern_error_text.npk` case 81 pass at −O0 and
++through `opt -O2`, and against the parser and text before this decision exit 72 and 81; with the detail dropped the
++first exits 72, with `\B` left out 74, and with the sentence's branch lost the second exits 81.
++
++*Alternatives declined:* **`\b{start}` read as Rust's assertion** — a construct nregex's engines do not have yet, and
++Perl reads the same braces otherwise; **`UnknownEscape` at the `\`** — the `\b` is a word boundary, and what is wrong
++is the brace; **detail 2 after any atom** — `a{start}` is a brace no engine reads as a boundary; **`\b` alone, without
++`\B`** — Perl's `\B{wb}` is the same reading of the same shape.
+diff --git a/meta/specs/COMPAT.md b/meta/specs/COMPAT.md
+index 09a3e7827a23e7403b346704a5d5f0fd8bacb774..ccf36a2a8cd70616dad147d91c19b5210eb3adee 100644
+--- a/meta/specs/COMPAT.md
++++ b/meta/specs/COMPAT.md
+@@ -40,6 +40,7 @@ The closest neighbour, so the list is short and each entry is deliberate.
+ | `\e`, `\0` | refused | U+001B and U+0000, as in Perl, PCRE and Python | §1 names them; accepting what Rust refuses changes no pattern Rust accepts — RX-204 |
+ | `\u{41}`, `\U{1F600}` | a codepoint | refused, naming `\x{…}` | one spelling for a codepoint in braces (`SYNTAX.md` Y-40) — RX-204 |
+ | `\<`, `\>` | the start and the end of a word | refused, naming `\b`, and `<` or `>` for the byte | Rust and GNU `grep` read a word assertion, Perl, PCRE, Python and Java the byte — RX-205 |
++| `\b{start}`, `\b{end}`, `\b{start-half}`, `\b{end-half}` | word assertions | refused, `BadRepeatBounds`, naming `\b` and Rust's reading | here a `{` after `\b` begins a repetition, and Perl reads the braces as a Unicode boundary (`SYNTAX.md` Y-32) — RX-213 |
+ | flags `U` and `R` | swap greed; CRLF mode | `(?U)` refused, `UnknownFlag`; `(?R)` refused as PCRE's recursion (`SYNTAX.md` Y-30) | flags nregex does not have — RX-206 |
+ | `x` mode inside a construct | white space skipped inside escapes, bounds and group heads — `\x4 1`, `a{2, 3}`, `( ?:a)` — and before a lazy `?` | read as without `x`, so each refused | Perl, Python and Java read each of these otherwise (`SYNTAX.md` Y-42) — RX-207 |
+ | white space past ASCII under `x` | Unicode's White_Space skipped | refused, `ExtendedAmbiguity` | Perl skips Pattern_White_Space, Python and Java ASCII white space alone (Y-42) — RX-207 |
+@@ -82,6 +83,7 @@ The list a user migrating from Python, PHP, Java or JavaScript needs.
+ | `[\1]` … `[\7]` — octal in a class in Perl, PCRE and Python | refused, `UnknownEscape`; write the hex form, `\x01` (Y-44) |
+ | `[\k]`, `[\G]`, `[\Z]` — the letter in Perl | refused, `UnknownEscape`, as any letter no rule names in a class (Y-44) |
+ | `\g1`, `\g{-1}`, `\g{name}` — Perl's and PCRE's backreferences; `\g<1>`, `\g'1'` — PCRE's call of a group | refused, `BackreferenceUnsupported` and `RecursionUnsupported` (`SYNTAX.md` Y-44, RX-210) |
++| `\b{wb}`, `\b{sb}`, `\b{gcb}`, `\b{lb}`, `\B{wb}` — Perl's Unicode boundaries | refused, `BadRepeatBounds`, naming `\b` and Perl's reading (`SYNTAX.md` Y-32, RX-213) |
+ | `(?i)` after the pattern's start — global in Python, which requires it first | from there to the enclosing group's `)`, across `|`, as in Perl, PCRE and Rust (`SYNTAX.md` Y-41, RX-206) |
+ | `(?^)`, `(?a)`, `(?n)`, `(?U)` — Perl's, PCRE's and .NET's other flags | `UnknownFlag`: the flags are `i`, `m`, `s`, `x` and `u` (Y-41) |
+ | blanks inside `a{2, 3}` and `\x{ 41 }`, which Perl reads since its 5.34 | refused, `BadRepeatBounds` and `BadHexEscape`, under `x` or not (`SYNTAX.md` Y-32, Y-42) |
+diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
+index 5d8d640d91bf6ca56295c8048bde0686f20925a7..bb0fcff5c9be003a4b9f97f2e63f72e357698c20 100644
+--- a/meta/specs/SYNTAX.md
++++ b/meta/specs/SYNTAX.md
+@@ -343,6 +343,10 @@ at the `{`, spanning what was read, detail 0; a bound above `NREGEX_REPEAT_MAX`
+ value stops growing past the bound, so no digit string overflows); a minimum above
+ the maximum is `BadRepeatBounds` spanning the braces, detail 1. A repeated group or
+ anchor is legal (Y-22).
++*(@@DATE@@, cycle 0.1.5 — RX-213: a `{` straight after `\b` or `\B` that holds no digit is `BadRepeatBounds` with
++detail 2, not 0: Rust's `regex` reads `\b{start}`, `\b{end}`, `\b{start-half}` and `\b{end-half}` as word assertions,
++and Perl `\b{wb}`, `\b{sb}`, `\b{gcb}`, `\b{lb}` and `\B{wb}` as Unicode boundaries, so its sentence names both. `\b{2}`
++repeats `\b`, as in Rust and Java.)*
+ 
+ **Rule Y-33 (RX-182) — the tree the parse builds.** `parse_pattern(uint8[]:pat,
+ Ast->:out)` refuses the length, then the encoding, then walks the pattern ONCE in
+@@ -729,6 +733,7 @@ RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-2
+ | `NothingToRepeat` | a quantifier with no atom before it | the quantifier | 1 | its first byte |
+ | `DoubleRepeat` | a quantifier after a quantifier | the second one | 1 | its first byte |
+ | `BadRepeatBounds` | a `{` that is no bounded repeat; a minimum above the maximum | the `{` | what was read | 0; 1 |
++| `BadRepeatBounds` (cycle 0.1.5, RX-213) | a `{` after `\b` or `\B` with no digit after it | the `{` | 1 | 2 |
+ | `RepeatTooLarge` | a bound above `NREGEX_REPEAT_MAX` | its first digit | its digits | the bound |
+ | `TooManyCaptureGroups` | a group numbered past `NREGEX_CAPTURE_GROUPS` — *not one nested past `NREGEX_NEST_DEPTH`, which is `NestTooDeep` first (Y-35)* | its `(` | 1 | the bound |
+ | `DuplicateGroupName` | a name already used | the second name | its length | the first group's number |
+diff --git a/src/syntax/parse.npk b/src/syntax/parse.npk
+index ac76b36ef8334cfd0dca8b6f73fed24ef26a85b8..6763d0b457b4846818959c30ebe9ea27902c5c98 100644
+--- a/src/syntax/parse.npk
++++ b/src/syntax/parse.npk
+@@ -746,7 +746,11 @@ func:quantify = PatternError?(Ast->:out, Parser->:p, int64:at, int32:b) never fa
+     else if (b == CH_QUESTION) { max = 1i64; }
+     else if (b == CH_LBRACE) {
+         if (!(raw is_digit(raw cursor_peek(@p.c)))) {
+-            pass raw pattern_error(PatternErrorKind.BadRepeatBounds, at, p.c.pos - at, 0u32);
++            // after `\b` or `\B`, detail 2: Rust's `regex` reads `\b{start}` as a word assertion and
++            // Perl `\b{wb}` and `\B{wb}` as Unicode boundaries, and the sentence names both (RX-213)
++            uint32:why = 0u32;
++            if (target.kind == AstKind.WordBoundary) { why = 2u32; }
++            pass raw pattern_error(PatternErrorKind.BadRepeatBounds, at, p.c.pos - at, why);
+         }
+         int64:min_at = p.c.pos;
+         min = raw digits(@p.c);
+diff --git a/src/syntax/pattern_error.npk b/src/syntax/pattern_error.npk
+index 825b929401589a12379156f9e53bf8e6f8632aa9..c913c308b904c2ef70aaf0760ffc52365f5adfa3 100644
+--- a/src/syntax/pattern_error.npk
++++ b/src/syntax/pattern_error.npk
+@@ -317,6 +317,9 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
+             if (e.detail == 1u32) {
+                 drop put(@b, ": the minimum is greater than the maximum. Write the smaller bound first.");
+             }
++            else if (e.detail == 2u32) {
++                drop put(@b, ": a `{` after a word boundary repeats it, and this one holds no number. Rust's `regex` reads `\\b{start}` and `\\b{end}` as word assertions and Perl `\\b{wb}` as a Unicode boundary, and nregex reads neither. Write `\\b` or `\\B` alone, or `\\{` to match a brace.");
++            }
+             else {
+                 drop put(@b, ": a `{` must begin `{n}`, `{n,}` or `{n,m}`, in decimal digits. Write `\\{` to match a brace.");
+             }
+diff --git a/tests/unit/parse_refusals.npk b/tests/unit/parse_refusals.npk
+index 550d3aca29fe41057ff5c982e000def952eaea6d..8eba9abf2024ff166944bf721064bd8c59ca7e34 100644
+--- a/tests/unit/parse_refusals.npk
++++ b/tests/unit/parse_refusals.npk
+@@ -21,6 +21,9 @@
+ // `parse_flags` and `parse_flag_refusals` hold them.)*
+ // *(@@DATE@@, cycle 0.1.5 -- RX-209: nor are §8's escapes, which `parse_declined` holds; nothing is
+ // refused provisionally any more.)*
++// *(@@DATE@@, cycle 0.1.5 -- RX-213: a `{` after `\b` or `\B` that holds no number is
++// `BadRepeatBounds` with detail 2, its sentence naming Rust's `\b{start}` and Perl's `\b{wb}`
++// (72-75).)*
+ mod:parse_refusals;
+ 
+ use "../../src/core/core.npk".*;
+@@ -115,6 +118,12 @@ func:run = int32() never fails {
+     // the first refusal wins, left to right
+     if (!(raw refused("a)(", PatternErrorKind.UnopenedGroup, 1i64, 1i64, 0u32)))      { pass 70i32; }
+     if (!(raw refused("(*", PatternErrorKind.NothingToRepeat, 1i64, 1i64, 42u32)))    { pass 71i32; }
++    // a `{` after a word boundary that holds no number: Rust's `\b{start}`, Perl's `\b{wb}` and
++    // `\B{wb}` -- detail 2; any other bad bound after one keeps 0 (RX-213)
++    if (!(raw refused("\\b{start}", PatternErrorKind.BadRepeatBounds, 2i64, 1i64, 2u32)))   { pass 72i32; }
++    if (!(raw refused("a\\b{end}", PatternErrorKind.BadRepeatBounds, 3i64, 1i64, 2u32)))    { pass 73i32; }
++    if (!(raw refused("\\B{wb}", PatternErrorKind.BadRepeatBounds, 2i64, 1i64, 2u32)))      { pass 74i32; }
++    if (!(raw refused("\\b{2,x}", PatternErrorKind.BadRepeatBounds, 2i64, 3i64, 0u32)))     { pass 75i32; }
+     pass 0i32;
+ };
+ 
+diff --git a/tests/unit/pattern_error_text.npk b/tests/unit/pattern_error_text.npk
+index f152e3112de7ad83485066a66e2e2b6265ee26dc..08a399f2d996d1f13d27fad91972ee9a92efa75f 100644
+--- a/tests/unit/pattern_error_text.npk
++++ b/tests/unit/pattern_error_text.npk
+@@ -197,6 +197,8 @@ func:run = int32() never fails {
+         }
+         kk = kk + 1i64;
+     }
++    // a `{` after `\b` holding no number: Rust's and Perl's readings named (RX-213)
++    if (!(raw says("\\b{start}", "bad repetition bounds at byte 2: a `{` after a word boundary repeats it, and this one holds no number. Rust's `regex` reads `\\b{start}` and `\\b{end}` as word assertions and Perl `\\b{wb}` as a Unicode boundary, and nregex reads neither. Write `\\b` or `\\B` alone, or `\\{` to match a brace."))) { pass 81i32; }
+     pass 0i32;
+ };
+ 

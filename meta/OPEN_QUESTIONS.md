@@ -989,6 +989,17 @@ movemask intrinsic, which is a better request than a speculative one.
   type-level fact and the arrays fixed. Against: it makes `Regex` generic over
   its options, infecting every signature that takes one.
   **Recommendation:** a plain value. **Decide at cycle 0.10.**
+- **O-A3 — whether `RegexOptions` may set a flag that changes what a pattern means.** *Raised 2026-10-01 by cycle
+  0.1.5's plan, from cycle 0.1.4's record, which found it.* `SYNTAX.md` Y-12 says there is no global-flag argument to
+  `regex_compile`: *"a pattern's behaviour is a property of the pattern text, which is what makes a pattern
+  copy-pasteable between programs"*. `API.md` A-7 makes the meaning flags — `i`, `m`, `s`, `x` and `u` — settable in
+  `RegexOptions`, *"equivalent to writing the inline flag at the start of the pattern"*, the inline form winning where
+  both appear, and cycle 0.10.2's checklist plans it. The two rules disagree on whether anything outside the pattern
+  may change what it means. Read with RX-206, A-7's equivalence holds — a flag group at the start reaches the
+  pattern's end across `|` — so the question is only whether a second way to set a flag should exist.
+  **Recommendation:** keep Y-12, and strike the meaning flags from A-7. A caller pays four bytes for `(?i)` at the
+  front, and the text alone deciding the meaning is what makes a pattern copy-pasteable: a setting outside it is a
+  channel the reader of the pattern cannot see. **Decide at cycle 0.10, before 0.10.2 writes `RegexOptions`.**
 
 ### Verification and performance
 

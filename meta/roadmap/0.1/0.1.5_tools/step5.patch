@@ -1,0 +1,325 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 1302b8ae3e468581f24393ab1f5de63171fd44da..1357a73120da8de12b673fc3f14141d3943bda9c 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -5371,3 +5371,44 @@ ASCII byte that is neither a letter nor a digit** — a `\` before `<` or `>` is
+ `\x{…}`** — the text unreadable for nothing, since only the twenty-one mean anything; **an ill-formed text decoded as it
+ is** — an overlong form would be read as a codepoint the text does not hold, `E0 82 85` as U+0085; **a `Bytes` sink
+ rather than a `string`** — `API.md` §1 gives a `string`, and A-12's sink is for replacement, which runs per match.
++
++### RX-212 — a refusal of what §8 declines says what it is, where, the guarantee or the reading it would take, and what to write, and never that it is unsupported
++
++**@@DATE@@, cycle 0.1.5 (the plan's PD-56), at compiler `5fbaf4a`** — `SYNTAX.md` Y-34, with Y-18 and Y-37, `COMPAT.md`
++K-1 and `UNICODE.md` U-8; per `meta/research/refusal-syntax-reference-engines.md` and
++`meta/research/lookaround-linear-time.md`, as of 2026-10-01. The cycle README asks that each message name the guarantee
++or the alternative, *"never 'unsupported'"*, and holds four to the letter: the backreference says the pattern could not
++be matched in linear time, the quotation names `regex_escape()`, `\Z` names `\n?\z`, and `\p{InGreek}` names
++`\p{Script=Greek}`. Cycle 0.1.1's sentences said *"is not supported:"* before the reason, one began *"unsupported
++anchor"*, and the backreference's said *"matching one is NP-hard in general"*. The lookaround's said it *"cannot be
++matched in linear time"*, and two peer-reviewed algorithms match lookahead and lookbehind in O(m·n) — Mamouras and
++Chattopadhyay, POPL 2024; Barrière and Pit-Claudel, PLDI 2024 — so that reason is false as stated, though RE2, Rust's
++`regex` and nregex read no lookaround.
++
++**The decision.** Each sentence of §8's kinds says what the construct is and its byte, why nregex refuses it — the
++guarantee it would break, or how the engines read it — and what to write instead; none says it is unsupported, and the
++text's unit holds that over every kind. A backreference *"matches the text a group captured, which no automaton can,
++so the pattern could not be matched in linear time, as every nregex search is"*; lookaround: *"nregex's automata read
++no lookahead or lookbehind, and they are what make every search take linear time"*; a possessive `+` and an atomic group
++each *"stops backtracking"*, and the fix says it may match more; recursion and `\g<…>` let a pattern match nested text; `(?R)`
++names Rust's CRLF mode beside PCRE's recursion — 0.1.4's hand-on — and says to write `\r?$` under `m`; `\Z` names the
++three readings and both `\z` and `\n?\z`; `\G` names `regex_find_at` and the check on the match's start; `\Q` and a
++lone `\E` name `regex_escape()`; the comment group says `#` begins a comment outside a class — 0.1.4's record's
++hand-on. And two refusals that are not §8's kinds: `[\1]` … `[\7]`, `UnknownEscape` in a class, says Perl, PCRE and
++Python read octal there and names the hex form; and `UnknownUnicodeProperty` gains detail 4, a Unicode block, its
++sentence naming `\p{Script=Greek}` for `\p{InGreek}`. The parser cannot raise it: only the tables tell a block from a
++script, `\p{Inherited}` being one, so cycle 0.3.1 raises it where it resolves a name, and this cycle holds its sentence
++to the letter by building the error. Each new or changed sentence is listed in the plan's §6, for the author.
++
++**Measured at `5fbaf4a`.** `tests/unit/pattern_error_text.npk` passes at −O0 and through `opt -O2`, and against the text
++before this decision exits 16, the lookaround's sentence; each branch lost, and the word put back, exits as the plan's
++§1.12 records.
++
++*Alternatives declined:* **"is not supported" kept beside the reason, K-1 read as "not unsupported alone"** — the
++checklist says never; **the NP-hardness of backreferences** — true, Aho's 1990 result as the PLDI 2024 paper cites
++it, but not the guarantee an author reads the sentence for, and the checklist asks for linear time; **"cannot be
++matched in linear time" kept for lookaround** — false since 2024; **the block refused by the parser at an `In` or `Block=` prefix** — `\p{Inherited}`
++and `\p{Inscriptional_Pahlavi}` are scripts, and the parser reads no table; **a kind of its own for a block** — U-7
++names `UnknownUnicodeProperty`, and a detail tells the sentence which, as RX-200's does for `UnknownPosixClass`; **the
++block's sentence left to cycle 0.3.1 with its trigger** — the checklist holds it here, and the author reads the
++sentences together.
+diff --git a/meta/roadmap/0.3/README.md b/meta/roadmap/0.3/README.md
+index d40c6a3c54c5c7b6ee16bd0915c7083e146a9c61..e537bc4b3fa148b29509647b2e4717180a4b0840 100644
+--- a/meta/roadmap/0.3/README.md
++++ b/meta/roadmap/0.3/README.md
+@@ -37,7 +37,7 @@ design; recorded when chosen).
+ - [ ] UAX #44 loose matching: case, whitespace, `-` and `_` ignored in both name and value (U-6)
+ - [ ] **the gate**: every alias in `PropertyAliases.txt` and `PropertyValueAliases.txt` resolves to the same set as its canonical name
+ - [ ] `UnknownUnicodeProperty` with the offset, **never an empty class** (U-7) — an engine that silently matches nothing for a typo turns a mistake into a pattern that never fires
+-- [ ] **blocks refused**, naming `Script` (U-8, RX-023)
++- [ ] **blocks refused**, naming `Script` (U-8, RX-023) *(@@DATE@@ — cycle 0.1.5, RX-212: as `UnknownUnicodeProperty` with detail 4, at the `\`, through the property's `}` — its sentence is written and held by `pattern_error_text.npk` case 79; this subcycle raises it where a name resolves to a block)*
+ 
+ ### 0.3.2 — Perl and POSIX classes
+ - [ ] `\d`, `\w`, `\s` and their complements, per `UNICODE.md` §3's table, in both Unicode and byte mode
+diff --git a/meta/specs/COMPAT.md b/meta/specs/COMPAT.md
+index 40d5c89e02d836b70f6772636eb7e1991b194d12..09a3e7827a23e7403b346704a5d5f0fd8bacb774 100644
+--- a/meta/specs/COMPAT.md
++++ b/meta/specs/COMPAT.md
+@@ -90,6 +90,11 @@ The list a user migrating from Python, PHP, Java or JavaScript needs.
+ **Rule K-1 — every refusal names the alternative in its message**, and where
+ there is none it names the reason. `LookaroundUnsupported` says the pattern
+ cannot be matched in linear time, not "unsupported".
++*(@@DATE@@, cycle 0.1.5 — RX-212: it says nregex's automata read no lookahead
++or lookbehind, and that they are what make every search take linear time — not
++that lookaround cannot be matched in linear time, which two published algorithms
++do ([`../research/lookaround-linear-time.md`](../research/lookaround-linear-time.md)).
++And no refusal says it is unsupported.)*
+ 
+ ---
+ 
+diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
+index 40d1521d65efc653928345f8aff9ef8def3d5796..5d8d640d91bf6ca56295c8048bde0686f20925a7 100644
+--- a/meta/specs/SYNTAX.md
++++ b/meta/specs/SYNTAX.md
+@@ -555,6 +555,10 @@ no table. A name that cannot be read is `UnknownUnicodeProperty` at the `\`, spa
+ neither an ASCII letter nor `{` follows the `p`, 2 when the braces never close, 3 when they hold nothing. Each is a
+ member of a class (Y-36).
+ *(2026-10-01, cycle 0.1.3 — RX-199: and outside a class, an atom, which a quantifier may repeat.)*
++*(@@DATE@@, cycle 0.1.5 — RX-212: `UnknownUnicodeProperty`'s detail 4 says the name is a Unicode block —
++`\p{InGreek}`, `\p{Block=Greek}` — which `UNICODE.md` U-8 refuses, its sentence naming `\p{Script=Greek}`. Cycle
++0.3.1 raises it where it resolves a name, since only the tables tell a block from a script: `\p{Inherited}` and
++`\p{Inscriptional_Pahlavi}` are scripts.)*
+ 
+ **Rule Y-38 (RX-197) — POSIX classes, inside a class only.** Where a member would start inside a class, `[:` begins
+ a POSIX class: `[:name:]`, or `[:^name:]` for its complement, its name lowercase and one of §5.1's fourteen — a
+@@ -585,6 +589,9 @@ a range, an escape, a nested, POSIX or Perl class, a property or an operator mak
+ **Rule Y-18 — there is no `\Z`.** Perl's `\Z` matches at the end *or* before a
+ final newline, which is a special case that surprises everyone once and is
+ spelled `\n?\z` in three characters. Refused with that suggestion.
++*(@@DATE@@, cycle 0.1.5 — RX-212: and the engines read it three ways — Perl and PCRE at the end or before a final
++`\n`, Java before any final line end, `\r\n` and U+2028 among them, and Python at the end alone, as `\z` — so the
++refusal names `\z` too, and says `\n?\z` takes the newline into the match.)*
+ 
+ **Rule Y-19 — `$` does not match before a final newline** unless `m` is on.
+ This differs from Perl and matches Rust and RE2. It is stated here and in
+@@ -700,6 +707,10 @@ K-1). The text is built from the four fields alone — the pattern is not an arg
+ (`bytes_put_uint`, `SAFETY.md` S-25). Every kind has a sentence from cycle 0.1.1;
+ each later subcycle holds its kinds' sentences to the letter when it produces them,
+ as `tests/unit/pattern_error_text.npk` holds 0.1.1's.
++*(@@DATE@@, cycle 0.1.5 — RX-212: a refusal of what §8 declines says what the construct is, at which byte, the
++guarantee it would break or the reading it would take, and what to write — and never that it is unsupported, a word
++no sentence holds; `(?R)` names Rust's CRLF mode beside PCRE's recursion, and the comment group says `#` begins a
++comment outside a class.)*
+ 
+ **Rule Y-25 — every kind has a test that provokes it**, and a harness check
+ diffs the enum against the tests, so a kind nothing can produce is caught. This
+@@ -748,6 +759,7 @@ RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-2
+ | `UnsupportedAnchor` (cycle 0.1.5, RX-209) | `\G` or `\Z`, outside a class | the `\` | 2 | 71 or 90 |
+ | `UnsupportedQuoting` (cycle 0.1.5, RX-209) | `\Q` or `\E`, in a class or out | the `\` | 2 | 81 or 69 |
+ | `UnknownEscape` (cycle 0.1.5, RX-209) | in a class, a `\` before a digit `1` … `9`, `k`, `G` or `Z` | the `\` | 2 | that byte |
++| `UnknownUnicodeProperty` (cycle 0.3.1, RX-212) | a Unicode block, `\p{InGreek}` or `\p{Block=Greek}` (`UNICODE.md` U-8) | the `\` | through its `}` | 4 |
+ | `BackreferenceUnsupported` (cycle 0.1.5, RX-210) | `\g` outside a class, but before `<` or `'` | the `\` | 2 | 103 |
+ | `RecursionUnsupported` (cycle 0.1.5, RX-210) | `\g<` or `\g'` outside a class | the `\` | 3 | 60 or 39 |
+ 
+diff --git a/meta/specs/UNICODE.md b/meta/specs/UNICODE.md
+index d0da1ee7d13d02c27ed75a229a35b5e745e7e77e..281fb0f942637588165f5496254a20792f053210 100644
+--- a/meta/specs/UNICODE.md
++++ b/meta/specs/UNICODE.md
+@@ -79,6 +79,10 @@ characters used by one — Greek letters appear in four blocks and the Greek
+ block contains Coptic. Every use of a block in a real pattern is a bug that
+ happens to work for the author's test data, and `Script` or `Script_Extensions`
+ is what was meant. The refusal names them.
++*(@@DATE@@, cycle 0.1.5 — RX-212: the refusal is `UnknownUnicodeProperty` with
++detail 4, its sentence written and held to the letter now, naming
++`\p{Script=Greek}` for `\p{InGreek}`; cycle 0.3.1 raises it where it resolves a
++name.)*
+ 
+ ---
+ 
+diff --git a/src/syntax/pattern_error.npk b/src/syntax/pattern_error.npk
+index d87a1032afe52133befdede2652abbacd201bbcb..825b929401589a12379156f9e53bf8e6f8632aa9 100644
+--- a/src/syntax/pattern_error.npk
++++ b/src/syntax/pattern_error.npk
+@@ -181,6 +181,11 @@ func:ch = NIL(Bytes->:b, uint32:d) never fails {
+ 
+ // ---- codepoints in a sentence (RX-204) -------------------------------------------
+ 
++// The digits `1` and `7`: after a `\` in a class, `1` … `7` begin an octal escape in Perl, PCRE and
++// Python (`SYNTAX.md` Y-44), and the sentence says so.
++fixed uint32:OCTAL_FIRST = 49u32;
++fixed uint32:OCTAL_LAST = 55u32;
++
+ // The first codepoint UTF-8 writes in two bytes, in three, in four (RFC 3629 §3).
+ fixed int64:UTF8_TWO = 128i64;
+ fixed int64:UTF8_THREE = 2048i64;
+@@ -252,7 +257,9 @@ func:shown = NIL(Bytes->:b, uint32:d) never fails {
+ // can tell what the author meant -- `\(` for a literal parenthesis, `(?<name>…)`
+ // for Python's spelling, `(?:…)` for a group that need not capture. A refusal of
+ // a construct nregex declines (`SYNTAX.md` §8) names the guarantee it would break
+-// or the alternative, never "unsupported" alone (`COMPAT.md` K-1). Built in a
++// or the alternative, never "unsupported" alone (`COMPAT.md` K-1). *(@@DATE@@, cycle
++// 0.1.5 -- RX-212: and none says it is unsupported at all, held by the text's unit
++// over every kind.)* Built in a
+ // `Bytes`, so no number costs an allocation or a division (`bytes_put_uint`,
+ // S-25), and a program that never calls it pays nothing for it.
+ pub func:pattern_error_text = string(PatternError:e) never fails {
+@@ -362,6 +369,11 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
+             }
+         },
+         (PatternErrorKind.UnknownUnicodeProperty) {
++            if (e.detail == 4u32) {
++                drop put(@b, "Unicode block at byte "); drop num(@b, e.offset);
++                drop put(@b, ": a block, as `\\p{InGreek}` or `\\p{Block=Greek}` names one, is a range of codepoints set aside by history -- the Greek block holds Coptic letters, and Greek letters lie outside it too. Write its script instead, as in `\\p{Script=Greek}` for `\\p{InGreek}`.");
++                pass raw bytes_copy_string(@b);
++            }
+             drop put(@b, "unknown Unicode property at byte "); drop num(@b, e.offset);
+             if (e.detail == 1u32) {
+                 drop put(@b, ": `\\p` and `\\P` take a one-letter name, as in `\\pL`, or a name in braces, as in `\\p{Greek}`.");
+@@ -393,6 +405,12 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
+             if (e.detail == 48u32) {
+                 drop put(@b, ": `\\0` before a digit begins an octal escape in Perl, PCRE, Python and Java, and nregex reads no octal. Write the codepoint in hex instead, as in `\\x0A` for `\\012`, or `\\x00` and then the digit for a NUL and a digit.");
+             }
++            else if ((e.detail >= OCTAL_FIRST) && (e.detail <= OCTAL_LAST)) {
++                drop put(@b, ": `\\"); drop ch(@b, e.detail);
++                drop put(@b, "` in a class begins an octal escape in Perl, PCRE and Python, and nregex reads no octal. Write the codepoint in hex instead, as in `\\x0");
++                drop ch(@b, e.detail); drop put(@b, "` for `\\"); drop ch(@b, e.detail);
++                drop put(@b, "` and `\\x0A` for `\\12`, or `"); drop ch(@b, e.detail); drop put(@b, "` to match the digit.");
++            }
+             else if (e.detail == 98u32) {
+                 drop put(@b, ": `\\b` is a word boundary, a position, and a class holds codepoints. Move it out of the class, or write `\\x08` to match a backspace, as Perl and Python read `[\\b]`.");
+             }
+@@ -519,38 +537,54 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
+         },
+         (PatternErrorKind.BackreferenceUnsupported) {
+             drop put(@b, "backreference at byte "); drop num(@b, e.offset);
+-            drop put(@b, " is not supported: matching one is NP-hard in general, and every nregex search takes linear time. Capture both parts and compare them yourself.");
++            drop put(@b, ": it matches the text a group captured, which no automaton can, so the pattern could not be matched in linear time, as every nregex search is. Capture both parts and compare them yourself.");
+         },
+         (PatternErrorKind.LookaroundUnsupported) {
+             drop put(@b, "lookaround at byte "); drop num(@b, e.offset);
+-            drop put(@b, " is not supported: it cannot be matched in linear time, which every nregex search guarantees. Match the larger text and inspect its captures instead.");
++            drop put(@b, ": nregex's automata read no lookahead or lookbehind, and they are what make every search take linear time. Match the larger text and inspect its captures instead.");
+         },
+         (PatternErrorKind.AtomicGroupUnsupported) {
+             if (e.detail == 43u32) {
+                 drop put(@b, "possessive repetition at byte "); drop num(@b, e.offset);
+-                drop put(@b, " is not supported: it steers backtracking, and nregex never backtracks -- every search takes linear time. Remove the `+` for an ordinary repetition.");
++                drop put(@b, ": the `+` stops backtracking into the repetition, and nregex never backtracks -- every search takes linear time. Remove the `+` for an ordinary repetition, which may match where the possessive one would not.");
+             }
+             else {
+                 drop put(@b, "atomic group at byte "); drop num(@b, e.offset);
+-                drop put(@b, " is not supported: it steers backtracking, and nregex never backtracks -- every search takes linear time. Write a plain group, `(?:...)`.");
++                drop put(@b, ": `(?>` stops backtracking into the group, and nregex never backtracks -- every search takes linear time. Write a plain group, `(?:...)`, which may match where the atomic one would not.");
+             }
+         },
+         (PatternErrorKind.RecursionUnsupported) {
+             drop put(@b, "recursion at byte "); drop num(@b, e.offset);
+-            drop put(@b, " is not supported: a recursive pattern is not a regular expression and cannot be matched in linear time. Parse nested structure with a parser instead.");
++            if (e.detail == 82u32) {
++                drop put(@b, ": `(?R)` calls the whole pattern in Perl and PCRE and turns on CRLF mode in Rust's `regex`, and nregex has neither: a call lets a pattern match nested text, which no automaton can, and an automaton is what keeps every nregex search linear in time. Parse nested structure with a parser, and under `m` write `\\r?$` for a line that may end `\\r\\n`.");
++            }
++            else {
++                drop put(@b, ": a call of the pattern or of a group lets it match nested text, which no automaton can, and an automaton is what keeps every nregex search linear in time. Parse nested structure with a parser instead.");
++            }
+         },
+         (PatternErrorKind.UnsupportedAnchor) {
+-            drop put(@b, "unsupported anchor at byte "); drop num(@b, e.offset);
+-            if (e.detail == 90u32) { drop put(@b, ": there is no `\\Z`. Write `\\n?\\z` to match at the end or before a final newline."); }
+-            else { drop put(@b, ": there is no `\\G`. Search from an offset with regex_find_at instead."); }
++            if (e.detail == 90u32) {
++                drop put(@b, "anchor `\\Z` at byte "); drop num(@b, e.offset);
++                drop put(@b, ": Perl and PCRE match it at the end or before a final `\\n`, Java before any final line end, and Python at the end alone, so nregex takes none of the three readings. Write `\\z` for the end alone, or `\\n?\\z` to take a final `\\n` into the match too.");
++            }
++            else {
++                drop put(@b, "anchor `\\G` at byte "); drop num(@b, e.offset);
++                drop put(@b, ": Perl, PCRE and Java match it where the previous match ended or the search began, and an nregex search keeps no previous match. Search from an offset with regex_find_at, and check that the match starts there.");
++            }
+         },
+         (PatternErrorKind.UnsupportedGroup) {
+             drop put(@b, "comment group at byte "); drop num(@b, e.offset);
+-            drop put(@b, " is not supported: in `x` mode, `#` starts a comment that runs to the end of the line.");
++            drop put(@b, ": nregex has one way to write a comment -- under `x`, a `#` outside a class begins one that runs to the end of the line. Remove the group, or turn on `x` with `(?x)` and write the comment after a `#`, escaping any white space or `#` the pattern matches, as `\\ ` and `\\#`.");
+         },
+         (PatternErrorKind.UnsupportedQuoting) {
+-            drop put(@b, "quoting at byte "); drop num(@b, e.offset);
+-            drop put(@b, " is not supported: build a pattern that matches a literal string with regex_escape() instead of `\\Q...\\E`.");
++            if (e.detail == 69u32) {
++                drop put(@b, "quotation end at byte "); drop num(@b, e.offset);
++                drop put(@b, ": `\\E` ends a `\\Q...\\E` quotation in Perl, PCRE and Java, and nregex reads none, so there is nothing for it to end. Remove it, and build any quoted text with regex_escape().");
++            }
++            else {
++                drop put(@b, "quotation at byte "); drop num(@b, e.offset);
++                drop put(@b, ": nregex reads no `\\Q...\\E`, a quotation that a `\\E` in its own text ends early. Build the pattern from the text with regex_escape() instead, which escapes every byte that means something in a pattern.");
++            }
+         },
+         (PatternErrorKind.PatternTooLong) {
+             drop put(@b, "pattern too long at byte "); drop num(@b, e.offset);
+diff --git a/tests/unit/pattern_error_text.npk b/tests/unit/pattern_error_text.npk
+index c561b6bd98da1babf67ebe5a5c31da4f1d963355..f152e3112de7ad83485066a66e2e2b6265ee26dc 100644
+--- a/tests/unit/pattern_error_text.npk
++++ b/tests/unit/pattern_error_text.npk
+@@ -9,6 +9,10 @@
+ // kind is left without a sentence.
+ // *(2026-10-01, cycle 0.1.4 -- and every one cycle 0.1.4's escapes and flags make: 39 and
+ // 41-66, RX-203 … RX-208.)*
++// *(@@DATE@@, cycle 0.1.5 -- RX-212: and every refusal of what `SYNTAX.md` §8 declines, each saying
++// what is wrong, where, and the guarantee or the alternative, none saying it is unsupported -- 16-21
++// rewritten so, and 67-78; the Unicode block's sentence, which cycle 0.3.1 raises (79); and no kind's
++// sentence holding the word, over every kind and twelve details (80).)*
+ mod:pattern_error_text;
+ 
+ use "../../src/core/core.npk".*;
+@@ -70,12 +74,12 @@ func:run = int32() never fails {
+     if (!(raw says("(?<ab", "bad group name at byte 3: the name has no closing `>`. End it with `>`, as in `(?<name>...)`."))) { pass 13i32; }
+     if (!(raw says("(?P<n>a)", "wrong named-group spelling at byte 0: `(?P<name>...)` is Python's spelling. Write `(?<name>...)`."))) { pass 14i32; }
+     if (!(raw says("(?'n'a)", "wrong named-group spelling at byte 0: `(?'name'...)` is the .NET spelling. Write `(?<name>...)`."))) { pass 15i32; }
+-    if (!(raw says("(?=a)", "lookaround at byte 0 is not supported: it cannot be matched in linear time, which every nregex search guarantees. Match the larger text and inspect its captures instead."))) { pass 16i32; }
+-    if (!(raw says("a*+", "possessive repetition at byte 1 is not supported: it steers backtracking, and nregex never backtracks -- every search takes linear time. Remove the `+` for an ordinary repetition."))) { pass 17i32; }
+-    if (!(raw says("(?>a)", "atomic group at byte 0 is not supported: it steers backtracking, and nregex never backtracks -- every search takes linear time. Write a plain group, `(?:...)`."))) { pass 18i32; }
+-    if (!(raw says("(?R)", "recursion at byte 0 is not supported: a recursive pattern is not a regular expression and cannot be matched in linear time. Parse nested structure with a parser instead."))) { pass 19i32; }
+-    if (!(raw says("(?P=n)", "backreference at byte 0 is not supported: matching one is NP-hard in general, and every nregex search takes linear time. Capture both parts and compare them yourself."))) { pass 20i32; }
+-    if (!(raw says("(?#c)", "comment group at byte 0 is not supported: in `x` mode, `#` starts a comment that runs to the end of the line."))) { pass 21i32; }
++    if (!(raw says("(?=a)", "lookaround at byte 0: nregex's automata read no lookahead or lookbehind, and they are what make every search take linear time. Match the larger text and inspect its captures instead."))) { pass 16i32; }
++    if (!(raw says("a*+", "possessive repetition at byte 1: the `+` stops backtracking into the repetition, and nregex never backtracks -- every search takes linear time. Remove the `+` for an ordinary repetition, which may match where the possessive one would not."))) { pass 17i32; }
++    if (!(raw says("(?>a)", "atomic group at byte 0: `(?>` stops backtracking into the group, and nregex never backtracks -- every search takes linear time. Write a plain group, `(?:...)`, which may match where the atomic one would not."))) { pass 18i32; }
++    if (!(raw says("(?R)", "recursion at byte 0: `(?R)` calls the whole pattern in Perl and PCRE and turns on CRLF mode in Rust's `regex`, and nregex has neither: a call lets a pattern match nested text, which no automaton can, and an automaton is what keeps every nregex search linear in time. Parse nested structure with a parser, and under `m` write `\\r?$` for a line that may end `\\r\\n`."))) { pass 19i32; }
++    if (!(raw says("(?P=n)", "backreference at byte 0: it matches the text a group captured, which no automaton can, so the pattern could not be matched in linear time, as every nregex search is. Capture both parts and compare them yourself."))) { pass 20i32; }
++    if (!(raw says("(?#c)", "comment group at byte 0: nregex has one way to write a comment -- under `x`, a `#` outside a class begins one that runs to the end of the line. Remove the group, or turn on `x` with `(?x)` and write the comment after a `#`, escaping any white space or `#` the pattern matches, as `\\ ` and `\\#`."))) { pass 21i32; }
+     uint8[1]:ff = [255u8];
+     Ast:t = raw ast_init(4i64);
+     PatternError?:r = raw parse_pattern(ff[0i64...1i64], @t);
+@@ -164,6 +168,35 @@ func:run = int32() never fails {
+     if (!(raw says("(?-u)é", "non-ASCII literal at byte 5 under `(?-u)`: U+00E9 takes 2 bytes in UTF-8, and in byte mode a literal is one byte. Write its UTF-8 bytes as `\\xC3\\xA9`, the byte E9 as `\\xE9`, or turn `u` back on around it, as in `(?u:...)`."))) { pass 64i32; }
+     if (!(raw says("(?-u)\\x{20AC}", "non-ASCII literal at byte 5 under `(?-u)`: U+20AC takes 3 bytes in UTF-8, and in byte mode a literal is one byte. Write its UTF-8 bytes as `\\xE2\\x82\\xAC`, or turn `u` back on around it, as in `(?u:...)`."))) { pass 65i32; }
+     if (!(raw says("(?-u)\\pL", "Unicode property at byte 5 under `(?-u)`: a property names codepoints, and byte mode matches bytes. Turn `u` back on around it, as in `(?u:\\p{Greek})`, or write the bytes it should match as a class."))) { pass 66i32; }
++    // cycle 0.1.5's refusals of what SYNTAX.md §8 declines (Y-44), each sentence to the letter (RX-212)
++    if (!(raw says("(a)\\1", "backreference at byte 3: it matches the text a group captured, which no automaton can, so the pattern could not be matched in linear time, as every nregex search is. Capture both parts and compare them yourself."))) { pass 67i32; }
++    if (!(raw says("\\k<n>", "backreference at byte 0: it matches the text a group captured, which no automaton can, so the pattern could not be matched in linear time, as every nregex search is. Capture both parts and compare them yourself."))) { pass 68i32; }
++    if (!(raw says("(a)\\g1", "backreference at byte 3: it matches the text a group captured, which no automaton can, so the pattern could not be matched in linear time, as every nregex search is. Capture both parts and compare them yourself."))) { pass 69i32; }
++    if (!(raw says("(?1)", "recursion at byte 0: a call of the pattern or of a group lets it match nested text, which no automaton can, and an automaton is what keeps every nregex search linear in time. Parse nested structure with a parser instead."))) { pass 70i32; }
++    if (!(raw says("(a)\\g<1>", "recursion at byte 3: a call of the pattern or of a group lets it match nested text, which no automaton can, and an automaton is what keeps every nregex search linear in time. Parse nested structure with a parser instead."))) { pass 71i32; }
++    if (!(raw says("a\\Z", "anchor `\\Z` at byte 1: Perl and PCRE match it at the end or before a final `\\n`, Java before any final line end, and Python at the end alone, so nregex takes none of the three readings. Write `\\z` for the end alone, or `\\n?\\z` to take a final `\\n` into the match too."))) { pass 72i32; }
++    if (!(raw says("\\Ga", "anchor `\\G` at byte 0: Perl, PCRE and Java match it where the previous match ended or the search began, and an nregex search keeps no previous match. Search from an offset with regex_find_at, and check that the match starts there."))) { pass 73i32; }
++    if (!(raw says("\\Qa.b\\E", "quotation at byte 0: nregex reads no `\\Q...\\E`, a quotation that a `\\E` in its own text ends early. Build the pattern from the text with regex_escape() instead, which escapes every byte that means something in a pattern."))) { pass 74i32; }
++    if (!(raw says("a\\E", "quotation end at byte 1: `\\E` ends a `\\Q...\\E` quotation in Perl, PCRE and Java, and nregex reads none, so there is nothing for it to end. Remove it, and build any quoted text with regex_escape()."))) { pass 75i32; }
++    if (!(raw says("[\\Q]", "quotation at byte 1: nregex reads no `\\Q...\\E`, a quotation that a `\\E` in its own text ends early. Build the pattern from the text with regex_escape() instead, which escapes every byte that means something in a pattern."))) { pass 76i32; }
++    if (!(raw says("[\\1]", "unknown escape at byte 1: `\\1` in a class begins an octal escape in Perl, PCRE and Python, and nregex reads no octal. Write the codepoint in hex instead, as in `\\x01` for `\\1` and `\\x0A` for `\\12`, or `1` to match the digit."))) { pass 77i32; }
++    if (!(raw says("[\\8]", "unknown escape at byte 1: `\\8` is not an escape nregex defines, and a `\\` before a letter or a digit never stands for that letter or digit. Write `8` to match it, or `\\\\` to match a backslash."))) { pass 78i32; }
++    // a Unicode block, which cycle 0.3.1 refuses where it resolves the name (`UNICODE.md` U-8)
++    string:blk = raw pattern_error_text(raw pattern_error(PatternErrorKind.UnknownUnicodeProperty, 0i64, 11i64, 4u32));
++    if (!(raw same(blk, "Unicode block at byte 0: a block, as `\\p{InGreek}` or `\\p{Block=Greek}` names one, is a range of codepoints set aside by history -- the Greek block holds Coptic letters, and Greek letters lie outside it too. Write its script instead, as in `\\p{Script=Greek}` for `\\p{InGreek}`."))) { pass 79i32; }
++    // no sentence says a construct is unsupported: it names the guarantee or the alternative (`COMPAT.md` K-1)
++    uint32[12]:details = [0u32, 1u32, 2u32, 4u32, 43u32, 49u32, 60u32, 69u32, 71u32, 81u32, 82u32, 90u32];
++    int64:kk = 0i64;
++    while (kk < 38i64) decreases 38i64 - kk {
++        PatternErrorKind:kind2 = (kk =>! int32) =>! PatternErrorKind;
++        int64:d = 0i64;
++        while (d < 12i64) decreases 12i64 - d {
++            string:s2 = raw pattern_error_text(raw pattern_error(kind2, 7i64, 1i64, details[d]));
++            if (raw has(s2, "support")) { pass 80i32; }
++            d = d + 1i64;
++        }
++        kk = kk + 1i64;
++    }
+     pass 0i32;
+ };
+ 

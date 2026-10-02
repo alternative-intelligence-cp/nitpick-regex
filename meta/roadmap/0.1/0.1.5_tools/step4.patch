@@ -1,0 +1,460 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 08d58dd92a61e12d79aa845b7398e8ef052d8801..1302b8ae3e468581f24393ab1f5de63171fd44da 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -5339,3 +5339,35 @@ backreference 55.
+ backreference** — PCRE's `\g<1>` runs group 1's pattern again, not its text, and the backreference's sentence would
+ say the wrong thing; **`\K`, Perl's reset of a match's start, refused as lookaround as well** — not one of §8's
+ constructs, and Y-2's refusal of a letter no rule names stands for it (`COMPAT.md` §3).
++
++### RX-211 — `regex_escape(text)` puts a `\` before every byte that means something in a pattern and writes white space past ASCII as `\x{…}`, so the text means itself whole, in a piece, in a class and under `x`
++
++**@@DATE@@, cycle 0.1.5 (the plan's PD-55), at compiler `5fbaf4a`** — `SYNTAX.md` Y-24 and Y-45, `API.md` §1; per
++`meta/research/refusal-syntax-reference-engines.md`, as of 2026-10-01. Y-24 names `regex_escape` the way to match a
++literal string, §8's refusal of `\Q…\E` points at it, and `API.md` §1 gives it as `regex_escape(string) -> string`;
++nothing said what it writes. Rust's `regex::escape` (regex-syntax 0.8.11's `escape_into` and `is_meta_character`)
++writes a `\` before eighteen bytes — `\ . + * ? ( ) | [ ] { } ^ $ # & - ~` — so its text is a literal in a pattern and
++in a class; it leaves white space bare, and regex-syntax reads `(?x)a b` as `ab`, so under `x` its text loses its
++spaces. nregex's `x` skips the same white space between constructs (Y-42), refuses white space past ASCII (Y-42), and
++refuses white space or `#` in a class (Y-39).
++
++**The decision.** Y-45: a `\` before Rust's eighteen and before the six white-space bytes; each of Y-42's twenty-one
++white-space codepoints past ASCII as `\x{…}`; every other byte copied, `<` and `>` too (RX-205 refuses a `\` before
++either). Each codepoint of the text then parses back as itself — whole, in a piece of a pattern, between `[` and `]`,
++under `x` or not. A text that is not well-formed UTF-8 is copied with only its ASCII escaped, and its pattern is
++refused where the text breaks. It is written in `parse.npk`, beside the parser whose reading it inverts, so the
++twenty-one codepoints have one home, and re-exported by `syntax.npk`; `pattern_error.npk`'s `hex` is `pub` for it, so a
++codepoint is written in one way. `src/lib.npk` re-exports it at cycle 0.10.5, as it does `pattern_error_text`.
++
++**Measured at `5fbaf4a`.** `tests/unit/regex_escape.npk` passes at −O0 and through `opt -O2`: every ASCII byte alone in
++all four places, the pairs a class reads as a range, an end or an operator, all twenty-one codepoints under `x`, a text
++an overlong form makes ill-formed, and the text written for each kind of byte. Against the tree before this decision it
++is refused `NITPICK-RESOLVE-002` at its four calls; each byte dropped from the set, each form changed, exits as the
++plan's §1.12 records.
++
++*Alternatives declined:* **Rust's eighteen alone** — under `x` the text's white space is skipped; **Y-28's twelve
++metacharacters alone** — between `[` and `]` a `-`, `]`, `&` or `~` becomes a range, an end or an operator; **every
++ASCII byte that is neither a letter nor a digit** — a `\` before `<` or `>` is refused; **every byte past ASCII as
++`\x{…}`** — the text unreadable for nothing, since only the twenty-one mean anything; **an ill-formed text decoded as it
++is** — an overlong form would be read as a codepoint the text does not hold, `E0 82 85` as U+0085; **a `Bytes` sink
++rather than a `string`** — `API.md` §1 gives a `string`, and A-12's sink is for replacement, which runs per match.
+diff --git a/meta/roadmap/0.10/README.md b/meta/roadmap/0.10/README.md
+index b5260d0c66a3376f587a791b2ce5465340c91609..21f92431238e3cad919aae3f5aec3bfd3ed3f3ef 100644
+--- a/meta/roadmap/0.10/README.md
++++ b/meta/roadmap/0.10/README.md
+@@ -29,7 +29,7 @@ plans; recommendation: keep Y-12. Decide it before 0.10.2 writes `RegexOptions`.
+ ## Checklist
+ 
+ ### 0.10.0 — `Regex`, `Cache`, `Match`
+-- [ ] `regex_compile`, `regex_compile_opts`, `regex_escape`, `regex_cache`
++- [ ] `regex_compile`, `regex_compile_opts`, `regex_escape`, `regex_cache` *(@@DATE@@ — cycle 0.1.5, RX-211: `regex_escape` is written, in `src/syntax/parse.npk`; this cycle re-exports it, at 0.10.5)*
+ - [ ] `regex_is_match`, `regex_find`, `regex_find_at` — **none returning `Result`** (A-1, RX-061)
+ - [ ] `Match` is `{lo, hi}` (RX-050), and **the fields are `lo` and `hi`** by A-3 — *not* because `end` cannot be a field name, which RX-134 measured to be false at all three kept pins
+ - [ ] **`regex_find_at`'s `at` is where the search starts, not where the haystack starts** (A-5): `^` still means the start of `hay` and `\b` at `at` still looks at the byte before it. A test asserts searching `hay[at..]` gives a *different* answer, so the distinction is protected
+diff --git a/meta/specs/API.md b/meta/specs/API.md
+index 8a77809028aaccc1e9175814a77f75afdc6599d6..25519b416d26e9d4dca1b945786c009d6c19e4a6 100644
+--- a/meta/specs/API.md
++++ b/meta/specs/API.md
+@@ -54,6 +54,9 @@ pattern_error_text(PatternError) -> string
+ `src/syntax/pattern_error.npk`, beside the kinds it describes, and re-exported by
+ `syntax.npk`; `src/lib.npk` re-exports it at cycle 0.10.5 with the rest of this list.
+ What it says is `SYNTAX.md` Y-34.)*
++*(@@DATE@@, cycle 0.1.5 — RX-211: `regex_escape` is written in `src/syntax/parse.npk`,
++beside the reading of a pattern it inverts, and re-exported by `syntax.npk`;
++`src/lib.npk` re-exports it at cycle 0.10.5. What it writes is `SYNTAX.md` Y-45.)*
+ 
+ **Rule A-1 — everything on the search path returns a value, not a `Result`.**
+ `SAFETY.md` S-4: a compiled `Regex` cannot fail to search. `Match?` is the
+diff --git a/meta/specs/COMPAT.md b/meta/specs/COMPAT.md
+index f482358acb8bea9dbb45e9fcfe87b60262c8e036..40d5c89e02d836b70f6772636eb7e1991b194d12 100644
+--- a/meta/specs/COMPAT.md
++++ b/meta/specs/COMPAT.md
+@@ -31,6 +31,7 @@ The closest neighbour, so the list is short and each entry is deliberate.
+ |---|---|---|---|
+ | named groups | `(?P<n>…)` **and** `(?<n>…)` | `(?<n>…)` only | one spelling per construct (`SYNTAX.md` Y-7) |
+ | `\Q…\E` | not supported | refused, naming `regex_escape()` | same, with a better message |
++| `regex::escape` / `regex_escape()` | a `\` before eighteen bytes, white space left bare, so `(?x)` skips it | the same eighteen and the six white-space bytes, and white space past ASCII as `\x{…}` | the text means itself under `x` too (`SYNTAX.md` Y-45) — RX-211 |
+ | Unicode blocks | not supported | refused, naming `Script` | `UNICODE.md` §2.1 |
+ | case folding | simple | simple | same |
+ | `x` mode inside classes | ~~whitespace significant~~ white space and `#` comments ignored (measured, regex 1.13.1) | ~~whitespace significant~~ a white-space byte or a `#` refused (`SYNTAX.md` Y-39) | ~~same (O-Y2)~~ the engines disagree, so neither reading is guessed — RX-201, 2026-10-01; this row said Rust kept white space, and it does not |
+diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
+index 9fc82c3610da8c7a6769be4e69630fc515af0fd5..40d1521d65efc653928345f8aff9ef8def3d5796 100644
+--- a/meta/specs/SYNTAX.md
++++ b/meta/specs/SYNTAX.md
+@@ -641,6 +641,16 @@ string**, returning a pattern that matches exactly it. `\Q…\E` is refused
+ rather than implemented because it is a second, in-band quoting mechanism whose
+ interaction with `x` mode and with class syntax is a source of surprises in
+ every engine that has it.
++*(@@DATE@@, cycle 0.1.5 — RX-211: written, as Y-45 says.)*
++
++**Rule Y-45 (RX-211) — `regex_escape(text)` writes `text` so that each of its codepoints is itself in a pattern.** A
++`\` goes before each of `\ . + * ? ( ) | [ ] { } ^ $ # & - ~` and before the six white-space bytes — tab, line feed,
++vertical tab, form feed, carriage return and space; each of Y-42's twenty-one white-space codepoints past ASCII is
++written `\x{…}`, its hex digits in upper case; every other byte is copied, `<` and `>` among them (Y-2's note). So the
++text parses back to one `Literal` per codepoint, in order — as a whole pattern or a piece of one, and between `[` and
++`]` one member each — with `x` in force or not. Under `(?-u)` a codepoint past ASCII is refused as any is (Y-43), and
++under `i` it matches as `i` says. A text that is not well-formed UTF-8 is copied with only its ASCII escaped, so its
++pattern is refused `InvalidPatternEncoding` where the text breaks (Y-28), never read as a codepoint it does not hold.
+ 
+ ---
+ 
+diff --git a/src/syntax/parse.npk b/src/syntax/parse.npk
+index d254f7b684955eb9b6e3fa22db867ec859d49a01..ac76b36ef8334cfd0dca8b6f73fed24ef26a85b8 100644
+--- a/src/syntax/parse.npk
++++ b/src/syntax/parse.npk
+@@ -1539,3 +1539,52 @@ pub func:parse_pattern = PatternError?(uint8[]:pat, Ast->:out) never fails {
+     drop vec_free(@p.classes);
+     pass e;
+ };
++
++// ---- the inverse: text to a pattern (`SYNTAX.md` Y-24, Y-45; RX-211) ---------------------------
++
++// A byte `regex_escape` writes a `\` before: Y-28's metacharacters and their closers, `\ . + * ? ( ) | [
++// ] { } ^ $`; `&`, `-` and `~`, which make a class's operators and ranges; `#`; and the six white-space
++// bytes `x` skips (Y-42) -- every byte that means something somewhere in a pattern, in a class or out, under
++// `x` or not. Not `<` or `>`: a `\` before either is refused (RX-205), and each is itself everywhere.
++func:is_escaped = bool(int32:b) never fails {
++    if ((b == CH_BACKSLASH) || (b == CH_DOT) || (b == CH_PLUS) || (b == CH_STAR) || (b == CH_QUESTION)) { pass true; }
++    if ((b == CH_LPAREN) || (b == CH_RPAREN) || (b == CH_PIPE) || (b == CH_LBRACKET) || (b == CH_RBRACKET)) { pass true; }
++    if ((b == CH_LBRACE) || (b == CH_RBRACE) || (b == CH_CARET) || (b == CH_DOLLAR) || (b == CH_HASH)) { pass true; }
++    if ((b == CH_AMP) || (b == CH_MINUS) || (b == CH_TILDE)) { pass true; }
++    pass raw is_space(b);
++};
++
++// obligation: never fails
++//
++// A pattern that matches exactly `text` (Y-24, Y-45): each of its codepoints a `Literal` of itself, or in
++// a class a member, under `x` or not. A `\` goes before each byte `is_escaped` names; each white-space
++// codepoint past ASCII that `x` refuses (Y-42) is written `\x{…}`; every other byte is copied. A text that
++// is not well-formed UTF-8 is copied with only its ASCII escaped, so its pattern is refused
++// `InvalidPatternEncoding` where the text breaks (Y-28), never read as a codepoint the text does not hold.
++pub func:regex_escape = string(string:text) never fails {
++    uint8[]:t = string_bytes(text);
++    PatternError?:bad = raw parse_check_encoding(t);
++    Bytes:b = raw bytes_init(t.len + 16i64);
++    int64:i = 0i64;
++    while (i < t.len) decreases t.len - i {
++        int32:c = t[i] => int32;
++        int64:n = 1i64;
++        if (raw is_escaped(c)) {
++            drop bytes_push(@b, CH_BACKSLASH =>! uint8);
++            drop bytes_push(@b, t[i]);
++        }
++        else if (((c => int64) >= U8_CONT_LO) && (bad == NIL)) {
++            n = raw utf8_len(c => int64);
++            int64:cp = raw decode_at(t, i);
++            if (raw is_wide_space(cp)) {
++                drop bytes_extend_str(@b, "\\x{");
++                drop hex(@b, cp, 1i64);
++                drop bytes_push(@b, CH_RBRACE =>! uint8);
++            }
++            else { drop bytes_extend(@b, t[i...i + n]); }
++        }
++        else { drop bytes_push(@b, t[i]); }
++        i = i + n;
++    }
++    pass raw bytes_copy_string(@b);
++};
+diff --git a/src/syntax/pattern_error.npk b/src/syntax/pattern_error.npk
+index dfa4804440dc83501c148396ac234e6cc3c442d3..d87a1032afe52133befdede2652abbacd201bbcb 100644
+--- a/src/syntax/pattern_error.npk
++++ b/src/syntax/pattern_error.npk
+@@ -188,7 +188,9 @@ fixed int64:UTF8_FOUR = 65536i64;
+ 
+ // `v` in upper-case hex, at least `min` digits -- a shift and a mask a digit, no division
+ // (`SAFETY.md` S-25). `v` is at most U+110000 here, six digits; eight bound the loop.
+-func:hex = NIL(Bytes->:b, int64:v, int64:min) never fails {
++// *(@@DATE@@, cycle 0.1.5 -- RX-211: `pub`, so `regex_escape` in `parse.npk` writes a codepoint's
++// `\x{…}` with the same digits; `syntax.npk` does not offer it.)*
++pub func:hex = NIL(Bytes->:b, int64:v, int64:min) never fails {
+     uint8[]:digit = string_bytes("0123456789ABCDEF");
+     int64:n = 1i64;
+     while ((n < 8i64) && ((v >> (4i64 * n)) != 0i64)) decreases 8i64 - n {
+diff --git a/src/syntax/syntax.npk b/src/syntax/syntax.npk
+index f9b73c350aa845a709e9ff0573273afce83bdae9..0c02f935709ab43c052bc1416bbf5ccb2bd0623b 100644
+--- a/src/syntax/syntax.npk
++++ b/src/syntax/syntax.npk
+@@ -81,3 +81,6 @@ pub use "./ast.npk".ast_free;
+ pub use "./parse.npk".parse_check_length;
+ pub use "./parse.npk".parse_check_encoding;
+ pub use "./parse.npk".parse_pattern;
++
++// ---- the inverse: text to a pattern that matches exactly it (RX-211) --------------
++pub use "./parse.npk".regex_escape;
+diff --git a/tests/unit/regex_escape.npk b/tests/unit/regex_escape.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..302895cd7f7bb3633870a6b463e125b1c919cf82
+--- /dev/null
++++ b/tests/unit/regex_escape.npk
+@@ -0,0 +1,271 @@
++// expect-exit: 0
++//
++// `regex_escape` -- TEXT TO A PATTERN THAT MATCHES EXACTLY IT (`SYNTAX.md` Y-24, Y-45; RX-211).
++//
++// What its text PARSES to, through `syntax.npk`'s re-exports, in the four places a text may stand: a
++// whole pattern, after `(?x)`, inside a class, and inside a class after `(?x)`. Each codepoint of the text
++// must come back as itself -- a `Literal`, or in a class a member from it to itself -- in order, and
++// nothing else: every ASCII byte alone, in each place (1-4); the pairs a class reads as a range, its end or
++// an operator (5-8); every one of Y-42's twenty-one white-space codepoints past ASCII after `(?x)` (9); a
++// text that is not well-formed UTF-8, refused where it breaks, never read as a codepoint it does not hold
++// (10); and longer texts (11, 12). Then the text it writes (20-33): a `\` before every byte that means
++// something somewhere in a pattern, in a class or out, under `x` or not; `\x{…}` for each white-space
++// codepoint past ASCII that `x` refuses; every other byte copied -- `<` and `>` bare, since a `\` before
++// either is refused (RX-205) -- and a text that is not well-formed UTF-8 copied with only its ASCII
++// escaped. A case that differs exits with its number.
++mod:regex_escape;
++
++use "../../src/core/core.npk".*;
++use "../../src/syntax/syntax.npk".*;
++
++fixed int64:WHOLE = 0i64;        // the text is the whole pattern
++fixed int64:EXTENDED = 1i64;     // after `(?x)`
++fixed int64:IN_CLASS = 2i64;     // between `[` and `]`
++fixed int64:EXT_CLASS = 3i64;    // between `(?x)[` and `]`
++
++func:same = bool(uint8[]:g, uint8[]:w) never fails {
++    if (g.len != w.len) { pass false; }
++    int64:i = 0i64;
++    while (i < w.len) decreases w.len - i {
++        if (g[i] != w[i]) { pass false; }
++        i = i + 1i64;
++    }
++    pass true;
++};
++
++// Does `regex_escape(text)` write exactly `want`?
++func:escapes = bool(string:text, string:want) never fails {
++    string:got = raw regex_escape(text);
++    pass raw same(string_bytes(got), string_bytes(want));
++};
++
++// The same for a text a string literal cannot hold -- one that is not well-formed UTF-8.
++func:escapes_bytes = bool(uint8[]:text, uint8[]:want) never fails {
++    Bytes:t = raw bytes_init(8i64);
++    drop bytes_extend(@t, text);
++    string:s = raw bytes_copy_string(@t);
++    string:got = raw regex_escape(s);
++    pass raw same(string_bytes(got), want);
++};
++
++// The length of the UTF-8 sequence a lead byte begins, and the codepoint it holds -- the text's own
++// codepoints, read independently of the parser's reader.
++func:seq_len = int64(int64:lead) never fails {
++    if (lead < 128i64) { pass 1i64; }
++    if (lead < 224i64) { pass 2i64; }
++    if (lead < 240i64) { pass 3i64; }
++    pass 4i64;
++};
++
++func:cp_at = int64(uint8[]:t, int64:i) never fails {
++    int64:lead = t[i] => int64;
++    int64:n = raw seq_len(lead);
++    int64:cp = lead;
++    if (n == 2i64) { cp = lead & 31i64; }
++    if (n == 3i64) { cp = lead & 15i64; }
++    if (n == 4i64) { cp = lead & 7i64; }
++    int64:k = 1i64;
++    while (k < n) decreases n - k {
++        cp = (cp * 64i64) + ((t[i + k] => int64) & 63i64);
++        k = k + 1i64;
++    }
++    pass cp;
++};
++
++func:count_cps = int64(uint8[]:t) never fails {
++    int64:i = 0i64;
++    int64:n = 0i64;
++    while (i < t.len) decreases t.len - i {
++        i = i + raw seq_len(t[i] => int64);
++        n = n + 1i64;
++    }
++    pass n;
++};
++
++// The list from `first` holds exactly the codepoints of `text`, in order: each a `Literal` of it, or in
++// a class a `ClassRange` from it to itself, and the last one's `next` is `AST_NONE`.
++func:holds = bool(Ast:t, int64:first, uint8[]:text, bool:inclass) never fails {
++    int64:m = first;
++    int64:i = 0i64;
++    while (i < text.len) decreases text.len - i {
++        if (m == AST_NONE) { pass false; }
++        int64:cp = raw cp_at(text, i);
++        AstNode:x = raw ast_get(t, m);
++        if (inclass) {
++            if ((x.kind != AstKind.ClassRange) || (x.a != cp) || (x.b != cp)) { pass false; }
++        }
++        else if ((x.kind != AstKind.Literal) || (x.a != cp)) { pass false; }
++        m = x.next;
++        i = i + raw seq_len(text[i] => int64);
++    }
++    pass m == AST_NONE;
++};
++
++// The tree parsed holds `text`'s codepoints as `place` puts them.
++func:tree_holds = bool(Ast:t, uint8[]:text, int64:place) never fails {
++    AstNode:r = raw ast_get(t, t.root);
++    int64:n = raw count_cps(text);
++    if (place == WHOLE) {
++        if (n == 1i64) { pass raw holds(t, t.root, text, false); }
++        if ((r.kind != AstKind.Concat) || (r.b != n)) { pass false; }
++        pass raw holds(t, r.a, text, false);
++    }
++    if ((place == EXTENDED) || (place == EXT_CLASS)) {
++        if (r.kind != AstKind.Concat) { pass false; }
++        AstNode:f = raw ast_get(t, r.a);
++        if (f.kind != AstKind.Flags) { pass false; }
++        if (place == EXTENDED) {
++            if (r.b != (n + 1i64)) { pass false; }
++            pass raw holds(t, f.next, text, false);
++        }
++        if ((r.b != 2i64) || (f.next == AST_NONE)) { pass false; }
++        AstNode:c = raw ast_get(t, f.next);
++        if ((c.kind != AstKind.Class) || (c.b != n) || ((c.flags & AST_FLAG_NEGATED) != 0u32)) { pass false; }
++        pass raw holds(t, c.a, text, true);
++    }
++    if ((r.kind != AstKind.Class) || (r.b != n) || ((r.flags & AST_FLAG_NEGATED) != 0u32)) { pass false; }
++    pass raw holds(t, r.a, text, true);
++};
++
++// `regex_escape(text)`, put where `place` says, parses, and its tree holds exactly `text`'s codepoints.
++func:round_trip = bool(uint8[]:text, int64:place) never fails {
++    Bytes:tb = raw bytes_init(8i64);
++    drop bytes_extend(@tb, text);
++    string:s = raw bytes_copy_string(@tb);
++    string:e = raw regex_escape(s);
++    Bytes:p = raw bytes_init(32i64);
++    if ((place == EXTENDED) || (place == EXT_CLASS)) { drop bytes_extend_str(@p, "(?x)"); }
++    if ((place == IN_CLASS) || (place == EXT_CLASS)) { drop bytes_extend_str(@p, "["); }
++    drop bytes_extend_str(@p, e);
++    if ((place == IN_CLASS) || (place == EXT_CLASS)) { drop bytes_extend_str(@p, "]"); }
++    string:pattern = raw bytes_copy_string(@p);
++    Ast:t = raw ast_init(8i64);
++    PatternError?:r = raw parse_pattern(string_bytes(pattern), @t);
++    bool:ok = false;
++    if (r == NIL) { ok = raw tree_holds(t, text, place); }
++    drop ast_free(@t);
++    pass ok;
++};
++
++func:trip = bool(string:text, int64:place) never fails {
++    pass raw round_trip(string_bytes(text), place);
++};
++
++// `regex_escape(text)` is refused `InvalidPatternEncoding` at `off` when parsed.
++func:ill_formed = bool(uint8[]:text, int64:off) never fails {
++    Bytes:tb = raw bytes_init(8i64);
++    drop bytes_extend(@tb, text);
++    string:s = raw bytes_copy_string(@tb);
++    string:e = raw regex_escape(s);
++    Ast:t = raw ast_init(8i64);
++    PatternError?:r = raw parse_pattern(string_bytes(e), @t);
++    drop ast_free(@t);
++    if (r == NIL) { pass false; }
++    PatternError:x = r ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
++    pass (x.kind == PatternErrorKind.InvalidPatternEncoding) && (x.offset == off);
++};
++
++// `cp` in UTF-8, alone in a text.
++func:one = NIL(Bytes->:b, int64:cp) never fails {
++    if (cp < 128i64) { drop bytes_push(b, cp =>! uint8); pass NIL; }
++    if (cp < 2048i64) {
++        drop bytes_push(b, (192i64 | (cp >> 6i64)) =>! uint8);
++        drop bytes_push(b, (128i64 | (cp & 63i64)) =>! uint8);
++        pass NIL;
++    }
++    drop bytes_push(b, (224i64 | (cp >> 12i64)) =>! uint8);
++    drop bytes_push(b, (128i64 | ((cp >> 6i64) & 63i64)) =>! uint8);
++    drop bytes_push(b, (128i64 | (cp & 63i64)) =>! uint8);
++    pass NIL;
++};
++
++// Every one of Y-42's twenty-one white-space codepoints past ASCII, alone after `(?x)`, comes back as itself.
++func:wide_trip = bool() never fails {
++    int64[21]:ws = [133i64, 160i64, 5760i64, 8192i64, 8193i64, 8194i64, 8195i64, 8196i64, 8197i64, 8198i64,
++                    8199i64, 8200i64, 8201i64, 8202i64, 8206i64, 8207i64, 8232i64, 8233i64, 8239i64, 8287i64,
++                    12288i64];
++    int64:k = 0i64;
++    while (k < 21i64) decreases 21i64 - k {
++        Bytes:b = raw bytes_init(4i64);
++        drop one(@b, ws[k]);
++        string:s = raw bytes_copy_string(@b);
++        if (!(raw trip(s, EXTENDED))) { pass false; }
++        k = k + 1i64;
++    }
++    pass true;
++};
++
++// Every ASCII byte alone, put where `place` says, comes back as itself.
++func:ascii_trip = bool(int64:place) never fails {
++    int64:c = 0i64;
++    while (c < 128i64) decreases 128i64 - c {
++        Bytes:b = raw bytes_init(4i64);
++        drop bytes_push(@b, c =>! uint8);
++        string:s = raw bytes_copy_string(@b);
++        if (!(raw trip(s, place))) { pass false; }
++        c = c + 1i64;
++    }
++    pass true;
++};
++
++func:run = int32() never fails {
++    // what its text parses to: every ASCII byte alone, in all four places
++    if (!(raw ascii_trip(WHOLE)))                                               { pass 1i32; }
++    if (!(raw ascii_trip(EXTENDED)))                                            { pass 2i32; }
++    if (!(raw ascii_trip(IN_CLASS)))                                            { pass 3i32; }
++    if (!(raw ascii_trip(EXT_CLASS)))                                           { pass 4i32; }
++    // what a class reads between two codepoints: a range, its end, an operator
++    if (!(raw trip("a-z", IN_CLASS)))                                           { pass 5i32; }
++    if (!(raw trip("a]b", IN_CLASS)))                                           { pass 6i32; }
++    if (!(raw trip("a&&b", IN_CLASS)))                                          { pass 7i32; }
++    if (!(raw trip("a~~b", IN_CLASS)))                                          { pass 8i32; }
++    // white space past ASCII under `x`: every one of Y-42's twenty-one
++    if (!(raw wide_trip()))                                                     { pass 9i32; }
++    // a text that is not well-formed UTF-8, refused where it breaks -- never read as U+0085
++    uint8[3]:overlong = [224u8, 130u8, 133u8];
++    if (!(raw ill_formed(overlong[0i64...3i64], 0i64)))                         { pass 10i32; }
++    // longer texts, every metacharacter in them
++    if (!(raw trip("a.b*c?d+e|f(g)h[i]j{k}l^m$n\\o", WHOLE)))                    { pass 11i32; }
++    if (!(raw trip("price: $5.00 (approx.) [x] {y} é", EXTENDED)))              { pass 12i32; }
++    // the text it writes
++    if (!(raw escapes("a.b", "a\\.b")))                                         { pass 20i32; }
++    if (!(raw escapes("\\.+*?()|[]{}^$", "\\\\\\.\\+\\*\\?\\(\\)\\|\\[\\]\\{\\}\\^\\$"))) { pass 21i32; }
++    if (!(raw escapes("&-~#", "\\&\\-\\~\\#")))                                 { pass 22i32; }
++    if (!(raw escapes(" \t\n", "\\ \\\t\\\n")))                                 { pass 23i32; }
++    if (!(raw escapes("<a>", "<a>")))                                           { pass 24i32; }
++    if (!(raw escapes("", "")))                                                 { pass 25i32; }
++    if (!(raw escapes("\u{A0}", "\\x{A0}")))                                    { pass 26i32; }
++    if (!(raw escapes("a\u{2028}b\u{85}", "a\\x{2028}b\\x{85}")))               { pass 27i32; }
++    if (!(raw escapes("\u{3000}\u{200E}", "\\x{3000}\\x{200E}")))               { pass 28i32; }
++    if (!(raw escapes("é😀\u{200B}", "é😀\u{200B}")))                           { pass 29i32; }
++    if (!(raw escapes("\\Qa\\E", "\\\\Qa\\\\E")))                               { pass 30i32; }
++    if (!(raw escapes("x:=1,'%@!", "x:=1,'%@!")))                               { pass 31i32; }
++    if (!(raw escapes_bytes(overlong[0i64...3i64], overlong[0i64...3i64])))     { pass 32i32; }
++    uint8[2]:ff = [255u8, 46u8];
++    uint8[3]:ff_out = [255u8, 92u8, 46u8];
++    if (!(raw escapes_bytes(ff[0i64...2i64], ff_out[0i64...3i64])))             { pass 33i32; }
++    pass 0i32;
++};
++
++func:main = int32(cstring[]:_~argv) {
++    int32:r = raw run();
++    exit r;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};

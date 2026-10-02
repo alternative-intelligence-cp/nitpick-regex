@@ -62,6 +62,12 @@ version.
   like. This applies to all such constructs, namely `\b{}`, `\g{}`, `\k{}`, `\N{}`, `\o{}`, and `\x{}`; as well as the
   regular expression quantifier `{m,n}`."; "This ability is in effect regardless of the presence of the `/x` regular
   expression pattern modifier."
+  *(2026-10-01, cycle 0.1.5's plan: and the sentence that licenses `a{2, 3}`, which the item above left out, read in the
+  document's own source at the release's tag, <https://raw.githubusercontent.com/Perl/perl5/v5.34.0/pod/perldelta.pod>
+  — 37 357 bytes, SHA-256 `1f29acc85db5b2351989a7364af429237d0e49500b8e6ac2b6cee6b5608ca725`, retrieved 2026-10-01, one
+  fetch, the byte count asserted before it was read: "Additionally, the comma in a regular expression braced
+  quantifier may have blanks (tabs or spaces) before and/or after the comma, like `qr/a{ 5, 7 }/`." Perl 5.38.2, run
+  here, reads `a{2, 3}` as `a{2,3}` without `/x`.)*
 
 ## Measured here
 
