@@ -10,6 +10,9 @@ RX-050, RX-051, RX-052, RX-054, RX-034, RX-060, RX-061. Settled.
 **Open questions to settle:** O-A1 (does `Matches` implement the prelude
 `Iterator` trait? — probe 12 has the answer), O-S1 (`RegexOptions` a value, not
 a `comptime` parameter — recommendation: a value).
+*(2026-10-02, cycle 0.1.5: and O-A3 — whether `RegexOptions` may set a flag that
+changes a pattern's meaning, which `SYNTAX.md` Y-12 forbids and `API.md` A-7
+plans; recommendation: keep Y-12. Decide it before 0.10.2 writes `RegexOptions`.)*
 
 ## Subcycles
 
@@ -40,7 +43,7 @@ a `comptime` parameter — recommendation: a value).
 
 ### 0.10.2 — `RegexOptions`
 - [ ] every bound from `SAFETY.md` §5 settable
-- [ ] the meaning flags settable, with **the inline pattern flag winning** where both appear (A-7) — the pattern is the more local statement
+- [ ] the meaning flags settable, with **the inline pattern flag winning** where both appear (A-7) — the pattern is the more local statement *(2026-10-02 — open question O-A3 first: `SYNTAX.md` Y-12 says no setting outside the pattern changes its meaning)*
 - [ ] chained setters take `move Self` and return `Self` (A-8); no `Default` derive
 - [ ] O-S1 decided and recorded
 

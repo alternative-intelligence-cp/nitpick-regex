@@ -40,9 +40,12 @@ stub this replaced could assert almost nothing:
   * the live TREE CHECKS agreed with the specifications they diff against
     (`check_layering`, `check_error_budget`, `check_constants_named`,
     `check_no_division`, `check_accessor_confinement`,
-    `check_vec_elements_own_nothing`, `check_dated_measurements`, and
-    `check_specs_current` which reports rather than fails -- `treecheck.ALL` is
-    the list, and the run prints each);
+    `check_vec_elements_own_nothing`, `check_no_recursion`,
+    `check_dated_measurements`, and `check_specs_current` which reports rather
+    than fails -- `treecheck.ALL` is the list, and the run prints each);
+    *(2026-10-02, cycle 0.1.5: this list named eight until then and left out
+    `check_no_recursion`, the ninth since cycle 0.1.2 (RX-192) -- found by cycle
+    0.1.4's record.)*
   * every unit a `pending-until:` marker took out of the denominator is on the
     reviewed list `harness/baseline/PENDING.txt`, gave exactly the exit its
     marker names on every leg and every run, and did not meet its expectation

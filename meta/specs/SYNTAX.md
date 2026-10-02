@@ -385,6 +385,8 @@ of the pattern text, which is what makes a pattern copy-pasteable between
 programs.
 *(2026-10-01, cycle 0.1.4 — RX-206: read as Y-41 says. A flag `(?i)` sets holds across `|` to the enclosing group's `)`,
 as in Rust's `regex` and PCRE: `a(?i)b|c` matches `C`.)*
+*(2026-10-02, cycle 0.1.5: `API.md` A-7 makes `i`, `m`, `s`, `x` and `u` settable outside the pattern too. Which rule
+stands is open question O-A3, for cycle 0.10; nothing is decided here.)*
 
 **Rule Y-13 — `(?-u)` is the byte mode and it is a real mode, not a
 performance hint.** With Unicode off, `.` matches one **byte**, `\w` is ASCII,

@@ -153,6 +153,9 @@ is. Flags that affect *meaning* — `i`, `m`, `s`, `x`, `u` — are also settabl
 and are equivalent to writing the inline flag at the start of the pattern; the
 inline form wins where both appear, because the pattern is the more local
 statement.
+*(2026-10-02, cycle 0.1.5: `SYNTAX.md` Y-12 says no setting outside the pattern
+changes what it means. Which rule stands is open question O-A3, for cycle 0.10 to
+decide before `RegexOptions` is written; nothing is decided here.)*
 
 **Rule A-8 — chained setters take `move Self` and return `Self`** (the
 ecosystem's builder convention, `nitpick-tui`'s W-5), because there are no
@@ -285,3 +288,7 @@ worth knowing before it appears in a loop.
   reported three days earlier. RX-135.)*
 - **O-A2 — a `RegexSet` API over `COMPILE.md` §6's multi-pattern programs.**
   The format supports it at 1.0; the API does not. Cycle 1.1.
+- **O-A3 — whether `RegexOptions` may set a meaning flag** (A-7 against
+  `SYNTAX.md` Y-12). Recommendation: keep Y-12 and strike the meaning flags from
+  A-7. Decide at cycle 0.10, before 0.10.2. `meta/OPEN_QUESTIONS.md` has the
+  argument. *(Raised 2026-10-02 by cycle 0.1.5.)*
