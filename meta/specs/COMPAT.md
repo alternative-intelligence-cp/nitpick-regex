@@ -40,6 +40,7 @@ The closest neighbour, so the list is short and each entry is deliberate.
 | `\e`, `\0` | refused | U+001B and U+0000, as in Perl, PCRE and Python | §1 names them; accepting what Rust refuses changes no pattern Rust accepts — RX-204 |
 | `\u{41}`, `\U{1F600}` | a codepoint | refused, naming `\x{…}` | one spelling for a codepoint in braces (`SYNTAX.md` Y-40) — RX-204 |
 | `\<`, `\>` | the start and the end of a word | refused, naming `\b`, and `<` or `>` for the byte | Rust and GNU `grep` read a word assertion, Perl, PCRE, Python and Java the byte — RX-205 |
+| `\b{start}`, `\b{end}`, `\b{start-half}`, `\b{end-half}` | word assertions | refused, `BadRepeatBounds`, naming `\b` and Rust's reading | here a `{` after `\b` begins a repetition, and Perl reads the braces as a Unicode boundary (`SYNTAX.md` Y-32) — RX-213 |
 | flags `U` and `R` | swap greed; CRLF mode | `(?U)` refused, `UnknownFlag`; `(?R)` refused as PCRE's recursion (`SYNTAX.md` Y-30) | flags nregex does not have — RX-206 |
 | `x` mode inside a construct | white space skipped inside escapes, bounds and group heads — `\x4 1`, `a{2, 3}`, `( ?:a)` — and before a lazy `?` | read as without `x`, so each refused | Perl, Python and Java read each of these otherwise (`SYNTAX.md` Y-42) — RX-207 |
 | white space past ASCII under `x` | Unicode's White_Space skipped | refused, `ExtendedAmbiguity` | Perl skips Pattern_White_Space, Python and Java ASCII white space alone (Y-42) — RX-207 |
@@ -83,6 +84,7 @@ The list a user migrating from Python, PHP, Java or JavaScript needs.
 | `[\1]` … `[\7]` — octal in a class in Perl, PCRE and Python | refused, `UnknownEscape`; write the hex form, `\x01` (Y-44) |
 | `[\k]`, `[\G]`, `[\Z]` — the letter in Perl | refused, `UnknownEscape`, as any letter no rule names in a class (Y-44) |
 | `\g1`, `\g{-1}`, `\g{name}` — Perl's and PCRE's backreferences; `\g<1>`, `\g'1'` — PCRE's call of a group | refused, `BackreferenceUnsupported` and `RecursionUnsupported` (`SYNTAX.md` Y-44, RX-210) |
+| `\b{wb}`, `\b{sb}`, `\b{gcb}`, `\b{lb}`, `\B{wb}` — Perl's Unicode boundaries | refused, `BadRepeatBounds`, naming `\b` and Perl's reading (`SYNTAX.md` Y-32, RX-213) |
 | `(?i)` after the pattern's start — global in Python, which requires it first | from there to the enclosing group's `)`, across `|`, as in Perl, PCRE and Rust (`SYNTAX.md` Y-41, RX-206) |
 | `(?^)`, `(?a)`, `(?n)`, `(?U)` — Perl's, PCRE's and .NET's other flags | `UnknownFlag`: the flags are `i`, `m`, `s`, `x` and `u` (Y-41) |
 | blanks inside `a{2, 3}` and `\x{ 41 }`, which Perl reads since its 5.34 | refused, `BadRepeatBounds` and `BadHexEscape`, under `x` or not (`SYNTAX.md` Y-32, Y-42) |

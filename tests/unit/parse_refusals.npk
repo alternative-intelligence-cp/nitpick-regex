@@ -21,6 +21,9 @@
 // `parse_flags` and `parse_flag_refusals` hold them.)*
 // *(2026-10-02, cycle 0.1.5 -- RX-209: nor are §8's escapes, which `parse_declined` holds; nothing is
 // refused provisionally any more.)*
+// *(2026-10-02, cycle 0.1.5 -- RX-213: a `{` after `\b` or `\B` that holds no number is
+// `BadRepeatBounds` with detail 2, its sentence naming Rust's `\b{start}` and Perl's `\b{wb}`
+// (72-75).)*
 mod:parse_refusals;
 
 use "../../src/core/core.npk".*;
@@ -115,6 +118,12 @@ func:run = int32() never fails {
     // the first refusal wins, left to right
     if (!(raw refused("a)(", PatternErrorKind.UnopenedGroup, 1i64, 1i64, 0u32)))      { pass 70i32; }
     if (!(raw refused("(*", PatternErrorKind.NothingToRepeat, 1i64, 1i64, 42u32)))    { pass 71i32; }
+    // a `{` after a word boundary that holds no number: Rust's `\b{start}`, Perl's `\b{wb}` and
+    // `\B{wb}` -- detail 2; any other bad bound after one keeps 0 (RX-213)
+    if (!(raw refused("\\b{start}", PatternErrorKind.BadRepeatBounds, 2i64, 1i64, 2u32)))   { pass 72i32; }
+    if (!(raw refused("a\\b{end}", PatternErrorKind.BadRepeatBounds, 3i64, 1i64, 2u32)))    { pass 73i32; }
+    if (!(raw refused("\\B{wb}", PatternErrorKind.BadRepeatBounds, 2i64, 1i64, 2u32)))      { pass 74i32; }
+    if (!(raw refused("\\b{2,x}", PatternErrorKind.BadRepeatBounds, 2i64, 3i64, 0u32)))     { pass 75i32; }
     pass 0i32;
 };
 

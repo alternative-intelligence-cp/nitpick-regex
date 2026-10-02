@@ -5430,3 +5430,28 @@ and `\p{Inscriptional_Pahlavi}` are scripts, and the parser reads no table; **a 
 names `UnknownUnicodeProperty`, and a detail tells the sentence which, as RX-200's does for `UnknownPosixClass`; **the
 block's sentence left to cycle 0.3.1 with its trigger** — the checklist holds it here, and the author reads the
 sentences together.
+
+### RX-213 — a `{` after `\b` or `\B` that holds no number is `BadRepeatBounds` with detail 2, its sentence naming Rust's `\b{start}` and Perl's `\b{wb}`
+
+**2026-10-02, cycle 0.1.5 (the plan's PD-57), at compiler `5fbaf4a`** — `SYNTAX.md` Y-32; per
+`meta/research/refusal-syntax-reference-engines.md`, as of 2026-10-01; cycle 0.1.4's hand-on, *"`\b{start}` Rust's
+start-of-word assertion, read as a bad bound"*. Measured: Rust's `regex` 1.13.1 reads `\b{start}`, `\b{end}`,
+`\b{start-half}` and `\b{end-half}` as word assertions and refuses any other name in the braces; Perl 5.38.2 reads
+`\b{wb}`, `\b{sb}`, `\b{gcb}`, `\b{lb}` and `\B{wb}` as Unicode boundaries and refuses any other, `\b{2}` included;
+PCRE2 and Python read `\b` and then the braces as text; Java refuses `\b{start}`. Here `\b` then `{` begins a
+repetition (Y-32), so `\b{start}` was `BadRepeatBounds`, detail 0, telling the author to write `\{` for a brace —
+PCRE's and Python's reading, and silent about the two engines that read a boundary.
+
+**The decision.** The same kind at the same byte, spanning what was read; when the atom the `{` follows is `\b` or
+`\B` and no digit follows it, detail 2, and the sentence names Rust's `\b{start}` and `\b{end}`, Perl's `\b{wb}`, and
+what to write: `\b` or `\B` alone, or `\{` for a brace. `\b{2}` stays a repetition of `\b`, legal (Y-22), as in Rust
+and Java; a bound that goes wrong later, `\b{2,x}`, keeps detail 0.
+
+**Measured at `5fbaf4a`.** `parse_refusals.npk` cases 72–75 and `pattern_error_text.npk` case 81 pass at −O0 and
+through `opt -O2`, and against the parser and text before this decision exit 72 and 81; with the detail dropped the
+first exits 72, with `\B` left out 74, and with the sentence's branch lost the second exits 81.
+
+*Alternatives declined:* **`\b{start}` read as Rust's assertion** — a construct nregex's engines do not have yet, and
+Perl reads the same braces otherwise; **`UnknownEscape` at the `\`** — the `\b` is a word boundary, and what is wrong
+is the brace; **detail 2 after any atom** — `a{start}` is a brace no engine reads as a boundary; **`\b` alone, without
+`\B`** — Perl's `\B{wb}` is the same reading of the same shape.

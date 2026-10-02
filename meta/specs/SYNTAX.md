@@ -350,6 +350,10 @@ at the `{`, spanning what was read, detail 0; a bound above `NREGEX_REPEAT_MAX` 
 value stops growing past the bound, so no digit string overflows); a minimum above
 the maximum is `BadRepeatBounds` spanning the braces, detail 1. A repeated group or
 anchor is legal (Y-22).
+*(2026-10-02, cycle 0.1.5 — RX-213: a `{` straight after `\b` or `\B` that holds no digit is `BadRepeatBounds` with
+detail 2, not 0: Rust's `regex` reads `\b{start}`, `\b{end}`, `\b{start-half}` and `\b{end-half}` as word assertions,
+and Perl `\b{wb}`, `\b{sb}`, `\b{gcb}`, `\b{lb}` and `\B{wb}` as Unicode boundaries, so its sentence names both. `\b{2}`
+repeats `\b`, as in Rust and Java.)*
 
 **Rule Y-33 (RX-182) — the tree the parse builds.** `parse_pattern(uint8[]:pat,
 Ast->:out)` refuses the length, then the encoding, then walks the pattern ONCE in
@@ -740,6 +744,7 @@ RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-2
 | `NothingToRepeat` | a quantifier with no atom before it | the quantifier | 1 | its first byte |
 | `DoubleRepeat` | a quantifier after a quantifier | the second one | 1 | its first byte |
 | `BadRepeatBounds` | a `{` that is no bounded repeat; a minimum above the maximum | the `{` | what was read | 0; 1 |
+| `BadRepeatBounds` (cycle 0.1.5, RX-213) | a `{` after `\b` or `\B` with no digit after it | the `{` | 1 | 2 |
 | `RepeatTooLarge` | a bound above `NREGEX_REPEAT_MAX` | its first digit | its digits | the bound |
 | `TooManyCaptureGroups` | a group numbered past `NREGEX_CAPTURE_GROUPS` — *not one nested past `NREGEX_NEST_DEPTH`, which is `NestTooDeep` first (Y-35)* | its `(` | 1 | the bound |
 | `DuplicateGroupName` | a name already used | the second name | its length | the first group's number |

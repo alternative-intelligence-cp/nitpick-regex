@@ -212,6 +212,8 @@ func:run = int32() never fails {
         }
         kk = kk + 1i64;
     }
+    // a `{` after `\b` holding no number: Rust's and Perl's readings named (RX-213)
+    if (!(raw says("\\b{start}", "bad repetition bounds at byte 2: a `{` after a word boundary repeats it, and this one holds no number. Rust's `regex` reads `\\b{start}` and `\\b{end}` as word assertions and Perl `\\b{wb}` as a Unicode boundary, and nregex reads neither. Write `\\b` or `\\B` alone, or `\\{` to match a brace."))) { pass 81i32; }
     // `\K`, Perl's and PCRE's reset of a match's start, refused as lookaround by the author's amendment of
     // 2026-10-02 (RX-210): its kind, its byte, and the lookaround's sentence to the letter
     if (!(raw says_kind("foo\\Kbar", PatternErrorKind.LookaroundUnsupported, 3i64, "lookaround at byte 3: nregex's automata read no lookahead or lookbehind, and they are what make every search take linear time. Match the larger text and inspect its captures instead."))) { pass 82i32; }

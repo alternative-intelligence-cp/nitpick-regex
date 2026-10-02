@@ -317,6 +317,9 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
             if (e.detail == 1u32) {
                 drop put(@b, ": the minimum is greater than the maximum. Write the smaller bound first.");
             }
+            else if (e.detail == 2u32) {
+                drop put(@b, ": a `{` after a word boundary repeats it, and this one holds no number. Rust's `regex` reads `\\b{start}` and `\\b{end}` as word assertions and Perl `\\b{wb}` as a Unicode boundary, and nregex reads neither. Write `\\b` or `\\B` alone, or `\\{` to match a brace.");
+            }
             else {
                 drop put(@b, ": a `{` must begin `{n}`, `{n,}` or `{n,m}`, in decimal digits. Write `\\{` to match a brace.");
             }
