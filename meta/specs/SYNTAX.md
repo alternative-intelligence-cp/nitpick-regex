@@ -650,6 +650,16 @@ string**, returning a pattern that matches exactly it. `\Q…\E` is refused
 rather than implemented because it is a second, in-band quoting mechanism whose
 interaction with `x` mode and with class syntax is a source of surprises in
 every engine that has it.
+*(2026-10-02, cycle 0.1.5 — RX-211: written, as Y-45 says.)*
+
+**Rule Y-45 (RX-211) — `regex_escape(text)` writes `text` so that each of its codepoints is itself in a pattern.** A
+`\` goes before each of `\ . + * ? ( ) | [ ] { } ^ $ # & - ~` and before the six white-space bytes — tab, line feed,
+vertical tab, form feed, carriage return and space; each of Y-42's twenty-one white-space codepoints past ASCII is
+written `\x{…}`, its hex digits in upper case; every other byte is copied, `<` and `>` among them (Y-2's note). So the
+text parses back to one `Literal` per codepoint, in order — as a whole pattern or a piece of one, and between `[` and
+`]` one member each — with `x` in force or not. Under `(?-u)` a codepoint past ASCII is refused as any is (Y-43), and
+under `i` it matches as `i` says. A text that is not well-formed UTF-8 is copied with only its ASCII escaped, so its
+pattern is refused `InvalidPatternEncoding` where the text breaks (Y-28), never read as a codepoint it does not hold.
 
 ---
 

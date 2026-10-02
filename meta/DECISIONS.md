@@ -5355,3 +5355,35 @@ backreference** — PCRE's `\g<1>` runs group 1's pattern again, not its text, a
 say the wrong thing; **`\K` left `UnknownEscape`, as the plan proposed** — its sentence tells a Perl or PCRE author
 to write `K`, and the author amended the plan on 2026-10-02; **`\K` refused as lookaround in a class too** — a
 class holds codepoints, and no engine reads a position there.
+
+### RX-211 — `regex_escape(text)` puts a `\` before every byte that means something in a pattern and writes white space past ASCII as `\x{…}`, so the text means itself whole, in a piece, in a class and under `x`
+
+**2026-10-02, cycle 0.1.5 (the plan's PD-55), at compiler `5fbaf4a`** — `SYNTAX.md` Y-24 and Y-45, `API.md` §1; per
+`meta/research/refusal-syntax-reference-engines.md`, as of 2026-10-01. Y-24 names `regex_escape` the way to match a
+literal string, §8's refusal of `\Q…\E` points at it, and `API.md` §1 gives it as `regex_escape(string) -> string`;
+nothing said what it writes. Rust's `regex::escape` (regex-syntax 0.8.11's `escape_into` and `is_meta_character`)
+writes a `\` before eighteen bytes — `\ . + * ? ( ) | [ ] { } ^ $ # & - ~` — so its text is a literal in a pattern and
+in a class; it leaves white space bare, and regex-syntax reads `(?x)a b` as `ab`, so under `x` its text loses its
+spaces. nregex's `x` skips the same white space between constructs (Y-42), refuses white space past ASCII (Y-42), and
+refuses white space or `#` in a class (Y-39).
+
+**The decision.** Y-45: a `\` before Rust's eighteen and before the six white-space bytes; each of Y-42's twenty-one
+white-space codepoints past ASCII as `\x{…}`; every other byte copied, `<` and `>` too (RX-205 refuses a `\` before
+either). Each codepoint of the text then parses back as itself — whole, in a piece of a pattern, between `[` and `]`,
+under `x` or not. A text that is not well-formed UTF-8 is copied with only its ASCII escaped, and its pattern is
+refused where the text breaks. It is written in `parse.npk`, beside the parser whose reading it inverts, so the
+twenty-one codepoints have one home, and re-exported by `syntax.npk`; `pattern_error.npk`'s `hex` is `pub` for it, so a
+codepoint is written in one way. `src/lib.npk` re-exports it at cycle 0.10.5, as it does `pattern_error_text`.
+
+**Measured at `5fbaf4a`.** `tests/unit/regex_escape.npk` passes at −O0 and through `opt -O2`: every ASCII byte alone in
+all four places, the pairs a class reads as a range, an end or an operator, all twenty-one codepoints under `x`, a text
+an overlong form makes ill-formed, and the text written for each kind of byte. Against the tree before this decision it
+is refused `NITPICK-RESOLVE-002` at its four calls; each byte dropped from the set, each form changed, exits as the
+plan's §1.12 records.
+
+*Alternatives declined:* **Rust's eighteen alone** — under `x` the text's white space is skipped; **Y-28's twelve
+metacharacters alone** — between `[` and `]` a `-`, `]`, `&` or `~` becomes a range, an end or an operator; **every
+ASCII byte that is neither a letter nor a digit** — a `\` before `<` or `>` is refused; **every byte past ASCII as
+`\x{…}`** — the text unreadable for nothing, since only the twenty-one mean anything; **an ill-formed text decoded as it
+is** — an overlong form would be read as a codepoint the text does not hold, `E0 82 85` as U+0085; **a `Bytes` sink
+rather than a `string`** — `API.md` §1 gives a `string`, and A-12's sink is for replacement, which runs per match.

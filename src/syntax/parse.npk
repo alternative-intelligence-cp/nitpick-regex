@@ -1544,3 +1544,52 @@ pub func:parse_pattern = PatternError?(uint8[]:pat, Ast->:out) never fails {
     drop vec_free(@p.classes);
     pass e;
 };
+
+// ---- the inverse: text to a pattern (`SYNTAX.md` Y-24, Y-45; RX-211) ---------------------------
+
+// A byte `regex_escape` writes a `\` before: Y-28's metacharacters and their closers, `\ . + * ? ( ) | [
+// ] { } ^ $`; `&`, `-` and `~`, which make a class's operators and ranges; `#`; and the six white-space
+// bytes `x` skips (Y-42) -- every byte that means something somewhere in a pattern, in a class or out, under
+// `x` or not. Not `<` or `>`: a `\` before either is refused (RX-205), and each is itself everywhere.
+func:is_escaped = bool(int32:b) never fails {
+    if ((b == CH_BACKSLASH) || (b == CH_DOT) || (b == CH_PLUS) || (b == CH_STAR) || (b == CH_QUESTION)) { pass true; }
+    if ((b == CH_LPAREN) || (b == CH_RPAREN) || (b == CH_PIPE) || (b == CH_LBRACKET) || (b == CH_RBRACKET)) { pass true; }
+    if ((b == CH_LBRACE) || (b == CH_RBRACE) || (b == CH_CARET) || (b == CH_DOLLAR) || (b == CH_HASH)) { pass true; }
+    if ((b == CH_AMP) || (b == CH_MINUS) || (b == CH_TILDE)) { pass true; }
+    pass raw is_space(b);
+};
+
+// obligation: never fails
+//
+// A pattern that matches exactly `text` (Y-24, Y-45): each of its codepoints a `Literal` of itself, or in
+// a class a member, under `x` or not. A `\` goes before each byte `is_escaped` names; each white-space
+// codepoint past ASCII that `x` refuses (Y-42) is written `\x{…}`; every other byte is copied. A text that
+// is not well-formed UTF-8 is copied with only its ASCII escaped, so its pattern is refused
+// `InvalidPatternEncoding` where the text breaks (Y-28), never read as a codepoint the text does not hold.
+pub func:regex_escape = string(string:text) never fails {
+    uint8[]:t = string_bytes(text);
+    PatternError?:bad = raw parse_check_encoding(t);
+    Bytes:b = raw bytes_init(t.len + 16i64);
+    int64:i = 0i64;
+    while (i < t.len) decreases t.len - i {
+        int32:c = t[i] => int32;
+        int64:n = 1i64;
+        if (raw is_escaped(c)) {
+            drop bytes_push(@b, CH_BACKSLASH =>! uint8);
+            drop bytes_push(@b, t[i]);
+        }
+        else if (((c => int64) >= U8_CONT_LO) && (bad == NIL)) {
+            n = raw utf8_len(c => int64);
+            int64:cp = raw decode_at(t, i);
+            if (raw is_wide_space(cp)) {
+                drop bytes_extend_str(@b, "\\x{");
+                drop hex(@b, cp, 1i64);
+                drop bytes_push(@b, CH_RBRACE =>! uint8);
+            }
+            else { drop bytes_extend(@b, t[i...i + n]); }
+        }
+        else { drop bytes_push(@b, t[i]); }
+        i = i + n;
+    }
+    pass raw bytes_copy_string(@b);
+};

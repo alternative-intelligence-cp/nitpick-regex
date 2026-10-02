@@ -1,0 +1,271 @@
+// expect-exit: 0
+//
+// `regex_escape` -- TEXT TO A PATTERN THAT MATCHES EXACTLY IT (`SYNTAX.md` Y-24, Y-45; RX-211).
+//
+// What its text PARSES to, through `syntax.npk`'s re-exports, in the four places a text may stand: a
+// whole pattern, after `(?x)`, inside a class, and inside a class after `(?x)`. Each codepoint of the text
+// must come back as itself -- a `Literal`, or in a class a member from it to itself -- in order, and
+// nothing else: every ASCII byte alone, in each place (1-4); the pairs a class reads as a range, its end or
+// an operator (5-8); every one of Y-42's twenty-one white-space codepoints past ASCII after `(?x)` (9); a
+// text that is not well-formed UTF-8, refused where it breaks, never read as a codepoint it does not hold
+// (10); and longer texts (11, 12). Then the text it writes (20-33): a `\` before every byte that means
+// something somewhere in a pattern, in a class or out, under `x` or not; `\x{…}` for each white-space
+// codepoint past ASCII that `x` refuses; every other byte copied -- `<` and `>` bare, since a `\` before
+// either is refused (RX-205) -- and a text that is not well-formed UTF-8 copied with only its ASCII
+// escaped. A case that differs exits with its number.
+mod:regex_escape;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+
+fixed int64:WHOLE = 0i64;        // the text is the whole pattern
+fixed int64:EXTENDED = 1i64;     // after `(?x)`
+fixed int64:IN_CLASS = 2i64;     // between `[` and `]`
+fixed int64:EXT_CLASS = 3i64;    // between `(?x)[` and `]`
+
+func:same = bool(uint8[]:g, uint8[]:w) never fails {
+    if (g.len != w.len) { pass false; }
+    int64:i = 0i64;
+    while (i < w.len) decreases w.len - i {
+        if (g[i] != w[i]) { pass false; }
+        i = i + 1i64;
+    }
+    pass true;
+};
+
+// Does `regex_escape(text)` write exactly `want`?
+func:escapes = bool(string:text, string:want) never fails {
+    string:got = raw regex_escape(text);
+    pass raw same(string_bytes(got), string_bytes(want));
+};
+
+// The same for a text a string literal cannot hold -- one that is not well-formed UTF-8.
+func:escapes_bytes = bool(uint8[]:text, uint8[]:want) never fails {
+    Bytes:t = raw bytes_init(8i64);
+    drop bytes_extend(@t, text);
+    string:s = raw bytes_copy_string(@t);
+    string:got = raw regex_escape(s);
+    pass raw same(string_bytes(got), want);
+};
+
+// The length of the UTF-8 sequence a lead byte begins, and the codepoint it holds -- the text's own
+// codepoints, read independently of the parser's reader.
+func:seq_len = int64(int64:lead) never fails {
+    if (lead < 128i64) { pass 1i64; }
+    if (lead < 224i64) { pass 2i64; }
+    if (lead < 240i64) { pass 3i64; }
+    pass 4i64;
+};
+
+func:cp_at = int64(uint8[]:t, int64:i) never fails {
+    int64:lead = t[i] => int64;
+    int64:n = raw seq_len(lead);
+    int64:cp = lead;
+    if (n == 2i64) { cp = lead & 31i64; }
+    if (n == 3i64) { cp = lead & 15i64; }
+    if (n == 4i64) { cp = lead & 7i64; }
+    int64:k = 1i64;
+    while (k < n) decreases n - k {
+        cp = (cp * 64i64) + ((t[i + k] => int64) & 63i64);
+        k = k + 1i64;
+    }
+    pass cp;
+};
+
+func:count_cps = int64(uint8[]:t) never fails {
+    int64:i = 0i64;
+    int64:n = 0i64;
+    while (i < t.len) decreases t.len - i {
+        i = i + raw seq_len(t[i] => int64);
+        n = n + 1i64;
+    }
+    pass n;
+};
+
+// The list from `first` holds exactly the codepoints of `text`, in order: each a `Literal` of it, or in
+// a class a `ClassRange` from it to itself, and the last one's `next` is `AST_NONE`.
+func:holds = bool(Ast:t, int64:first, uint8[]:text, bool:inclass) never fails {
+    int64:m = first;
+    int64:i = 0i64;
+    while (i < text.len) decreases text.len - i {
+        if (m == AST_NONE) { pass false; }
+        int64:cp = raw cp_at(text, i);
+        AstNode:x = raw ast_get(t, m);
+        if (inclass) {
+            if ((x.kind != AstKind.ClassRange) || (x.a != cp) || (x.b != cp)) { pass false; }
+        }
+        else if ((x.kind != AstKind.Literal) || (x.a != cp)) { pass false; }
+        m = x.next;
+        i = i + raw seq_len(text[i] => int64);
+    }
+    pass m == AST_NONE;
+};
+
+// The tree parsed holds `text`'s codepoints as `place` puts them.
+func:tree_holds = bool(Ast:t, uint8[]:text, int64:place) never fails {
+    AstNode:r = raw ast_get(t, t.root);
+    int64:n = raw count_cps(text);
+    if (place == WHOLE) {
+        if (n == 1i64) { pass raw holds(t, t.root, text, false); }
+        if ((r.kind != AstKind.Concat) || (r.b != n)) { pass false; }
+        pass raw holds(t, r.a, text, false);
+    }
+    if ((place == EXTENDED) || (place == EXT_CLASS)) {
+        if (r.kind != AstKind.Concat) { pass false; }
+        AstNode:f = raw ast_get(t, r.a);
+        if (f.kind != AstKind.Flags) { pass false; }
+        if (place == EXTENDED) {
+            if (r.b != (n + 1i64)) { pass false; }
+            pass raw holds(t, f.next, text, false);
+        }
+        if ((r.b != 2i64) || (f.next == AST_NONE)) { pass false; }
+        AstNode:c = raw ast_get(t, f.next);
+        if ((c.kind != AstKind.Class) || (c.b != n) || ((c.flags & AST_FLAG_NEGATED) != 0u32)) { pass false; }
+        pass raw holds(t, c.a, text, true);
+    }
+    if ((r.kind != AstKind.Class) || (r.b != n) || ((r.flags & AST_FLAG_NEGATED) != 0u32)) { pass false; }
+    pass raw holds(t, r.a, text, true);
+};
+
+// `regex_escape(text)`, put where `place` says, parses, and its tree holds exactly `text`'s codepoints.
+func:round_trip = bool(uint8[]:text, int64:place) never fails {
+    Bytes:tb = raw bytes_init(8i64);
+    drop bytes_extend(@tb, text);
+    string:s = raw bytes_copy_string(@tb);
+    string:e = raw regex_escape(s);
+    Bytes:p = raw bytes_init(32i64);
+    if ((place == EXTENDED) || (place == EXT_CLASS)) { drop bytes_extend_str(@p, "(?x)"); }
+    if ((place == IN_CLASS) || (place == EXT_CLASS)) { drop bytes_extend_str(@p, "["); }
+    drop bytes_extend_str(@p, e);
+    if ((place == IN_CLASS) || (place == EXT_CLASS)) { drop bytes_extend_str(@p, "]"); }
+    string:pattern = raw bytes_copy_string(@p);
+    Ast:t = raw ast_init(8i64);
+    PatternError?:r = raw parse_pattern(string_bytes(pattern), @t);
+    bool:ok = false;
+    if (r == NIL) { ok = raw tree_holds(t, text, place); }
+    drop ast_free(@t);
+    pass ok;
+};
+
+func:trip = bool(string:text, int64:place) never fails {
+    pass raw round_trip(string_bytes(text), place);
+};
+
+// `regex_escape(text)` is refused `InvalidPatternEncoding` at `off` when parsed.
+func:ill_formed = bool(uint8[]:text, int64:off) never fails {
+    Bytes:tb = raw bytes_init(8i64);
+    drop bytes_extend(@tb, text);
+    string:s = raw bytes_copy_string(@tb);
+    string:e = raw regex_escape(s);
+    Ast:t = raw ast_init(8i64);
+    PatternError?:r = raw parse_pattern(string_bytes(e), @t);
+    drop ast_free(@t);
+    if (r == NIL) { pass false; }
+    PatternError:x = r ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
+    pass (x.kind == PatternErrorKind.InvalidPatternEncoding) && (x.offset == off);
+};
+
+// `cp` in UTF-8, alone in a text.
+func:one = NIL(Bytes->:b, int64:cp) never fails {
+    if (cp < 128i64) { drop bytes_push(b, cp =>! uint8); pass NIL; }
+    if (cp < 2048i64) {
+        drop bytes_push(b, (192i64 | (cp >> 6i64)) =>! uint8);
+        drop bytes_push(b, (128i64 | (cp & 63i64)) =>! uint8);
+        pass NIL;
+    }
+    drop bytes_push(b, (224i64 | (cp >> 12i64)) =>! uint8);
+    drop bytes_push(b, (128i64 | ((cp >> 6i64) & 63i64)) =>! uint8);
+    drop bytes_push(b, (128i64 | (cp & 63i64)) =>! uint8);
+    pass NIL;
+};
+
+// Every one of Y-42's twenty-one white-space codepoints past ASCII, alone after `(?x)`, comes back as itself.
+func:wide_trip = bool() never fails {
+    int64[21]:ws = [133i64, 160i64, 5760i64, 8192i64, 8193i64, 8194i64, 8195i64, 8196i64, 8197i64, 8198i64,
+                    8199i64, 8200i64, 8201i64, 8202i64, 8206i64, 8207i64, 8232i64, 8233i64, 8239i64, 8287i64,
+                    12288i64];
+    int64:k = 0i64;
+    while (k < 21i64) decreases 21i64 - k {
+        Bytes:b = raw bytes_init(4i64);
+        drop one(@b, ws[k]);
+        string:s = raw bytes_copy_string(@b);
+        if (!(raw trip(s, EXTENDED))) { pass false; }
+        k = k + 1i64;
+    }
+    pass true;
+};
+
+// Every ASCII byte alone, put where `place` says, comes back as itself.
+func:ascii_trip = bool(int64:place) never fails {
+    int64:c = 0i64;
+    while (c < 128i64) decreases 128i64 - c {
+        Bytes:b = raw bytes_init(4i64);
+        drop bytes_push(@b, c =>! uint8);
+        string:s = raw bytes_copy_string(@b);
+        if (!(raw trip(s, place))) { pass false; }
+        c = c + 1i64;
+    }
+    pass true;
+};
+
+func:run = int32() never fails {
+    // what its text parses to: every ASCII byte alone, in all four places
+    if (!(raw ascii_trip(WHOLE)))                                               { pass 1i32; }
+    if (!(raw ascii_trip(EXTENDED)))                                            { pass 2i32; }
+    if (!(raw ascii_trip(IN_CLASS)))                                            { pass 3i32; }
+    if (!(raw ascii_trip(EXT_CLASS)))                                           { pass 4i32; }
+    // what a class reads between two codepoints: a range, its end, an operator
+    if (!(raw trip("a-z", IN_CLASS)))                                           { pass 5i32; }
+    if (!(raw trip("a]b", IN_CLASS)))                                           { pass 6i32; }
+    if (!(raw trip("a&&b", IN_CLASS)))                                          { pass 7i32; }
+    if (!(raw trip("a~~b", IN_CLASS)))                                          { pass 8i32; }
+    // white space past ASCII under `x`: every one of Y-42's twenty-one
+    if (!(raw wide_trip()))                                                     { pass 9i32; }
+    // a text that is not well-formed UTF-8, refused where it breaks -- never read as U+0085
+    uint8[3]:overlong = [224u8, 130u8, 133u8];
+    if (!(raw ill_formed(overlong[0i64...3i64], 0i64)))                         { pass 10i32; }
+    // longer texts, every metacharacter in them
+    if (!(raw trip("a.b*c?d+e|f(g)h[i]j{k}l^m$n\\o", WHOLE)))                    { pass 11i32; }
+    if (!(raw trip("price: $5.00 (approx.) [x] {y} é", EXTENDED)))              { pass 12i32; }
+    // the text it writes
+    if (!(raw escapes("a.b", "a\\.b")))                                         { pass 20i32; }
+    if (!(raw escapes("\\.+*?()|[]{}^$", "\\\\\\.\\+\\*\\?\\(\\)\\|\\[\\]\\{\\}\\^\\$"))) { pass 21i32; }
+    if (!(raw escapes("&-~#", "\\&\\-\\~\\#")))                                 { pass 22i32; }
+    if (!(raw escapes(" \t\n", "\\ \\\t\\\n")))                                 { pass 23i32; }
+    if (!(raw escapes("<a>", "<a>")))                                           { pass 24i32; }
+    if (!(raw escapes("", "")))                                                 { pass 25i32; }
+    if (!(raw escapes("\u{A0}", "\\x{A0}")))                                    { pass 26i32; }
+    if (!(raw escapes("a\u{2028}b\u{85}", "a\\x{2028}b\\x{85}")))               { pass 27i32; }
+    if (!(raw escapes("\u{3000}\u{200E}", "\\x{3000}\\x{200E}")))               { pass 28i32; }
+    if (!(raw escapes("é😀\u{200B}", "é😀\u{200B}")))                           { pass 29i32; }
+    if (!(raw escapes("\\Qa\\E", "\\\\Qa\\\\E")))                               { pass 30i32; }
+    if (!(raw escapes("x:=1,'%@!", "x:=1,'%@!")))                               { pass 31i32; }
+    if (!(raw escapes_bytes(overlong[0i64...3i64], overlong[0i64...3i64])))     { pass 32i32; }
+    uint8[2]:ff = [255u8, 46u8];
+    uint8[3]:ff_out = [255u8, 92u8, 46u8];
+    if (!(raw escapes_bytes(ff[0i64...2i64], ff_out[0i64...3i64])))             { pass 33i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:r = raw run();
+    exit r;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

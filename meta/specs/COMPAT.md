@@ -31,6 +31,7 @@ The closest neighbour, so the list is short and each entry is deliberate.
 |---|---|---|---|
 | named groups | `(?P<n>…)` **and** `(?<n>…)` | `(?<n>…)` only | one spelling per construct (`SYNTAX.md` Y-7) |
 | `\Q…\E` | not supported | refused, naming `regex_escape()` | same, with a better message |
+| `regex::escape` / `regex_escape()` | a `\` before eighteen bytes, white space left bare, so `(?x)` skips it | the same eighteen and the six white-space bytes, and white space past ASCII as `\x{…}` | the text means itself under `x` too (`SYNTAX.md` Y-45) — RX-211 |
 | Unicode blocks | not supported | refused, naming `Script` | `UNICODE.md` §2.1 |
 | case folding | simple | simple | same |
 | `x` mode inside classes | ~~whitespace significant~~ white space and `#` comments ignored (measured, regex 1.13.1) | ~~whitespace significant~~ a white-space byte or a `#` refused (`SYNTAX.md` Y-39) | ~~same (O-Y2)~~ the engines disagree, so neither reading is guessed — RX-201, 2026-10-01; this row said Rust kept white space, and it does not |

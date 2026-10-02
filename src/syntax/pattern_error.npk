@@ -188,7 +188,9 @@ fixed int64:UTF8_FOUR = 65536i64;
 
 // `v` in upper-case hex, at least `min` digits -- a shift and a mask a digit, no division
 // (`SAFETY.md` S-25). `v` is at most U+110000 here, six digits; eight bound the loop.
-func:hex = NIL(Bytes->:b, int64:v, int64:min) never fails {
+// *(2026-10-02, cycle 0.1.5 -- RX-211: `pub`, so `regex_escape` in `parse.npk` writes a codepoint's
+// `\x{…}` with the same digits; `syntax.npk` does not offer it.)*
+pub func:hex = NIL(Bytes->:b, int64:v, int64:min) never fails {
     uint8[]:digit = string_bytes("0123456789ABCDEF");
     int64:n = 1i64;
     while ((n < 8i64) && ((v >> (4i64 * n)) != 0i64)) decreases 8i64 - n {

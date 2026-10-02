@@ -81,3 +81,6 @@ pub use "./ast.npk".ast_free;
 pub use "./parse.npk".parse_check_length;
 pub use "./parse.npk".parse_check_encoding;
 pub use "./parse.npk".parse_pattern;
+
+// ---- the inverse: text to a pattern that matches exactly it (RX-211) --------------
+pub use "./parse.npk".regex_escape;

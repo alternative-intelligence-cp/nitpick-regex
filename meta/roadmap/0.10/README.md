@@ -29,7 +29,7 @@ plans; recommendation: keep Y-12. Decide it before 0.10.2 writes `RegexOptions`.
 ## Checklist
 
 ### 0.10.0 — `Regex`, `Cache`, `Match`
-- [ ] `regex_compile`, `regex_compile_opts`, `regex_escape`, `regex_cache`
+- [ ] `regex_compile`, `regex_compile_opts`, `regex_escape`, `regex_cache` *(2026-10-02 — cycle 0.1.5, RX-211: `regex_escape` is written, in `src/syntax/parse.npk`; this cycle re-exports it, at 0.10.5)*
 - [ ] `regex_is_match`, `regex_find`, `regex_find_at` — **none returning `Result`** (A-1, RX-061)
 - [ ] `Match` is `{lo, hi}` (RX-050), and **the fields are `lo` and `hi`** by A-3 — *not* because `end` cannot be a field name, which RX-134 measured to be false at all three kept pins
 - [ ] **`regex_find_at`'s `at` is where the search starts, not where the haystack starts** (A-5): `^` still means the start of `hay` and `\b` at `at` still looks at the byte before it. A test asserts searching `hay[at..]` gives a *different* answer, so the distinction is protected
