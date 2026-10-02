@@ -23,8 +23,10 @@ makes the guarantee below possible.
 > ranges, nested classes, `&&` `--` `~~`, `\d`, `\p{…}` and `[:alpha:]` — reading every
 > shape as Rust's `regex` reads it or refusing it with what to write. Cycle 0.1.4 reads
 > every escape — `\x{1F600}`, `\u00E9`, `\A`, `\b` — and the flags `i`, `m`, `s`, `x` and
-> `u`, scoped to their group, refusing what the engines read two ways. Nothing matches a
-> pattern yet.
+> `u`, scoped to their group, refusing what the engines read two ways. Cycle 0.1.5 refuses
+> what nregex declines — a backreference, lookaround, `\Q…\E` — each by its own kind, with a
+> sentence saying why and what to write instead, and `regex_escape` writes any text as a
+> pattern that matches exactly it. Nothing matches a pattern yet.
 > The specification set is in [`meta/specs/`](meta/specs/) and the plan in
 > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
 > discipline the compiler used — specs first, then a cycle map, then

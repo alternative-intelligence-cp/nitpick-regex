@@ -2,7 +2,8 @@
 // its entry's first refusal (RX-175); cycle 0.1.1 writes the core grammar
 // (RX-182 … RX-186; `meta/specs/SYNTAX.md` §1 and Y-28 … Y-33); cycle 0.1.3 its
 // classes (RX-197, RX-198; Y-35 … Y-38); cycle 0.1.4 its escapes and flags (RX-203 …
-// RX-208; Y-40 … Y-43).
+// RX-208; Y-40 … Y-43); cycle 0.1.5 its refusals of what §8 declines, and `regex_escape`
+// (RX-209 … RX-213; Y-44, Y-45).
 //
 // HOW `syntax` SAYS A PATTERN IS WRONG: WITH A VALUE. The library's one `error:`
 // identity, `ERegexPattern`, is `api`'s (`SAFETY.md` S-8), and `syntax` sits

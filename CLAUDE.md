@@ -6,7 +6,7 @@ Guidance for Claude Code sessions working in this repository.
 
 `nregex` — a regular-expression library for **Nitpick**, the safety-critical
 systems language at `../../nitpick`. **Status: cycle 0.1, the pattern parser, is
-open, and its 0.1.0, 0.1.0b, 0.1.1, 0.1.1b, 0.1.2, 0.1.3 and 0.1.4 are done** — the pieces the parser is written
+open, and its 0.1.0, 0.1.0b, 0.1.1, 0.1.1b, 0.1.2, 0.1.3, 0.1.4 and 0.1.5 are done** — the pieces the parser is written
 in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/0.1/0.1.0.md`); the adoption of
 compiler `5fbaf4a` (RX-176 … RX-180, `0.1.0b.md`); and the core grammar —
 `parse_pattern` builds the AST for literals, `.`, `^`, `$`, groups, alternation and
@@ -24,7 +24,10 @@ and flags — every escape of §1 read as a codepoint, a class or an anchor, in 
 with what to write, `\<` and `\>` among them; flag groups scoped to their enclosing group; `x` skipping white space
 between constructs and refusing what the engines read two ways; `(?-u)` reading every literal as a byte; a detail
 that names no codepoint for the end of the pattern; and `check_constants_named` reading every spelling of an integer
-(RX-202 … RX-208, `0.1.4.md`).
+(RX-202 … RX-208, `0.1.4.md`); and the refusals — every escape §8 declines refused by its own kind, `\g` among them
+and `\K` as lookaround, by the author's amendment, each sentence saying what is wrong, where, and the guarantee or
+what to write, none that it is unsupported, and `regex_escape` writing a text as a pattern that matches exactly it
+(RX-209 … RX-213, `0.1.5.md`).
 Cycle 0.0, foundations, CLOSED on 2026-09-26 — the sixth audit accepted it, and
 it is archived in `meta/roadmap/done/0.0/`. The
 specifications, the decisions and the roadmap are complete; `tests/probe/` holds
@@ -73,12 +76,13 @@ groups past `NREGEX_NEST_DEPTH` is `NestTooDeep` at it, before a byte after it i
 levels and at the longest pattern, forty runs a leg — **and since 0.1.3 it parses classes**
 (`SYNTAX.md` Y-36 … Y-38), with two unit programs more, `parse_classes` and
 `parse_class_refusals` — **and since 0.1.4 it reads escapes and flags** (`SYNTAX.md` Y-40 … Y-43), with four
-unit programs more, `parse_escapes`, `parse_escape_refusals`, `parse_flags` and `parse_flag_refusals`. Only §8's
-escapes — `\1` … `\9`, `\k`, `\G`, `\Z`, `\Q`, `\E` — are refused provisionally, until 0.1.5 (`SYNTAX.md` Y-30,
-Y-31). **No matching happens yet**: `src/hir/`,
+unit programs more, `parse_escapes`, `parse_escape_refusals`, `parse_flags` and `parse_flag_refusals` — **and since
+0.1.5 it refuses what §8 declines by its own kind and writes a text as a pattern** (`SYNTAX.md` Y-44, Y-45), with two
+unit programs more, `parse_declined` and `regex_escape`; nothing is refused provisionally any more. **No matching
+happens yet**: `src/hir/`,
 `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are still one
 placeholder module each. A full green run at compiler `5fbaf4a` is
-**254 units** (after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus nine tree checks (eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
+**258 units** (after cycle 0.1.5; 254 after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus nine tree checks (eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
 summary rather than from here. **Nothing is PENDING any more**:
 `tests/unit/bytes_copy_string_empty.npk` was committed red under
 `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at

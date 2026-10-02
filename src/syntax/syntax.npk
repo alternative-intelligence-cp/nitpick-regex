@@ -24,6 +24,9 @@
 // together (RX-198).
 // SINCE CYCLE 0.1.4 IT READS ESCAPES AND FLAGS -- every escape of §1, in a class and out,
 // and `(?flags)` and `(?flags:...)`, with `x` and `(?-u)` (Y-40 … Y-43, RX-203 … RX-208).
+// SINCE CYCLE 0.1.5 IT REFUSES WHAT §8 DECLINES, EACH BY ITS OWN KIND -- no construct is refused
+// provisionally any more -- AND WRITES A TEXT AS A PATTERN, `regex_escape` (Y-44, Y-45, RX-209 …
+// RX-213).
 //
 // EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1
 // and 3): `use` is not transitive, a plain `use` re-exports nothing, and one
