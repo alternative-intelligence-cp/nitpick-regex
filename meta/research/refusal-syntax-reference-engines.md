@@ -127,6 +127,12 @@ Perl at all.
 *(Run on 2026-10-02 by cycle 0.1.5's worker, each engine as installed and as above, for the author's answer to the
 plan's §6: `\K` refused as lookaround — RX-210. Rust's `regex` was not run: the crates cycle 0.1.3's planner built
 are no longer here.)*
+*(Corrected 2026-10-02, in cycle 0.1.5's record commit: the last sentence is false. The crates are here — cycle
+0.1.3's planner's binary, `.internal/p013/rx-target/release/rx`, built from regex-syntax 0.8.11, which reads a pattern
+a line and prints its AST parser's and its translator's verdicts; this worker had looked for them in cargo's own
+registry and not in the planner's. Run: regex-syntax 0.8.11 refuses `foo\Kbar`, `\K` and `[\K]` alike —
+`EscapeUnrecognized` at the `\`, spanning it and the `K`, *"unrecognized escape sequence"* — so Rust refuses `\K`
+in a class and out, with Python, Java and node under `u`.)*
 
 | shape | Perl 5.38.2 | Python 3.12.3 | Java 21.0.12.1 | node 24.21.0 `u`; without | PCRE2 10.42 |
 |---|---|---|---|---|---|

@@ -4,8 +4,9 @@
 #
 #     REPO=<the dispatch's REPO>; . "$REPO/meta/roadmap/0.1/0.1.5_tools/env.sh"
 #
-# 0.1.4's helpers -- `codes`, `harness`, `ctl`, `run4`, `nrcheck` and `mutant`, its table this plan's
-# -- and `texts`, which prints what `pattern_error_text` says for a pattern. `$NPK_TREE` is read with
+# 0.1.4's helpers -- `codes`, `harness`, `ctl`, `run4`, `nrcheck` and `mutant`, its table this plan's.
+# *(2026-10-02, cycle 0.1.5's worker: this said "and `texts`, which prints what `pattern_error_text` says
+# for a pattern" too, and no such helper is defined here or in 0.1.4's tools.)* `$NPK_TREE` is read with
 # `git` read commands only. Every `rm` names its target through `${VAR:?}`. Nothing prints a path
 # above the repository, so no output carries a home directory into a record.
 #
@@ -131,7 +132,14 @@ M = {
   "declined-in-class": (P, "        drop class_add(out, cf, n, at, p.c.pos, AFTER_CLASS);\n        pass NIL;\n    }\n    pass raw escape_refused(pat, at);",
                            "        drop class_add(out, cf, n, at, p.c.pos, AFTER_CLASS);\n        pass NIL;\n    }\n"
                            "    PatternError?:dd = raw declined_escape(at, d);\n    if (dd != NIL) { pass dd; }\n    pass raw escape_refused(pat, at);"),
-  # step 3 -- `\g`
+  # step 3 -- `\g`; and `\K`, refused as lookaround by the author's amendment of 2026-10-02 (RX-210),
+  # run by the worker beside blocks 3 and 5: parse_declined 60 and 63, pattern_error_text 82
+  "k-reset-unknown": (P, "    if (d == CH_UPPER_K) {\n        pass raw pattern_error(PatternErrorKind.LookaroundUnsupported",
+                       "    if (false) {\n        pass raw pattern_error(PatternErrorKind.LookaroundUnsupported"),
+  "k-reset-in-class": (P, "        drop class_add(out, cf, n, at, p.c.pos, AFTER_CLASS);\n        pass NIL;\n    }\n    pass raw escape_refused(pat, at);",
+                        "        drop class_add(out, cf, n, at, p.c.pos, AFTER_CLASS);\n        pass NIL;\n    }\n"
+                        "    if (d == CH_UPPER_K) { pass raw pattern_error(PatternErrorKind.LookaroundUnsupported, at, 2i64, d =>! uint32); }\n"
+                        "    pass raw escape_refused(pat, at);"),
   "g-unknown": (P, "    if ((raw is_digit(d)) || (d == CH_LOWER_K) || (d == CH_LOWER_G)) {", "    if ((raw is_digit(d)) || (d == CH_LOWER_K)) {"),
   "g-call-as-backref": (P, "        if ((n == CH_LT) || (n == CH_QUOTE)) {", "        if (false) {"),
   # step 4 -- `regex_escape`: a byte it leaves bare, a form it writes, a text it misreads

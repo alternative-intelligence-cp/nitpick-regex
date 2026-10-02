@@ -1,11 +1,11 @@
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index 08d58dd92a61e12d79aa845b7398e8ef052d8801..1302b8ae3e468581f24393ab1f5de63171fd44da 100644
+index c5b6d828531f16633ac6175badf7fb90ba6a4b34..d414394c59c81b3493c6859cb7a99ec7f408f501 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
-@@ -5339,3 +5339,35 @@ backreference 55.
- backreference** — PCRE's `\g<1>` runs group 1's pattern again, not its text, and the backreference's sentence would
- say the wrong thing; **`\K`, Perl's reset of a match's start, refused as lookaround as well** — not one of §8's
- constructs, and Y-2's refusal of a letter no rule names stands for it (`COMPAT.md` §3).
+@@ -5355,3 +5355,35 @@ backreference** — PCRE's `\g<1>` runs group 1's pattern again, not its text, a
+ say the wrong thing; **`\K` left `UnknownEscape`, as the plan proposed** — its sentence tells a Perl or PCRE author
+ to write `K`, and the author amended the plan on 2026-10-02; **`\K` refused as lookaround in a class too** — a
+ class holds codepoints, and no engine reads a position there.
 +
 +### RX-211 — `regex_escape(text)` puts a `\` before every byte that means something in a pattern and writes white space past ASCII as `\x{…}`, so the text means itself whole, in a piece, in a class and under `x`
 +
@@ -66,7 +66,7 @@ index 8a77809028aaccc1e9175814a77f75afdc6599d6..25519b416d26e9d4dca1b945786c009d
  **Rule A-1 — everything on the search path returns a value, not a `Result`.**
  `SAFETY.md` S-4: a compiled `Regex` cannot fail to search. `Match?` is the
 diff --git a/meta/specs/COMPAT.md b/meta/specs/COMPAT.md
-index f482358acb8bea9dbb45e9fcfe87b60262c8e036..40d5c89e02d836b70f6772636eb7e1991b194d12 100644
+index 7068280781e56906a3d85e0202635cfd27b3e0ec..c88e77e01e0fb80fb04f05b843bed97141f8df42 100644
 --- a/meta/specs/COMPAT.md
 +++ b/meta/specs/COMPAT.md
 @@ -31,6 +31,7 @@ The closest neighbour, so the list is short and each entry is deliberate.
@@ -78,10 +78,10 @@ index f482358acb8bea9dbb45e9fcfe87b60262c8e036..40d5c89e02d836b70f6772636eb7e199
  | case folding | simple | simple | same |
  | `x` mode inside classes | ~~whitespace significant~~ white space and `#` comments ignored (measured, regex 1.13.1) | ~~whitespace significant~~ a white-space byte or a `#` refused (`SYNTAX.md` Y-39) | ~~same (O-Y2)~~ the engines disagree, so neither reading is guessed — RX-201, 2026-10-01; this row said Rust kept white space, and it does not |
 diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
-index 9fc82c3610da8c7a6769be4e69630fc515af0fd5..40d1521d65efc653928345f8aff9ef8def3d5796 100644
+index 185fb8669806e23f214103fe06912b53c694ac9a..7fe4f04da3678735b316404bbd6000504a641c62 100644
 --- a/meta/specs/SYNTAX.md
 +++ b/meta/specs/SYNTAX.md
-@@ -641,6 +641,16 @@ string**, returning a pattern that matches exactly it. `\Q…\E` is refused
+@@ -650,6 +650,16 @@ string**, returning a pattern that matches exactly it. `\Q…\E` is refused
  rather than implemented because it is a second, in-band quoting mechanism whose
  interaction with `x` mode and with class syntax is a source of surprises in
  every engine that has it.
@@ -99,10 +99,10 @@ index 9fc82c3610da8c7a6769be4e69630fc515af0fd5..40d1521d65efc653928345f8aff9ef8d
  ---
  
 diff --git a/src/syntax/parse.npk b/src/syntax/parse.npk
-index d254f7b684955eb9b6e3fa22db867ec859d49a01..ac76b36ef8334cfd0dca8b6f73fed24ef26a85b8 100644
+index 7280f7d3e759b20812ca1b504fb4b5844d7921fb..131a22a7884bc55997f4c83440b5e01f8d5a049b 100644
 --- a/src/syntax/parse.npk
 +++ b/src/syntax/parse.npk
-@@ -1539,3 +1539,52 @@ pub func:parse_pattern = PatternError?(uint8[]:pat, Ast->:out) never fails {
+@@ -1544,3 +1544,52 @@ pub func:parse_pattern = PatternError?(uint8[]:pat, Ast->:out) never fails {
      drop vec_free(@p.classes);
      pass e;
  };

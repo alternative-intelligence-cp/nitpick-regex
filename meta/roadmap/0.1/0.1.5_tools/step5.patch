@@ -1,8 +1,8 @@
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index 1302b8ae3e468581f24393ab1f5de63171fd44da..1357a73120da8de12b673fc3f14141d3943bda9c 100644
+index d414394c59c81b3493c6859cb7a99ec7f408f501..cebac761acb4f822eb9377a3e7db6303f0df58a3 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
-@@ -5371,3 +5371,44 @@ ASCII byte that is neither a letter nor a digit** — a `\` before `<` or `>` is
+@@ -5387,3 +5387,46 @@ ASCII byte that is neither a letter nor a digit** — a `\` before `<` or `>` is
  `\x{…}`** — the text unreadable for nothing, since only the twenty-one mean anything; **an ill-formed text decoded as it
  is** — an overlong form would be read as a codepoint the text does not hold, `E0 82 85` as U+0085; **a `Bytes` sink
  rather than a `string`** — `API.md` §1 gives a `string`, and A-12's sink is for replacement, which runs per match.
@@ -24,7 +24,9 @@ index 1302b8ae3e468581f24393ab1f5de63171fd44da..1357a73120da8de12b673fc3f14141d3
 +guarantee it would break, or how the engines read it — and what to write instead; none says it is unsupported, and the
 +text's unit holds that over every kind. A backreference *"matches the text a group captured, which no automaton can,
 +so the pattern could not be matched in linear time, as every nregex search is"*; lookaround: *"nregex's automata read
-+no lookahead or lookbehind, and they are what make every search take linear time"*; a possessive `+` and an atomic group
++no lookahead or lookbehind, and they are what make every search take linear time"* — and `\K`, refused as lookaround
++by the author's amendment of 2026-10-02 (RX-210), reads the same sentence, held with its kind and its byte by the
++text's unit, case 82; a possessive `+` and an atomic group
 +each *"stops backtracking"*, and the fix says it may match more; recursion and `\g<…>` let a pattern match nested text; `(?R)`
 +names Rust's CRLF mode beside PCRE's recursion — 0.1.4's hand-on — and says to write `\r?$` under `m`; `\Z` names the
 +three readings and both `\z` and `\n?\z`; `\G` names `regex_find_at` and the check on the match's start; `\Q` and a
@@ -37,7 +39,7 @@ index 1302b8ae3e468581f24393ab1f5de63171fd44da..1357a73120da8de12b673fc3f14141d3
 +
 +**Measured at `5fbaf4a`.** `tests/unit/pattern_error_text.npk` passes at −O0 and through `opt -O2`, and against the text
 +before this decision exits 16, the lookaround's sentence; each branch lost, and the word put back, exits as the plan's
-+§1.12 records.
++§1.12 records; and with `\K` left a letter no rule names it exits 82.
 +
 +*Alternatives declined:* **"is not supported" kept beside the reason, K-1 read as "not unsupported alone"** — the
 +checklist says never; **the NP-hardness of backreferences** — true, Aho's 1990 result as the PLDI 2024 paper cites
@@ -61,10 +63,10 @@ index d40c6a3c54c5c7b6ee16bd0915c7083e146a9c61..e537bc4b3fa148b29509647b2e471718
  ### 0.3.2 — Perl and POSIX classes
  - [ ] `\d`, `\w`, `\s` and their complements, per `UNICODE.md` §3's table, in both Unicode and byte mode
 diff --git a/meta/specs/COMPAT.md b/meta/specs/COMPAT.md
-index 40d5c89e02d836b70f6772636eb7e1991b194d12..09a3e7827a23e7403b346704a5d5f0fd8bacb774 100644
+index c88e77e01e0fb80fb04f05b843bed97141f8df42..d78718e69f74b180cdd558885685bf8f4ba0a6c9 100644
 --- a/meta/specs/COMPAT.md
 +++ b/meta/specs/COMPAT.md
-@@ -90,6 +90,11 @@ The list a user migrating from Python, PHP, Java or JavaScript needs.
+@@ -91,6 +91,11 @@ The list a user migrating from Python, PHP, Java or JavaScript needs.
  **Rule K-1 — every refusal names the alternative in its message**, and where
  there is none it names the reason. `LookaroundUnsupported` says the pattern
  cannot be matched in linear time, not "unsupported".
@@ -77,10 +79,10 @@ index 40d5c89e02d836b70f6772636eb7e1991b194d12..09a3e7827a23e7403b346704a5d5f0fd
  ---
  
 diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
-index 40d1521d65efc653928345f8aff9ef8def3d5796..5d8d640d91bf6ca56295c8048bde0686f20925a7 100644
+index 7fe4f04da3678735b316404bbd6000504a641c62..c15cc3e3bdac3dcb073cc42249db02f7c89e255d 100644
 --- a/meta/specs/SYNTAX.md
 +++ b/meta/specs/SYNTAX.md
-@@ -555,6 +555,10 @@ no table. A name that cannot be read is `UnknownUnicodeProperty` at the `\`, spa
+@@ -562,6 +562,10 @@ no table. A name that cannot be read is `UnknownUnicodeProperty` at the `\`, spa
  neither an ASCII letter nor `{` follows the `p`, 2 when the braces never close, 3 when they hold nothing. Each is a
  member of a class (Y-36).
  *(2026-10-01, cycle 0.1.3 — RX-199: and outside a class, an atom, which a quantifier may repeat.)*
@@ -91,7 +93,7 @@ index 40d1521d65efc653928345f8aff9ef8def3d5796..5d8d640d91bf6ca56295c8048bde0686
  
  **Rule Y-38 (RX-197) — POSIX classes, inside a class only.** Where a member would start inside a class, `[:` begins
  a POSIX class: `[:name:]`, or `[:^name:]` for its complement, its name lowercase and one of §5.1's fourteen — a
-@@ -585,6 +589,9 @@ a range, an escape, a nested, POSIX or Perl class, a property or an operator mak
+@@ -592,6 +596,9 @@ a range, an escape, a nested, POSIX or Perl class, a property or an operator mak
  **Rule Y-18 — there is no `\Z`.** Perl's `\Z` matches at the end *or* before a
  final newline, which is a special case that surprises everyone once and is
  spelled `\n?\z` in three characters. Refused with that suggestion.
@@ -101,7 +103,7 @@ index 40d1521d65efc653928345f8aff9ef8def3d5796..5d8d640d91bf6ca56295c8048bde0686
  
  **Rule Y-19 — `$` does not match before a final newline** unless `m` is on.
  This differs from Perl and matches Rust and RE2. It is stated here and in
-@@ -700,6 +707,10 @@ K-1). The text is built from the four fields alone — the pattern is not an arg
+@@ -709,6 +716,12 @@ K-1). The text is built from the four fields alone — the pattern is not an arg
  (`bytes_put_uint`, `SAFETY.md` S-25). Every kind has a sentence from cycle 0.1.1;
  each later subcycle holds its kinds' sentences to the letter when it produces them,
  as `tests/unit/pattern_error_text.npk` holds 0.1.1's.
@@ -109,17 +111,19 @@ index 40d1521d65efc653928345f8aff9ef8def3d5796..5d8d640d91bf6ca56295c8048bde0686
 +guarantee it would break or the reading it would take, and what to write — and never that it is unsupported, a word
 +no sentence holds; `(?R)` names Rust's CRLF mode beside PCRE's recursion, and the comment group says `#` begins a
 +comment outside a class.)*
++*(@@DATE@@, cycle 0.1.5 — RX-210, RX-212: and `\K`, refused as lookaround by the author's amendment of 2026-10-02,
++reads the lookaround's sentence.)*
  
  **Rule Y-25 — every kind has a test that provokes it**, and a harness check
  diffs the enum against the tests, so a kind nothing can produce is caught. This
-@@ -748,6 +759,7 @@ RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-2
+@@ -757,6 +770,7 @@ RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-2
  | `UnsupportedAnchor` (cycle 0.1.5, RX-209) | `\G` or `\Z`, outside a class | the `\` | 2 | 71 or 90 |
  | `UnsupportedQuoting` (cycle 0.1.5, RX-209) | `\Q` or `\E`, in a class or out | the `\` | 2 | 81 or 69 |
  | `UnknownEscape` (cycle 0.1.5, RX-209) | in a class, a `\` before a digit `1` … `9`, `k`, `G` or `Z` | the `\` | 2 | that byte |
 +| `UnknownUnicodeProperty` (cycle 0.3.1, RX-212) | a Unicode block, `\p{InGreek}` or `\p{Block=Greek}` (`UNICODE.md` U-8) | the `\` | through its `}` | 4 |
  | `BackreferenceUnsupported` (cycle 0.1.5, RX-210) | `\g` outside a class, but before `<` or `'` | the `\` | 2 | 103 |
  | `RecursionUnsupported` (cycle 0.1.5, RX-210) | `\g<` or `\g'` outside a class | the `\` | 3 | 60 or 39 |
- 
+ | `LookaroundUnsupported` (cycle 0.1.5, RX-210 — the author's amendment, 2026-10-02) | `\K` outside a class | the `\` | 2 | 75 |
 diff --git a/meta/specs/UNICODE.md b/meta/specs/UNICODE.md
 index d0da1ee7d13d02c27ed75a229a35b5e745e7e77e..281fb0f942637588165f5496254a20792f053210 100644
 --- a/meta/specs/UNICODE.md
@@ -254,10 +258,10 @@ index d87a1032afe52133befdede2652abbacd201bbcb..825b929401589a12379156f9e53bf8e6
          (PatternErrorKind.PatternTooLong) {
              drop put(@b, "pattern too long at byte "); drop num(@b, e.offset);
 diff --git a/tests/unit/pattern_error_text.npk b/tests/unit/pattern_error_text.npk
-index c561b6bd98da1babf67ebe5a5c31da4f1d963355..f152e3112de7ad83485066a66e2e2b6265ee26dc 100644
+index c561b6bd98da1babf67ebe5a5c31da4f1d963355..79dd665bee2fa408d894dc1607d6a9f029fb123f 100644
 --- a/tests/unit/pattern_error_text.npk
 +++ b/tests/unit/pattern_error_text.npk
-@@ -9,6 +9,10 @@
+@@ -9,6 +9,12 @@
  // kind is left without a sentence.
  // *(2026-10-01, cycle 0.1.4 -- and every one cycle 0.1.4's escapes and flags make: 39 and
  // 41-66, RX-203 … RX-208.)*
@@ -265,10 +269,32 @@ index c561b6bd98da1babf67ebe5a5c31da4f1d963355..f152e3112de7ad83485066a66e2e2b62
 +// what is wrong, where, and the guarantee or the alternative, none saying it is unsupported -- 16-21
 +// rewritten so, and 67-78; the Unicode block's sentence, which cycle 0.3.1 raises (79); and no kind's
 +// sentence holding the word, over every kind and twelve details (80).)*
++// *(@@DATE@@, cycle 0.1.5 -- RX-210, the author's amendment of 2026-10-02: and `\K`, refused as
++// lookaround -- its kind, its byte and the lookaround's sentence (82).)*
  mod:pattern_error_text;
  
  use "../../src/core/core.npk".*;
-@@ -70,12 +74,12 @@ func:run = int32() never fails {
+@@ -36,6 +42,19 @@ func:says = bool(string:pattern, string:want) never fails {
+     pass raw same(got, want);
+ };
+ 
++// The same, and the refusal is `kind` at `off` -- its kind and its byte held apart from its text.
++func:says_kind = bool(string:pattern, PatternErrorKind:kind, int64:off, string:want) never fails {
++    Ast:t = raw ast_init(4i64);
++    PatternError?:r = raw parse_pattern(string_bytes(pattern), @t);
++    drop ast_free(@t);
++    if (r == NIL) { pass false; }
++    PatternError:e = r ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
++    if (e.kind != kind)  { pass false; }
++    if (e.offset != off) { pass false; }
++    string:got = raw pattern_error_text(e);
++    pass raw same(got, want);
++};
++
+ // Does `text` contain `part`?
+ func:has = bool(string:text, string:part) never fails {
+     uint8[]:t = string_bytes(text);
+@@ -70,12 +89,12 @@ func:run = int32() never fails {
      if (!(raw says("(?<ab", "bad group name at byte 3: the name has no closing `>`. End it with `>`, as in `(?<name>...)`."))) { pass 13i32; }
      if (!(raw says("(?P<n>a)", "wrong named-group spelling at byte 0: `(?P<name>...)` is Python's spelling. Write `(?<name>...)`."))) { pass 14i32; }
      if (!(raw says("(?'n'a)", "wrong named-group spelling at byte 0: `(?'name'...)` is the .NET spelling. Write `(?<name>...)`."))) { pass 15i32; }
@@ -287,7 +313,7 @@ index c561b6bd98da1babf67ebe5a5c31da4f1d963355..f152e3112de7ad83485066a66e2e2b62
      uint8[1]:ff = [255u8];
      Ast:t = raw ast_init(4i64);
      PatternError?:r = raw parse_pattern(ff[0i64...1i64], @t);
-@@ -164,6 +168,35 @@ func:run = int32() never fails {
+@@ -164,6 +183,38 @@ func:run = int32() never fails {
      if (!(raw says("(?-u)é", "non-ASCII literal at byte 5 under `(?-u)`: U+00E9 takes 2 bytes in UTF-8, and in byte mode a literal is one byte. Write its UTF-8 bytes as `\\xC3\\xA9`, the byte E9 as `\\xE9`, or turn `u` back on around it, as in `(?u:...)`."))) { pass 64i32; }
      if (!(raw says("(?-u)\\x{20AC}", "non-ASCII literal at byte 5 under `(?-u)`: U+20AC takes 3 bytes in UTF-8, and in byte mode a literal is one byte. Write its UTF-8 bytes as `\\xE2\\x82\\xAC`, or turn `u` back on around it, as in `(?u:...)`."))) { pass 65i32; }
      if (!(raw says("(?-u)\\pL", "Unicode property at byte 5 under `(?-u)`: a property names codepoints, and byte mode matches bytes. Turn `u` back on around it, as in `(?u:\\p{Greek})`, or write the bytes it should match as a class."))) { pass 66i32; }
@@ -320,6 +346,9 @@ index c561b6bd98da1babf67ebe5a5c31da4f1d963355..f152e3112de7ad83485066a66e2e2b62
 +        }
 +        kk = kk + 1i64;
 +    }
++    // `\K`, Perl's and PCRE's reset of a match's start, refused as lookaround by the author's amendment of
++    // 2026-10-02 (RX-210): its kind, its byte, and the lookaround's sentence to the letter
++    if (!(raw says_kind("foo\\Kbar", PatternErrorKind.LookaroundUnsupported, 3i64, "lookaround at byte 3: nregex's automata read no lookahead or lookbehind, and they are what make every search take linear time. Match the larger text and inspect its captures instead."))) { pass 82i32; }
      pass 0i32;
  };
  
