@@ -91,6 +91,11 @@ The list a user migrating from Python, PHP, Java or JavaScript needs.
 **Rule K-1 — every refusal names the alternative in its message**, and where
 there is none it names the reason. `LookaroundUnsupported` says the pattern
 cannot be matched in linear time, not "unsupported".
+*(2026-10-02, cycle 0.1.5 — RX-212: it says nregex's automata read no lookahead
+or lookbehind, and that they are what make every search take linear time — not
+that lookaround cannot be matched in linear time, which two published algorithms
+do ([`../research/lookaround-linear-time.md`](../research/lookaround-linear-time.md)).
+And no refusal says it is unsupported.)*
 
 ---
 

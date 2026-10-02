@@ -5387,3 +5387,46 @@ ASCII byte that is neither a letter nor a digit** — a `\` before `<` or `>` is
 `\x{…}`** — the text unreadable for nothing, since only the twenty-one mean anything; **an ill-formed text decoded as it
 is** — an overlong form would be read as a codepoint the text does not hold, `E0 82 85` as U+0085; **a `Bytes` sink
 rather than a `string`** — `API.md` §1 gives a `string`, and A-12's sink is for replacement, which runs per match.
+
+### RX-212 — a refusal of what §8 declines says what it is, where, the guarantee or the reading it would take, and what to write, and never that it is unsupported
+
+**2026-10-02, cycle 0.1.5 (the plan's PD-56), at compiler `5fbaf4a`** — `SYNTAX.md` Y-34, with Y-18 and Y-37, `COMPAT.md`
+K-1 and `UNICODE.md` U-8; per `meta/research/refusal-syntax-reference-engines.md` and
+`meta/research/lookaround-linear-time.md`, as of 2026-10-01. The cycle README asks that each message name the guarantee
+or the alternative, *"never 'unsupported'"*, and holds four to the letter: the backreference says the pattern could not
+be matched in linear time, the quotation names `regex_escape()`, `\Z` names `\n?\z`, and `\p{InGreek}` names
+`\p{Script=Greek}`. Cycle 0.1.1's sentences said *"is not supported:"* before the reason, one began *"unsupported
+anchor"*, and the backreference's said *"matching one is NP-hard in general"*. The lookaround's said it *"cannot be
+matched in linear time"*, and two peer-reviewed algorithms match lookahead and lookbehind in O(m·n) — Mamouras and
+Chattopadhyay, POPL 2024; Barrière and Pit-Claudel, PLDI 2024 — so that reason is false as stated, though RE2, Rust's
+`regex` and nregex read no lookaround.
+
+**The decision.** Each sentence of §8's kinds says what the construct is and its byte, why nregex refuses it — the
+guarantee it would break, or how the engines read it — and what to write instead; none says it is unsupported, and the
+text's unit holds that over every kind. A backreference *"matches the text a group captured, which no automaton can,
+so the pattern could not be matched in linear time, as every nregex search is"*; lookaround: *"nregex's automata read
+no lookahead or lookbehind, and they are what make every search take linear time"* — and `\K`, refused as lookaround
+by the author's amendment of 2026-10-02 (RX-210), reads the same sentence, held with its kind and its byte by the
+text's unit, case 82; a possessive `+` and an atomic group
+each *"stops backtracking"*, and the fix says it may match more; recursion and `\g<…>` let a pattern match nested text; `(?R)`
+names Rust's CRLF mode beside PCRE's recursion — 0.1.4's hand-on — and says to write `\r?$` under `m`; `\Z` names the
+three readings and both `\z` and `\n?\z`; `\G` names `regex_find_at` and the check on the match's start; `\Q` and a
+lone `\E` name `regex_escape()`; the comment group says `#` begins a comment outside a class — 0.1.4's record's
+hand-on. And two refusals that are not §8's kinds: `[\1]` … `[\7]`, `UnknownEscape` in a class, says Perl, PCRE and
+Python read octal there and names the hex form; and `UnknownUnicodeProperty` gains detail 4, a Unicode block, its
+sentence naming `\p{Script=Greek}` for `\p{InGreek}`. The parser cannot raise it: only the tables tell a block from a
+script, `\p{Inherited}` being one, so cycle 0.3.1 raises it where it resolves a name, and this cycle holds its sentence
+to the letter by building the error. Each new or changed sentence is listed in the plan's §6, for the author.
+
+**Measured at `5fbaf4a`.** `tests/unit/pattern_error_text.npk` passes at −O0 and through `opt -O2`, and against the text
+before this decision exits 16, the lookaround's sentence; each branch lost, and the word put back, exits as the plan's
+§1.12 records; and with `\K` left a letter no rule names it exits 82.
+
+*Alternatives declined:* **"is not supported" kept beside the reason, K-1 read as "not unsupported alone"** — the
+checklist says never; **the NP-hardness of backreferences** — true, Aho's 1990 result as the PLDI 2024 paper cites
+it, but not the guarantee an author reads the sentence for, and the checklist asks for linear time; **"cannot be
+matched in linear time" kept for lookaround** — false since 2024; **the block refused by the parser at an `In` or `Block=` prefix** — `\p{Inherited}`
+and `\p{Inscriptional_Pahlavi}` are scripts, and the parser reads no table; **a kind of its own for a block** — U-7
+names `UnknownUnicodeProperty`, and a detail tells the sentence which, as RX-200's does for `UnknownPosixClass`; **the
+block's sentence left to cycle 0.3.1 with its trigger** — the checklist holds it here, and the author reads the
+sentences together.

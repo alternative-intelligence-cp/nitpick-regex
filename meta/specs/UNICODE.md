@@ -79,6 +79,10 @@ characters used by one — Greek letters appear in four blocks and the Greek
 block contains Coptic. Every use of a block in a real pattern is a bug that
 happens to work for the author's test data, and `Script` or `Script_Extensions`
 is what was meant. The refusal names them.
+*(2026-10-02, cycle 0.1.5 — RX-212: the refusal is `UnknownUnicodeProperty` with
+detail 4, its sentence written and held to the letter now, naming
+`\p{Script=Greek}` for `\p{InGreek}`; cycle 0.3.1 raises it where it resolves a
+name.)*
 
 ---
 

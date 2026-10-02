@@ -562,6 +562,10 @@ no table. A name that cannot be read is `UnknownUnicodeProperty` at the `\`, spa
 neither an ASCII letter nor `{` follows the `p`, 2 when the braces never close, 3 when they hold nothing. Each is a
 member of a class (Y-36).
 *(2026-10-01, cycle 0.1.3 — RX-199: and outside a class, an atom, which a quantifier may repeat.)*
+*(2026-10-02, cycle 0.1.5 — RX-212: `UnknownUnicodeProperty`'s detail 4 says the name is a Unicode block —
+`\p{InGreek}`, `\p{Block=Greek}` — which `UNICODE.md` U-8 refuses, its sentence naming `\p{Script=Greek}`. Cycle
+0.3.1 raises it where it resolves a name, since only the tables tell a block from a script: `\p{Inherited}` and
+`\p{Inscriptional_Pahlavi}` are scripts.)*
 
 **Rule Y-38 (RX-197) — POSIX classes, inside a class only.** Where a member would start inside a class, `[:` begins
 a POSIX class: `[:name:]`, or `[:^name:]` for its complement, its name lowercase and one of §5.1's fourteen — a
@@ -592,6 +596,9 @@ a range, an escape, a nested, POSIX or Perl class, a property or an operator mak
 **Rule Y-18 — there is no `\Z`.** Perl's `\Z` matches at the end *or* before a
 final newline, which is a special case that surprises everyone once and is
 spelled `\n?\z` in three characters. Refused with that suggestion.
+*(2026-10-02, cycle 0.1.5 — RX-212: and the engines read it three ways — Perl and PCRE at the end or before a final
+`\n`, Java before any final line end, `\r\n` and U+2028 among them, and Python at the end alone, as `\z` — so the
+refusal names `\z` too, and says `\n?\z` takes the newline into the match.)*
 
 **Rule Y-19 — `$` does not match before a final newline** unless `m` is on.
 This differs from Perl and matches Rust and RE2. It is stated here and in
@@ -709,6 +716,12 @@ K-1). The text is built from the four fields alone — the pattern is not an arg
 (`bytes_put_uint`, `SAFETY.md` S-25). Every kind has a sentence from cycle 0.1.1;
 each later subcycle holds its kinds' sentences to the letter when it produces them,
 as `tests/unit/pattern_error_text.npk` holds 0.1.1's.
+*(2026-10-02, cycle 0.1.5 — RX-212: a refusal of what §8 declines says what the construct is, at which byte, the
+guarantee it would break or the reading it would take, and what to write — and never that it is unsupported, a word
+no sentence holds; `(?R)` names Rust's CRLF mode beside PCRE's recursion, and the comment group says `#` begins a
+comment outside a class.)*
+*(2026-10-02, cycle 0.1.5 — RX-210, RX-212: and `\K`, refused as lookaround by the author's amendment of 2026-10-02,
+reads the lookaround's sentence.)*
 
 **Rule Y-25 — every kind has a test that provokes it**, and a harness check
 diffs the enum against the tests, so a kind nothing can produce is caught. This
@@ -757,6 +770,7 @@ RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-2
 | `UnsupportedAnchor` (cycle 0.1.5, RX-209) | `\G` or `\Z`, outside a class | the `\` | 2 | 71 or 90 |
 | `UnsupportedQuoting` (cycle 0.1.5, RX-209) | `\Q` or `\E`, in a class or out | the `\` | 2 | 81 or 69 |
 | `UnknownEscape` (cycle 0.1.5, RX-209) | in a class, a `\` before a digit `1` … `9`, `k`, `G` or `Z` | the `\` | 2 | that byte |
+| `UnknownUnicodeProperty` (cycle 0.3.1, RX-212) | a Unicode block, `\p{InGreek}` or `\p{Block=Greek}` (`UNICODE.md` U-8) | the `\` | through its `}` | 4 |
 | `BackreferenceUnsupported` (cycle 0.1.5, RX-210) | `\g` outside a class, but before `<` or `'` | the `\` | 2 | 103 |
 | `RecursionUnsupported` (cycle 0.1.5, RX-210) | `\g<` or `\g'` outside a class | the `\` | 3 | 60 or 39 |
 | `LookaroundUnsupported` (cycle 0.1.5, RX-210 — the author's amendment, 2026-10-02) | `\K` outside a class | the `\` | 2 | 75 |

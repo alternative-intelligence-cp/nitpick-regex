@@ -37,7 +37,7 @@ design; recorded when chosen).
 - [ ] UAX #44 loose matching: case, whitespace, `-` and `_` ignored in both name and value (U-6)
 - [ ] **the gate**: every alias in `PropertyAliases.txt` and `PropertyValueAliases.txt` resolves to the same set as its canonical name
 - [ ] `UnknownUnicodeProperty` with the offset, **never an empty class** (U-7) — an engine that silently matches nothing for a typo turns a mistake into a pattern that never fires
-- [ ] **blocks refused**, naming `Script` (U-8, RX-023)
+- [ ] **blocks refused**, naming `Script` (U-8, RX-023) *(2026-10-02 — cycle 0.1.5, RX-212: as `UnknownUnicodeProperty` with detail 4, at the `\`, through the property's `}` — its sentence is written and held by `pattern_error_text.npk` case 79; this subcycle raises it where a name resolves to a block)*
 
 ### 0.3.2 — Perl and POSIX classes
 - [ ] `\d`, `\w`, `\s` and their complements, per `UNICODE.md` §3's table, in both Unicode and byte mode
