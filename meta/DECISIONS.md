@@ -5086,6 +5086,10 @@ kind per sentinel, where one constant serves every kind with a codepoint for a d
 name is read** — the name's rule refuses it already, and what was wrong was the field.
 
 ### RX-204 — every escape of §1 is read — a codepoint, a class, an anchor, or a refusal saying what to write — in a class and out
+> **SUPERSEDED IN PART by RX-210 (2026-10-02)** — for `\g` and `\K` alone: *"a test for each letter no rule assigns:
+> `c g h …` and `C F H I J K …`"*. Outside a class `\g` is Perl's and PCRE's backreference and PCRE's call of a
+> group, refused by those kinds, and `\K`, Perl's and PCRE's reset of a match's start, is refused as lookaround —
+> the author's amendment of 2026-10-02 (`SYNTAX.md` Y-44). Every other letter is as this decision says.
 
 **2026-10-01, cycle 0.1.4 (the plan's PD-48), at compiler `5fbaf4a`** — `SYNTAX.md` Y-40, with Y-2, Y-27, Y-28 and Y-36;
 per `meta/research/escape-flag-syntax-reference-engines.md`, as of 2026-10-01. It completes RX-186 for escapes, whose
@@ -5312,3 +5316,42 @@ four read octal; **`\G` and `\Z` in a class refused as anchors** — a class hol
 **the tests in `tests/rejection/`** — a pattern's refusal is not the compiler's, and a fixture there would be red;
 **§8's group heads repeated in the new unit** — two homes for one assertion drift, and `parse_refusals.npk` has held
 them since 0.1.1.
+
+### RX-210 — `\g` is refused as what it is where it means anything: a backreference, and before `<` or `'` a call of a group — and `\K`, by the author's amendment, as lookaround
+
+**2026-10-02, cycle 0.1.5 (the plan's PD-54), at compiler `5fbaf4a`** — `SYNTAX.md` Y-44; per
+`meta/research/refusal-syntax-reference-engines.md`, as of 2026-10-01, and for `\K` its addendum of 2026-10-02.
+RX-204 refused `\g` as a letter no rule names, `UnknownEscape`, whose sentence tells the author to write `g`.
+Measured: Perl 5.38.2 and PCRE2 10.42 read `\g1`,
+`\g{1}`, `\g{-1}` and `\g{name}` as backreferences, and PCRE2 reads `\g<1>` and `\g'1'` as a call of group 1, which
+Perl refuses; Python, Java, Rust and node under `u` refuse every `\g`. So wherever `\g` means anything it is one of
+§8's constructs, and its author wanted a backreference or a call — never a `g`.
+
+**The decision.** Outside a class `\g` is `BackreferenceUnsupported` at the `\`, spanning it and the `g`, its detail
+`g` (103) — but before `<` or `'` it is `RecursionUnsupported`, spanning the three bytes, its detail the third, as
+Y-30's `(?P>` and `(?1)` are. In a class `\g` stays `UnknownEscape`: Perl and PCRE read `[\g]` as `g`, and no engine
+reads a group there. `tests/unit/parse_declined.npk` cases 50–57; `parse_escape_refusals.npk`'s case 33, which held
+`\g` as an unknown letter, is retired.
+
+**The author's amendment, 2026-10-02 — `\K`.** The plan kept Perl's `\K` a letter no rule names, `UnknownEscape`,
+whose sentence says *"Write `K` to match it"*, since it is no construct §8 names, and asked the author whether it
+should be refused as lookaround instead (its §6). He answered on 2026-10-02 that it should, with the lookaround's
+sentence. Measured on 2026-10-02 (the digest's addendum): Perl 5.38.2 and PCRE2 10.42 read `\K` as a reset of the
+match's start — `foo\Kbar` matches `bar` in `foobar`, what matched before the `\K` kept out of the match, as a
+lookbehind would keep it — and Python 3.12.3, Java 21.0.12.1 and node 24.21.0 under `u` refuse it, where node without
+`u` reads a `K`. So outside a class `\K` is `LookaroundUnsupported` at the `\`, spanning it and the `K`, its detail
+`K` (75), and its text is the lookaround's. In a class it stays `UnknownEscape`, as `\G` and `\Z` do: Perl
+reads `[\K]` as `K`, with a warning, PCRE2, Python, Java and node under `u` refuse it, and no engine reads a
+position there. `tests/unit/parse_declined.npk` cases 60–63; `parse_escape_refusals.npk`'s case 47, which held `\K`
+as an unknown letter, is retired.
+
+**Measured at `5fbaf4a`.** `parse_declined.npk` passes at −O0 and through `opt -O2`, and against the parser before this
+decision exits 50; with `\g` dropped from the backreference's letters it exits 50, and with the call read as a
+backreference 55; with `\K` left a letter no rule names it exits 60, and with `\K` read as lookaround in a class
+too 63.
+
+*Alternatives declined:* **`\g` left `UnknownEscape`** — its sentence tells a Perl author to write `g`; **every `\g` a
+backreference** — PCRE's `\g<1>` runs group 1's pattern again, not its text, and the backreference's sentence would
+say the wrong thing; **`\K` left `UnknownEscape`, as the plan proposed** — its sentence tells a Perl or PCRE author
+to write `K`, and the author amended the plan on 2026-10-02; **`\K` refused as lookaround in a class too** — a
+class holds codepoints, and no engine reads a position there.

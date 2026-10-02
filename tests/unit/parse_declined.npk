@@ -11,6 +11,12 @@
 // `UnsupportedQuoting` (13-16); inside one `\Q` and `\E` stay `UnsupportedQuoting` (20-22), and the rest
 // are `UnknownEscape`, since no engine reads a group or a position in a class (23-30). Then the first
 // refusal wins, left to right, and `x` and `(?-u)` change none of them (40-45).
+// *(2026-10-02, cycle 0.1.5 -- RX-210: and `\g`, Perl's and PCRE's backreference, `BackreferenceUnsupported`
+// at the `\` -- but before `<` or `'`, PCRE's subroutine call, `RecursionUnsupported` spanning three bytes
+// (50-57).)*
+// *(2026-10-02, cycle 0.1.5 -- RX-210, the author's amendment of 2026-10-02: and `\K`, Perl's and PCRE's
+// reset of a match's start, `LookaroundUnsupported` at the `\`; in a class `UnknownEscape`, as `\G` and `\Z`
+// are (60-63).)*
 //
 // THIS IS THE CYCLE README'S "A REJECTION TEST PER REFUSAL". `tests/rejection/` holds what the COMPILER
 // refuses, each file with its exact codes (`BUILD.md` B-7); a refused pattern is a value `parse_pattern`
@@ -74,6 +80,21 @@ func:run = int32() never fails {
     if (!(raw refused("\\x{41}\\1", PatternErrorKind.BackreferenceUnsupported, 6i64, 2i64, 49u32)))    { pass 43i32; }
     if (!(raw refused("(?x)\\Q", PatternErrorKind.UnsupportedQuoting, 4i64, 2i64, 81u32)))             { pass 44i32; }
     if (!(raw refused("(?-u)\\k", PatternErrorKind.BackreferenceUnsupported, 5i64, 2i64, 107u32)))     { pass 45i32; }
+    // `\g`: a backreference in Perl and PCRE, and before `<` or `'` PCRE's call of a group (RX-210)
+    if (!(raw refused("(a)\\g1", PatternErrorKind.BackreferenceUnsupported, 3i64, 2i64, 103u32)))       { pass 50i32; }
+    if (!(raw refused("(a)\\g{-1}", PatternErrorKind.BackreferenceUnsupported, 3i64, 2i64, 103u32)))    { pass 51i32; }
+    if (!(raw refused("(?<n>a)\\g{n}", PatternErrorKind.BackreferenceUnsupported, 7i64, 2i64, 103u32))) { pass 52i32; }
+    if (!(raw refused("a\\g", PatternErrorKind.BackreferenceUnsupported, 1i64, 2i64, 103u32)))          { pass 53i32; }
+    if (!(raw refused("\\gx", PatternErrorKind.BackreferenceUnsupported, 0i64, 2i64, 103u32)))          { pass 54i32; }
+    if (!(raw refused("(a)\\g<1>", PatternErrorKind.RecursionUnsupported, 3i64, 3i64, 60u32)))          { pass 55i32; }
+    if (!(raw refused("(?<n>a)\\g'n'", PatternErrorKind.RecursionUnsupported, 7i64, 3i64, 39u32)))      { pass 56i32; }
+    if (!(raw refused("[\\g]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 103u32)))                    { pass 57i32; }
+    // `\K`: Perl's and PCRE's reset of a match's start, a lookbehind in effect -- refused as lookaround, the
+    // author's amendment of 2026-10-02 (RX-210); in a class no position, so the letter no rule names
+    if (!(raw refused("\\K", PatternErrorKind.LookaroundUnsupported, 0i64, 2i64, 75u32)))               { pass 60i32; }
+    if (!(raw refused("foo\\Kbar", PatternErrorKind.LookaroundUnsupported, 3i64, 2i64, 75u32)))         { pass 61i32; }
+    if (!(raw refused("(a)\\K(", PatternErrorKind.LookaroundUnsupported, 3i64, 2i64, 75u32)))           { pass 62i32; }
+    if (!(raw refused("[\\K]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 75u32)))                     { pass 63i32; }
     pass 0i32;
 };
 

@@ -59,6 +59,7 @@ The list a user migrating from Python, PHP, Java or JavaScript needs.
 |---|---|
 | `\1`, `\k<name>` — backreferences | **refused** — `SAFETY.md` §2 |
 | `(?=…)`, `(?!…)`, `(?<=…)`, `(?<!…)` — lookaround | **refused** — same |
+| `\K` — Perl's and PCRE's reset of a match's start, which keeps what matched before it out of the match, as a lookbehind would | **refused**, `LookaroundUnsupported`, as lookaround — the author's amendment of 2026-10-02 (`SYNTAX.md` Y-44, RX-210) |
 | `(?>…)`, `a*+` — atomic / possessive | **refused** — meaningless under an automaton |
 | `(?R)`, `(?1)` — recursion | **refused** — not regular |
 | `\Z` | refused, naming `\n?\z` |
@@ -73,13 +74,14 @@ The list a user migrating from Python, PHP, Java or JavaScript needs.
 | `\012`, `\0` and a digit — octal | refused; write the hex form, `\x0A` (`SYNTAX.md` Y-40, RX-204) |
 | `\x4`, `\x` and one hex digit | refused; `\x` takes exactly two, or any number in braces, `\x{4}` (Y-40) |
 | `[\b]` — a backspace | refused; write `\x08` (Y-40) |
-| `\c`, `\h`, `\K`, `\N`, `\R`, `\X` and every other letter no rule names | refused, `UnknownEscape`: a `\` before a letter is never the letter (Y-2) |
+| `\c`, `\h`, ~~`\K`~~, `\N`, `\R`, `\X` and every other letter no rule names | refused, `UnknownEscape`: a `\` before a letter is never the letter (Y-2) — *since 2026-10-02 `\K` is refused as lookaround instead, the author's amendment: its row follows lookaround's (RX-210)* |
 | Perl's `\u` and `\U`, which change case | `\u` takes four hex digits and `\U` eight, as in Python and Rust (Y-40) |
 | `\uD83D\uDE00` — a UTF-16 pair, one codepoint in Java and JavaScript | refused at the first half; write `\x{1F600}` (Y-40) |
 | `\<`, `\>` — the bytes in Perl, PCRE, Python and Java | refused, since Rust's `regex` and GNU `grep` read word assertions; write `<` or `>` (Y-40, RX-205) |
 | `\E` alone — ignored by Perl and PCRE, refused by Java | refused, `UnsupportedQuoting`, as `\Q` is (`SYNTAX.md` Y-44, RX-209) |
 | `[\1]` … `[\7]` — octal in a class in Perl, PCRE and Python | refused, `UnknownEscape`; write the hex form, `\x01` (Y-44) |
 | `[\k]`, `[\G]`, `[\Z]` — the letter in Perl | refused, `UnknownEscape`, as any letter no rule names in a class (Y-44) |
+| `\g1`, `\g{-1}`, `\g{name}` — Perl's and PCRE's backreferences; `\g<1>`, `\g'1'` — PCRE's call of a group | refused, `BackreferenceUnsupported` and `RecursionUnsupported` (`SYNTAX.md` Y-44, RX-210) |
 | `(?i)` after the pattern's start — global in Python, which requires it first | from there to the enclosing group's `)`, across `|`, as in Perl, PCRE and Rust (`SYNTAX.md` Y-41, RX-206) |
 | `(?^)`, `(?a)`, `(?n)`, `(?U)` — Perl's, PCRE's and .NET's other flags | `UnknownFlag`: the flags are `i`, `m`, `s`, `x` and `u` (Y-41) |
 | blanks inside `a{2, 3}` and `\x{ 41 }`, which Perl reads since its 5.34 | refused, `BadRepeatBounds` and `BadHexEscape`, under `x` or not (`SYNTAX.md` Y-32, Y-42) |

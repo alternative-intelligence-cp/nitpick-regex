@@ -13,6 +13,11 @@
 // own kind (Y-30), and are not pinned here.
 // *(2026-10-02, cycle 0.1.5 -- RX-209: each is refused by its own kind now, and `parse_declined.npk`
 // holds them.)*
+// *(2026-10-02, cycle 0.1.5 -- RX-210: and `\g`, Perl's and PCRE's backreference, which case 33 held as
+// an unknown letter until then; `parse_declined.npk`'s cases 53 and 54 hold it.)*
+// *(2026-10-02, cycle 0.1.5 -- RX-210, the author's amendment of 2026-10-02: and `\K`, Perl's and PCRE's
+// reset of a match's start, refused as lookaround, which case 47 held as an unknown letter until then;
+// `parse_declined.npk`'s cases 60-63 hold it.)*
 mod:parse_escape_refusals;
 
 use "../../src/core/core.npk".*;
@@ -73,7 +78,6 @@ func:run = int32() never fails {
     if (!(raw refused("[a-\\uDFFF]", PatternErrorKind.InvalidCodepoint, 3i64, 6i64, 57343u32))) { pass 31i32; }
     // a `\` before a letter that names nothing is never the letter (Y-2): every unassigned one
     if (!(raw unknown("\\c", 99u32)))  { pass 32i32; }
-    if (!(raw unknown("\\g", 103u32))) { pass 33i32; }
     if (!(raw unknown("\\h", 104u32))) { pass 34i32; }
     if (!(raw unknown("\\i", 105u32))) { pass 35i32; }
     if (!(raw unknown("\\j", 106u32))) { pass 36i32; }
@@ -87,7 +91,6 @@ func:run = int32() never fails {
     if (!(raw unknown("\\H", 72u32)))  { pass 44i32; }
     if (!(raw unknown("\\I", 73u32)))  { pass 45i32; }
     if (!(raw unknown("\\J", 74u32)))  { pass 46i32; }
-    if (!(raw unknown("\\K", 75u32)))  { pass 47i32; }
     if (!(raw unknown("\\L", 76u32)))  { pass 48i32; }
     if (!(raw unknown("\\M", 77u32)))  { pass 49i32; }
     if (!(raw unknown("\\N", 78u32)))  { pass 50i32; }

@@ -91,6 +91,9 @@ end of a word, and Perl, PCRE, Python and Java as the bytes, so each is `Unknown
   *(2026-10-02, cycle 0.1.5 — RX-209: §8's escapes are refused by their own kinds (Y-44): outside a class `\1` … `\9`,
   `\k`, `\G`, `\Z`, `\Q` and `\E`, and in a class `\Q` and `\E`; in a class a digit, `\k`, `\G` and `\Z` stay
   `UnknownEscape`, this rule's refusal, no longer provisional.)*
+  *(2026-10-02, cycle 0.1.5 — RX-210: and outside a class two letters are no longer letters no rule names — `\g`, a
+  backreference or a call of a group, and `\K`, refused as lookaround by the author's amendment of 2026-10-02
+  (Y-44); in a class each stays `UnknownEscape`.)*
 
 An escape that names a codepoint is a `Literal` spanning the escape, and inside a class a member, which a `-` may make
 either end of a range (Y-36). `COMPAT.md` §2 and §3 list where other engines read these otherwise.
@@ -298,6 +301,13 @@ and before `G` or `Z` `UnsupportedAnchor`; in a class or out, a `\` before `Q` o
 `\E` among them. Inside a class a `\` before a digit, `k`, `G` or `Z` is `UnknownEscape` (Y-40): a class holds
 codepoints, no engine reads a group or a position there, and Perl, PCRE and Python read `[\1]` … `[\7]` as octal.
 `tests/unit/parse_declined.npk` holds every spelling.
+*(2026-10-02, cycle 0.1.5 — RX-210: and `\g`, outside a class, is `BackreferenceUnsupported` — Perl's and PCRE's `\g1`,
+`\g{-1}`, `\g{name}` — but before `<` or `'`, PCRE's call of a group, `RecursionUnsupported`, spanning the three bytes,
+its detail the third, as Y-30's `(?P>` is; in a class `\g` stays `UnknownEscape`.)*
+*(2026-10-02, cycle 0.1.5 — RX-210, the author's amendment of 2026-10-02: and `\K`, outside a class, is
+`LookaroundUnsupported` — Perl's and PCRE's reset of a match's start, which keeps what matched before it out of the
+match, as a lookbehind would — at the `\`, spanning it and the `K`, its detail `K` (75); in a class `\K` stays
+`UnknownEscape`, as `\G` and `\Z` do.)*
 
 **Rule Y-31 (RX-186) — until its parser exists, a construct is refused
 PROVISIONALLY**, with the kind its parser gives a member it does not know: `[` is
@@ -630,6 +640,10 @@ rather than saying "unsupported":
 *(2026-10-02, cycle 0.1.5 — RX-209: every row is refused by its own kind — the escapes where they are read (Y-44), the
 group heads and the possessive quantifier as Y-30 says — and a lone `\E`, which ends Perl's and PCRE's quotation, is
 `UnsupportedQuoting` as `\Q` is.)*
+*(2026-10-02, cycle 0.1.5 — RX-210: and `\g`, Perl's and PCRE's backreference and PCRE's call of a group, by those two
+kinds (Y-44).)*
+*(2026-10-02, cycle 0.1.5 — RX-210, the author's amendment of 2026-10-02: and `\K`, Perl's and PCRE's reset of a match's
+start, as lookaround — `LookaroundUnsupported`, this table's second row (Y-44).)*
 
 **Rule Y-24 — `regex_escape(text)` is the supported way to match a literal
 string**, returning a pattern that matches exactly it. `\Q…\E` is refused
@@ -733,6 +747,9 @@ RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-2
 | `UnsupportedAnchor` (cycle 0.1.5, RX-209) | `\G` or `\Z`, outside a class | the `\` | 2 | 71 or 90 |
 | `UnsupportedQuoting` (cycle 0.1.5, RX-209) | `\Q` or `\E`, in a class or out | the `\` | 2 | 81 or 69 |
 | `UnknownEscape` (cycle 0.1.5, RX-209) | in a class, a `\` before a digit `1` … `9`, `k`, `G` or `Z` | the `\` | 2 | that byte |
+| `BackreferenceUnsupported` (cycle 0.1.5, RX-210) | `\g` outside a class, but before `<` or `'` | the `\` | 2 | 103 |
+| `RecursionUnsupported` (cycle 0.1.5, RX-210) | `\g<` or `\g'` outside a class | the `\` | 3 | 60 or 39 |
+| `LookaroundUnsupported` (cycle 0.1.5, RX-210 — the author's amendment, 2026-10-02) | `\K` outside a class | the `\` | 2 | 75 |
 
 *(2026-10-01, cycle 0.1.4 — RX-203: a detail whose domain is a codepoint — the one a refusal found where it wanted
 another — says what no codepoint can with `NOT_A_CODEPOINT`, U+110000, one past the last: that the pattern ended

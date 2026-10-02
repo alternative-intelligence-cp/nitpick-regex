@@ -121,3 +121,19 @@ documentation is not installed, so its rows are measurements alone; node's rows 
 written for a Unicode library would use, with its legacy reading beside it where it differs; Perl's `\Q` was read as a
 pattern literal — `qr/…/` — where it works, since a `\Q` in a string interpolated at run time is not a quotation in
 Perl at all.
+
+## Added 2026-10-02 — `\K`
+
+*(Run on 2026-10-02 by cycle 0.1.5's worker, each engine as installed and as above, for the author's answer to the
+plan's §6: `\K` refused as lookaround — RX-210. Rust's `regex` was not run: the crates cycle 0.1.3's planner built
+are no longer here.)*
+
+| shape | Perl 5.38.2 | Python 3.12.3 | Java 21.0.12.1 | node 24.21.0 `u`; without | PCRE2 10.42 |
+|---|---|---|---|---|---|
+| `foo\Kbar` in `foobar` | 3..6, `bar` | refused, "bad escape \K" | refused, "Illegal/unsupported escape sequence" | refused, "Invalid escape"; `\K` read as a `K` — `fooKbar` matched in `foobar fooKbar K` | `bar`, printed by `grep -o` |
+| `a\K`; `\Ka` in `foobar a` | 5..5; 4..5 | — | — | — | — |
+| `[\K]` | `K` matched, "Unrecognized escape \K in character class passed through" | refused, "bad escape \K" | refused, "Illegal/unsupported escape sequence" | refused, "Invalid escape"; `K` matched | refused, "escape sequence is invalid in character class" |
+
+So `\K` outside a class resets the match's start in Perl and PCRE2 — what matched before it stays out of the match,
+as a lookbehind would keep it — and is refused by Python, Java and node under `u`; inside a class no engine reads a
+position, Perl and node without `u` reading the letter and the rest refusing it.
