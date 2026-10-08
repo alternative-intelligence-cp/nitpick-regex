@@ -1,0 +1,461 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 14dec14bdf78ab98aa2ae9955fb2172f9f445298..a2b5d85539f01a85355980676fbd7408babffaa4 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -17,7 +17,9 @@
+ # `.npk` in the tree as a root. Those neither link nor run. *(This said "all 174
+ # units build, link, run and are judged by their exit codes" until the fourth
+ # audit (N-23): 107 of those 174 were compile-only.)* The runner prints each
+-# suite's count on every run; take the numbers from there. None is PENDING.
++# suite's count on every run; take the numbers from there. Two are PENDING since
++# cycle 0.2.1 (none was from cycle 0.0.4b): the HIR's two hooks' tests, each on a
++# subcycle of this library, 0.3.4, and on its exit 1 (RX-226, RX-229).
+ # THE ONE THAT WAS PENDING, AND ALL THAT HAPPENED TO IT. Through cycle 0.0.5 a
+ # unit asserting against a compiler defect (DEF-25, fixed at `fe42dba`) was
+ # committed red under a `pending-until:` marker and counted as neither a pass
+diff --git a/harness/baseline/PENDING.txt b/harness/baseline/PENDING.txt
+index f8d9b17a29404c57fe335a5ed3996d139637a059..57ed52d75b16143ddc06a2b924feb79828e06c44 100644
+--- a/harness/baseline/PENDING.txt
++++ b/harness/baseline/PENDING.txt
+@@ -39,3 +39,10 @@
+ # `tests/unit/bytes_copy_string_empty.npk` (DEF-25, fixed at `fe42dba`), started
+ # passing at the re-pin to `c3bdae2` and its marker was deleted. This file was
+ # added at the cycle 0.0 close's third triage, with nothing to list.
++#
++# *(@@DATE021@@, cycle 0.2.1 -- RX-229: two lines since, the first pending on a subcycle of
++# this library rather than a compiler: the HIR's two hooks, which cycle 0.3.4 fills, each
++# with the test of what it will build. Each unit exits 1 while the build stops at its hook.)*
++
++tests/unit/hir_build_classes.npk	0.3.4	1	H-5's class row, and a class's negation and operators: the build stops at each until cycle 0.3.4 fills `resolve_items` (RX-229)
++tests/unit/hir_build_fold.npk	0.3.4	1	H-5's `(?i:…)` row: the build stops at each until cycle 0.3.4 fills `fold_ranges` (RX-229)
+diff --git a/harness/baseline/README.md b/harness/baseline/README.md
+index 26a9f90812deddfc88f1ec757013c647402443b4..1a95e79bc2461f3ad9aee9bfe73a9af63926ed3f 100644
+--- a/harness/baseline/README.md
++++ b/harness/baseline/README.md
+@@ -89,4 +89,5 @@ a green run, which the third cycle 0.0 audit measured (BL-6, M3; RX-154).
+ *(@@DATE021@@, cycle 0.2.1 — RX-226: the marker's label is a commit, or a subcycle of this
+ library, `0.3.4`, for a unit pending on what a later subcycle builds.)*
+ **Empty since cycle 0.0.4b**, when the one unit it would have listed started
+-passing at `c3bdae2`.
++passing at `c3bdae2`. *(@@DATE021@@, cycle 0.2.1 — RX-229: two lines since, the HIR's
++two hooks' tests, pending on cycle 0.3.4.)*
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 98bcffa5f44b99d14d49c6c83f95e433c543ea06..acfe0a16aa9c98f5fb5d256ea768bcf7ba931c7f 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -5977,3 +5977,42 @@ where nothing was written, a trace of the flag that the erasure test reads as on
+ and `AST_FLAG_I` is `HIR_FLAG_LAZY`'s value; **groups numbered as they are built** — a post-order walk numbers `((a))`'s
+ inner group first; **a builder that answers `PatternError?` now** — the refusal cycle 0.2.2 adds decides its own answer,
+ and this subcycle refuses nothing.
++
++### RX-229 — the hooks' two tests, written now and pending until cycle 0.3.4: what each will build, asked only where a rule pins it, and pending on the build's stop alone
++
++**@@DATE021@@, cycle 0.2.1 (the plan's PD-73), at compiler `5fbaf4a`** — `HIR.md` H-1, H-5 and H-16, `UNICODE.md` U-9, U-10,
++U-11, U-13 and U-14, `BUILD.md` B-5b as RX-226 leaves it, cycle 0.3's Gate, and the cycle README's 0.2.1 boxes: every
++row of H-5's table *"with a test each"*, the unresolved items *"a hook 0.3.4 fills with a test that fails until then"*
++(RX-223's note), and `(?i:…)`'s *"0.2 leaves a hook and 0.3 fills it, with a test that fails until then"* — which the
++0.3 README's 0.3.4 checklist closes with *"its pending test now green"*. RX-228 stops the build at both rows' nodes, so
++the test of what each row builds is correct and red until cycle 0.3.4.
++
++**The decision.** Two units, each pending under RX-226's marker, `pending-until: 0.3.4 exit 1`, with its line in
++`harness/baseline/PENDING.txt`. **`tests/unit/hir_build_classes.npk`** — H-5's class row and what cycle 0.3.4 resolves
++with it: byte mode's `\d`, `\w`, `\s` and their complements to the byte, written out as U-9 gives them and sorted as
++H-1 requires; Unicode mode's by members no Unicode version moves — U+0660 in `\d`, U+200D, U-10's `Join_Control`, in
++`\w`, U+00A0 in `\s` — and what each leaves out; two POSIX classes by members the ASCII reading and the Unicode one
++agree on, since which `UNICODE.md` §3 takes is cycle 0.3.2's decision; two properties by members of their sets; and
++negation, within the universe and less the surrogates, and the three operators, left to right.
++**`tests/unit/hir_build_fold.npk`** — the `(?i:…)` row: cycle 0.3's Gate, `(?i)k` holding U+212A and `(?i)s` U+017F, and each orbit
++from its other side; U-13's `(?i)[a-z]`; a codepoint with no case; `.`; and `k` folded within the bytes under `(?-u)`.
++**Each is pending on the build's stop alone**: a build that stops exits 1, and a build that completes and differs exits
++its case's number, 10 and up, which the marker does not excuse — so the day a hook builds the wrong set, the run is red,
++not pending; and the day every case builds as written, the unit meets its expectation, the run goes red to say the
++marker is stale, and the marker and its line are deleted. Each asks only what a rule already pins, by membership where
++a set's whole extent belongs to a table cycle 0.3.0 has not pinned. `build.npk`'s header and H-16 name them; the 0.3
++README's two 0.3.4 items point at the hooks and the units; `PENDING.txt`'s header, its README's, CI's comment and
++`SAFETY.md`'s note on the marker, four of the five texts that say nothing is pending, dated — `CLAUDE.md`'s with the prose.
++
++**Measured at `5fbaf4a`.** Each unit builds, links and exits 1 at both legs, and the run prints each as `PENDING until
++cycle 0.3.4`, outside the denominator: `294/294`, two pending, both lines matched. Neither builds anything yet, so no
++case past the first runs; each case's expected text and members were read against U-9, U-10 and U-13 at this
++subcycle, and cycle 0.3.4 is the first to run them.
++
++*Alternatives declined:* **one unit for both rows** — cycle 0.3.4 fills its hooks in steps, and a unit holding both
++would change its exit at the first step and be red between them for no defect; **pending on any failure** — a hook
++that builds the wrong set would stay pending under its marker, the hole RX-154 closed for a compiler defect; **whole
++Unicode sets written out** — `\d`'s extent is the version cycle 0.3.0 pins, and a text written now would be a guess at
++it; **POSIX classes written out** — cycle 0.3.2 decides their sets, and a test that chose would decide for it; **`(?i)`
++on a class with negation** — whether the fold comes before the complement is cycle 0.3.4's to decide, and is handed to
++it in the plan.
+diff --git a/meta/roadmap/0.3/README.md b/meta/roadmap/0.3/README.md
+index 7c8b67e5eaa4dd00e4eefaa720c6433b57ea0e9c..b4bbb85a6e0bf0462dd3c9c64dad2ae83ff83bf2 100644
+--- a/meta/roadmap/0.3/README.md
++++ b/meta/roadmap/0.3/README.md
+@@ -55,13 +55,13 @@ design; recorded when chosen).
+ - [ ] full folding's affected codepoints enumerated into `docs/` as the documented limitation (U-12)
+ 
+ ### 0.3.4 — class resolution
+-- [ ] 0.1's unresolved class items resolved to `ClassRange` lists
++- [ ] 0.1's unresolved class items resolved to `ClassRange` lists *(@@DATE021@@, cycle 0.2.1 — RX-228, RX-229: through the HIR build's first hook, `resolve_items` in `src/hir/build.npk`, where the build stops until then at a Perl class, a POSIX class, a property, a negated class and an operator; `tests/unit/hir_build_classes.npk` is pending on this subcycle, and goes red the day it builds as written, when its marker and its line in `harness/baseline/PENDING.txt` are deleted)*
+ - [ ] union, intersection (`&&`), difference (`--`), symmetric difference (`~~`) over sorted range lists, with Y-17's precedence *(2026-10-01, cycle 0.1.3 — RX-196 replaces Y-17's order: the three share one precedence and apply left to right, union tighter and negation last, and cycle 0.1.3's parser builds the tree in that order — this subcycle evaluates the tree as built)*
+ - [ ] negation within the correct universe
+ - [ ] folding applied **at resolution**, so the engine never folds (U-13)
+ - [ ] `NREGEX_CLASS_RANGES` enforced; `ClassTooLarge` *(2026-10-08 — cycle 0.1.6b, RX-219: a row of `SYNTAX.md` Y-25's table, struck by the test that provokes it)*
+ - [ ] *(2026-10-08 — cycle 0.1.6b, RX-219)* open question O-Y3 decided — `EmptyClass` raised where a class resolves to nothing, or retired as `EmptyAlternate` was — and its row in `SYNTAX.md` Y-25's table struck either way
+-- [ ] 0.2's `(?i:…)` hook filled, and its pending test now green
++- [ ] 0.2's `(?i:…)` hook filled, and its pending test now green *(@@DATE021@@, cycle 0.2.1 — RX-228, RX-229: the hook is `fold_ranges` in `src/hir/build.npk`, where the build stops until then at every literal, class and `.` under `i`; the test is `tests/unit/hir_build_fold.npk`, pending on this subcycle with exit 1, and "now green" is the run going red to say its marker is stale and the marker and its line deleted)*
+ 
+ ### 0.3.5 — close
+ - [ ] both table checks live and green
+diff --git a/meta/specs/HIR.md b/meta/specs/HIR.md
+index 2f81269981368f0e2c33179adfe097429205cfd0..dfe4c676cfd50c5ccb0985ee2310f64ddf2c913b 100644
+--- a/meta/specs/HIR.md
++++ b/meta/specs/HIR.md
+@@ -172,6 +172,9 @@ it is built, so every node is reached from the root once, and H-15's bound is ex
+ each must be the AST's number or the build stops `OutOfBounds`; an AST that is not a tree stops it
+ `DecreasesViolated`. The walk is an explicit stack bounded by twice the arena (`SAFETY.md` S-19).
+ `tests/unit/hir_build.npk` holds every row, and two units more each trap.
++*(@@DATE021@@, cycle 0.2.1 — RX-229: and two are pending until cycle 0.3.4, on the build's stop at a hook:
++`tests/unit/hir_build_classes.npk`, the class row's HIRs and a class's negation and operators, and
++`hir_build_fold.npk`, the `(?i:…)` row's.)*
+ 
+ ---
+ 
+diff --git a/meta/specs/SAFETY.md b/meta/specs/SAFETY.md
+index 5b514e5ed8e1852872c7535d9bdbdef4de480c5a..7deb6a5939dc289c1fc07e0b84a95e623639aa99 100644
+--- a/meta/specs/SAFETY.md
++++ b/meta/specs/SAFETY.md
+@@ -993,6 +993,9 @@ Three things worth keeping from it:
+   of the denominator, and no file carries `pending-until` any more. That is a
+   fact about this one unit and not about the mechanism, which is the third
+   cycle 0.0 audit's BL-6.)*
++  *(@@DATE021@@, cycle 0.2.1 — RX-226, RX-229: two files carry it again, each pending on
++  a subcycle of this library rather than a compiler — `tests/unit/hir_build_classes.npk`
++  and `hir_build_fold.npk`, on cycle 0.3.4, which fills the HIR's hooks.)*
+ 
+ **The general form: a citation of `exit 0` in a comment about a managed body is
+ a defect in the comment, and it will be written again — it has now been written
+diff --git a/src/hir/build.npk b/src/hir/build.npk
+index 0a695c82ea91bd979e86925f43ce8b470f9236f3..6c76caf5dac51af72d9b0e180dbbdced0fe88b15 100644
+--- a/src/hir/build.npk
++++ b/src/hir/build.npk
+@@ -21,7 +21,8 @@
+ // are arithmetic over sorted range lists; and `i`, which folds a set through the fold table.
+ // `hir_build` builds every pattern that needs none of them, and stops at the first node that
+ // needs one, answering its index in the AST -- never a HIR that means something else.
+-// `resolve_items` and `fold_ranges` are the hooks.
++// `resolve_items` and `fold_ranges` are the hooks, and `tests/unit/hir_build_classes.npk` and
++// `hir_build_fold.npk` are the HIRs they will build, pending until then (RX-229).
+ //
+ // A TREE, AND NOTHING ELSE IN THE ARENA. A node is pushed only when the node that holds it is
+ // built, so a HIR this file answers HIR_NONE for has every node reachable from its root, once --
+diff --git a/tests/unit/hir_build.npk b/tests/unit/hir_build.npk
+index 68d263a8597c9d4c1373a2e3b6f7f70e1ed0ff28..76e3c205ac6ea364967fd4a680e5eb44afc3056c 100644
+--- a/tests/unit/hir_build.npk
++++ b/tests/unit/hir_build.npk
+@@ -14,7 +14,8 @@
+ //
+ // THE CASES. 1 … 9 are H-5's six quantifier rows, their lazy forms, their bounds' edges and what
+ // a quantifier may wrap; 10 … 14 the `.` row; 15 … 19 the `(?:…)` row; 20 … 23 the class row and
+-// 24 … 27 the `(?i:…)` row, each STOPPING, the root unset -- what they will build is cycle 0.3.4's. 30 …
++// 24 … 27 the `(?i:…)` row, each STOPPING, the root unset -- what they will build is cycle 0.3.4's,
++// and `hir_build_classes.npk` and `hir_build_fold.npk` are those HIRs, pending until then. 30 …
+ // 34 and 40 … 49 are the kinds H-5 maps to themselves: `Empty`, `Literal`, `Concat`, `Alternate`,
+ // `Group` and the group table, `Anchor` under `m` and not, `WordBoundary` under `u` and not. 50 …
+ // 58 are classes built from their members and C-3's surrogates; 60 … 69 flags erased -- eight pairs
+diff --git a/tests/unit/hir_build_classes.npk b/tests/unit/hir_build_classes.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..b93b1bff66ed11d7001bb9defaa40e7e7f7e56f8
+--- /dev/null
++++ b/tests/unit/hir_build_classes.npk
+@@ -0,0 +1,156 @@
++// expect-exit: 0
++// pending-until: 0.3.4 exit 1
++//
++// H-5'S CLASS ROW, AS CYCLE 0.3.4 WILL BUILD IT: `\d`, `\w`, `\s`, POSIX and `\p{…}` a `Class` with
++// the ranges resolved -- and a class's negation and its operators, which that cycle resolves with
++// them. Cycle 0.2.1, RX-229; `HIR.md` H-5 and H-16, `UNICODE.md` U-9 and U-10.
++//
++// PENDING UNTIL CYCLE 0.3.4, ON EXIT 1 ALONE (`BUILD.md` B-5b, RX-226). Until that cycle fills
++// `src/hir/build.npk`'s first hook, `resolve_items`, the build stops at every pattern here, and a
++// build that stops exits 1 -- that and nothing else. A case whose build completes and differs
++// exits with its number, 10 and up, which the marker does not excuse: the run is red then, not
++// pending. The day every case builds as written here the unit exits 0, the run goes red to say
++// the marker is stale, and the marker and its line in `harness/baseline/PENDING.txt` go.
++//
++// WHAT IT ASKS, AND ONLY WHAT A RULE PINS. Byte mode's three classes and their complements to the
++// byte, as U-9 writes them and H-1 sorts them (10 … 13); Unicode mode's by members a table cannot
++// move -- `\d` holds U+0660, `\w` U+200D (U-10's `Join_Control`), `\s` U+00A0 -- and by what each
++// leaves out (14 … 17); a POSIX class by members both readings cycle 0.3.2 may choose agree on
++// (18); a property by a member of its set (19); and negation and the three operators, left to
++// right (20 … 23). Every HIR it builds dumps, and reads back to the same text (H-15).
++mod:hir_build_classes;
++
++use "../../src/core/core.npk".*;
++use "../../src/syntax/syntax.npk".*;
++use "../../src/hir/hir.npk".*;
++
++// Whether `b` holds exactly the bytes of `want`.
++func:same = bool(Bytes->:b, uint8[]:want) never fails {
++    if ((raw bytes_len(b)) != want.len) { pass false; }
++    int64:i = 0i64;
++    while (i < want.len) decreases want.len - i {
++        if ((raw bytes_get(b, i)) != want[i]) { pass false; }
++        i = i + 1i64;
++    }
++    pass true;
++};
++
++// Builds `pattern` into `h`: 0 when the build completes and its dump reads back to the same text,
++// 1 when it stops -- the one exit this unit is pending on -- and `c` for anything else.
++func:build = int32(string:pattern, Hir->:h, int32:c) never fails {
++    uint8[]:pat = string_bytes(pattern);
++    Ast:t = raw ast_init(8i64);
++    PatternError?:e = raw parse_pattern(pat, @t);
++    int32:r = c;
++    if (e == NIL) {
++        int64:at = raw hir_build(pat, t, h);
++        if (at != HIR_NONE) { r = 1i32; }
++        else {
++            Bytes:b = raw bytes_init(64i64);
++            drop hir_dump(h, @b);
++            string:text = raw bytes_copy_string(@b);
++            Hir:h2 = raw hir_init(8i64);
++            Bytes:b2 = raw bytes_init(64i64);
++            if ((raw hir_read(string_bytes(text), @h2)) == HIR_NONE) {
++                drop hir_dump(@h2, @b2);
++                if (raw same(@b2, string_bytes(text))) { r = 0i32; }
++            }
++            drop hir_free(@h2);
++        }
++    }
++    drop ast_free(@t);
++    pass r;
++};
++
++// `pattern` builds, and its dump is `want`.
++func:exactly = int32(string:pattern, string:want, int32:c) never fails {
++    Hir:h = raw hir_init(8i64);
++    int32:r = raw build(pattern, @h, c);
++    if (r == 0i32) {
++        Bytes:b = raw bytes_init(64i64);
++        drop hir_dump(@h, @b);
++        if (!(raw same(@b, string_bytes(want)))) { r = c; }
++    }
++    drop hir_free(@h);
++    pass r;
++};
++
++// Whether the HIR's root matches the codepoint (or the byte) `cp`: a `Literal` that is it, or a
++// `Class` with a range that holds it.
++func:holds = bool(Hir->:h, int64:cp) never fails {
++    HirNode:n = raw hir_get(<-h, h.root);
++    if (n.kind == HirKind.Literal) { pass n.a == cp; }
++    if (n.kind != HirKind.Class) { pass false; }
++    int64:k = 0i64;
++    while (k < n.b) decreases n.b - k {
++        ClassRange:r = raw hir_range(<-h, n.a + k);
++        if (((r.lo => int64) <= cp) && (cp <= (r.hi => int64))) { pass true; }
++        k = k + 1i64;
++    }
++    pass false;
++};
++
++// `pattern` builds, and its root holds `yes1` and `yes2` and not `no`.
++func:members = int32(string:pattern, int64:yes1, int64:yes2, int64:no, int32:c) never fails {
++    Hir:h = raw hir_init(8i64);
++    int32:r = raw build(pattern, @h, c);
++    if ((r == 0i32) && ((!(raw holds(@h, yes1))) || (!(raw holds(@h, yes2))) || (raw holds(@h, no)))) { r = c; }
++    drop hir_free(@h);
++    pass r;
++};
++
++func:run = int32() never fails {
++    int32:r = 0i32;
++    // byte mode: U-9's three, and each complement within the 256 bytes
++    r = raw exactly("(?-u)\\d", "(class byte 48-57)", 10i32);                          if (r != 0i32) { pass r; }
++    r = raw exactly("(?-u)\\w", "(class byte 48-57 65-90 95-95 97-122)", 11i32);       if (r != 0i32) { pass r; }
++    r = raw exactly("(?-u)\\s", "(class byte 9-13 32-32)", 12i32);                     if (r != 0i32) { pass r; }
++    r = raw exactly("(?-u)\\D", "(class byte 0-47 58-255)", 13i32);                    if (r != 0i32) { pass r; }
++    r = raw exactly("(?-u)\\W", "(class byte 0-47 58-64 91-94 96-96 123-255)", 13i32); if (r != 0i32) { pass r; }
++    r = raw exactly("(?-u)\\S", "(class byte 0-8 14-31 33-255)", 13i32);               if (r != 0i32) { pass r; }
++    // Unicode mode: members a version cannot move, and what each leaves out
++    r = raw members("\\d", 48i64, 1632i64, 97i64, 14i32);                              if (r != 0i32) { pass r; }
++    r = raw members("\\w", 95i64, 8205i64, 32i64, 15i32);                              if (r != 0i32) { pass r; }
++    r = raw members("\\s", 9i64, 160i64, 97i64, 16i32);                                if (r != 0i32) { pass r; }
++    r = raw members("\\D", 97i64, 32i64, 48i64, 17i32);                                if (r != 0i32) { pass r; }
++    r = raw members("\\W", 32i64, 45i64, 97i64, 17i32);                                if (r != 0i32) { pass r; }
++    r = raw members("\\S", 97i64, 48i64, 32i64, 17i32);                                if (r != 0i32) { pass r; }
++    // POSIX: members the ASCII and the Unicode readings share
++    r = raw members("[[:digit:]]", 48i64, 57i64, 97i64, 18i32);                        if (r != 0i32) { pass r; }
++    r = raw members("[[:alpha:]]", 97i64, 90i64, 48i64, 18i32);                        if (r != 0i32) { pass r; }
++    r = raw members("(?-u)[[:digit:]]", 48i64, 57i64, 97i64, 18i32);                   if (r != 0i32) { pass r; }
++    // properties
++    r = raw members("\\pL", 97i64, 945i64, 48i64, 19i32);                              if (r != 0i32) { pass r; }
++    r = raw members("\\p{Greek}", 945i64, 937i64, 97i64, 19i32);                       if (r != 0i32) { pass r; }
++    r = raw members("\\PL", 48i64, 32i64, 97i64, 19i32);                               if (r != 0i32) { pass r; }
++    // negation, within the universe and less the surrogates (C-3), and the three operators
++    r = raw members("[^a]", 98i64, 1114111i64, 97i64, 20i32);                          if (r != 0i32) { pass r; }
++    r = raw members("[^a]", 98i64, 1114111i64, 55296i64, 20i32);                       if (r != 0i32) { pass r; }
++    r = raw exactly("(?-u)[^a]", "(class byte 0-96 98-255)", 20i32);                   if (r != 0i32) { pass r; }
++    r = raw members("[a-z&&[^aeiou]]", 98i64, 122i64, 97i64, 21i32);                   if (r != 0i32) { pass r; }
++    r = raw members("[a-c--b]", 97i64, 99i64, 98i64, 22i32);                           if (r != 0i32) { pass r; }
++    r = raw members("[a-c~~b-d]", 97i64, 100i64, 98i64, 23i32);                        if (r != 0i32) { pass r; }
++    pass 0i32;
++};
++
++func:main = int32(cstring[]:_~argv) {
++    exit raw run();
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/hir_build_fold.npk b/tests/unit/hir_build_fold.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..5c1100d73604eceb5a9a45514934d4f479288bbe
+--- /dev/null
++++ b/tests/unit/hir_build_fold.npk
+@@ -0,0 +1,129 @@
++// expect-exit: 0
++// pending-until: 0.3.4 exit 1
++//
++// H-5'S `(?i:…)` ROW, AS CYCLE 0.3.4 WILL BUILD IT: the inner tree, with simple case folding
++// already applied to every literal, class and `.` it covers. Cycle 0.2.1, RX-229; `HIR.md` H-5 and
++// H-16, `UNICODE.md` U-11, U-13 and U-14.
++//
++// PENDING UNTIL CYCLE 0.3.4, ON EXIT 1 ALONE (`BUILD.md` B-5b, RX-226). Until that cycle fills
++// `src/hir/build.npk`'s second hook, `fold_ranges`, the build stops at every pattern here, and a
++// build that stops exits 1 -- that and nothing else. A case whose build completes and differs
++// exits with its number, 10 and up, which the marker does not excuse: the run is red then, not
++// pending. The day every case builds as written here the unit exits 0, the run goes red to say
++// the marker is stale, and the marker and its line in `harness/baseline/PENDING.txt` go.
++//
++// WHAT IT ASKS, AND ONLY WHAT A RULE PINS. Cycle 0.3's gate, `(?i)k` matching U+212A KELVIN SIGN
++// and `(?i)s` U+017F LATIN SMALL LETTER LONG S (10, 11), and from the other side of each orbit
++// (12); U-13's own example, `(?i)[a-z]` (13); a codepoint with no case, which folding leaves
++// alone (14); `.`, which folding cannot widen (15); and `k` folded within the bytes under
++// `(?-u)` (16). Every HIR it builds dumps, and reads back to the same text (H-15).
++mod:hir_build_fold;
++
++use "../../src/core/core.npk".*;
++use "../../src/syntax/syntax.npk".*;
++use "../../src/hir/hir.npk".*;
++
++// Whether `b` holds exactly the bytes of `want`.
++func:same = bool(Bytes->:b, uint8[]:want) never fails {
++    if ((raw bytes_len(b)) != want.len) { pass false; }
++    int64:i = 0i64;
++    while (i < want.len) decreases want.len - i {
++        if ((raw bytes_get(b, i)) != want[i]) { pass false; }
++        i = i + 1i64;
++    }
++    pass true;
++};
++
++// Builds `pattern` into `h`: 0 when the build completes and its dump reads back to the same text,
++// 1 when it stops -- the one exit this unit is pending on -- and `c` for anything else.
++func:build = int32(string:pattern, Hir->:h, int32:c) never fails {
++    uint8[]:pat = string_bytes(pattern);
++    Ast:t = raw ast_init(8i64);
++    PatternError?:e = raw parse_pattern(pat, @t);
++    int32:r = c;
++    if (e == NIL) {
++        int64:at = raw hir_build(pat, t, h);
++        if (at != HIR_NONE) { r = 1i32; }
++        else {
++            Bytes:b = raw bytes_init(64i64);
++            drop hir_dump(h, @b);
++            string:text = raw bytes_copy_string(@b);
++            Hir:h2 = raw hir_init(8i64);
++            Bytes:b2 = raw bytes_init(64i64);
++            if ((raw hir_read(string_bytes(text), @h2)) == HIR_NONE) {
++                drop hir_dump(@h2, @b2);
++                if (raw same(@b2, string_bytes(text))) { r = 0i32; }
++            }
++            drop hir_free(@h2);
++        }
++    }
++    drop ast_free(@t);
++    pass r;
++};
++
++// Whether the HIR's root matches the codepoint (or the byte) `cp`: a `Literal` that is it, or a
++// `Class` with a range that holds it.
++func:holds = bool(Hir->:h, int64:cp) never fails {
++    HirNode:n = raw hir_get(<-h, h.root);
++    if (n.kind == HirKind.Literal) { pass n.a == cp; }
++    if (n.kind != HirKind.Class) { pass false; }
++    int64:k = 0i64;
++    while (k < n.b) decreases n.b - k {
++        ClassRange:r = raw hir_range(<-h, n.a + k);
++        if (((r.lo => int64) <= cp) && (cp <= (r.hi => int64))) { pass true; }
++        k = k + 1i64;
++    }
++    pass false;
++};
++
++// `pattern` builds, and its root holds `yes1` and `yes2` and not `no`.
++func:members = int32(string:pattern, int64:yes1, int64:yes2, int64:no, int32:c) never fails {
++    Hir:h = raw hir_init(8i64);
++    int32:r = raw build(pattern, @h, c);
++    if ((r == 0i32) && ((!(raw holds(@h, yes1))) || (!(raw holds(@h, yes2))) || (raw holds(@h, no)))) { r = c; }
++    drop hir_free(@h);
++    pass r;
++};
++
++func:run = int32() never fails {
++    int32:r = 0i32;
++    // the gate of cycle 0.3: KELVIN SIGN and LONG S
++    r = raw members("(?i)k", 75i64, 8490i64, 76i64, 10i32);                            if (r != 0i32) { pass r; }
++    r = raw members("(?i)k", 107i64, 8490i64, 108i64, 10i32);                          if (r != 0i32) { pass r; }
++    r = raw members("(?i)s", 83i64, 383i64, 84i64, 11i32);                             if (r != 0i32) { pass r; }
++    r = raw members("(?i)s", 115i64, 383i64, 116i64, 11i32);                           if (r != 0i32) { pass r; }
++    // the orbit from its other side
++    r = raw members("(?i)\\x{212A}", 75i64, 107i64, 76i64, 12i32);                   if (r != 0i32) { pass r; }
++    r = raw members("(?i)\\x{17F}", 83i64, 115i64, 84i64, 12i32);                    if (r != 0i32) { pass r; }
++    // U-13: `(?i)[a-z]` is `a-z` and `A-Z`, U+017F and U+212A
++    r = raw members("(?i)[a-z]", 65i64, 90i64, 91i64, 13i32);                          if (r != 0i32) { pass r; }
++    r = raw members("(?i)[a-z]", 383i64, 8490i64, 64i64, 13i32);                       if (r != 0i32) { pass r; }
++    // a codepoint with no case, and `.`
++    r = raw members("(?i)1", 49i64, 49i64, 50i64, 14i32);                              if (r != 0i32) { pass r; }
++    r = raw members("(?i).", 97i64, 65i64, 10i64, 15i32);                              if (r != 0i32) { pass r; }
++    // within the bytes
++    r = raw members("(?i-u)k", 75i64, 107i64, 76i64, 16i32);                           if (r != 0i32) { pass r; }
++    pass 0i32;
++};
++
++func:main = int32(cstring[]:_~argv) {
++    exit raw run();
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};

@@ -1,0 +1,304 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index d9cb9a37e0fe5f9f0c5d4e807abd6eb6d2eea2b2..14dec14bdf78ab98aa2ae9955fb2172f9f445298 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -33,9 +33,9 @@
+ # `check_error_kinds_tested`, and eight, seven of which could fail, until
+ # cycle 0.1.2's `check_no_recursion`). AND SINCE 0.0.3 IT IS ALSO EVIDENCE
+ # THAT THE RUNNER CAN FAIL: the self-check runs FIRST and feeds it every live
+-# kind of wrong expectation, requiring a red for each -- 30 live and 4 PENDING
+-# on stages that do not exist until 0.3, 0.5 and 0.8, 34 cases in V-20's list
+-# since cycle 0.1.6b (33 at cycle 0.1.4, 32 at cycle 0.1.2, 30 at cycle 0.1.0b, 24 at the cycle 0.0
++# kind of wrong expectation, requiring a red for each -- 31 live and 4 PENDING
++# on stages that do not exist until 0.3, 0.5 and 0.8, 35 cases in V-20's list
++# since cycle 0.2.1 (34 at cycle 0.1.6b, 33 at cycle 0.1.4, 32 at cycle 0.1.2, 30 at cycle 0.1.0b, 24 at the cycle 0.0
+ # close's fifth triage, 15 and 19 at the fourth), and the run prints the counts itself, so
+ # the green says how much of the list it covers. It is still NOT evidence about this library's BEHAVIOUR: `src/core/`
+ # is real and carries its own suites, but nothing matches yet.
+diff --git a/harness/README.md b/harness/README.md
+index 09952e1c25e473032a7100756c4e89eb0dd98441..babc4af018ee5c1f63a58edc238d14fff9a6b8d0 100644
+--- a/harness/README.md
++++ b/harness/README.md
+@@ -22,7 +22,7 @@ reporting it.
+ | `manifest.py` | `nitpick.toml`, in the compiler's own subset, with the compiler's schema |
+ | `toolchain.py` | `llc`, `opt`, `ld.lld` asked their versions and held to the pinned LLVM 20.1.2; and the manifest's `datalayout` held to what the pinned `opt` derives from its `triple` (`BUILD.md` B-1a, RX-176) |
+ | `lexical.py` | **the harness's one reading of `.npk` source** (RX-157, RX-165): every `.npk` file opened by `lexical.read`, as BYTES — `\n` the only line end, as in the compiler's lexer — comments, strings, character literals and template text blanked, imports read the way the compiler's parser reads them, each path the literal's decoded value. The program suites' skip, B-2's reach, the expectation markers and every tree check stand on it; self-check case 18 tests it through a file |
+-| `expect.py` | the `// expect-…` grammar, marker for marker with `npkg/expect.npk`, **plus two markers of this runner's own** — `mem-cap-mib:` and `pending-until: <commit> exit <N>` (`BUILD.md` B-5b, RX-146 as amended by RX-154), each declared there so the parity stage has a row rather than a surprise |
++| `expect.py` | the `// expect-…` grammar, marker for marker with `npkg/expect.npk`, **plus two markers of this runner's own** — `mem-cap-mib:` and `pending-until: <commit> exit <N>` (`BUILD.md` B-5b, RX-146 as amended by RX-154 — its label a subcycle of this library since cycle 0.2.1, RX-226), each declared there so the parity stage has a row rather than a surprise |
+ | `elf.py` | an ELF64 symbol table, read with `struct` — no fourth tool |
+ | `irscan.py` | the emitted IR's call edges to the floor |
+ | `build.py` | the pipeline, and `npkc`'s exit alphabet |
+diff --git a/harness/baseline/PENDING.txt b/harness/baseline/PENDING.txt
+index 0240bbc6e12de43e14e2dc0a403a429e1c0b7323..f8d9b17a29404c57fe335a5ed3996d139637a059 100644
+--- a/harness/baseline/PENDING.txt
++++ b/harness/baseline/PENDING.txt
+@@ -9,6 +9,10 @@
+ # `// pending-until: <commit> exit <N>` marker, exactly; `reason` says what the
+ # unit waits on. Blank lines and `#` comments are ignored.
+ #
++# *(@@DATE021@@, cycle 0.2.1 -- RX-226: or CORRECT AND RED because what it asserts
++# through is a later subcycle's to build, and then `commit` is that subcycle, `0.3.4`:
++# a label as the commit is, never resolved, retired by the unit's own exit.)*
++#
+ # WHY A MARKER NEEDS A LINE HERE AS WELL. A pending unit is OUTSIDE the run's
+ # denominator, so the marker is a way for a red to leave a green run -- and the
+ # third cycle-0.0 audit (BL-6, M3) measured one comment line doing exactly that
+diff --git a/harness/baseline/README.md b/harness/baseline/README.md
+index bb09083d480d787156d65755d473e66d8f1f0cba..26a9f90812deddfc88f1ec757013c647402443b4 100644
+--- a/harness/baseline/README.md
++++ b/harness/baseline/README.md
+@@ -86,5 +86,7 @@ lists a reviewer signs, and `RESIDUE.txt` set its shape. **One line per unit a
+ marker the list does not name is a failure, and on a full run a line no pending
+ unit matches is a failure. Without it one comment line could move a red out of
+ a green run, which the third cycle 0.0 audit measured (BL-6, M3; RX-154).
++*(@@DATE021@@, cycle 0.2.1 — RX-226: the marker's label is a commit, or a subcycle of this
++library, `0.3.4`, for a unit pending on what a later subcycle builds.)*
+ **Empty since cycle 0.0.4b**, when the one unit it would have listed started
+ passing at `c3bdae2`.
+diff --git a/harness/expect.py b/harness/expect.py
+index 9495fed6eaa4bd0478884b52416b1765f427be2d..a29e01a9dc74df548aeb819b93aca26c3ac95773 100644
+--- a/harness/expect.py
++++ b/harness/expect.py
+@@ -99,6 +99,12 @@ the run that moves it". Measured false: a marker naming a commit that does not
+ exist was accepted and behaved identically, because the retirement was keyed on
+ the exit alone -- which is still true, and is now the whole of the claim.
+ 
++*(@@DATE021@@, cycle 0.2.1 -- RX-226: OR A SUBCYCLE OF THIS LIBRARY, `0.3.4` -- digits, two dots
++and digits, and a letter at most -- for a unit that is correct and red because what it
++asserts through is a later subcycle's to build. The same label nothing resolves, the same
++reviewed line, the same exit; the run says "until cycle" for it where it says "until
++compiler" for a commit. A commit holds no dot, so the two shapes never meet.)*
++
+ SECOND: `stress: 0`. Here the divergence is smaller and the reason is
+ different, and it is worth stating exactly because the first draft of this
+ comment got it wrong. `npkg` does NOT run the program zero times: `run_binary`
+@@ -124,6 +130,8 @@ EXIT_MAX = 255
+ SIGNAL_MIN = -64
+ # A commit's SHAPE, never its existence (RX-154): see the fourth marker above.
+ _COMMIT = re.compile(r"^[0-9a-f]{7,40}$")
++# Or a subcycle of this library's, `0.3.4` or `0.1.6b` -- a label too (RX-226).
++_SUBCYCLE = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+[a-z]?$")
+ 
+ 
+ class Expect:
+@@ -134,7 +142,7 @@ class Expect:
+         self.stress = 1
+         self.argv = []
+         self.mem_cap_mib = 0    # 0 = uncapped. `mem-cap-mib: N` sets it.
+-        self.pending_until = ""   # a compiler commit, as a LABEL: never resolved (RX-154)
++        self.pending_until = ""   # a compiler commit or a subcycle, as a LABEL: never resolved (RX-154, RX-226)
+         self.pending_exit = None  # the exit the unit is pending on; any other fails it
+         self.pending_line = 0
+         self.no_parse_error = False
+@@ -258,9 +266,11 @@ def read(text):
+         if body.startswith("pending-until:"):
+             toks = _split_ws(_after_colon(body))
+             if (len(toks) != 3 or toks[1] != "exit"
+-                    or not _COMMIT.match(toks[0]) or _int(toks[2]) is None):
++                    or not (_COMMIT.match(toks[0]) or _SUBCYCLE.match(toks[0]))
++                    or _int(toks[2]) is None):
+                 return _bad(e, n, "a `pending-until:` that is not `pending-until: "
+                                   "<commit> exit <N>` -- 7 to 40 lowercase hex digits, "
++                                  "or a subcycle of this library such as `0.3.4`, "
+                                   "the word `exit`, and the exit the unit is pending "
+                                   "on. The marker EXCUSES A RED, so it must name WHICH "
+                                   "red: a marker excusing any exit is the one that "
+diff --git a/harness/selfcheck.py b/harness/selfcheck.py
+index 8d7e5832aecd8cfcd2183e2a5ddccfff8bd5e664..34a8c8be883a8e0066aac333cfb84e915bbcbec7 100644
+--- a/harness/selfcheck.py
++++ b/harness/selfcheck.py
+@@ -35,7 +35,9 @@ and one comment line was measured moving a wrong expectation out of the count
+ a marker the reviewed list does not name, a pending unit failing for another
+ reason, and a marker that has outlived its reason (RX-154). Case 11 also
+ requires the unit to have been OBSERVED THROUGH `opt -O2`, which a pending unit
+-was not until RX-159 (the fourth audit's N-19).
++was not until RX-159 (the fourth audit's N-19). *(Since cycle 0.2.1, RX-226: and
++case 34 is case 11's plant under a SUBCYCLE's label, `0.3.4`, the shape the
++marker takes for a unit pending on a later subcycle of this library.)*
+ 
+ AND THE MARKER WAS NOT THE ONLY ROUTE OUT, WHICH THE FOURTH AUDIT PROVED (BL-7):
+ a `use` inside a SIBLING's `/* */` took a red unit out of the count through the
+@@ -309,14 +311,15 @@ def _case9(d):
+     return TOML % PROGRAM_ENTRY
+ 
+ 
+-def _pending_program(mod, exit_code, expect_exit, marker_exit):
+-    """A program carrying `pending-until:` -- the marker under test in 11-13.
++def _pending_program(mod, exit_code, expect_exit, marker_exit, label="0123abc"):
++    """A program carrying `pending-until:` -- the marker under test in 11-13 and 34.
+ 
+     The commit is `0123abc`, which is commit-shaped and names nothing: the
+     marker's commit is a LABEL the runner never resolves (RX-154), so a real
+-    one would test nothing a fake one does not."""
++    one would test nothing a fake one does not. Case 34's label is a subcycle,
++    `0.3.4`, the shape RX-226 adds."""
+     return (f"// expect-exit: {expect_exit}\n"
+-            f"// pending-until: 0123abc exit {marker_exit}\n"
++            f"// pending-until: {label} exit {marker_exit}\n"
+             f"mod:{mod};\n\n"
+             f"func:main = int32(cstring[]:_~argv) {{\n"
+             f"    exit {exit_code}i32;\n"
+@@ -368,6 +371,20 @@ def _case13(d):
+     return TOML % PROGRAM_ENTRY
+ 
+ 
++def _case34(d):
++    """A RED HIDDEN BEHIND A PENDING MARKER LABELLED BY A SUBCYCLE, WHICH THE
++    REVIEWED LIST DOES NOT NAME -- RX-226.
++
++    Case 11's plant with the label RX-226 adds: `0.3.4`, a subcycle of this
++    library, where case 11's is a commit. The label must be READ -- an unreadable
++    marker fails as unreadable, and this case asks for the list's message, which
++    quotes the marker back -- and the list must still hold it: a new shape of
++    label must not be a new route out of the denominator."""
++    _write(d, "tests/case/hidden_cycle_red.npk",
++           _pending_program("hidden_cycle_red", 41, 42, 41, label="0.3.4"))
++    return TOML % PROGRAM_ENTRY
++
++
+ def _case15(d):
+     """A RED UNIT NAMED ONLY BY A `use` INSIDE A SIBLING'S `/* */` -- BL-7.
+ 
+@@ -1328,6 +1345,12 @@ CASES = [
+          "RX-219: the cycle 0.1 Gate -- every kind provoked or listed with the cycle that will provoke it, held "
+          "both ways; a kind nothing produces is the dormant-rule pattern the compiler's `check_codes_tested` refuses",
+          _case33, ()),
++    Case(34, "a red hidden behind a pending marker labelled by a subcycle, which the reviewed list does not name",
++         "RX-226: the marker names a subcycle of this library too, for a unit pending on a later subcycle's "
++         "hook -- and a new shape of label is no new route out of the denominator: case 11's plant, read "
++         "and held to the list",
++         _case34, ["hidden_cycle_red.npk", "`pending-until: 0.3.4 exit 41` is NOT ON THE REVIEWED PENDING LIST",
++                   "41 through opt -O2"]),
+ ]
+ 
+ 
+diff --git a/harness/stages.py b/harness/stages.py
+index 1bf6fa6fe06e1c1800eb0bf92d16eab6e0805617..82a9fcb0f55d42e9ba1064b67978962feb1ac928 100644
+--- a/harness/stages.py
++++ b/harness/stages.py
+@@ -194,8 +194,18 @@ def run_binary(exe, args, stress, want, name, tail, mem_cap_mib=0):
+ PENDING_LIST = "harness/baseline/PENDING.txt"
+ 
+ 
++def until(label):
++    """What a pending marker's label names, as the run prints it: a subcycle of this
++    library, which holds a dot, or a compiler commit, which cannot (RX-226)."""
++    if "." in label:
++        return f"cycle {label}"
++    return f"compiler `{label}`"
++
++
+ class Pending:
+-    """A unit that is CORRECT and RED because the pinned compiler is the defect.
++    """A unit that is CORRECT and RED because the pinned compiler is the defect --
++    or, since cycle 0.2.1, because a later subcycle of this library builds what it
++    asserts through (RX-226).
+ 
+     Carried out of the stage rather than reported as a finding, so the runner can
+     count it as neither a pass nor a failure -- `expect.py`'s fourth marker says
+@@ -214,7 +224,7 @@ class Pending:
+ 
+     def line(self):
+         cap = f", under a {self.capped} MiB cap" if self.capped else ""
+-        return (f"{self.name}: PENDING until compiler `{self.until}` -- wants exit "
++        return (f"{self.name}: PENDING until {until(self.until)} -- wants exit "
+                 f"{self.want}{cap}; the marker names exit {self.named} and this tree "
+                 f"gives {self.got}. NOT A PASS and not counted in the denominator.")
+ 
+@@ -346,8 +356,8 @@ def _pending(c, legs, name, exp):
+         # line. NOTE WHAT THIS IS KEYED ON: the exit, not the commit, which is a
+         # label nothing here resolves (RX-154).
+         return [f"{name}: {marker} IS NOW STALE -- the file met its expectation "
+-                f"(exit {exp.exit_code}) against the compiler this tree is pinned "
+-                f"to, on every leg. DELETE THE MARKER AND ITS LINE IN {PENDING_LIST}; "
++                f"(exit {exp.exit_code}) in this tree, against the compiler it is "
++                f"pinned to, on every leg. DELETE THE MARKER AND ITS LINE IN {PENDING_LIST}; "
+                 f"the case is live and belongs in the denominator. A pending marker "
+                 f"that survives the day it stops being true is the dormant rule this "
+                 f"repository keeps finding."]
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 51b2931b1d079c1fbc82591d33347ee53129a300..3e631185530431f9685cbe9b4ebd7d49be3fb817 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -5864,3 +5864,37 @@ two equal; **the walk's measure `2n + 1`, as the plan was drafted** — it admit
+ parents in an arena of three nodes was written twice with no stop, measured at the plan's rehearsal; **a set of the
+ nodes entered** — it would stop a shared node beside nodes nothing reaches too, at an allocation per dump, and no
+ builder exists yet to say whether it leaves such nodes.
++
++## The desugaring — cycle 0.2.1
++
++### RX-226 — a `pending-until:` marker's label is a compiler commit or a subcycle of this library: a test that fails until a later subcycle builds what it asserts through
++
++**@@DATE021@@, cycle 0.2.1 (the plan's PD-70), at compiler `5fbaf4a`** — `BUILD.md` B-5b, RX-146 as amended by RX-154 and
++RX-159, `TESTING.md` V-20, and the cycle README's two 0.2.1 boxes that ask for *"a test that fails until then"*: the
++desugaring stops where cycle 0.3.4 fills a hook, and the test that asserts what the hook will build is correct and red
++until then. B-5b's marker is the one route a red unit has out of the denominator, and it took a compiler commit alone:
++*"a unit that is correct and red, because the defect it asserts against is in the pinned compiler"*.
++
++**The decision.** The marker's label is a compiler commit — 7 to 40 lowercase hex digits — **or a subcycle of this
++library**: digits, a dot, digits, a dot, digits, and one lowercase letter at most, `0.3.4` or `0.1.6b`. It is a label
++as the commit is: checked for its shape and never resolved; its line in `harness/baseline/PENDING.txt` names it in the
++commit's column; the unit is built, run on both legs and held to the exit its marker names; it goes red the day it
++meets its expectation, and the marker and the line are deleted then. The run prints *"PENDING until cycle 0.3.4"* for
++it, where it prints *"until compiler"* for a commit; a commit holds no dot, so the two shapes never meet. Self-check
++case 34 is case 11's plant under a subcycle's label — a red the reviewed list does not name — and requires the list's
++message, which quotes the marker back, so a reader that refused the label fails it as surely as a list that passed it.
++`harness/expect.py` and `stages.py`, `PENDING.txt`'s header, both harness READMEs, B-5b and V-20 dated; CI's comment
++counts thirty-five cases.
++
++**Measured at `5fbaf4a`.** The self-check runs thirty-five cases, the thirty-one live each red as it must be, the four
++pending printed so. Case 34 fails against a reader that refuses the subcycle's label — the unit fails as unreadable, and
++the list's message, which the case asks for, never prints — and against a runner whose list check passes a dotted
++label, where case 11 passes against both. The full run is `283/283`: no unit carries a marker yet.
++
++*Alternatives declined:* **the subcycle's own pin in the commit's place**, `5fbaf4a` — a commit-shaped label that names
++the wrong thing, which B-5b says tells whoever moves the pin which fix the unit waits on; **a unit that asserts the
++hook's present answer and is rewritten when the hook is filled** — a pending obligation counted as a pass, which P-18
++and B-5b refuse: *"a pending case is not a passing case"*; **the test left out of the suites until the subcycle that
++fills the hook** — *"how a defect gets forgotten between the day it is understood and the day it could be caught"*
++(B-5b), and nothing would redden the day it passes; **a second marker** — two grammars for one route out of the
++denominator, and every check B-5b holds the marker to written twice.
+diff --git a/meta/specs/BUILD.md b/meta/specs/BUILD.md
+index b447685f5d9a849156753692a40fe5f33d67c5d1..305f207c25e327d0005c8eaaf32b7c9b78d46c47 100644
+--- a/meta/specs/BUILD.md
++++ b/meta/specs/BUILD.md
+@@ -475,6 +475,14 @@ O-G3) has a row for it rather than a surprise.**
+   moved it out of the denominator — `140/140`, GREEN, which defeated the
+   self-check's own case 1.)*
+ 
++  *(@@DATE021@@, cycle 0.2.1 — RX-226: the label may be a SUBCYCLE of this library
++  instead, `0.3.4` — digits, two dots and digits, a letter at most — for a unit
++  that is correct and red because what it asserts through is a later subcycle's
++  to build. It is the same label nothing resolves, the same reviewed line and the
++  same exit, and the unit retires itself the same way; the run prints "until
++  cycle 0.3.4". A commit holds no dot, so the shapes never meet. Self-check case
++  34 is case 11's plant under such a label.)*
++
+ **Rule B-6 — assert on codes and exit codes, never on message text.**
+ 
+ **Rule B-7 — unexpected diagnostics fail a test as surely as missing ones**
+diff --git a/meta/specs/TESTING.md b/meta/specs/TESTING.md
+index 754532d935fe32434d76ede0d8bb20f511a88509..b046dc2eac34675273222cfa3466b7883bf422d8 100644
+--- a/meta/specs/TESTING.md
++++ b/meta/specs/TESTING.md
+@@ -361,6 +361,9 @@ requires it to report every one as a failure. The list is `harness/selfcheck.py`
+     README does not name its kind — each failing by name, and a clean tree passing
+     whose listed kind a unit builds and names in a comment (RX-219). On the
+     instrument.
++34. a red hidden behind a `pending-until:` marker labelled by a SUBCYCLE of this
++    library, `0.3.4`, which the reviewed list does not name — case 11's plant
++    under the label RX-226 adds, which must be read and held to the list.
+ 
+ *(Reconciled 2026-09-25 by the third cycle 0.0 audit's triage, RX-154. This list
+ had eight bullets and `CASES` eleven entries, and they disagreed in BOTH
+@@ -408,6 +411,10 @@ pending** on the day it was written.)*
+ *(Extended 2026-10-08 by cycle 0.1.6b, RX-219: 33. It was seen to fail against each mutant of the check that the plan's
+ §1.6 lists. **34 cases, 30 live, 4 pending** on the day it was written.)*
+ 
++*(Extended @@DATE021@@ by cycle 0.2.1, RX-226: 34. It was seen to fail against a reader that
++refused the subcycle's label and against a runner whose list check passed it. **35 cases,
++31 live, 4 pending** on the day it was written.)*
++
+ **Rule V-21 — the self-check runs first in every full invocation.** A harness
+ that has not proven it can fail has not proven anything.
+ 

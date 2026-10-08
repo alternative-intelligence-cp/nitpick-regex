@@ -1,0 +1,48 @@
+# 0.2.1's mutants of src/hir/dump.npk and src/hir/build.npk -- each one rule broken in a copy of a tree, the text matched
+# exactly ONCE or the row is a STOP; `mutants.py` builds every unit below that the tree holds, in the copy, at both
+# legs, and prints the units whose exits differ from the unchanged copy's. TAB-separated; `\n` in a text is a newline.
+# The first column is the block a row runs at: `2`, the writer's bit check, over the tree at step 2; `4`, the build,
+# over the tree at step 4, where both pending units are -- a mutant that moves one off its exit 1 is red in the run.
+# units: hir_dump hir_dump_count hir_dump_stray_next hir_dump_not_a_tree hir_dump_shared hir_dump_stray_bit hir_build hir_build_not_a_tree hir_build_misnumbered hir_build_classes hir_build_fold
+2	write-no-bit-check	src/hir/dump.npk	            if ((n.flags & ~(raw kind_bits(n.kind))) != 0u32) { drop vec_oob(n.flags => int64); }\n	
+2	bits-on-every-kind	src/hir/dump.npk	    if (k == HirKind.Repeat) { pass HIR_FLAG_LAZY; }\n    pass 0u32;	    if (k == HirKind.Repeat) { pass HIR_FLAG_LAZY; }\n    pass HIR_FLAG_BYTE | HIR_FLAG_LAZY;
+2	bits-lazy-refused	src/hir/dump.npk	    if (k == HirKind.Repeat) { pass HIR_FLAG_LAZY; }	    if (k == HirKind.Repeat) { pass 0u32; }
+2	bits-byte-refused	src/hir/dump.npk	(k == HirKind.Literal) || (k == HirKind.Class) || (k == HirKind.WordBoundary)) { pass HIR_FLAG_BYTE; }	(k == HirKind.Literal) || (k == HirKind.Class) || (k == HirKind.WordBoundary)) { pass 0u32; }
+4	copy-ast-flags	src/hir/build.npk	        pass raw hir_push(out, raw hnode(HirKind.Literal, raw byte_bit((n.flags & AST_FLAG_BYTE) != 0u32), n.a, 0i64, 0i64));	        pass raw hir_push(out, raw hnode(HirKind.Literal, n.flags, n.a, 0i64, 0i64));
+4	anchor-copies-ast	src/hir/build.npk	        int64:a = HIR_TEXT_START;                      // `\A`, and `^` but under `m`	        int64:a = n.a;
+4	caret-ignores-m	src/hir/build.npk	        if ((n.a == AST_CARET) && m) { a = HIR_LINE_START; }	        if (n.a == AST_CARET) { a = HIR_TEXT_START; }
+4	dollar-ignores-m	src/hir/build.npk	        else if (n.a == AST_DOLLAR) { a = HIR_TEXT_END; if (m) { a = HIR_LINE_END; } }	        else if (n.a == AST_DOLLAR) { a = HIR_TEXT_END; }
+4	z-as-start	src/hir/build.npk	        else if (n.a == AST_END) { a = HIR_TEXT_END; }\n	
+4	boundary-ignores-u	src/hir/build.npk	raw hnode(HirKind.WordBoundary, raw byte_bit(byte), w, 0i64, 0i64)	raw hnode(HirKind.WordBoundary, 0u32, w, 0i64, 0i64)
+4	not-word-as-word	src/hir/build.npk	        if (n.a != 0i64) { w = HIR_NOT_WORD; }\n	
+4	literal-drops-byte	src/hir/build.npk	raw hnode(HirKind.Literal, raw byte_bit((n.flags & AST_FLAG_BYTE) != 0u32), n.a, 0i64, 0i64)	raw hnode(HirKind.Literal, 0u32, n.a, 0i64, 0i64)
+4	literal-folded-skipped	src/hir/build.npk	    if ((n.kind == AstKind.Literal) && (!fold)) {	    if (n.kind == AstKind.Literal) {
+4	dot-keeps-newline	src/hir/build.npk	            drop push_range(out, CP_NEWLINE + 1i64, top, byte);	            drop push_range(out, CP_NEWLINE, top, byte);
+4	dot-ignores-s	src/hir/build.npk	        if ((n.flags & AST_FLAG_S) != 0u32) { drop push_range(out, 0i64, top, byte); }	        if ((n.flags & AST_FLAG_X) != 0u32) { drop push_range(out, 0i64, top, byte); }
+4	dot-top-ignores-u	src/hir/build.npk	        if (byte) { top = BYTE_MAX; }\n	
+4	dot-fold-skipped	src/hir/build.npk	        if (fold) { built = raw fold_ranges(out, first, byte); }\n	
+4	no-surrogate-split	src/hir/build.npk	    if (byte) {\n        discard(raw hir_push_range(out, ClassRange{ lo: lo =>! uint32, hi: hi =>! uint32 }));	    if (true) {\n        discard(raw hir_push_range(out, ClassRange{ lo: lo =>! uint32, hi: hi =>! uint32 }));
+4	split-low-one-high	src/hir/build.npk	        if (top >= CP_SURROGATE_LO) { top = CP_SURROGATE_LO - 1i64; }	        if (top >= CP_SURROGATE_LO) { top = CP_SURROGATE_LO; }
+4	split-high-one-low	src/hir/build.npk	        if (bottom <= CP_SURROGATE_HI) { bottom = CP_SURROGATE_HI + 1i64; }	        if (bottom <= CP_SURROGATE_HI) { bottom = CP_SURROGATE_HI; }
+4	split-drops-high-piece	src/hir/build.npk	    if (hi > CP_SURROGATE_HI) {	    if (hi > CP_MAX) {
+4	class-ignores-u	src/hir/build.npk	    pass raw hir_push(out, raw hnode(HirKind.Class, raw byte_bit(byte), first, count, 0i64));	    pass raw hir_push(out, raw hnode(HirKind.Class, 0u32, first, count, 0i64));
+4	class-negation-ignored	src/hir/build.npk	    else if ((n.kind == AstKind.Class) && ((n.flags & AST_FLAG_NEGATED) == 0u32)) {	    else if (n.kind == AstKind.Class) {
+4	nested-negation-ignored	src/hir/build.npk	        else if ((x.kind == AstKind.Class) && ((x.flags & AST_FLAG_NEGATED) == 0u32)) {	        else if (x.kind == AstKind.Class) {
+4	class-item-skipped	src/hir/build.npk	        else { ok = false; }\n    }\n    drop vec_free(@todo);	        else { }\n    }\n    drop vec_free(@todo);
+4	nested-after-rest	src/hir/build.npk	        if (x.next != AST_NONE) { drop vec_push(@todo, x.next); }\n        if (x.kind == AstKind.ClassRange) { drop push_range(out, x.a, x.b, byte); }\n        else if ((x.kind == AstKind.Class) && ((x.flags & AST_FLAG_NEGATED) == 0u32)) {\n            if (x.a != AST_NONE) { drop vec_push(@todo, x.a); }\n        }	        if (x.kind == AstKind.ClassRange) { drop push_range(out, x.a, x.b, byte); }\n        else if ((x.kind == AstKind.Class) && ((x.flags & AST_FLAG_NEGATED) == 0u32)) {\n            if (x.a != AST_NONE) { drop vec_push(@todo, x.a); }\n        }\n        if (x.next != AST_NONE) { drop vec_push(@todo, x.next); }
+4	class-fold-skipped	src/hir/build.npk	        if (built && fold) { built = raw fold_ranges(out, first, byte); }	        if (built && false) { built = raw fold_ranges(out, first, byte); }
+4	fold-hook-answers-true	src/hir/build.npk	func:fold_ranges = bool(Hir->:out, int64:first, bool:byte) never fails {\n    pass false;	func:fold_ranges = bool(Hir->:out, int64:first, bool:byte) never fails {\n    pass true;
+4	concat-keeps-erased	src/hir/build.npk	        if ((m == HIR_NONE) && (k == HirKind.Alternate)) {	        if (m == HIR_NONE) {
+4	alternate-drops-erased	src/hir/build.npk	        if ((m == HIR_NONE) && (k == HirKind.Alternate)) {	        if ((m == HIR_NONE) && (k == HirKind.Group)) {
+4	concat-of-none	src/hir/build.npk	    if ((k == HirKind.Concat) && (count == 0i64)) {	    if ((k == HirKind.Concat) && (count < 0i64)) {
+4	concat-of-one	src/hir/build.npk	    if ((k == HirKind.Concat) && (count == 1i64)) { pass first; }	    if ((k == HirKind.Concat) && (count < 0i64)) { pass first; }
+4	held-no-empty	src/hir/build.npk	    if (m == HIR_NONE) { pass raw hir_push(out, raw hnode(HirKind.Empty, 0u32, 0i64, 0i64, 0i64)); }\n    pass m;	    pass m;
+4	noncapturing-keeps-group	src/hir/build.npk	                if (n.b > 0i64) { h = raw hir_push(out, raw hnode(HirKind.Group, 0u32, h, n.b, 0i64)); }	                h = raw hir_push(out, raw hnode(HirKind.Group, 0u32, h, n.b, 0i64));
+4	repeat-drops-lazy	src/hir/build.npk	                if ((n.flags & AST_FLAG_LAZY) != 0u32) { lazy = HIR_FLAG_LAZY; }\n	
+4	group-number-unchecked	src/hir/build.npk	                    if (k != n.b) { drop vec_oob(k); }\n	
+4	group-name-shifted	src/hir/build.npk	                    if (n.c > 0i64) { at = n.pos + 3i64; }	                    if (n.c > 0i64) { at = n.pos + 2i64; }
+4	unnamed-name-past-end	src/hir/build.npk	                    if (n.c > 0i64) { at = n.pos + 3i64; }	                    at = n.pos + 3i64;
+4	stop-not-taken	src/hir/build.npk	                if (h == STUCK) { stuck = s.node; }\n	
+4	walk-bound-short	src/hir/build.npk	    int64:budget = 2i64 * (raw ast_len(t)) - 1i64;	    int64:budget = 2i64 * (raw ast_len(t)) - 2i64;
+4	list-rest-skipped	src/hir/build.npk	            if (s.op == STEP_LIST) {	            if (s.op == STEP_LEAVE) {
+4	mark-from-zero	src/hir/build.npk	            drop vec_push(@todo, Step{ node: s.node, op: STEP_LEAVE, mark: done.count });	            drop vec_push(@todo, Step{ node: s.node, op: STEP_LEAVE, mark: 0i64 });

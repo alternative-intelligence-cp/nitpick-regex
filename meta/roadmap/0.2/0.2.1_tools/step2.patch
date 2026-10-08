@@ -1,0 +1,163 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 3e631185530431f9685cbe9b4ebd7d49be3fb817..db770f4447f9ddc48e2ba8affe4c7b2dc486cd76 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -5898,3 +5898,31 @@ and B-5b refuse: *"a pending case is not a passing case"*; **the test left out o
+ fills the hook** — *"how a defect gets forgotten between the day it is understood and the day it could be caught"*
+ (B-5b), and nothing would redden the day it passes; **a second marker** — two grammars for one route out of the
+ denominator, and every check B-5b holds the marker to written twice.
++
++### RX-227 — the dump stops on a bit a node's kind does not take, so a dump that completes shows every bit and is a test of H-6
++
++**@@DATE021@@, cycle 0.2.1 (the plan's PD-71), at compiler `5fbaf4a`** — `HIR.md` H-4a, H-6 and H-15, RX-225, and the cycle
++README's second 0.2.1 box: *"flags erased (H-6): nothing downstream knows what `i`, `s`, `m`, `u` or `x` meant. A test
++greps the HIR dump for any flag residue"*. The dump writes `byte` and `lazy` where H-4a puts them and reads no other
++bit, so a residue the dump cannot show cannot be grepped for — and the residue a builder leaves is exactly such a bit:
++copying a node's AST flags puts `AST_FLAG_U`, 16, on every node, which no word shows, and `AST_FLAG_M`, 2, on `(?m)^`,
++which is `HIR_FLAG_BYTE`'s value on a kind the text gives no `byte`.
++
++**The decision.** `hir_dump` stops on a node whose `flags` hold a bit its kind does not take — H-4a's Bit column:
++`HIR_FLAG_BYTE` on a `Literal`, a `Class` and a `WordBoundary`, `HIR_FLAG_LAZY` on a `Repeat`, none on any other —
++`OutOfBounds` through `vec_oob`, as it stops on a list's wrong count and a stray `next` (RX-225: the writer checks what
++the text cannot show). So a dump that completes shows every bit its nodes hold, and a test that compares a builder's
++dump with its expected text is a test of H-6 a leftover flag cannot pass. A unit, `hir_dump_stray_bit`, traps on a
++line-start anchor holding `HIR_FLAG_BYTE`; `hir_dump`, which holds every bit where H-4a puts it, exits 0 as before. H-15
++dated; `hir_dump.npk`'s header counts five trapping units. A bit cycle 0.2.4's computed properties add (H-9) is one this
++check refuses until that cycle says how the dump shows it.
++
++**Measured at `5fbaf4a`.** `hir_dump_stray_bit` exits 94 at both legs; with the check removed, 0, and with a mask that
++admits both bits on every kind, 0. Every unit of RX-225 exits as before, at both legs. The full run is `285/285`.
++
++*Alternatives declined:* **a residue test that walks the arena itself**, beside the dump — every builder's unit would
++need it, and a fixture's dump would still hide a bit; **the dump writing every bit as a number** — a word per bit the
++text does not have, and a canonical form that changes when cycle 0.2.4 adds its bits; **the check in `hir_set` and
++`hir_push`** — they store what a builder hands them, as the arena stores a wrong count, and the writer is where RX-225
++put the arena's other checks; **leaving it** — the cycle README's grep would read a text that cannot show what it
++looks for.
+diff --git a/meta/specs/HIR.md b/meta/specs/HIR.md
+index 8d07dad30b7859533cb59c1563bacffdd78a8623..eef4bdc7b0b8c665f53fdbf5e13c4707eb66e443 100644
+--- a/meta/specs/HIR.md
++++ b/meta/specs/HIR.md
+@@ -224,6 +224,11 @@ length, and a `next` on a node in no list (`OutOfBounds`); and a walk longer tha
+ which stops a node that wraps itself, and a node with two parents when every node hangs from the root. Beside a node
+ nothing reaches, the walk's bound has room, and a shared node is written once for each parent: a builder builds a tree.
+ `tests/unit/hir_dump.npk` holds both directions, and four units more each trap.
++*(@@DATE021@@, cycle 0.2.1 — RX-227: and the writer stops on a node whose `flags` hold a bit its kind does not take — H-4a's
++Bit column, `byte` on a `literal`, a `class` and a `wordboundary`, `lazy` on a `repeat` — `OutOfBounds`, so a dump that
++completes shows every bit its nodes hold and a dump compared with its expected text is a test of H-6. Five units trap
++now: `hir_dump_stray_bit.npk` is the fifth. A bit cycle 0.2.4 adds (H-9) is one this check refuses until that cycle
++says how the dump shows it.)*
+ 
+ ---
+ 
+diff --git a/src/hir/dump.npk b/src/hir/dump.npk
+index 2b55d3cc40e1364681098bf04a771028bb5d2564..1d0f8e76c725896e7b5b55d408378a9bf84db452 100644
+--- a/src/hir/dump.npk
++++ b/src/hir/dump.npk
+@@ -141,6 +141,15 @@ func:write_head = NIL(Hir->:h, HirNode:n, Bytes->:out) never fails {
+     pass NIL;
+ };
+ 
++// The bits a node of kind `k` may hold (H-4a): `HIR_FLAG_BYTE` on a `Literal`, a `Class` and a
++// `WordBoundary`, `HIR_FLAG_LAZY` on a `Repeat`, none on any other (RX-227). The text shows each
++// where it may be and nowhere else, so any other bit is one the dump would drop in silence.
++func:kind_bits = uint32(HirKind:k) never fails {
++    if ((k == HirKind.Literal) || (k == HirKind.Class) || (k == HirKind.WordBoundary)) { pass HIR_FLAG_BYTE; }
++    if (k == HirKind.Repeat) { pass HIR_FLAG_LAZY; }
++    pass 0u32;
++};
++
+ // Whether a list's chain -- its first member and each one's `next` -- holds exactly its count,
+ // `n.b`, of members. Walked at most `n.b + 1` steps, so a chain that loops ends here too.
+ func:chain_holds = bool(Hir->:h, HirNode:n) never fails {
+@@ -162,9 +171,11 @@ func:chain_holds = bool(Hir->:h, HirNode:n) never fails {
+ // writer shows what the arena holds, and the reader says it is not a HIR.
+ //
+ // AND IT STOPS ON AN ARENA IT COULD NOT SHOW TRUTHFULLY, because the text has no place for
+-// what is wrong there. A list's count that is not its chain's length, and a `next` on a node
+-// in no list -- the root, a `Repeat`'s or a `Group`'s child -- each trap `OutOfBounds` at the
+-// node, through `vec_oob`; a walk longer than twice the arena traps `DecreasesViolated` -- a
++// what is wrong there. A list's count that is not its chain's length, a `next` on a node in no
++// list -- the root, a `Repeat`'s or a `Group`'s child -- and a bit in `flags` the node's kind
++// does not take (H-4a; RX-227) each trap `OutOfBounds` at the node, through `vec_oob`, so a dump
++// that completes shows every bit its nodes hold; a walk longer than twice the arena traps
++// `DecreasesViolated` -- a
+ // node that wraps itself, and a node with two parents when every node hangs from the root
+ // (beside a node nothing reaches the bound has room, and a shared node is written once for
+ // each parent). Each is a defect in the code that built the arena, and a builder's unit finds
+@@ -186,6 +197,7 @@ pub func:hir_dump = NIL(Hir->:h, Bytes->:out) never fails {
+         }
+         else {
+             HirNode:n = raw hir_get(<-h, v.node);
++            if ((n.flags & ~(raw kind_bits(n.kind))) != 0u32) { drop vec_oob(n.flags => int64); }
+             if (v.op == VISIT_LIST) {
+                 if (n.next != HIR_NONE) { drop vec_push(@todo, Visit{ node: n.next, op: VISIT_LIST }); }
+             }
+diff --git a/tests/unit/hir_dump.npk b/tests/unit/hir_dump.npk
+index ce19a905d3fc8d66b38d7d0c27bd69a097c51b8e..1bbe1e583bf13b37930089a0c94b5c8dfdbdf410 100644
+--- a/tests/unit/hir_dump.npk
++++ b/tests/unit/hir_dump.npk
+@@ -16,9 +16,11 @@
+ // then refuses; 43 and 44 are a HIR 20 000 nodes deep and one 10 000 wide, read and written
+ // back by the explicit stacks with no recursion. Cases 50 … 82 are refusals, each at the byte
+ // it names, the root left unset (H-15). An arena the writer cannot show truthfully traps, and
+-// a trap ends a program, so those are four units of their own: `hir_dump_count.npk`,
+-// `hir_dump_stray_next.npk`, `hir_dump_not_a_tree.npk` and `hir_dump_shared.npk`. The program
+-// exits 0 only after every `hir_free`, and D-151 traps a `wild` block still live at exit (96).
++// a trap ends a program, so those are five units of their own: `hir_dump_count.npk`,
++// `hir_dump_stray_next.npk`, `hir_dump_not_a_tree.npk`, `hir_dump_shared.npk` and
++// `hir_dump_stray_bit.npk` (cycle 0.2.1, RX-227), whose bit every case here holds where H-4a
++// puts it. The program exits 0 only after every `hir_free`, and D-151 traps a `wild` block
++// still live at exit (96).
+ mod:hir_dump;
+ 
+ use "../../src/core/core.npk".*;
+diff --git a/tests/unit/hir_dump_stray_bit.npk b/tests/unit/hir_dump_stray_bit.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..149a522400f5581000d0d40dd6e8f5a04cb66e26
+--- /dev/null
++++ b/tests/unit/hir_dump_stray_bit.npk
+@@ -0,0 +1,43 @@
++// expect-exit: 94
++//
++// A BIT A NODE'S KIND DOES NOT TAKE STOPS THE DUMP. Cycle 0.2.1, RX-227; `HIR.md` H-4a and H-15.
++//
++// H-4a gives `HIR_FLAG_BYTE` to a `Literal`, a `Class` and a `WordBoundary` and `HIR_FLAG_LAZY` to
++// a `Repeat`, and no bit to any other kind. The text shows `byte` and `lazy` only there, so a bit
++// anywhere else would be dropped in silence -- and a builder that copied the AST's flags would
++// leave exactly that: `AST_FLAG_M` is 2, `HIR_FLAG_BYTE`'s value, on `(?m)^`. So the writer traps
++// `OutOfBounds` (94) through `vec_oob`: here a line-start anchor carries `HIR_FLAG_BYTE`. That a
++// node of each kind that takes a bit is written with it is `hir_dump.npk`'s, which exits 0.
++mod:hir_dump_stray_bit;
++
++use "../../src/core/core.npk".*;
++use "../../src/hir/hir.npk".*;
++
++func:main = int32(cstring[]:_~argv) {
++    Hir:h = raw hir_init(4i64);
++    int64:x = raw hir_push(@h, HirNode{ kind: HirKind.Anchor, flags: HIR_FLAG_BYTE, a: HIR_LINE_START, b: 0i64,
++                                        c: 0i64, next: HIR_NONE });
++    drop hir_set_root(@h, x);
++    Bytes:b = raw bytes_init(16i64);
++    drop hir_dump(@h, @b);
++    drop hir_free(@h);
++    exit 0i32;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};

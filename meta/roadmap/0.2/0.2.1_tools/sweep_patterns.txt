@@ -1,0 +1,15 @@
+# 0.2.1's omission sweep, block 6 -- one extended regular expression per line, each read by `sweep.py` line by line AND
+# across line breaks, case-insensitive: every statement steps 1 ... 5 make false, and every place a reader would look
+# for what they changed. The pending marker's label, the pending units, the self-check's count, the run's count, the
+# desugaring as future work, the hooks, the flags, the trapping units, and the builder's tree.
+pending-until: <commit>|<commit> exit|path<tab>commit|commit-shaped|7 to 40 lowercase hex|compiler-commit
+none is pending|nothing is pending|pending any more|empty since|no file carries|nothing pending|is pending\b
+34 cases|30 live|thirty-four cases|\b34\b.{0,20}V-20|three of its cases|its three reds|three cases \(11
+\b(283|284|285|292)\b.{0,20}(unit|/)
+nothing builds a hir|builds? (a|the) hir from|desugaring.{0,40}next|0\.2\.1.{0,40}(next|planner|no file)|file a planner
+carries them|as they come|no hir form|unresolved item|resolved ranges only
+four units (more|of their own)|four trapping|units more each trap
+flag residue|greps? (the )?(hir )?dump|flags? (are )?erased
+\bhooks?\b
+builder builds a tree|builder's leftover|nothing reaches|set of the nodes entered
+test that fails until|fails until then|pending until (cycle )?0\.[0-9]|pending case

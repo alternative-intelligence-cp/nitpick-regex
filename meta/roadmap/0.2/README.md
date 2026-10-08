@@ -5,7 +5,8 @@ extraction.** Everything decidable without knowing which engine will run.
 
 > **OPEN. [`0.2.0`](0.2.0.md), the arena, is DONE (2026-10-08)** — RX-222 … RX-225 in seven work commits, `02bf6d7` …
 > `35edbfe`: three records first, then `ClassRange` in `unicode`, the arena and the HIR as one line of text and back;
-> 283/283 at `5fbaf4a` and in CI run 37817452049 — **next, 0.2.1, the desugaring, its file a planner's to write.**
+> 283/283 at `5fbaf4a` and in CI run 37817452049 — **next, 0.2.1, the desugaring: [`0.2.1.md`](0.2.1.md), planned and
+> rehearsed in its real position at `5fbaf4a` by cycle 0.2's planner; PD-70 … PD-73 are the orchestrator's to accept.**
 
 ## Decisions in
 
@@ -31,7 +32,7 @@ RX-015, RX-031. Settled. **No open questions.**
 | # | Topic | Ends with |
 |---|---|---|
 | 0.2.0 | **The arena** — the nine kinds, the flat POD representation, the dump — **[`0.2.0.md`](0.2.0.md)**, written at cycle 0.1's close and measured at `5fbaf4a`, then rehearsed in its real position at `5fbaf4a` by cycle 0.2's planner, three records first — the author's words for `README.md`'s price paragraph, four decisions' first paragraphs freed from their notes' blockquotes, and `ROADMAP.md`'s cycle 0.1 sentence dated; PD-66 … PD-69 accepted as RX-222 … RX-225 — **DONE (2026-10-08)**, 283/283 *(until 0.2.0's record this row said "PD-66 … PD-69 are the orchestrator's to accept")* | a HIR that round-trips through its text form |
-| 0.2.1 | **Desugaring** — `HIR.md` §3's table, exactly and nothing else | every row tested; flags erased |
+| 0.2.1 | **Desugaring** — `HIR.md` §3's table, exactly and nothing else — **[`0.2.1.md`](0.2.1.md)**, planned and rehearsed in its real position at `5fbaf4a` by cycle 0.2's planner, the instruments first — a `pending-until:` marker that names a subcycle, and a dump that shows every bit or stops — then the build and the two tests pending on its hooks; PD-70 … PD-73 are the orchestrator's to accept | every row tested; flags erased |
 | 0.2.2 | **The repetition product** — the bound checked on the way down | `((a{1000}){1000}){1000}` refused at the third `{1000}` |
 | 0.2.3 | **Normalisation** — flattening, merging, canonical form | structurally equal patterns produce identical dumps |
 | 0.2.4 | **Computed properties** — the four flags in one bottom-up pass | each asserted against a hand-computed reference |
