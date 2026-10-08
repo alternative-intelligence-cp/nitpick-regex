@@ -1,6 +1,18 @@
 # `src/hir/` — the high-level intermediate
 
-Desugaring and normalisation: repetitions expanded under a bound, classes
-folded into codepoint ranges, literals extracted for the prefilters, and the
-whole tree flattened into a POD arena. Governed by `meta/specs/HIR.md`. Built
-in cycle 0.2.
+What a pattern means, decided once, without knowing which engine will run:
+desugaring, normalisation, the computed properties and literal extraction,
+over a flat POD arena of nine kinds of node. Governed by
+`meta/specs/HIR.md`. Built in cycle 0.2.
+
+A repetition stays one `Repeat` node here, its bounds as written (`HIR.md`
+H-7): `a{500}` becomes 500 instructions in `compile/`, never in the HIR, so a
+HIR is proportional to its pattern. *(Until 2026-10-08, cycle 0.2.0, this
+file said "repetitions expanded under a bound", which is `compile/`'s, not
+this layer's.)*
+
+| File | Holds | Since |
+|---|---|---|
+| `hir.npk` | the layer's entry: one `pub use` per name it offers | 0.2.0 |
+| `repr.npk` | the arena — `HirKind`, `HirNode`, `GroupInfo`, `Hir` — and its accessors (H-2 … H-4a) | 0.2.0 |
+| `dump.npk` | the HIR as one line of text, and back (H-15) | 0.2.0 |

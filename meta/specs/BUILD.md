@@ -689,6 +689,7 @@ an ordinary name and is not:
 | `on`, `as`, `with`, `where`, `never`, `fails` | keywords |
 | `Rules`, `fixed`, `Self`, `impl`, `trait`, `assoc` | keywords |
 | `arena` | a keyword at `5fbaf4a` — `mod:arena;` is `NITPICK-PARSE-001` — and the HIR is an arena (RX-223) |
+| `Reader` | the prelude's trait at `5fbaf4a` — `struct:Reader` is `NITPICK-RESOLVE-001` — and the dump has a reader (RX-225) |
 
 The substitutes this library uses, fixed here so they are used consistently:
 `hi` for a range's upper bound and for a `Match`'s end offset (**not** because
@@ -696,7 +697,7 @@ The substitutes this library uses, fixed here so they are used consistently:
 `API.md` A-3 settled it); `src` for an
 input cursor; `bound` for a limit; `dot` for the any-character construct;
 `rng` for a codepoint range value; `sel` for a selection; `repr` for the HIR's
-arena module (RX-223).
+arena module (RX-223); `ReadState` for a reader's state (RX-225).
 
 **Rule B-18 — `Match`'s fields are `lo` and `hi`.** Stated in `API.md` §2 and
 here, because `start`/`end` is what everyone reaches for and `end` does not

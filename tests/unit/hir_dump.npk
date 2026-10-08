@@ -1,0 +1,300 @@
+// expect-exit: 0
+//
+// THE HIR AS TEXT, AND BACK: EVERY KIND, EVERY WORD AND EVERY OPERAND FORM READ AND WRITTEN
+// TO THE SAME BYTES; HIRS BUILT THROUGH THE ARENA WRITTEN AS EXPECTED; AND EVERY TEXT THE DUMP
+// DOES NOT WRITE REFUSED AT ITS BYTE. Cycle 0.2.0, RX-225; `HIR.md` H-15.
+//
+// WHAT IT PINS. Cases 1 … 26 are texts `hir_read` reads whole (HIR_NONE) and `hir_dump`
+// writes back byte for byte, and whose dump reads and writes again the same: every one of
+// the nine kinds, `byte`, `lazy`, `not`, each anchor's word, an unbounded and a bounded
+// maximum, a class with no range and with several, a list with no member, nested groups
+// numbered in the order they open, named and not, and an eighteen-digit number. Cases 30 …
+// 36 read what the text cannot show: a list's count and its members' `next`, a class's first
+// range and count and its `byte` bit, the groups' names. Cases 40 … 42 build HIRs through
+// `repr.npk` alone and hold the writer to the text, so the writer is tested by more than its
+// own reader; 45 … 47 write a value the text has no word for as its number, which the reader
+// then refuses; 43 and 44 are a HIR 20 000 nodes deep and one 10 000 wide, read and written
+// back by the explicit stacks with no recursion. Cases 50 … 82 are refusals, each at the byte
+// it names, the root left unset (H-15). An arena the writer cannot show truthfully traps, and
+// a trap ends a program, so those are four units of their own: `hir_dump_count.npk`,
+// `hir_dump_stray_next.npk`, `hir_dump_not_a_tree.npk` and `hir_dump_shared.npk`. The program
+// exits 0 only after every `hir_free`, and D-151 traps a `wild` block still live at exit (96).
+mod:hir_dump;
+
+use "../../src/core/core.npk".*;
+use "../../src/hir/hir.npk".*;
+
+// Whether `b` holds exactly the bytes of `want`.
+func:same = bool(Bytes->:b, uint8[]:want) never fails {
+    if ((raw bytes_len(b)) != want.len) { pass false; }
+    int64:i = 0i64;
+    while (i < want.len) decreases want.len - i {
+        if ((raw bytes_get(b, i)) != want[i]) { pass false; }
+        i = i + 1i64;
+    }
+    pass true;
+};
+
+// `text` reads whole, writes back as itself, and its dump does the same.
+func:round = bool(uint8[]:text) never fails {
+    Hir:h = raw hir_init(4i64);
+    int64:e = raw hir_read(text, @h);
+    Bytes:b = raw bytes_init(16i64);
+    drop hir_dump(@h, @b);
+    bool:ok = (e == HIR_NONE) && (raw same(@b, text));
+    string:s = raw bytes_copy_string(@b);
+    Hir:h2 = raw hir_init(4i64);
+    int64:e2 = raw hir_read(string_bytes(s), @h2);
+    Bytes:b2 = raw bytes_init(16i64);
+    drop hir_dump(@h2, @b2);
+    ok = ok && (e2 == HIR_NONE) && (raw same(@b2, text));
+    drop hir_free(@h);
+    drop hir_free(@h2);
+    pass ok;
+};
+
+// `text` is refused at byte `at`, and the root stays unset.
+func:refused = bool(uint8[]:text, int64:at) never fails {
+    Hir:h = raw hir_init(4i64);
+    int64:e = raw hir_read(text, @h);
+    bool:ok = (e == at) && (h.root == HIR_NONE);
+    drop hir_free(@h);
+    pass ok;
+};
+
+func:texts = int32() never fails {
+    if (!(raw round(string_bytes("(empty)")))) { pass 1i32; }
+    if (!(raw round(string_bytes("(literal 97)")))) { pass 2i32; }
+    if (!(raw round(string_bytes("(literal 0)")))) { pass 3i32; }
+    if (!(raw round(string_bytes("(literal 1114111)")))) { pass 4i32; }
+    if (!(raw round(string_bytes("(literal byte 255)")))) { pass 5i32; }
+    if (!(raw round(string_bytes("(literal byte 0)")))) { pass 6i32; }
+    if (!(raw round(string_bytes("(class)")))) { pass 7i32; }
+    if (!(raw round(string_bytes("(class 97-122)")))) { pass 8i32; }
+    if (!(raw round(string_bytes("(class 48-57 65-90 97-122 1114111-1114111)")))) { pass 9i32; }
+    if (!(raw round(string_bytes("(class byte 0-9 11-255)")))) { pass 10i32; }
+    if (!(raw round(string_bytes("(class byte)")))) { pass 11i32; }
+    if (!(raw round(string_bytes("(concat)")))) { pass 12i32; }
+    if (!(raw round(string_bytes("(concat (literal 97) (literal 98))")))) { pass 13i32; }
+    if (!(raw round(string_bytes("(alternate (literal 97) (empty) (literal 99))")))) { pass 14i32; }
+    if (!(raw round(string_bytes("(alternate)")))) { pass 15i32; }
+    if (!(raw round(string_bytes("(repeat 0 - (literal 97))")))) { pass 16i32; }
+    if (!(raw round(string_bytes("(repeat lazy 1 3 (class 97-122))")))) { pass 17i32; }
+    if (!(raw round(string_bytes("(repeat 2 2 (empty))")))) { pass 18i32; }
+    if (!(raw round(string_bytes("(group 1 (literal 97))")))) { pass 19i32; }
+    if (!(raw round(string_bytes("(group 1 year (concat (literal 49) (literal 57)))")))) { pass 20i32; }
+    if (!(raw round(string_bytes("(concat (group 1 (literal 97)) (group 2 x_9 (group 3 (empty))) (group 4 Name_ (empty)))")))) { pass 21i32; }
+    if (!(raw round(string_bytes("(concat (anchor text-start) (anchor text-end) (anchor line-start) (anchor line-end))")))) { pass 22i32; }
+    if (!(raw round(string_bytes("(concat (wordboundary) (wordboundary not) (wordboundary byte) (wordboundary byte not))")))) { pass 23i32; }
+    if (!(raw round(string_bytes("(alternate (concat (anchor line-start) (repeat lazy 0 - (class byte 0-255)) (anchor line-end)) (group 1 _ (alternate (empty))))")))) { pass 24i32; }
+    if (!(raw round(string_bytes("(repeat 0 1 (repeat 0 1 (repeat 0 1 (group 1 (repeat lazy 1000 1000 (literal byte 10))))))")))) { pass 25i32; }
+    if (!(raw round(string_bytes("(repeat 0 123456789012345678 (empty))")))) { pass 26i32; }
+    pass 0i32;
+};
+
+// What the text cannot show: a list's count and its members' links, a class's ranges, the
+// groups' names, and a refusal's root.
+func:shapes = int32() never fails {
+    Hir:h = raw hir_init(4i64);
+    if ((raw hir_read(string_bytes("(alternate (literal 97) (empty) (literal 99))"), @h)) != HIR_NONE) { pass 30i32; }
+    HirNode:r = raw hir_get(h, h.root);
+    if ((r.kind != HirKind.Alternate) || (r.b != 3i64) || (r.next != HIR_NONE)) { pass 31i32; }
+    HirNode:m1 = raw hir_get(h, r.a);
+    HirNode:m2 = raw hir_get(h, m1.next);
+    HirNode:m3 = raw hir_get(h, m2.next);
+    if ((m1.a != 97i64) || (m2.kind != HirKind.Empty) || (m3.a != 99i64) || (m3.next != HIR_NONE)) { pass 32i32; }
+    drop hir_free(@h);
+
+    Hir:c = raw hir_init(4i64);
+    if ((raw hir_read(string_bytes("(concat (class 1-2) (class byte 3-4 5-6))"), @c)) != HIR_NONE) { pass 33i32; }
+    HirNode:k = raw hir_get(c, c.root);
+    HirNode:c1 = raw hir_get(c, k.a);
+    HirNode:c2 = raw hir_get(c, c1.next);
+    ClassRange:x = raw hir_range(c, c2.a + 1i64);
+    if ((c1.a != 0i64) || (c1.b != 1i64) || (c2.a != 1i64) || (c2.b != 2i64) || (x.lo != 5u32)
+        || ((c2.flags & HIR_FLAG_BYTE) == 0u32) || ((c1.flags & HIR_FLAG_BYTE) != 0u32)) { pass 34i32; }
+    drop hir_free(@c);
+
+    Hir:g = raw hir_init(4i64);
+    if ((raw hir_read(string_bytes("(concat (group 1 ab (empty)) (group 2 (empty)))"), @g)) != HIR_NONE) { pass 35i32; }
+    GroupInfo:g1 = raw hir_group(g, 1i64);
+    GroupInfo:g2 = raw hir_group(g, 2i64);
+    Bytes:nb = raw bytes_init(4i64);
+    drop hir_put_name(@g, 1i64, @nb);
+    if (((raw hir_group_count(g)) != 3i64) || (g1.len != 2i64) || (g2.len != 0i64)
+        || (!(raw same(@nb, string_bytes("ab"))))) { pass 36i32; }
+    drop hir_free(@g);
+    pass 0i32;
+};
+
+func:leaf = HirNode(HirKind:k, uint32:flags, int64:a, int64:b, int64:c) never fails {
+    pass HirNode{ kind: k, flags: flags, a: a, b: b, c: c, next: HIR_NONE };
+};
+
+// Makes `n` the sibling after `prev`.
+func:link = NIL(Hir->:h, int64:prev, int64:n) never fails {
+    HirNode:p = raw hir_get(<-h, prev);
+    p.next = n;
+    drop hir_set(h, prev, p);
+    pass NIL;
+};
+
+// HIRs built through the arena alone, held to the text.
+func:built = int32() never fails {
+    Hir:h = raw hir_init(4i64);
+    int64:x = raw hir_push(@h, raw leaf(HirKind.Literal, 0u32, 97i64, 0i64, 0i64));
+    int64:r0 = raw hir_push_range(@h, ClassRange{ lo: 97u32, hi: 122u32 });
+    discard(raw hir_push_range(@h, ClassRange{ lo: 48u32, hi: 57u32 }));
+    int64:k = raw hir_push(@h, raw leaf(HirKind.Class, 0u32, r0, 2i64, 0i64));
+    int64:rep = raw hir_push(@h, raw leaf(HirKind.Repeat, HIR_FLAG_LAZY, k, 0i64, HIR_NONE));
+    int64:grp = raw hir_add_group(@h, string_bytes("w"));
+    int64:g = raw hir_push(@h, raw leaf(HirKind.Group, 0u32, rep, grp, 0i64));
+    int64:wb = raw hir_push(@h, raw leaf(HirKind.WordBoundary, HIR_FLAG_BYTE, HIR_NOT_WORD, 0i64, 0i64));
+    drop link(@h, x, g);
+    drop link(@h, g, wb);
+    int64:cat = raw hir_push(@h, raw leaf(HirKind.Concat, 0u32, x, 3i64, 0i64));
+    drop hir_set_root(@h, cat);
+    Bytes:b = raw bytes_init(16i64);
+    drop hir_dump(@h, @b);
+    uint8[]:want = string_bytes("(concat (literal 97) (group 1 w (repeat lazy 0 - (class 97-122 48-57))) (wordboundary byte not))");
+    if ((!(raw same(@b, want))) || (!(raw round(want)))) { pass 40i32; }
+    drop hir_free(@h);
+
+    Hir:e = raw hir_init(1i64);
+    Bytes:eb = raw bytes_init(1i64);
+    drop hir_dump(@e, @eb);
+    if ((raw bytes_len(@eb)) != 0i64) { pass 41i32; }
+    drop hir_free(@e);
+
+    Hir:a = raw hir_init(1i64);
+    int64:n0 = raw hir_push(@a, raw leaf(HirKind.Anchor, 0u32, HIR_LINE_END, 0i64, 0i64));
+    drop hir_set_root(@a, n0);
+    Bytes:ab = raw bytes_init(1i64);
+    drop hir_dump(@a, @ab);
+    if (!(raw same(@ab, string_bytes("(anchor line-end)")))) { pass 42i32; }
+    drop hir_free(@a);
+
+    // A value the text has no word for is written as its number, and the reader refuses it.
+    Hir:u = raw hir_init(1i64);
+    int64:u0 = raw hir_push(@u, raw leaf(HirKind.Anchor, 0u32, 7i64, 0i64, 0i64));
+    drop hir_set_root(@u, u0);
+    Bytes:ub = raw bytes_init(1i64);
+    drop hir_dump(@u, @ub);
+    string:us = raw bytes_copy_string(@ub);
+    if ((!(raw same(@ub, string_bytes("(anchor 7)")))) || (!(raw refused(string_bytes(us), 8i64)))) { pass 45i32; }
+    drop hir_free(@u);
+    Hir:v = raw hir_init(1i64);
+    int64:v0 = raw hir_push(@v, raw leaf(HirKind.Literal, 0u32, -5i64, 0i64, 0i64));
+    drop hir_set_root(@v, v0);
+    Bytes:vb = raw bytes_init(1i64);
+    drop hir_dump(@v, @vb);
+    string:vs = raw bytes_copy_string(@vb);
+    if ((!(raw same(@vb, string_bytes("(literal 18446744073709551611)")))) || (!(raw refused(string_bytes(vs), 9i64)))) { pass 46i32; }
+    drop hir_free(@v);
+    Hir:w = raw hir_init(1i64);
+    int64:w0 = raw hir_push(@w, raw leaf(HirKind.WordBoundary, 0u32, 5i64, 0i64, 0i64));
+    drop hir_set_root(@w, w0);
+    Bytes:wb2 = raw bytes_init(1i64);
+    drop hir_dump(@w, @wb2);
+    string:ws = raw bytes_copy_string(@wb2);
+    if ((!(raw same(@wb2, string_bytes("(wordboundary 5)")))) || (!(raw refused(string_bytes(ws), 14i64)))) { pass 47i32; }
+    drop hir_free(@w);
+    pass 0i32;
+};
+
+// 20 000 nested repetitions, and a list of 10 000 members: each read and written back by
+// the explicit stacks.
+func:big = int32() never fails {
+    Bytes:t = raw bytes_init(16i64);
+    int64:i = 0i64;
+    while (i < 20000i64) decreases 20000i64 - i {
+        drop bytes_extend_str(@t, "(repeat 0 - ");
+        i = i + 1i64;
+    }
+    drop bytes_extend_str(@t, "(empty)");
+    i = 0i64;
+    while (i < 20000i64) decreases 20000i64 - i {
+        drop bytes_push(@t, 41u8);
+        i = i + 1i64;
+    }
+    string:deep = raw bytes_copy_string(@t);
+    if (!(raw round(string_bytes(deep)))) { pass 43i32; }
+    drop bytes_clear(@t);
+    drop bytes_extend_str(@t, "(concat");
+    i = 0i64;
+    while (i < 10000i64) decreases 10000i64 - i {
+        drop bytes_extend_str(@t, " (literal 97)");
+        i = i + 1i64;
+    }
+    drop bytes_push(@t, 41u8);
+    string:wide = raw bytes_copy_string(@t);
+    if (!(raw round(string_bytes(wide)))) { pass 44i32; }
+    pass 0i32;
+};
+
+func:refusals = int32() never fails {
+    if (!(raw refused(string_bytes(""), 0i64))) { pass 50i32; }
+    if (!(raw refused(string_bytes("empty"), 0i64))) { pass 51i32; }
+    if (!(raw refused(string_bytes("("), 1i64))) { pass 52i32; }
+    if (!(raw refused(string_bytes("(empty"), 6i64))) { pass 53i32; }
+    if (!(raw refused(string_bytes("(empty)x"), 7i64))) { pass 54i32; }
+    if (!(raw refused(string_bytes("(empty) "), 7i64))) { pass 55i32; }
+    if (!(raw refused(string_bytes("(Empty)"), 1i64))) { pass 56i32; }
+    if (!(raw refused(string_bytes("(literal)"), 8i64))) { pass 57i32; }
+    if (!(raw refused(string_bytes("(literal  97)"), 9i64))) { pass 58i32; }
+    if (!(raw refused(string_bytes("(literal 097)"), 9i64))) { pass 59i32; }
+    if (!(raw refused(string_bytes("(literal 1114112)"), 9i64))) { pass 60i32; }
+    if (!(raw refused(string_bytes("(literal byte 256)"), 14i64))) { pass 61i32; }
+    if (!(raw refused(string_bytes("(literal bite 9)"), 9i64))) { pass 62i32; }
+    if (!(raw refused(string_bytes("(literal 1234567890123456789)"), 9i64))) { pass 63i32; }
+    if (!(raw refused(string_bytes("(repeat 0 1234567890123456789 (empty))"), 10i64))) { pass 64i32; }
+    if (!(raw refused(string_bytes("(repeat 0 99999999999999999999 (empty))"), 10i64))) { pass 65i32; }
+    if (!(raw refused(string_bytes("(class 98-97)"), 7i64))) { pass 66i32; }
+    if (!(raw refused(string_bytes("(class byte 0-256)"), 14i64))) { pass 67i32; }
+    if (!(raw refused(string_bytes("(class 1-)"), 9i64))) { pass 68i32; }
+    if (!(raw refused(string_bytes("(class 1)"), 8i64))) { pass 69i32; }
+    if (!(raw refused(string_bytes("(repeat 3 2 (empty))"), 10i64))) { pass 70i32; }
+    if (!(raw refused(string_bytes("(repeat 0 -)"), 11i64))) { pass 71i32; }
+    if (!(raw refused(string_bytes("(repeat 0 - (empty) (empty))"), 19i64))) { pass 72i32; }
+    if (!(raw refused(string_bytes("(repeat greedy 0 - (empty))"), 8i64))) { pass 73i32; }
+    if (!(raw refused(string_bytes("(group 2 (empty))"), 7i64))) { pass 74i32; }
+    if (!(raw refused(string_bytes("(concat (group 1 (empty)) (group 1 (empty)))"), 33i64))) { pass 75i32; }
+    if (!(raw refused(string_bytes("(group 1 9x (empty))"), 9i64))) { pass 76i32; }
+    if (!(raw refused(string_bytes("(group 1 a-b (empty))"), 10i64))) { pass 77i32; }
+    if (!(raw refused(string_bytes("(empty (empty))"), 6i64))) { pass 78i32; }
+    if (!(raw refused(string_bytes("(anchor start)"), 8i64))) { pass 79i32; }
+    if (!(raw refused(string_bytes("(wordboundary not byte)"), 18i64))) { pass 80i32; }
+    if (!(raw refused(string_bytes("(concat(empty))"), 7i64))) { pass 81i32; }
+    if (!(raw refused(string_bytes("(concat (empty) )"), 16i64))) { pass 82i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:r = raw texts();
+    if (r != 0i32) { exit r; }
+    r = raw shapes();
+    if (r != 0i32) { exit r; }
+    r = raw built();
+    if (r != 0i32) { exit r; }
+    r = raw big();
+    if (r != 0i32) { exit r; }
+    exit raw refusals();
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

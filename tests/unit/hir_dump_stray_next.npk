@@ -1,0 +1,46 @@
+// expect-exit: 94
+//
+// A NODE IN NO LIST THAT NAMES A SIBLING STOPS THE DUMP. Cycle 0.2.0, RX-225; `HIR.md` H-15.
+//
+// A `Group`'s child, a `Repeat`'s and the root are in no list, so each one's `next` is
+// HIR_NONE. The text has no place for one that is not -- the writer would drop the node
+// it names in silence -- so the writer traps `OutOfBounds` (94) through `vec_oob`: here a
+// group's child names the group's own sibling-to-be.
+mod:hir_dump_stray_next;
+
+use "../../src/core/core.npk".*;
+use "../../src/hir/hir.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Hir:h = raw hir_init(4i64);
+    int64:x = raw hir_push(@h, HirNode{ kind: HirKind.Empty, flags: 0u32, a: 0i64, b: 0i64, c: 0i64,
+                                        next: HIR_NONE });
+    int64:y = raw hir_push(@h, HirNode{ kind: HirKind.Literal, flags: 0u32, a: 97i64, b: 0i64, c: 0i64,
+                                        next: x });
+    int64:k = raw hir_add_group(@h, string_bytes(""));
+    int64:g = raw hir_push(@h, HirNode{ kind: HirKind.Group, flags: 0u32, a: y, b: k, c: 0i64,
+                                        next: HIR_NONE });
+    drop hir_set_root(@h, g);
+    Bytes:b = raw bytes_init(16i64);
+    drop hir_dump(@h, @b);
+    drop hir_free(@h);
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

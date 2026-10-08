@@ -199,6 +199,32 @@ with `min == max == 1` around a group would each be an optimisation, and each
 is refused here: the HIR is a canonical form, not an optimiser. Optimisations
 belong in `compile/` where they can be turned off and cross-checked.
 
+**Rule H-15 — the HIR as text** (RX-225). `hir_dump` writes the tree under the root as one line, each node `(` its
+kind's name, its words, its operands and its children `)`:
+
+```text
+(empty)
+(literal CP)             (literal byte B)
+(class LO-HI ...)        (class byte LO-HI ...)
+(concat NODE ...)        (alternate NODE ...)
+(repeat MIN MAX NODE)    (repeat lazy MIN MAX NODE)      MAX is - when unbounded
+(group K NODE)           (group K NAME NODE)
+(anchor text-start)      text-end, line-start, line-end
+(wordboundary)           (wordboundary not), (wordboundary byte), (wordboundary byte not)
+```
+
+One spelling per HIR: one space between tokens, none after `(` or before `)`, a number in decimal with no leading zero
+and at most eighteen digits, no line end. `hir_read` reads exactly that, and refuses everything else with the offset of
+the first byte that is not what `hir_dump` writes there, so `hir_dump(hir_read(t))` is `t`. It holds a text to: a
+codepoint below U+110000 and a byte at most 255; a range's `lo` at most its `hi`; a minimum at most its maximum; one
+child for a `repeat` and a `group`, none for a leaf; and each `group` numbered as `SYNTAX.md` Y-6 numbers it, from 1 in
+the order the groups open. It does not hold what a builder must — `COMPILE.md` C-3's surrogates, Y-8's names, cycle
+0.2.3's order — and `hir_dump` stops on an arena it cannot write truthfully: a list's count that is not its chain's
+length, and a `next` on a node in no list (`OutOfBounds`); and a walk longer than twice the arena (`DecreasesViolated`),
+which stops a node that wraps itself, and a node with two parents when every node hangs from the root. Beside a node
+nothing reaches, the walk's bound has room, and a shared node is written once for each parent: a builder builds a tree.
+`tests/unit/hir_dump.npk` holds both directions, and four units more each trap.
+
 ---
 
 ## 7. Open items

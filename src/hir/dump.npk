@@ -1,0 +1,553 @@
+// `src/hir/dump.npk` — THE HIR AS TEXT, AND BACK. Cycle 0.2.0, RX-225; `meta/specs/HIR.md`
+// rule H-15.
+//
+// WHAT MAKES A HIR A FIXTURE (H-2, H-13, `TESTING.md` §4). `hir_dump` writes a HIR as one
+// line of text, a node at a time from the root, each `(` its kind's name, its operands and
+// its children `)`; `hir_read` reads that text back into an arena. A test commits the text
+// and compares bytes, a reviewer reads a diff of it, and a later stage -- the oracle at
+// cycle 0.5, the compiler at 0.6 -- can start from a HIR nobody had to parse a pattern for.
+//
+// THE ROUND TRIP IS THE CONTRACT. For every text `hir_dump` writes from a HIR the library
+// builds, `hir_read` builds a HIR whose dump is the same text, byte for byte; and every
+// other text `hir_read` refuses, answering the offset of the first byte that is not what
+// `hir_dump` writes there. ONE spelling per HIR: one space between two tokens, none after
+// `(` or before `)`, a number in decimal with no leading zero. `tests/unit/hir_dump.npk`
+// holds both directions.
+//
+// WHAT `hir_read` HOLDS A TEXT TO, BEYOND THE GRAMMAR (H-15): a codepoint below U+110000
+// (`NOT_A_CODEPOINT`) and a byte at most 255; a range's `lo` at most its `hi`; a
+// repetition's minimum at most its maximum; one child for a `repeat` and a `group`, none
+// for a leaf; and a group numbered as the parser numbers it (Y-6), from 1 in the order the
+// groups open -- the order this text writes them -- so `Hir.groups` is in number order. It
+// does not hold what a builder must: surrogates out of a class (`COMPILE.md` C-3), a name
+// used twice (Y-8), sorted and disjoint ranges (cycle 0.2.3) -- a text that breaks one of
+// those reads as written.
+//
+// NOTHING RECURSES (`SAFETY.md` S-19). The writer walks the tree on a `Vec<Visit>`, the
+// reader keeps its open nodes on a `Vec<ReadFrame>`. The writer's loop is bounded by twice
+// the arena -- a tree enters and closes each node once -- and the reader's by the text. A
+// number is at most eighteen digits, so its accumulator, `v * 10 + d`, cannot overflow: a
+// plain multiply traps on overflow (D-210), and digits from a text are where one would come
+// from.
+//
+// LAYERING (`BUILD.md` §6, B-16). Imports `core`, the layer's `repr.npk`, `unicode` for
+// `ClassRange`, and `syntax` for `NOT_A_CODEPOINT`; a program importing it owes `core`'s
+// eleven arms.
+mod:dump;
+
+use "../core/core.npk".*;
+use "../unicode/unicode.npk".*;
+use "../syntax/syntax.npk".*;
+use "./repr.npk".*;
+
+// ---- the bytes the text is made of ------------------------------------------
+fixed int32:CH_SPACE = 32i32;
+fixed int32:CH_LPAREN = 40i32;       // `(`
+fixed int32:CH_RPAREN = 41i32;       // `)`
+fixed int32:CH_MINUS = 45i32;        // `-`, between a range's ends, and an unbounded maximum
+fixed int32:CH_0 = 48i32;
+fixed int32:CH_9 = 57i32;
+fixed int32:CH_UPPER_A = 65i32;
+fixed int32:CH_UPPER_Z = 90i32;
+fixed int32:CH_UNDERSCORE = 95i32;
+fixed int32:CH_LOWER_A = 97i32;
+fixed int32:CH_LOWER_Z = 122i32;
+
+// The most digits a number may have: any eighteen-digit decimal is below 2^63, so the
+// accumulator in `read_num` cannot overflow. Arithmetic, not policy (`SAFETY.md` S-12).
+fixed int64:DIGITS_MAX = 18i64;
+
+// ---- writing -----------------------------------------------------------------
+
+// One step of the writer's walk.
+#[derive(Copy)]
+struct:Visit = {
+    int64:node;          // the node
+    int64:op;            // VISIT_ONE, VISIT_LIST or VISIT_CLOSE
+};
+
+fixed int64:VISIT_ONE = 0i64;      // write the node
+fixed int64:VISIT_LIST = 1i64;     // write the node, then the rest of the list it heads
+fixed int64:VISIT_CLOSE = 2i64;    // write the `)` that closes the node
+
+func:put = NIL(Bytes->:out, string:s) never fails {
+    drop bytes_extend_str(out, s);
+    pass NIL;
+};
+
+func:num = NIL(Bytes->:out, int64:v) never fails {
+    drop bytes_put_uint(out, v =>! uint64);
+    pass NIL;
+};
+
+// The kind's name and its operands, everything between `(` and the first child or `)`.
+func:write_head = NIL(Hir->:h, HirNode:n, Bytes->:out) never fails {
+    bool:byte = (n.flags & HIR_FLAG_BYTE) != 0u32;
+    pick (n.kind) {
+        (HirKind.Empty) { drop put(out, "empty"); },
+        (HirKind.Literal) {
+            drop put(out, "literal");
+            if (byte) { drop put(out, " byte"); }
+            drop put(out, " ");
+            drop num(out, n.a);
+        },
+        (HirKind.Class) {
+            drop put(out, "class");
+            if (byte) { drop put(out, " byte"); }
+            int64:i = 0i64;
+            while (i < n.b) decreases n.b - i {
+                ClassRange:r = raw hir_range(<-h, n.a + i);
+                drop put(out, " ");
+                drop num(out, r.lo => int64);
+                drop put(out, "-");
+                drop num(out, r.hi => int64);
+                i = i + 1i64;
+            }
+        },
+        (HirKind.Concat) { drop put(out, "concat"); },
+        (HirKind.Alternate) { drop put(out, "alternate"); },
+        (HirKind.Repeat) {
+            drop put(out, "repeat");
+            if ((n.flags & HIR_FLAG_LAZY) != 0u32) { drop put(out, " lazy"); }
+            drop put(out, " ");
+            drop num(out, n.b);
+            if (n.c == HIR_NONE) { drop put(out, " -"); }
+            else { drop put(out, " "); drop num(out, n.c); }
+        },
+        (HirKind.Group) {
+            drop put(out, "group ");
+            drop num(out, n.b);
+            GroupInfo:g = raw hir_group(<-h, n.b);
+            if (g.len > 0i64) {
+                drop put(out, " ");
+                drop hir_put_name(h, n.b, out);
+            }
+        },
+        (HirKind.Anchor) {
+            drop put(out, "anchor ");
+            if (n.a == HIR_TEXT_START) { drop put(out, "text-start"); }
+            else if (n.a == HIR_TEXT_END) { drop put(out, "text-end"); }
+            else if (n.a == HIR_LINE_START) { drop put(out, "line-start"); }
+            else if (n.a == HIR_LINE_END) { drop put(out, "line-end"); }
+            else { drop num(out, n.a); }
+        },
+        (HirKind.WordBoundary) {
+            drop put(out, "wordboundary");
+            if (byte) { drop put(out, " byte"); }
+            if (n.a == HIR_NOT_WORD) { drop put(out, " not"); }
+            else if (n.a != HIR_WORD) { drop put(out, " "); drop num(out, n.a); }
+        }
+    }
+    pass NIL;
+};
+
+// Whether a list's chain -- its first member and each one's `next` -- holds exactly its count,
+// `n.b`, of members. Walked at most `n.b + 1` steps, so a chain that loops ends here too.
+func:chain_holds = bool(Hir->:h, HirNode:n) never fails {
+    int64:k = 0i64;
+    int64:m = n.a;
+    while ((m != HIR_NONE) && (k <= n.b)) decreases n.b + 1i64 - k {
+        HirNode:x = raw hir_get(<-h, m);
+        m = x.next;
+        k = k + 1i64;
+    }
+    pass (k == n.b) && (m == HIR_NONE);
+};
+
+// obligation: never fails
+//
+// THE DUMP (H-15). Appends the tree under `h`'s root to `out`, as one line with no line
+// end; nothing for a `Hir` with no root. A value the text has no word for -- an `Anchor`
+// past 3, a negative operand -- is written as its number, which `hir_read` refuses: the
+// writer shows what the arena holds, and the reader says it is not a HIR.
+//
+// AND IT STOPS ON AN ARENA IT COULD NOT SHOW TRUTHFULLY, because the text has no place for
+// what is wrong there. A list's count that is not its chain's length, and a `next` on a node
+// in no list -- the root, a `Repeat`'s or a `Group`'s child -- each trap `OutOfBounds` at the
+// node, through `vec_oob`; a walk longer than twice the arena traps `DecreasesViolated` -- a
+// node that wraps itself, and a node with two parents when every node hangs from the root
+// (beside a node nothing reaches the bound has room, and a shared node is written once for
+// each parent). Each is a defect in the code that built the arena, and a builder's unit finds
+// it by dumping.
+pub func:hir_dump = NIL(Hir->:h, Bytes->:out) never fails {
+    if (h.root == HIR_NONE) { pass NIL; }
+    Vec<Visit>:todo = raw vec_init::<Visit>(16i64);
+    drop vec_push(@todo, Visit{ node: h.root, op: VISIT_ONE });
+    // A `decreases` measure is checked as each step begins, so `2n - 1` admits `2n` steps: a
+    // tree's walk over the whole arena, entering and closing each node once, and not one more.
+    int64:budget = 2i64 * (raw hir_len(<-h)) - 1i64;
+    int64:steps = 0i64;
+    bool:first = true;
+    while (todo.count > 0i64) decreases budget - steps {
+        steps = steps + 1i64;
+        Visit:v = raw vec_pop(@todo);
+        if (v.op == VISIT_CLOSE) {
+            drop put(out, ")");
+        }
+        else {
+            HirNode:n = raw hir_get(<-h, v.node);
+            if (v.op == VISIT_LIST) {
+                if (n.next != HIR_NONE) { drop vec_push(@todo, Visit{ node: n.next, op: VISIT_LIST }); }
+            }
+            else if (n.next != HIR_NONE) { drop vec_oob(n.next); }
+            drop vec_push(@todo, Visit{ node: v.node, op: VISIT_CLOSE });
+            if (!first) { drop put(out, " "); }
+            first = false;
+            drop put(out, "(");
+            drop write_head(h, n, out);
+            if ((n.kind == HirKind.Concat) || (n.kind == HirKind.Alternate)) {
+                if (!(raw chain_holds(h, n))) { drop vec_oob(n.b); }
+                if (n.a != HIR_NONE) { drop vec_push(@todo, Visit{ node: n.a, op: VISIT_LIST }); }
+            }
+            else if ((n.kind == HirKind.Repeat) || (n.kind == HirKind.Group)) {
+                drop vec_push(@todo, Visit{ node: n.a, op: VISIT_ONE });
+            }
+        }
+    }
+    drop vec_free(@todo);
+    pass NIL;
+};
+
+// ---- reading -----------------------------------------------------------------
+
+// A node whose `(` is read and whose `)` is not.
+#[derive(Copy)]
+struct:ReadFrame = {
+    HirKind:kind;
+    uint32:flags;
+    int64:a;             // its operands as read; a list's and a wrapper's are its children's
+    int64:b;
+    int64:c;
+    int64:first;         // its children so far: the first, the last, how many
+    int64:last;
+    int64:count;
+};
+
+// The whole state of one read. MOVE-ONLY, because it holds a `Vec`: built by `hir_read`,
+// lent by pointer, freed there.
+struct:ReadState = {
+    int64:pos;                 // the next byte of the text
+    int64:next_group;          // the number the next `group` must carry
+    int64:top;                 // the outermost node, once its `)` is read; HIR_NONE until then
+    Vec<ReadFrame>:open;       // the open nodes, innermost last
+};
+
+// The byte at `i`, or -1 past the text's end.
+func:byte_at = int32(uint8[]:text, int64:i) never fails {
+    if (i >= text.len) { pass -1i32; }
+    pass text[i] => int32;
+};
+
+func:is_digit = bool(int32:b) never fails {
+    pass (b >= CH_0) && (b <= CH_9);
+};
+
+func:is_lower = bool(int32:b) never fails {
+    pass (b >= CH_LOWER_A) && (b <= CH_LOWER_Z);
+};
+
+// `Name ::= [A-Za-z_][A-Za-z0-9_]*` (`SYNTAX.md` §1).
+func:is_name_start = bool(int32:b) never fails {
+    if ((b >= CH_UPPER_A) && (b <= CH_UPPER_Z)) { pass true; }
+    if (raw is_lower(b)) { pass true; }
+    pass b == CH_UNDERSCORE;
+};
+
+func:is_name_char = bool(int32:b) never fails {
+    if (raw is_name_start(b)) { pass true; }
+    pass raw is_digit(b);
+};
+
+// Moves past the next byte if it is `want`, and says whether it did.
+func:eat = bool(uint8[]:text, ReadState->:r, int32:want) never fails {
+    if ((raw byte_at(text, r.pos)) != want) { pass false; }
+    r.pos = r.pos + 1i64;
+    pass true;
+};
+
+// Whether a space and then a lower-case letter come next: a word the head may hold.
+func:word_next = bool(uint8[]:text, ReadState->:r) never fails {
+    if ((raw byte_at(text, r.pos)) != CH_SPACE) { pass false; }
+    pass raw is_lower(raw byte_at(text, r.pos + 1i64));
+};
+
+// Reads a word, `[a-z-]*`, and answers its length.
+func:read_word = int64(uint8[]:text, ReadState->:r) never fails {
+    int64:s = r.pos;
+    bool:more = true;
+    while (more && (r.pos < text.len)) decreases text.len - r.pos {
+        int32:b = raw byte_at(text, r.pos);
+        if ((raw is_lower(b)) || (b == CH_MINUS)) { r.pos = r.pos + 1i64; }
+        else { more = false; }
+    }
+    pass r.pos - s;
+};
+
+// Whether the `n` bytes at `s` are the word `w`.
+func:word_is = bool(uint8[]:text, int64:s, int64:n, string:w) never fails {
+    uint8[]:wb = string_bytes(w);
+    if (n != wb.len) { pass false; }
+    int64:k = 0i64;
+    while (k < n) decreases n - k {
+        if (text[s + k] != wb[k]) { pass false; }
+        k = k + 1i64;
+    }
+    pass true;
+};
+
+// Reads a number as `hir_dump` writes one -- `0`, or a digit other than `0` and at most
+// seventeen more -- and answers it, or HIR_NONE for anything else.
+func:read_num = int64(uint8[]:text, ReadState->:r) never fails {
+    int32:b = raw byte_at(text, r.pos);
+    if (!(raw is_digit(b))) { pass HIR_NONE; }
+    if (b == CH_0) {
+        r.pos = r.pos + 1i64;
+        if (raw is_digit(raw byte_at(text, r.pos))) { pass HIR_NONE; }
+        pass 0i64;
+    }
+    int64:v = 0i64;
+    int64:digits = 0i64;
+    while (raw is_digit(raw byte_at(text, r.pos))) decreases text.len - r.pos {
+        if (digits == DIGITS_MAX) { pass HIR_NONE; }
+        v = v * 10i64 + (((raw byte_at(text, r.pos)) - CH_0) => int64);
+        digits = digits + 1i64;
+        r.pos = r.pos + 1i64;
+    }
+    pass v;
+};
+
+// Opens a node: its frame joins the stack, its children to come.
+func:open_node = int64(ReadState->:r, HirKind:k, uint32:flags, int64:a, int64:b, int64:c) never fails {
+    drop vec_push(@r.open, ReadFrame{ kind: k, flags: flags, a: a, b: b, c: c,
+                                      first: HIR_NONE, last: HIR_NONE, count: 0i64 });
+    pass HIR_NONE;
+};
+
+// `literal N`, `literal byte N`.
+func:read_literal = int64(uint8[]:text, ReadState->:r) never fails {
+    uint32:flags = 0u32;
+    if (raw word_next(text, r)) {
+        r.pos = r.pos + 1i64;
+        int64:w = r.pos;
+        if (!(raw word_is(text, w, raw read_word(text, r), "byte"))) { pass w; }
+        flags = HIR_FLAG_BYTE;
+    }
+    if (!(raw eat(text, r, CH_SPACE))) { pass r.pos; }
+    int64:s = r.pos;
+    int64:v = raw read_num(text, r);
+    if (v < 0i64) { pass s; }
+    if (flags == HIR_FLAG_BYTE) {
+        if (v > 255i64) { pass s; }
+    }
+    else if (v >= (NOT_A_CODEPOINT => int64)) { pass s; }
+    pass raw open_node(r, HirKind.Literal, flags, v, 0i64, 0i64);
+};
+
+// `class`, `class byte`, and a range `LO-HI` after either, as many as the class holds.
+func:read_class = int64(uint8[]:text, Hir->:out, ReadState->:r) never fails {
+    uint32:flags = 0u32;
+    if (raw word_next(text, r)) {
+        r.pos = r.pos + 1i64;
+        int64:w = r.pos;
+        if (!(raw word_is(text, w, raw read_word(text, r), "byte"))) { pass w; }
+        flags = HIR_FLAG_BYTE;
+    }
+    int64:top = NOT_A_CODEPOINT => int64;
+    if (flags == HIR_FLAG_BYTE) { top = 256i64; }
+    int64:first = raw hir_range_count(<-out);
+    int64:count = 0i64;
+    while (((raw byte_at(text, r.pos)) == CH_SPACE) && (raw is_digit(raw byte_at(text, r.pos + 1i64))))
+          decreases text.len - r.pos {
+        r.pos = r.pos + 1i64;
+        int64:s = r.pos;
+        int64:lo = raw read_num(text, r);
+        if (lo < 0i64) { pass s; }
+        if (!(raw eat(text, r, CH_MINUS))) { pass r.pos; }
+        int64:t = r.pos;
+        int64:hi = raw read_num(text, r);
+        if (hi < 0i64) { pass t; }
+        if (lo > hi) { pass s; }
+        if (hi >= top) { pass t; }
+        discard(raw hir_push_range(out, ClassRange{ lo: lo =>! uint32, hi: hi =>! uint32 }));
+        count = count + 1i64;
+    }
+    pass raw open_node(r, HirKind.Class, flags, first, count, 0i64);
+};
+
+// `repeat MIN MAX`, `repeat lazy MIN MAX`, MAX `-` when unbounded.
+func:read_repeat = int64(uint8[]:text, ReadState->:r) never fails {
+    uint32:flags = 0u32;
+    if (raw word_next(text, r)) {
+        r.pos = r.pos + 1i64;
+        int64:w = r.pos;
+        if (!(raw word_is(text, w, raw read_word(text, r), "lazy"))) { pass w; }
+        flags = HIR_FLAG_LAZY;
+    }
+    if (!(raw eat(text, r, CH_SPACE))) { pass r.pos; }
+    int64:s = r.pos;
+    int64:lo = raw read_num(text, r);
+    if (lo < 0i64) { pass s; }
+    if (!(raw eat(text, r, CH_SPACE))) { pass r.pos; }
+    int64:hi = HIR_NONE;
+    if (!(raw eat(text, r, CH_MINUS))) {
+        int64:t = r.pos;
+        hi = raw read_num(text, r);
+        if (hi < 0i64) { pass t; }
+        if (hi < lo) { pass t; }
+    }
+    pass raw open_node(r, HirKind.Repeat, flags, HIR_NONE, lo, hi);
+};
+
+// `group K`, `group K NAME` -- `K` the number the next group must carry (Y-6).
+func:read_group = int64(uint8[]:text, Hir->:out, ReadState->:r) never fails {
+    if (!(raw eat(text, r, CH_SPACE))) { pass r.pos; }
+    int64:s = r.pos;
+    int64:k = raw read_num(text, r);
+    if (k != r.next_group) { pass s; }
+    int64:at = 0i64;
+    int64:len = 0i64;
+    if (((raw byte_at(text, r.pos)) == CH_SPACE) && (raw is_name_start(raw byte_at(text, r.pos + 1i64)))) {
+        r.pos = r.pos + 1i64;
+        at = r.pos;
+        while (raw is_name_char(raw byte_at(text, r.pos))) decreases text.len - r.pos {
+            r.pos = r.pos + 1i64;
+        }
+        len = r.pos - at;
+    }
+    discard(raw hir_add_group(out, text[at...at + len]));
+    r.next_group = r.next_group + 1i64;
+    pass raw open_node(r, HirKind.Group, 0u32, HIR_NONE, k, 0i64);
+};
+
+// `anchor text-start`, `text-end`, `line-start`, `line-end`.
+func:read_anchor = int64(uint8[]:text, ReadState->:r) never fails {
+    if (!(raw eat(text, r, CH_SPACE))) { pass r.pos; }
+    int64:w = r.pos;
+    int64:n = raw read_word(text, r);
+    int64:a = HIR_NONE;
+    if (raw word_is(text, w, n, "text-start")) { a = HIR_TEXT_START; }
+    else if (raw word_is(text, w, n, "text-end")) { a = HIR_TEXT_END; }
+    else if (raw word_is(text, w, n, "line-start")) { a = HIR_LINE_START; }
+    else if (raw word_is(text, w, n, "line-end")) { a = HIR_LINE_END; }
+    else { pass w; }
+    pass raw open_node(r, HirKind.Anchor, 0u32, a, 0i64, 0i64);
+};
+
+// `wordboundary`, then `byte` and `not`, each if it holds, in that order.
+func:read_boundary = int64(uint8[]:text, ReadState->:r) never fails {
+    uint32:flags = 0u32;
+    int64:a = HIR_WORD;
+    if (raw word_next(text, r)) {
+        r.pos = r.pos + 1i64;
+        int64:w = r.pos;
+        int64:n = raw read_word(text, r);
+        if (raw word_is(text, w, n, "byte")) {
+            flags = HIR_FLAG_BYTE;
+            if (raw word_next(text, r)) {
+                r.pos = r.pos + 1i64;
+                int64:w2 = r.pos;
+                if (!(raw word_is(text, w2, raw read_word(text, r), "not"))) { pass w2; }
+                a = HIR_NOT_WORD;
+            }
+        }
+        else if (raw word_is(text, w, n, "not")) { a = HIR_NOT_WORD; }
+        else { pass w; }
+    }
+    pass raw open_node(r, HirKind.WordBoundary, flags, a, 0i64, 0i64);
+};
+
+// The head after a `(`: the kind's name, its words and its operands.
+func:read_head = int64(uint8[]:text, Hir->:out, ReadState->:r) never fails {
+    int64:w = r.pos;
+    int64:n = raw read_word(text, r);
+    if (raw word_is(text, w, n, "empty")) { pass raw open_node(r, HirKind.Empty, 0u32, 0i64, 0i64, 0i64); }
+    if (raw word_is(text, w, n, "literal")) { pass raw read_literal(text, r); }
+    if (raw word_is(text, w, n, "class")) { pass raw read_class(text, out, r); }
+    if (raw word_is(text, w, n, "concat")) { pass raw open_node(r, HirKind.Concat, 0u32, HIR_NONE, 0i64, 0i64); }
+    if (raw word_is(text, w, n, "alternate")) { pass raw open_node(r, HirKind.Alternate, 0u32, HIR_NONE, 0i64, 0i64); }
+    if (raw word_is(text, w, n, "repeat")) { pass raw read_repeat(text, r); }
+    if (raw word_is(text, w, n, "group")) { pass raw read_group(text, out, r); }
+    if (raw word_is(text, w, n, "anchor")) { pass raw read_anchor(text, r); }
+    if (raw word_is(text, w, n, "wordboundary")) { pass raw read_boundary(text, r); }
+    pass w;
+};
+
+// Whether the innermost open node may take a child now: a list always, a `repeat` or a
+// `group` until it has one, a leaf never.
+func:takes_child = bool(ReadFrame:f) never fails {
+    if ((f.kind == HirKind.Concat) || (f.kind == HirKind.Alternate)) { pass true; }
+    if ((f.kind == HirKind.Repeat) || (f.kind == HirKind.Group)) { pass f.count == 0i64; }
+    pass false;
+};
+
+// The `)` at `at` closes the innermost open node: its node joins the arena and its parent's
+// children, or becomes the root.
+func:close_node = int64(Hir->:out, ReadState->:r, int64:at) never fails {
+    ReadFrame:f = raw vec_pop(@r.open);
+    if (((f.kind == HirKind.Repeat) || (f.kind == HirKind.Group)) && (f.count != 1i64)) { pass at; }
+    HirNode:n = HirNode{ kind: f.kind, flags: f.flags, a: f.a, b: f.b, c: f.c, next: HIR_NONE };
+    if ((f.kind == HirKind.Concat) || (f.kind == HirKind.Alternate)) {
+        n.a = f.first;
+        n.b = f.count;
+    }
+    else if ((f.kind == HirKind.Repeat) || (f.kind == HirKind.Group)) {
+        n.a = f.first;
+    }
+    int64:i = raw hir_push(out, n);
+    if (r.open.count == 0i64) {
+        r.top = i;
+        pass HIR_NONE;
+    }
+    int64:top = r.open.count - 1i64;
+    ReadFrame:p = raw vec_get(r.open, top);
+    if (p.last == HIR_NONE) { p.first = i; }
+    else {
+        HirNode:prev = raw hir_get(<-out, p.last);
+        prev.next = i;
+        drop hir_set(out, p.last, prev);
+    }
+    p.last = i;
+    p.count = p.count + 1i64;
+    drop vec_set(@r.open, top, p);
+    pass HIR_NONE;
+};
+
+func:read_run = int64(uint8[]:text, Hir->:out, ReadState->:r) never fails {
+    if (!(raw eat(text, r, CH_LPAREN))) { pass r.pos; }
+    int64:e = raw read_head(text, out, r);
+    if (e != HIR_NONE) { pass e; }
+    while (r.open.count > 0i64) decreases text.len - r.pos {
+        int32:b = raw byte_at(text, r.pos);
+        if (b == CH_RPAREN) {
+            r.pos = r.pos + 1i64;
+            e = raw close_node(out, r, r.pos - 1i64);
+        }
+        else if (b == CH_SPACE) {
+            int64:at = r.pos;
+            r.pos = r.pos + 1i64;
+            if (!(raw eat(text, r, CH_LPAREN))) { pass r.pos; }
+            if (!(raw takes_child(raw vec_get(r.open, r.open.count - 1i64)))) { pass at; }
+            e = raw read_head(text, out, r);
+        }
+        else { pass r.pos; }
+        if (e != HIR_NONE) { pass e; }
+    }
+    if (r.pos < text.len) { pass r.pos; }
+    drop hir_set_root(out, r.top);
+    pass HIR_NONE;
+};
+
+// obligation: never fails
+//
+// THE READ (H-15). Appends the nodes `text` describes to `out`, its ranges, groups and names
+// with them, sets its root and answers HIR_NONE; or answers the offset of the first byte
+// that is not what `hir_dump` writes there -- the text's length when it ends early -- and
+// leaves `out`'s root as it was, its nodes partial, for the caller to free. Pass a `Hir`
+// fresh from `hir_init`: its groups are numbered from the count it already holds.
+pub func:hir_read = int64(uint8[]:text, Hir->:out) never fails {
+    ReadState:r = ReadState{ pos: 0i64, next_group: raw hir_group_count(<-out), top: HIR_NONE,
+                             open: raw vec_init::<ReadFrame>(8i64) };
+    int64:e = raw read_run(text, out, @r);
+    drop vec_free(@r.open);
+    pass e;
+};

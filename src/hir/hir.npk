@@ -7,9 +7,10 @@
 // H-2's design, and a `Vec` of nodes MUST keep it (`SAFETY.md` S-23a, RX-155) -- and since
 // `Vec<T: Copy>` (RX-188) the compiler keeps it too, at the type.
 //
-// SINCE CYCLE 0.2.0 THE LAYER HOLDS THE ARENA: `repr.npk`, the nine kinds and the arena
-// (RX-223, RX-224), with `ClassRange` from `unicode` (RX-222). Nothing builds a HIR from a
-// pattern yet; cycle 0.2.1's desugaring does.
+// SINCE CYCLE 0.2.0 THE LAYER HOLDS THE ARENA AND ITS TEXT: `repr.npk`, the nine kinds and
+// the arena (RX-223, RX-224), and `dump.npk`, the HIR as one line of text and back (RX-225),
+// with `ClassRange` from `unicode` (RX-222). Nothing builds a HIR from a pattern yet; cycle
+// 0.2.1's desugaring does.
 //
 // EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1 and 3).
 //
@@ -49,3 +50,7 @@ pub use "./repr.npk".hir_add_group;
 pub use "./repr.npk".hir_group;
 pub use "./repr.npk".hir_put_name;
 pub use "./repr.npk".hir_free;
+
+// ---- the text, and back (RX-225) -------------------------------------------------------
+pub use "./dump.npk".hir_dump;
+pub use "./dump.npk".hir_read;

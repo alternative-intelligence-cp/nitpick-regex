@@ -5822,3 +5822,45 @@ variant is `Literal`, in one module, compiles and runs at both legs, so the name
 text has no pattern; **an owning `string` per group** — S-23a, and `Vec<T: Copy>` refuses one at the type; **`groups`
 without group 0** — `k − 1` wherever a number is an index; **`Literal` shaped now, an offset and a length into a second
 `Bytes`** — an empty `Vec` and a `Bytes` in every HIR for five subcycles, and a guess at 0.2.5's design.
+
+### RX-225 — the HIR as one line of text and back, a new rule H-15: a writer that stops on an arena it cannot show, and a reader that refuses at a byte and never traps
+
+**2026-10-08, cycle 0.2.0 (the plan's PD-69), at compiler `5fbaf4a`** — `HIR.md` H-2 and H-13, `TESTING.md` §4,
+`SAFETY.md` S-8, S-12 and S-19, `COMPILE.md` C-19, and the cycle README's last 0.2.0 box, *"a stable text dump and its
+parser, round-tripping — this is what makes a HIR a committed fixture"*. H-13 and §4 make a HIR a fixture a test
+commits and compares by bytes, and a later stage — the oracle at cycle 0.5, the compiler at 0.6 — starts from one; so
+the dump needs a reader, and the reader is library code.
+
+**The decision.** `src/hir/dump.npk`. `hir_dump(Hir->, Bytes->)` writes the tree under the root as one line — a node
+`(` its kind's name in lower case, its words (`byte`, `lazy`, `not`, an anchor's), its operands in decimal (`-` for an
+unbounded maximum, `LO-HI` a range) and its children `)`, one space between tokens — on an explicit stack bounded by
+twice the arena: a `decreases` measure is checked as each step begins, so `2n − 1` admits a tree's `2n` steps and not
+one more. It **stops on an arena it cannot write truthfully**: a list's count that is not its chain's length, and a
+`next` on a node in no list, each `OutOfBounds` through `vec_oob`; and a walk past its bound, `DecreasesViolated` — a
+node that wraps itself, and a node with two parents when every node hangs from the root.
+`hir_read(uint8[], Hir->) -> int64` reads exactly that text on a frame stack, and answers `HIR_NONE` or the offset of
+the first byte that is not what the dump writes there, holding the domains and the structure H-15 lists, the root left
+unset on a refusal. Neither recurses (S-19), and a number is at most eighteen digits, so the reader's accumulator
+cannot overflow. **A new rule, `HIR.md` H-15**, states the grammar and both directions. Units `hir_dump`,
+`hir_dump_count`, `hir_dump_stray_next`, `hir_dump_not_a_tree` and `hir_dump_shared`; `src/hir/README.md` rewritten — it said
+*"repetitions expanded under a bound"*, which H-7 says the HIR never does; `BUILD.md` §7 gains `Reader`.
+
+**Measured at `5fbaf4a`.** `hir_dump` exits 0 at both legs: twenty-six texts read and written back byte for byte,
+twice; seven shapes the text cannot show; six HIRs built through the arena alone and held to the text; a HIR 20 000
+deep and one 10 000 wide; thirty-three refusals, each at its byte, the root left unset. `hir_dump_count` and
+`hir_dump_stray_next` exit 94, and `hir_dump_not_a_tree` and `hir_dump_shared` 108, at both legs; a `decreases 3 −
+steps` loop runs four steps and traps at the fifth. Each of the plan's thirty-three mutants of `repr.npk` and
+`dump.npk` is red at its unit's exit, at both legs. `struct:Reader` is `NITPICK-RESOLVE-001` — the prelude declares
+`Reader` — so the reader's state is `ReadState`. The full run is `283/283`.
+
+*Alternatives declined:* **an arena-order dump** — two builders' layouts would differ where their trees do not, which
+cycle 0.2.3's gate cannot have; **numeric heads**, `(1 97)` — the kind's name keeps a fixture greppable by kind and a
+diff readable (C-19's reason); **the reader in `tests/`** — the oracle and the compiler's tests start from fixtures,
+and a reader only tests share sits outside every check of `src/`; **a reader that holds C-3, Y-8 and 0.2.3's order** —
+it would refuse a fixture written before the builder that owes them exists; **a reader that traps** — a refusal is an
+offset, not an identity (S-8; `hir` is below `api`, as `syntax` is — RX-175), and a fixture's typo fails its case
+rather than ending the program; **a dump that writes each list's count** — the chain shows it, and the writer holds the
+two equal; **the walk's measure `2n + 1`, as the plan was drafted** — it admits `2n + 2` steps, and a leaf with two
+parents in an arena of three nodes was written twice with no stop, measured at the plan's rehearsal; **a set of the
+nodes entered** — it would stop a shared node beside nodes nothing reaches too, at an allocation per dump, and no
+builder exists yet to say whether it leaves such nodes.

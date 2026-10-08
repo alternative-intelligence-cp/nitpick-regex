@@ -1,0 +1,44 @@
+// expect-exit: 94
+//
+// A LIST WHOSE COUNT IS NOT ITS CHAIN'S STOPS THE DUMP. Cycle 0.2.0, RX-225; `HIR.md` H-15.
+//
+// A `Concat` or an `Alternate` holds its members twice: its count, `b`, and the chain
+// from `a` through each member's `next`. The text writes the chain and has no place for
+// the count, so a count that disagrees would vanish from every dump and every test
+// written against one. The writer holds the two equal and traps `OutOfBounds` (94)
+// through `vec_oob` when they are not: here the count says two and the chain holds one.
+mod:hir_dump_count;
+
+use "../../src/core/core.npk".*;
+use "../../src/hir/hir.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Hir:h = raw hir_init(4i64);
+    int64:m = raw hir_push(@h, HirNode{ kind: HirKind.Empty, flags: 0u32, a: 0i64, b: 0i64, c: 0i64,
+                                        next: HIR_NONE });
+    int64:cat = raw hir_push(@h, HirNode{ kind: HirKind.Concat, flags: 0u32, a: m, b: 2i64, c: 0i64,
+                                          next: HIR_NONE });
+    drop hir_set_root(@h, cat);
+    Bytes:b = raw bytes_init(16i64);
+    drop hir_dump(@h, @b);
+    drop hir_free(@h);
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};
