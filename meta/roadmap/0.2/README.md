@@ -7,11 +7,26 @@ extraction.** Everything decidable without knowing which engine will run.
 
 RX-015, RX-031. Settled. **No open questions.**
 
+## What cycle 0.1 hands on
+
+*(2026-10-08, cycle 0.1's close — [`../done/0.1/0.1.6.md`](../done/0.1/0.1.6.md).)*
+
+- **The AST the HIR is built from** — `SYNTAX.md` Y-26 and Y-27: a flat arena of sixteen kinds of 56-byte node that own
+  nothing, every operand an `int64`, a node naming another by index; a class's items unresolved — a Perl class, a
+  property, a POSIX class by name — for cycle 0.3 to resolve, so 0.2.1's desugaring carries them as they come. The parser
+  builds the arena bottom-up on an explicit stack, and `check_no_recursion` reads `src/hir/` as it reads `src/syntax/`
+  (`SAFETY.md` S-19).
+- **`RepeatProductTooLarge` is a row of `SYNTAX.md` Y-25's table naming 0.2.2**: the test that provokes it strikes the
+  row in its own commit, or `check_error_kinds_tested` fails the run (RX-219).
+- **Every refusal's offset lies inside the pattern** (Y-10's note, RX-221), and the HIR's refusals keep it;
+  `tests/unit/parse_fuzz.npk` is the shape of a fuzz pass over a layer.
+- **`regex_escape` is written**, and cycle 0.10.5 re-exports it from `src/lib.npk` (RX-211, RX-214).
+
 ## Subcycles
 
 | # | Topic | Ends with |
 |---|---|---|
-| 0.2.0 | **The arena** — the nine kinds, the flat POD representation, the dump | a HIR that round-trips through its text form |
+| 0.2.0 | **The arena** — the nine kinds, the flat POD representation, the dump — **[`0.2.0.md`](0.2.0.md)**, written at cycle 0.1's close, measured at `5fbaf4a` and not rehearsed from its blocks; PD-66 … PD-69 are the orchestrator's to accept first | a HIR that round-trips through its text form |
 | 0.2.1 | **Desugaring** — `HIR.md` §3's table, exactly and nothing else | every row tested; flags erased |
 | 0.2.2 | **The repetition product** — the bound checked on the way down | `((a{1000}){1000}){1000}` refused at the third `{1000}` |
 | 0.2.3 | **Normalisation** — flattening, merging, canonical form | structurally equal patterns produce identical dumps |

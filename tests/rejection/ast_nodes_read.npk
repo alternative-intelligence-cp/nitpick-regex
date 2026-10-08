@@ -16,7 +16,7 @@
 // improves, so it names the field and nothing generic.
 //
 // A TEST OF THE HIDING, NOT OF THIS FILE: with `hidden` replaced by `sealed` it
-// compiles (`meta/roadmap/0.1/0.1.0.md`, step 4's controls).
+// compiles (`meta/roadmap/done/0.1/0.1.0.md`, step 4's controls).
 mod:ast_nodes_read;
 
 use "../../src/syntax/syntax.npk".*;

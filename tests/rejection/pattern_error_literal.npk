@@ -22,7 +22,7 @@
 // reviewed grep's.
 //
 // A TEST OF THE SEAL, NOT OF THIS FILE: with the four `sealed`s deleted it
-// compiles (`meta/roadmap/0.1/0.1.0.md`, step 2's controls).
+// compiles (`meta/roadmap/done/0.1/0.1.0.md`, step 2's controls).
 mod:pattern_error_literal;
 
 use "../../src/syntax/syntax.npk".*;

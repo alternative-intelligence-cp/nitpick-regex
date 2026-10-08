@@ -3,7 +3,7 @@
 **As of 2026-10-01.** Question: how do Rust's `regex` and the backtracking engines read the escapes of `SYNTAX.md` §1,
 the inline flags, `x` mode outside a class, and `(?-u)` — where do they agree, and where do they read one pattern two
 ways? And which codepoints past ASCII are white space to them under `x`? *(Asked by the planner of
-`roadmap/0.1/0.1.4.md` for its PD-48 … PD-52; answered by running each engine at a named version — the reference
+`roadmap/done/0.1/0.1.4.md` for its PD-48 … PD-52; answered by running each engine at a named version — the reference
 implementation run, which the research skill's §2 counts as primary — by the Rust crates' own documentation and source
 as published on crates.io, and by the UCD's `PropList.txt` from the Unicode Consortium's own repository. The planner ran
 it inline in this repository's gitignored scratch: one fetch per source, every engine local.)*

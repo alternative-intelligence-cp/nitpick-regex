@@ -3,7 +3,8 @@
 **`src/syntax/`: pattern text to an AST, driven by an explicit stack, with a
 byte offset on every error.**
 
-> **OPEN. [`0.1.0`](0.1.0.md) is DONE (2026-09-26)** — RX-171 … RX-175 in six work
+> **CLOSED (2026-10-08), and archived here, in `meta/roadmap/done/0.1/`; cycle 0.2, the HIR, opens from
+> [`../../0.2/0.2.0.md`](../../0.2/0.2.0.md). [`0.1.0`](0.1.0.md) is DONE (2026-09-26)** — RX-171 … RX-175 in six work
 > commits, `64a5ca9` … `0d26478`, 250/250 at `c970483` and in CI — **and [`0.1.0b`](0.1.0b.md), the
 > adoption of compiler `5fbaf4a` with the ecosystem audit's items, is DONE (2026-09-27)** — RX-176 … RX-180 in
 > seven work commits, `2c748d4` … `186db2c`, 250/250 at `5fbaf4a` and in CI run 36338559696 — **and [`0.1.1`](0.1.1.md),
@@ -21,7 +22,10 @@ byte offset on every error.**
 > library findings, C1 first, is DONE (2026-10-08)** — RX-214 … RX-218 in seven work commits, `108c539` … `987b95c`,
 > 258/258 at `5fbaf4a` and in CI run 37755867373 — **and [`0.1.6b`](0.1.6b.md), the instruments, is DONE
 > (2026-10-08)** — RX-219 … RX-221 in four work commits, `e322de9` … `34a3ac7`, 260/260 at `5fbaf4a` and in CI run
-> 37764156115 — **next, [`0.1.6`](0.1.6.md), the close — PLANNED (2026-10-08, rehearsed at `5fbaf4a`)**. *(Until
+> 37764156115 — **and [`0.1.6`](0.1.6.md), the close, is DONE (2026-10-08)** — the audit's twenty-two findings triaged
+> one row each, the Gate met, this folder moved here at `7247f87`, and cycle 0.2 opened with `0.2.0.md`, written at the
+> close and not rehearsed; 260/260 at `5fbaf4a`. *(Until 0.1.6's record this banner said "OPEN." and "next, 0.1.6, the
+> close — PLANNED (2026-10-08, rehearsed at `5fbaf4a`)".)* *(Until
 > 0.1.6b's record this banner said "next, the close's other two: 0.1.6b, the instruments, and 0.1.6, the close —
 > PLANNED (2026-10-08, rehearsed at `5fbaf4a`)".)* *(Until 0.1.6a's
 > record this banner said "next, cycle 0.1's close, in three subcycles: 0.1.6a, the cycle audit's library findings, C1
@@ -183,9 +187,9 @@ fixed, twenty-two findings; [`0.1.6.md`](0.1.6.md) §2 triages every one.)*
 - [x] the parser's fuzz pass, a unit on every run: never traps, always ends, an AST or a refusal at a valid offset — the pattern's length one too, spanning nothing, as `(?<` gives (K6) — PD-65 — **RX-221, `c97f74a`**: `tests/unit/parse_fuzz.npk`, 40 000 patterns from each of three alphabets and a fixed seed, 0 at −O0 and through `opt -O2`, 0.60 s and 0.52 s; 17 252 accepted and 102 748 refused, thirty-one kinds met (block 0b's counting twin); the seven mutants of `0.1.6b.md` §1.6 at 11, 11, 14, 94, 16, 13 and 18, both legs; Y-10's note: an offset is a byte of the pattern or its length, spanning nothing; `260/260`
 
 ### 0.1.6 — close
-- [ ] **`check_error_kinds_tested` live and green**: every `PatternErrorKind` in `SYNTAX.md` §9 has a test that provokes it *(2026-10-01 — RX-197: no pattern reaches `EmptyClass` in the parser, open question O-Y3 for cycle 0.3.4, so the check counts it with the kinds a later cycle provokes, as it does `ClassTooLarge`)* *(2026-10-01 — cycle 0.1.4: thirty-eight kinds; `DuplicateFlag` and `ExtendedAmbiguity` are new, each provoked by `parse_flag_refusals`)* *(2026-10-02 — cycle 0.1.5: `UnsupportedAnchor` and `UnsupportedQuoting`, which no pattern reached before, are provoked by `parse_declined`; `UnknownUnicodeProperty`'s detail 4, a block, is cycle 0.3.1's to raise, and the kind is provoked already)* *(2026-10-08 — cycle 0.1.6b, RX-219: the kinds a later cycle provokes are four, not two — `RepeatProductTooLarge` and `ProgramTooLarge` beside `EmptyClass` and `ClassTooLarge` — each a row of `SYNTAX.md` Y-25's table, which the check holds both ways)*
-- [ ] a fuzz pass over random byte strings as patterns: never traps, always terminates, always produces a program or an error with a valid offset
-- [ ] findings written; `0.2.0.md` written; archived
+- [x] **`check_error_kinds_tested` live and green**: every `PatternErrorKind` in `SYNTAX.md` §9 has a test that provokes it *(2026-10-01 — RX-197: no pattern reaches `EmptyClass` in the parser, open question O-Y3 for cycle 0.3.4, so the check counts it with the kinds a later cycle provokes, as it does `ClassTooLarge`)* *(2026-10-01 — cycle 0.1.4: thirty-eight kinds; `DuplicateFlag` and `ExtendedAmbiguity` are new, each provoked by `parse_flag_refusals`)* *(2026-10-02 — cycle 0.1.5: `UnsupportedAnchor` and `UnsupportedQuoting`, which no pattern reached before, are provoked by `parse_declined`; `UnknownUnicodeProperty`'s detail 4, a block, is cycle 0.3.1's to raise, and the kind is provoked already)* *(2026-10-08 — cycle 0.1.6b, RX-219: the kinds a later cycle provokes are four, not two — `RepeatProductTooLarge` and `ProgramTooLarge` beside `EmptyClass` and `ClassTooLarge` — each a row of `SYNTAX.md` Y-25's table, which the check holds both ways)* — **RX-219, `e322de9` (cycle 0.1.6b); green at the close**: `ok` over thirty-eight kinds, thirty-four provoked by seventeen units that parse and four listed — `RepeatProductTooLarge` (0.2.2), `EmptyClass` and `ClassTooLarge` (0.3.4), `ProgramTooLarge` (0.6.2) — over the close's tree (`0.1.6.md`'s block 4) and in CI on `7247f87`
+- [x] a fuzz pass over random byte strings as patterns: never traps, always terminates, always produces a program or an error with a valid offset — **RX-221, `c97f74a` (cycle 0.1.6b) — a tree, not a program, since the parser builds none**: `tests/unit/parse_fuzz.npk`, 120 000 seeded patterns a run from three alphabets, each a tree inside the pattern or a refusal at a valid offset, none trapping, at −O0 and through `opt -O2` on every full run; `260/260` at the close
+- [x] findings written; `0.2.0.md` written; archived — **this subcycle, [`0.1.6.md`](0.1.6.md)**: the audit's twenty-two findings one row each in its §2 and again in its record with the commit that carries each — twenty fixed or decided, D1 deferred to cycle 0.3.2 by name, S3 the workbench's; [`../../0.2/0.2.0.md`](../../0.2/0.2.0.md), the arena, written execution-grade — its §1 measured in scratch copies at `5fbaf4a`, PD-66 … PD-69 drafted for the orchestrator, its blocks not rehearsed; this folder moved to `meta/roadmap/done/0.1/` at `7247f87` with the links the move broke, and the twenty-eight plain mentions re-pointed in the close's commit
 
 ## Gate
 

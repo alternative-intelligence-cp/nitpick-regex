@@ -11,7 +11,7 @@
 // outside the file, is refused the same way, once per field.
 //
 // A TEST OF THE SEAL, NOT OF THIS FILE: with `cursor.npk`'s two `sealed`s
-// deleted it compiles (`meta/roadmap/0.1/0.1.0.md`, step 3's controls).
+// deleted it compiles (`meta/roadmap/done/0.1/0.1.0.md`, step 3's controls).
 mod:cursor_pos_write;
 
 use "../../src/syntax/syntax.npk".*;

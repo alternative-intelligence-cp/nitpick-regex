@@ -157,7 +157,7 @@ and all of it runs.
 ## The syntax layer's three — cycle 0.1.0
 
 Each pins a guarantee the compiler now holds for `src/syntax/`, and each compiles
-with the one qualifier it tests deleted (`meta/roadmap/0.1/0.1.0.md`'s controls):
+with the one qualifier it tests deleted (`meta/roadmap/done/0.1/0.1.0.md`'s controls):
 
 - **`pattern_error_literal.npk`** — a `PatternError` literal outside
   `src/syntax/pattern_error.npk`: `NITPICK-TYPE-079`, once per sealed field. So

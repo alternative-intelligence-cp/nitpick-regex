@@ -3,7 +3,7 @@
 **As of 2026-10-01.** Question: how do Rust's `regex` and the backtracking engines read the escapes `SYNTAX.md` §8
 declines — `\1` … `\9`, `\k`, `\G`, `\Z`, `\Q` and `\E` — outside a class and inside one; how do they read `\g`, which
 no rule of nregex names, and `\b` or `\B` before braces; how does Rust's `regex` escape a text, and what is its `R`
-flag? *(Asked by the planner of `roadmap/0.1/0.1.5.md` for its PD-53 … PD-57; answered by running each engine at a
+flag? *(Asked by the planner of `roadmap/done/0.1/0.1.5.md` for its PD-53 … PD-57; answered by running each engine at a
 named version — the reference implementation run, which the research skill's §2 counts as primary — and by the Rust
 crates' own source as published on crates.io. The planner ran it inline in this repository's gitignored scratch, every
 engine local, no fetch: the Rust crates are the ones cycle 0.1.3's planner fetched, regex 1.13.1 and regex-syntax
@@ -146,7 +146,7 @@ position, Perl and node without `u` reading the letter and the rest refusing it.
 
 ## Added 2026-10-08 — `:` straight after a nested class's `[`, and what follows `\b{`
 
-*(Run on 2026-10-08 by cycle 0.1's close's planner, for `roadmap/0.1/0.1.6a.md` PD-58 and PD-59 — the cycle audit's C1
+*(Run on 2026-10-08 by cycle 0.1's close's planner, for `roadmap/done/0.1/0.1.6a.md` PD-58 and PD-59 — the cycle audit's C1
 and C3 — Perl and PCRE2 as installed and as above, and Rust's regex-syntax 0.8.11 through cycle 0.1.3's planner's build,
 `.internal/p013/rx-target/release/rx`, its source read in that planner's cargo home.)*
 

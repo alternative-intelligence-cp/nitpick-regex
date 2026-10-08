@@ -613,7 +613,7 @@ the three verbs still take `move T`, and since RX-188 their `T` is `Copy`.)*
 
 ### ~~O-N32 — **the workbench registry's**: a `pick` arm naming a variant its enum lacks was accepted by the frontend and refused by the emitter, `NITPICK-EMIT-002`~~ — **DISCHARGED upstream: the compiler's DEF-142 and DEF-143, its landing 79 (`44ec7e9`), carried by the pin `5fbaf4a`**
 
-**Raised by this repository's cycle 0.1.0 planning** (`roadmap/0.1/0.1.0.md` §6, from
+**Raised by this repository's cycle 0.1.0 planning** (`roadmap/done/0.1/0.1.0.md` §6, from
 step 2's controls) and filed in the workbench registry (`../meta/OPEN_QUESTIONS.md`
 §"For the compiler") on 2026-09-26; **restated here 2026-09-27 by cycle 0.1.0b**, because
 this tree recorded the finding and never its id — the ecosystem audit's ES4.

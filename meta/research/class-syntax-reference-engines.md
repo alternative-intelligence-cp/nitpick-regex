@@ -4,7 +4,7 @@
 bracketed class — Rust's `regex`, Perl (`/x`, `/xx`), PCRE2 (`PCRE2_EXTENDED`, `PCRE2_EXTENDED_MORE`), Python's
 `re.VERBOSE`, .NET's `IgnorePatternWhitespace` and Java's `Pattern.COMMENTS`? And what do Rust's `regex` and UTS #18
 say about how the class operators `&&`, `--` and `~~` are spelled and how they bind? *(Asked for open question O-Y2
-and `SYNTAX.md` Y-16 and Y-17 by the planner of `roadmap/0.1/0.1.3.md`; answered by the researcher, its digest
+and `SYNTAX.md` Y-16 and Y-17 by the planner of `roadmap/done/0.1/0.1.3.md`; answered by the researcher, its digest
 below, and corroborated by running four of the engines in this repository's gitignored scratch — the last section,
 which also records GNU `grep`'s reading of a POSIX class written as a whole bracket expression, for the same plan.)*
 

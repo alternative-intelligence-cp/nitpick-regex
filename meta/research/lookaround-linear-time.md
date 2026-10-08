@@ -3,7 +3,7 @@
 **As of 2026-10-01.** Question: is there a published algorithm that matches regular expressions with lookahead and
 lookbehind assertions (and without backreferences) in time O(m·n), linear in the haystack's length for a fixed
 pattern? Does any shipping regex engine implement linear-time lookaround matching? *(Asked by the planner of
-`roadmap/0.1/0.1.5.md` for its PD-56, the sentence `LookaroundUnsupported` reads, which said lookaround "cannot be
+`roadmap/done/0.1/0.1.5.md` for its PD-56, the sentence `LookaroundUnsupported` reads, which said lookaround "cannot be
 matched in linear time"; answered by the workbench's researcher agent, ten fetches, and filed by the planner as
 returned, its first person made impersonal, but for one bullet that named the agent's local copies of the papers,
 which no reader here can open.)*

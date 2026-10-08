@@ -5,9 +5,10 @@ Guidance for Claude Code sessions working in this repository.
 ## What this is
 
 `nregex` — a regular-expression library for **Nitpick**, the safety-critical
-systems language at `../../nitpick`. **Status: cycle 0.1, the pattern parser, is
-open, and its 0.1.0, 0.1.0b, 0.1.1, 0.1.1b, 0.1.2, 0.1.3, 0.1.4, 0.1.5, 0.1.6a and 0.1.6b are done** — the pieces the parser is written
-in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/0.1/0.1.0.md`); the adoption of
+systems language at `../../nitpick`. **Status: cycle 0.1, the pattern parser, CLOSED on 2026-10-08 — its
+audit ACCEPTED it once C1 was fixed, and it is archived in `meta/roadmap/done/0.1/`; cycle 0.2, the HIR, opens from
+`meta/roadmap/0.2/0.2.0.md`. Its 0.1.0, 0.1.0b, 0.1.1, 0.1.1b, 0.1.2, 0.1.3, 0.1.4, 0.1.5, 0.1.6a, 0.1.6b and 0.1.6 are done** — the pieces the parser is written
+in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/done/0.1/0.1.0.md`); the adoption of
 compiler `5fbaf4a` (RX-176 … RX-180, `0.1.0b.md`); and the core grammar —
 `parse_pattern` builds the AST for literals, `.`, `^`, `$`, groups, alternation and
 quantifiers, refuses what is wrong with the byte it is at, and

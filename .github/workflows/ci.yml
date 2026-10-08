@@ -115,7 +115,7 @@ env:
   #
   # AND BUMPED 2026-09-27 FROM `c970483` TO `5fbaf4a`, the compiler's last landing
   # before its pause -- landings 67 … 82, taken at the author's go -- IN A COMMIT OF
-  # ITS OWN, after the adoption's commits (`meta/roadmap/0.1/0.1.0b.md`) and pushed
+  # ITS OWN, after the adoption's commits (`meta/roadmap/done/0.1/0.1.0b.md`) and pushed
   # with them, so CI runs once, on the adopted tree: at `5fbaf4a` the old tree is
   # 248/250 (probe 18 refused), and the adopted one does not build at `c970483`
   # (`#[derive(Copy)]`, `NITPICK-DERIVE-001`).
