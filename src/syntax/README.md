@@ -35,4 +35,4 @@ class shape and every class refusal (RX-197); and `parse_escapes`, `parse_escape
 `parse_flags` and `parse_flag_refusals` hold every escape, every flag, and each refusal of
 either (RX-203 … RX-208); and `parse_declined` holds every escape §8 declines, each exact in its
 four fields, and `regex_escape` what that function writes and what it parses back to (RX-209 …
-RX-211).
+RX-211); and `parse_fuzz` holds the parser to its offsets over 120 000 seeded patterns a run (RX-221).

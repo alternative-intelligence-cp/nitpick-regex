@@ -53,7 +53,7 @@ cycle 0.0.
 | Cycle | Topic | Gated on |
 |---|---|---|
 | **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **DONE 2026-09-26, archived to [`done/0.0/`](done/0.0/README.md).** The sixth W-22 audit ACCEPTED the close at compiler `c970483`, after five refusals — three on 2026-09-06, two on 2026-09-25 — and two inserted subcycles, 0.0.4d (`Vec` move-only) and 0.0.4e (the re-pin that refused the loan). The close is [`done/0.0/0.0.5.md`](done/0.0/0.0.5.md) §13 | — |
-| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **OPEN: [`0.1.0`](0.1/0.1.0.md), the cursor and the AST, done; [`0.1.0b`](0.1/0.1.0b.md), the adoption of `5fbaf4a` and the ecosystem audit's items, done; [`0.1.1`](0.1/0.1.1.md), the core grammar, done; [`0.1.1b`](0.1/0.1.1b.md), open question O-R3 — `Vec<T: Copy>` — done; [`0.1.2`](0.1/0.1.2.md), the explicit stack's bound, done; [`0.1.3`](0.1/0.1.3.md), classes, done; [`0.1.4`](0.1/0.1.4.md), escapes and flags, done; [`0.1.5`](0.1/0.1.5.md), the refusals, done; [`0.1.6a`](0.1/0.1.6a.md), the cycle audit's library findings, done; next, [`0.1.6b`](0.1/0.1.6b.md), the instruments, and [`0.1.6`](0.1/0.1.6.md), the close** | 0.0 |
+| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **OPEN: [`0.1.0`](0.1/0.1.0.md), the cursor and the AST, done; [`0.1.0b`](0.1/0.1.0b.md), the adoption of `5fbaf4a` and the ecosystem audit's items, done; [`0.1.1`](0.1/0.1.1.md), the core grammar, done; [`0.1.1b`](0.1/0.1.1b.md), open question O-R3 — `Vec<T: Copy>` — done; [`0.1.2`](0.1/0.1.2.md), the explicit stack's bound, done; [`0.1.3`](0.1/0.1.3.md), classes, done; [`0.1.4`](0.1/0.1.4.md), escapes and flags, done; [`0.1.5`](0.1/0.1.5.md), the refusals, done; [`0.1.6a`](0.1/0.1.6a.md), the cycle audit's library findings, done; [`0.1.6b`](0.1/0.1.6b.md), the instruments, done; next, [`0.1.6`](0.1/0.1.6.md), the close** | 0.0 |
 | **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction | 0.1 |
 | **0.3** | **Unicode** — generated tables, properties, scripts, simple case folding | 0.0 |
 | **0.4** | **UTF-8 automata** — codepoint ranges to byte ranges, alphabet compression | 0.3 |
@@ -198,6 +198,8 @@ of **33** cases, 29 live; **thirty-eight** pattern error kinds; decisions throug
 *(After cycle 0.1.5, the same compiler: **258** units — `parse_declined` and `regex_escape`, each
 run as a program and swept as a root; decisions through RX-213.)*
 *(After cycle 0.1.6a, the same compiler: **258** units, no file added; decisions through RX-218.)*
+*(After cycle 0.1.6b, the same compiler: **260** units — `parse_fuzz`, run as a program and swept as a root; **ten**
+tree checks, `check_error_kinds_tested` the tenth; a self-check of **34** cases, 30 live; decisions through RX-221.)*
 
 **Two probes refuted their own hypothesis**, which is the cycle's best return:
 `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler

@@ -28,7 +28,8 @@ makes the guarantee below possible.
 > sentence saying why and what to write instead, and `regex_escape` writes any text as a
 > pattern that matches exactly it. Cycle 0.1.6 closes the cycle on its audit, which found
 > one wrong answer — an escaped text read as a POSIX class straight after a nested class's
-> `[` — and `:` is escaped now. Nothing matches a pattern yet.
+> `[` — and `:` is escaped now; and a fuzz pass of 120 000 seeded patterns holds the parser
+> to its offsets on every run. Nothing matches a pattern yet.
 > The specification set is in [`meta/specs/`](meta/specs/) and the plan in
 > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
 > discipline the compiler used — specs first, then a cycle map, then
