@@ -14,7 +14,8 @@
 //
 // THE CASES. 1 … 9 are H-5's six quantifier rows, their lazy forms, their bounds' edges and what
 // a quantifier may wrap; 10 … 14 the `.` row; 15 … 19 the `(?:…)` row; 20 … 23 the class row and
-// 24 … 27 the `(?i:…)` row, each STOPPING, the root unset -- what they will build is cycle 0.3.4's. 30 …
+// 24 … 27 the `(?i:…)` row, each STOPPING, the root unset -- what they will build is cycle 0.3.4's,
+// and `hir_build_classes.npk` and `hir_build_fold.npk` are those HIRs, pending until then. 30 …
 // 34 and 40 … 49 are the kinds H-5 maps to themselves: `Empty`, `Literal`, `Concat`, `Alternate`,
 // `Group` and the group table, `Anchor` under `m` and not, `WordBoundary` under `u` and not. 50 …
 // 58 are classes built from their members and C-3's surrogates; 60 … 69 flags erased -- eight pairs

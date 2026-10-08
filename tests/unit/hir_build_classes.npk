@@ -1,0 +1,156 @@
+// expect-exit: 0
+// pending-until: 0.3.4 exit 1
+//
+// H-5'S CLASS ROW, AS CYCLE 0.3.4 WILL BUILD IT: `\d`, `\w`, `\s`, POSIX and `\p{…}` a `Class` with
+// the ranges resolved -- and a class's negation and its operators, which that cycle resolves with
+// them. Cycle 0.2.1, RX-229; `HIR.md` H-5 and H-16, `UNICODE.md` U-9 and U-10.
+//
+// PENDING UNTIL CYCLE 0.3.4, ON EXIT 1 ALONE (`BUILD.md` B-5b, RX-226). Until that cycle fills
+// `src/hir/build.npk`'s first hook, `resolve_items`, and widens its `leaf`, the build stops at
+// every pattern here, and a build that stops exits 1 -- that and nothing else. A case whose build
+// completes and differs exits with its number, 10 and up, which the marker does not excuse: the run
+// is red then, not pending. The day every case builds as written the unit exits 0, the run goes red
+// to say the marker is stale, and the marker and its line in `harness/baseline/PENDING.txt` go.
+//
+// WHAT IT ASKS, AND ONLY WHAT A RULE PINS. Byte mode's three classes and their complements to the
+// byte, as U-9 writes them and H-1 sorts them (10 … 13); Unicode mode's by members a table cannot
+// move -- `\d` holds U+0660, `\w` U+200D (U-10's `Join_Control`), `\s` U+00A0 -- and by what each
+// leaves out (14 … 17); a POSIX class by members both readings cycle 0.3.2 may choose agree on
+// (18); a property by a member of its set (19); and negation and the three operators, left to
+// right (20 … 23). Every HIR it builds dumps, and reads back to the same text (H-15).
+mod:hir_build_classes;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+use "../../src/hir/hir.npk".*;
+
+// Whether `b` holds exactly the bytes of `want`.
+func:same = bool(Bytes->:b, uint8[]:want) never fails {
+    if ((raw bytes_len(b)) != want.len) { pass false; }
+    int64:i = 0i64;
+    while (i < want.len) decreases want.len - i {
+        if ((raw bytes_get(b, i)) != want[i]) { pass false; }
+        i = i + 1i64;
+    }
+    pass true;
+};
+
+// Builds `pattern` into `h`: 0 when the build completes and its dump reads back to the same text,
+// 1 when it stops -- the one exit this unit is pending on -- and `c` for anything else.
+func:build = int32(string:pattern, Hir->:h, int32:c) never fails {
+    uint8[]:pat = string_bytes(pattern);
+    Ast:t = raw ast_init(8i64);
+    PatternError?:e = raw parse_pattern(pat, @t);
+    int32:r = c;
+    if (e == NIL) {
+        int64:at = raw hir_build(pat, t, h);
+        if (at != HIR_NONE) { r = 1i32; }
+        else {
+            Bytes:b = raw bytes_init(64i64);
+            drop hir_dump(h, @b);
+            string:text = raw bytes_copy_string(@b);
+            Hir:h2 = raw hir_init(8i64);
+            Bytes:b2 = raw bytes_init(64i64);
+            if ((raw hir_read(string_bytes(text), @h2)) == HIR_NONE) {
+                drop hir_dump(@h2, @b2);
+                if (raw same(@b2, string_bytes(text))) { r = 0i32; }
+            }
+            drop hir_free(@h2);
+        }
+    }
+    drop ast_free(@t);
+    pass r;
+};
+
+// `pattern` builds, and its dump is `want`.
+func:exactly = int32(string:pattern, string:want, int32:c) never fails {
+    Hir:h = raw hir_init(8i64);
+    int32:r = raw build(pattern, @h, c);
+    if (r == 0i32) {
+        Bytes:b = raw bytes_init(64i64);
+        drop hir_dump(@h, @b);
+        if (!(raw same(@b, string_bytes(want)))) { r = c; }
+    }
+    drop hir_free(@h);
+    pass r;
+};
+
+// Whether the HIR's root matches the codepoint (or the byte) `cp`: a `Literal` that is it, or a
+// `Class` with a range that holds it.
+func:holds = bool(Hir->:h, int64:cp) never fails {
+    HirNode:n = raw hir_get(<-h, h.root);
+    if (n.kind == HirKind.Literal) { pass n.a == cp; }
+    if (n.kind != HirKind.Class) { pass false; }
+    int64:k = 0i64;
+    while (k < n.b) decreases n.b - k {
+        ClassRange:r = raw hir_range(<-h, n.a + k);
+        if (((r.lo => int64) <= cp) && (cp <= (r.hi => int64))) { pass true; }
+        k = k + 1i64;
+    }
+    pass false;
+};
+
+// `pattern` builds, and its root holds `yes1` and `yes2` and not `no`.
+func:members = int32(string:pattern, int64:yes1, int64:yes2, int64:no, int32:c) never fails {
+    Hir:h = raw hir_init(8i64);
+    int32:r = raw build(pattern, @h, c);
+    if ((r == 0i32) && ((!(raw holds(@h, yes1))) || (!(raw holds(@h, yes2))) || (raw holds(@h, no)))) { r = c; }
+    drop hir_free(@h);
+    pass r;
+};
+
+func:run = int32() never fails {
+    int32:r = 0i32;
+    // byte mode: U-9's three, and each complement within the 256 bytes
+    r = raw exactly("(?-u)\\d", "(class byte 48-57)", 10i32);                          if (r != 0i32) { pass r; }
+    r = raw exactly("(?-u)\\w", "(class byte 48-57 65-90 95-95 97-122)", 11i32);       if (r != 0i32) { pass r; }
+    r = raw exactly("(?-u)\\s", "(class byte 9-13 32-32)", 12i32);                     if (r != 0i32) { pass r; }
+    r = raw exactly("(?-u)\\D", "(class byte 0-47 58-255)", 13i32);                    if (r != 0i32) { pass r; }
+    r = raw exactly("(?-u)\\W", "(class byte 0-47 58-64 91-94 96-96 123-255)", 13i32); if (r != 0i32) { pass r; }
+    r = raw exactly("(?-u)\\S", "(class byte 0-8 14-31 33-255)", 13i32);               if (r != 0i32) { pass r; }
+    // Unicode mode: members a version cannot move, and what each leaves out
+    r = raw members("\\d", 48i64, 1632i64, 97i64, 14i32);                              if (r != 0i32) { pass r; }
+    r = raw members("\\w", 95i64, 8205i64, 32i64, 15i32);                              if (r != 0i32) { pass r; }
+    r = raw members("\\s", 9i64, 160i64, 97i64, 16i32);                                if (r != 0i32) { pass r; }
+    r = raw members("\\D", 97i64, 32i64, 48i64, 17i32);                                if (r != 0i32) { pass r; }
+    r = raw members("\\W", 32i64, 45i64, 97i64, 17i32);                                if (r != 0i32) { pass r; }
+    r = raw members("\\S", 97i64, 48i64, 32i64, 17i32);                                if (r != 0i32) { pass r; }
+    // POSIX: members the ASCII and the Unicode readings share
+    r = raw members("[[:digit:]]", 48i64, 57i64, 97i64, 18i32);                        if (r != 0i32) { pass r; }
+    r = raw members("[[:alpha:]]", 97i64, 90i64, 48i64, 18i32);                        if (r != 0i32) { pass r; }
+    r = raw members("(?-u)[[:digit:]]", 48i64, 57i64, 97i64, 18i32);                   if (r != 0i32) { pass r; }
+    // properties
+    r = raw members("\\pL", 97i64, 945i64, 48i64, 19i32);                              if (r != 0i32) { pass r; }
+    r = raw members("\\p{Greek}", 945i64, 937i64, 97i64, 19i32);                       if (r != 0i32) { pass r; }
+    r = raw members("\\PL", 48i64, 32i64, 97i64, 19i32);                               if (r != 0i32) { pass r; }
+    // negation, within the universe and less the surrogates (C-3), and the three operators
+    r = raw members("[^a]", 98i64, 1114111i64, 97i64, 20i32);                          if (r != 0i32) { pass r; }
+    r = raw members("[^a]", 98i64, 1114111i64, 55296i64, 20i32);                       if (r != 0i32) { pass r; }
+    r = raw exactly("(?-u)[^a]", "(class byte 0-96 98-255)", 20i32);                   if (r != 0i32) { pass r; }
+    r = raw members("[a-z&&[^aeiou]]", 98i64, 122i64, 97i64, 21i32);                   if (r != 0i32) { pass r; }
+    r = raw members("[a-c--b]", 97i64, 99i64, 98i64, 22i32);                           if (r != 0i32) { pass r; }
+    r = raw members("[a-c~~b-d]", 97i64, 100i64, 98i64, 23i32);                        if (r != 0i32) { pass r; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    exit raw run();
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

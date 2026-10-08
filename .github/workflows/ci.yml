@@ -17,7 +17,9 @@
 # `.npk` in the tree as a root. Those neither link nor run. *(This said "all 174
 # units build, link, run and are judged by their exit codes" until the fourth
 # audit (N-23): 107 of those 174 were compile-only.)* The runner prints each
-# suite's count on every run; take the numbers from there. None is PENDING.
+# suite's count on every run; take the numbers from there. Two are PENDING since
+# cycle 0.2.1 (none was from cycle 0.0.4b): the HIR's two hooks' tests, each on a
+# subcycle of this library, 0.3.4, and on its exit 1 (RX-226, RX-229).
 # THE ONE THAT WAS PENDING, AND ALL THAT HAPPENED TO IT. Through cycle 0.0.5 a
 # unit asserting against a compiler defect (DEF-25, fixed at `fe42dba`) was
 # committed red under a `pending-until:` marker and counted as neither a pass

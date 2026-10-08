@@ -5977,3 +5977,42 @@ where nothing was written, a trace of the flag that the erasure test reads as on
 and `AST_FLAG_I` is `HIR_FLAG_LAZY`'s value; **groups numbered as they are built** — a post-order walk numbers `((a))`'s
 inner group first; **a builder that answers `PatternError?` now** — the refusal cycle 0.2.2 adds decides its own answer,
 and this subcycle refuses nothing.
+
+### RX-229 — the hooks' two tests, written now and pending until cycle 0.3.4: what each will build, asked only where a rule pins it, and pending on the build's stop alone
+
+**2026-10-08, cycle 0.2.1 (the plan's PD-73), at compiler `5fbaf4a`** — `HIR.md` H-1, H-5 and H-16, `UNICODE.md` U-9, U-10,
+U-11, U-13 and U-14, `BUILD.md` B-5b as RX-226 leaves it, cycle 0.3's Gate, and the cycle README's 0.2.1 boxes: every
+row of H-5's table *"with a test each"*, the unresolved items *"a hook 0.3.4 fills with a test that fails until then"*
+(RX-223's note), and `(?i:…)`'s *"0.2 leaves a hook and 0.3 fills it, with a test that fails until then"* — which the
+0.3 README's 0.3.4 checklist closes with *"its pending test now green"*. RX-228 stops the build at both rows' nodes, so
+the test of what each row builds is correct and red until cycle 0.3.4.
+
+**The decision.** Two units, each pending under RX-226's marker, `pending-until: 0.3.4 exit 1`, with its line in
+`harness/baseline/PENDING.txt`. **`tests/unit/hir_build_classes.npk`** — H-5's class row and what cycle 0.3.4 resolves
+with it: byte mode's `\d`, `\w`, `\s` and their complements to the byte, written out as U-9 gives them and sorted as
+H-1 requires; Unicode mode's by members no Unicode version moves — U+0660 in `\d`, U+200D, U-10's `Join_Control`, in
+`\w`, U+00A0 in `\s` — and what each leaves out; two POSIX classes by members the ASCII reading and the Unicode one
+agree on, since which `UNICODE.md` §3 takes is cycle 0.3.2's decision; two properties by members of their sets; and
+negation, within the universe and less the surrogates, and the three operators, left to right.
+**`tests/unit/hir_build_fold.npk`** — the `(?i:…)` row: cycle 0.3's Gate, `(?i)k` holding U+212A and `(?i)s` U+017F, and each orbit
+from its other side; U-13's `(?i)[a-z]`; a codepoint with no case; `.`; and `k` folded within the bytes under `(?-u)`.
+**Each is pending on the build's stop alone**: a build that stops exits 1, and a build that completes and differs exits
+its case's number, 10 and up, which the marker does not excuse — so the day a hook builds the wrong set, the run is red,
+not pending; and the day every case builds as written, the unit meets its expectation, the run goes red to say the
+marker is stale, and the marker and its line are deleted. Each asks only what a rule already pins, by membership where
+a set's whole extent belongs to a table cycle 0.3.0 has not pinned. `build.npk`'s header and H-16 name them; the 0.3
+README's two 0.3.4 items point at the hooks and the units; `PENDING.txt`'s header, its README's, CI's comment and
+`SAFETY.md`'s note on the marker, four of the five texts that say nothing is pending, dated — `CLAUDE.md`'s with the prose.
+
+**Measured at `5fbaf4a`.** Each unit builds, links and exits 1 at both legs, and the run prints each as `PENDING until
+cycle 0.3.4`, outside the denominator: `294/294`, two pending, both lines matched. Neither builds anything yet, so no
+case past the first runs; each case's expected text and members were read against U-9, U-10 and U-13 at this
+subcycle, and cycle 0.3.4 is the first to run them.
+
+*Alternatives declined:* **one unit for both rows** — cycle 0.3.4 fills its hooks in steps, and a unit holding both
+would change its exit at the first step and be red between them for no defect; **pending on any failure** — a hook
+that builds the wrong set would stay pending under its marker, the hole RX-154 closed for a compiler defect; **whole
+Unicode sets written out** — `\d`'s extent is the version cycle 0.3.0 pins, and a text written now would be a guess at
+it; **POSIX classes written out** — cycle 0.3.2 decides their sets, and a test that chose would decide for it; **`(?i)`
+on a class with negation** — whether the fold comes before the complement is cycle 0.3.4's to decide, and is handed to
+it in the plan.

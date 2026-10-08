@@ -993,6 +993,9 @@ Three things worth keeping from it:
   of the denominator, and no file carries `pending-until` any more. That is a
   fact about this one unit and not about the mechanism, which is the third
   cycle 0.0 audit's BL-6.)*
+  *(2026-10-08, cycle 0.2.1 — RX-226, RX-229: two files carry it again, each pending on
+  a subcycle of this library rather than a compiler — `tests/unit/hir_build_classes.npk`
+  and `hir_build_fold.npk`, on cycle 0.3.4, which fills the HIR's hooks.)*
 
 **The general form: a citation of `exit 0` in a comment about a managed body is
 a defect in the comment, and it will be written again — it has now been written

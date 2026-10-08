@@ -172,6 +172,9 @@ it is built, so every node is reached from the root once, and H-15's bound is ex
 each must be the AST's number or the build stops `OutOfBounds`; an AST that is not a tree stops it
 `DecreasesViolated`. The walk is an explicit stack bounded by twice the arena (`SAFETY.md` S-19).
 `tests/unit/hir_build.npk` holds every row, and two units more each trap.
+*(2026-10-08, cycle 0.2.1 — RX-229: and two are pending until cycle 0.3.4, on the build's stop at a hook or in `leaf`:
+`tests/unit/hir_build_classes.npk`, the class row's HIRs and a class's negation and operators, and
+`hir_build_fold.npk`, the `(?i:…)` row's.)*
 
 ---
 

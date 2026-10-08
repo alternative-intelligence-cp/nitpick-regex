@@ -1,0 +1,129 @@
+// expect-exit: 0
+// pending-until: 0.3.4 exit 1
+//
+// H-5'S `(?i:…)` ROW, AS CYCLE 0.3.4 WILL BUILD IT: the inner tree, with simple case folding
+// already applied to every literal, class and `.` it covers. Cycle 0.2.1, RX-229; `HIR.md` H-5 and
+// H-16, `UNICODE.md` U-11, U-13 and U-14.
+//
+// PENDING UNTIL CYCLE 0.3.4, ON EXIT 1 ALONE (`BUILD.md` B-5b, RX-226). Until that cycle fills
+// `src/hir/build.npk`'s second hook, `fold_ranges`, the build stops at every pattern here, and a
+// build that stops exits 1 -- that and nothing else. A case whose build completes and differs
+// exits with its number, 10 and up, which the marker does not excuse: the run is red then, not
+// pending. The day every case builds as written here the unit exits 0, the run goes red to say
+// the marker is stale, and the marker and its line in `harness/baseline/PENDING.txt` go.
+//
+// WHAT IT ASKS, AND ONLY WHAT A RULE PINS. Cycle 0.3's gate, `(?i)k` matching U+212A KELVIN SIGN
+// and `(?i)s` U+017F LATIN SMALL LETTER LONG S (10, 11), and from the other side of each orbit
+// (12); U-13's own example, `(?i)[a-z]` (13); a codepoint with no case, which folding leaves
+// alone (14); `.`, which folding cannot widen (15); and `k` folded within the bytes under
+// `(?-u)` (16). Every HIR it builds dumps, and reads back to the same text (H-15).
+mod:hir_build_fold;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+use "../../src/hir/hir.npk".*;
+
+// Whether `b` holds exactly the bytes of `want`.
+func:same = bool(Bytes->:b, uint8[]:want) never fails {
+    if ((raw bytes_len(b)) != want.len) { pass false; }
+    int64:i = 0i64;
+    while (i < want.len) decreases want.len - i {
+        if ((raw bytes_get(b, i)) != want[i]) { pass false; }
+        i = i + 1i64;
+    }
+    pass true;
+};
+
+// Builds `pattern` into `h`: 0 when the build completes and its dump reads back to the same text,
+// 1 when it stops -- the one exit this unit is pending on -- and `c` for anything else.
+func:build = int32(string:pattern, Hir->:h, int32:c) never fails {
+    uint8[]:pat = string_bytes(pattern);
+    Ast:t = raw ast_init(8i64);
+    PatternError?:e = raw parse_pattern(pat, @t);
+    int32:r = c;
+    if (e == NIL) {
+        int64:at = raw hir_build(pat, t, h);
+        if (at != HIR_NONE) { r = 1i32; }
+        else {
+            Bytes:b = raw bytes_init(64i64);
+            drop hir_dump(h, @b);
+            string:text = raw bytes_copy_string(@b);
+            Hir:h2 = raw hir_init(8i64);
+            Bytes:b2 = raw bytes_init(64i64);
+            if ((raw hir_read(string_bytes(text), @h2)) == HIR_NONE) {
+                drop hir_dump(@h2, @b2);
+                if (raw same(@b2, string_bytes(text))) { r = 0i32; }
+            }
+            drop hir_free(@h2);
+        }
+    }
+    drop ast_free(@t);
+    pass r;
+};
+
+// Whether the HIR's root matches the codepoint (or the byte) `cp`: a `Literal` that is it, or a
+// `Class` with a range that holds it.
+func:holds = bool(Hir->:h, int64:cp) never fails {
+    HirNode:n = raw hir_get(<-h, h.root);
+    if (n.kind == HirKind.Literal) { pass n.a == cp; }
+    if (n.kind != HirKind.Class) { pass false; }
+    int64:k = 0i64;
+    while (k < n.b) decreases n.b - k {
+        ClassRange:r = raw hir_range(<-h, n.a + k);
+        if (((r.lo => int64) <= cp) && (cp <= (r.hi => int64))) { pass true; }
+        k = k + 1i64;
+    }
+    pass false;
+};
+
+// `pattern` builds, and its root holds `yes1` and `yes2` and not `no`.
+func:members = int32(string:pattern, int64:yes1, int64:yes2, int64:no, int32:c) never fails {
+    Hir:h = raw hir_init(8i64);
+    int32:r = raw build(pattern, @h, c);
+    if ((r == 0i32) && ((!(raw holds(@h, yes1))) || (!(raw holds(@h, yes2))) || (raw holds(@h, no)))) { r = c; }
+    drop hir_free(@h);
+    pass r;
+};
+
+func:run = int32() never fails {
+    int32:r = 0i32;
+    // the gate of cycle 0.3: KELVIN SIGN and LONG S
+    r = raw members("(?i)k", 75i64, 8490i64, 76i64, 10i32);                            if (r != 0i32) { pass r; }
+    r = raw members("(?i)k", 107i64, 8490i64, 108i64, 10i32);                          if (r != 0i32) { pass r; }
+    r = raw members("(?i)s", 83i64, 383i64, 84i64, 11i32);                             if (r != 0i32) { pass r; }
+    r = raw members("(?i)s", 115i64, 383i64, 116i64, 11i32);                           if (r != 0i32) { pass r; }
+    // the orbit from its other side
+    r = raw members("(?i)\\x{212A}", 75i64, 107i64, 76i64, 12i32);                   if (r != 0i32) { pass r; }
+    r = raw members("(?i)\\x{17F}", 83i64, 115i64, 84i64, 12i32);                    if (r != 0i32) { pass r; }
+    // U-13: `(?i)[a-z]` is `a-z` and `A-Z`, U+017F and U+212A
+    r = raw members("(?i)[a-z]", 65i64, 90i64, 91i64, 13i32);                          if (r != 0i32) { pass r; }
+    r = raw members("(?i)[a-z]", 383i64, 8490i64, 64i64, 13i32);                       if (r != 0i32) { pass r; }
+    // a codepoint with no case, and `.`
+    r = raw members("(?i)1", 49i64, 49i64, 50i64, 14i32);                              if (r != 0i32) { pass r; }
+    r = raw members("(?i).", 97i64, 65i64, 10i64, 15i32);                              if (r != 0i32) { pass r; }
+    // within the bytes
+    r = raw members("(?i-u)k", 75i64, 107i64, 76i64, 16i32);                           if (r != 0i32) { pass r; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    exit raw run();
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

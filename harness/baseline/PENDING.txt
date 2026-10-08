@@ -39,3 +39,10 @@
 # `tests/unit/bytes_copy_string_empty.npk` (DEF-25, fixed at `fe42dba`), started
 # passing at the re-pin to `c3bdae2` and its marker was deleted. This file was
 # added at the cycle 0.0 close's third triage, with nothing to list.
+#
+# *(2026-10-08, cycle 0.2.1 -- RX-229: two lines since, the first pending on a subcycle of
+# this library rather than a compiler: the tests of what cycle 0.3.4 builds at the HIR's two hooks
+# and in `leaf`. Each unit exits 1 while the build stops, at its hook or in `leaf`.)*
+
+tests/unit/hir_build_classes.npk	0.3.4	1	H-5's class row, and a class's negation and operators: the build stops at each until cycle 0.3.4 fills `resolve_items` and widens `leaf` (RX-229)
+tests/unit/hir_build_fold.npk	0.3.4	1	H-5's `(?i:…)` row: the build stops at each until cycle 0.3.4 fills `fold_ranges` (RX-229)

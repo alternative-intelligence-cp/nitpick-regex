@@ -55,13 +55,13 @@ design; recorded when chosen).
 - [ ] full folding's affected codepoints enumerated into `docs/` as the documented limitation (U-12)
 
 ### 0.3.4 — class resolution
-- [ ] 0.1's unresolved class items resolved to `ClassRange` lists
+- [ ] 0.1's unresolved class items resolved to `ClassRange` lists *(2026-10-08, cycle 0.2.1 — RX-228, RX-229: through the HIR build's first hook, `resolve_items` in `src/hir/build.npk`, where the build stops until then at a Perl class, a POSIX class, a property, a negated class and an operator inside a class; `tests/unit/hir_build_classes.npk` is pending on this subcycle, and goes red the day it builds as written, when its marker and its line in `harness/baseline/PENDING.txt` are deleted)* *(2026-10-08, cycle 0.2.1 — the orchestrator's decision, from the plan verifier's finding: `leaf` in `src/hir/build.npk` stops a bare Perl class, a bare property and a negated class before any hook, so filling `resolve_items` alone leaves `tests/unit/hir_build_classes.npk` at exit 1 — this subcycle widens `leaf` too)*
 - [ ] union, intersection (`&&`), difference (`--`), symmetric difference (`~~`) over sorted range lists, with Y-17's precedence *(2026-10-01, cycle 0.1.3 — RX-196 replaces Y-17's order: the three share one precedence and apply left to right, union tighter and negation last, and cycle 0.1.3's parser builds the tree in that order — this subcycle evaluates the tree as built)*
 - [ ] negation within the correct universe
 - [ ] folding applied **at resolution**, so the engine never folds (U-13)
 - [ ] `NREGEX_CLASS_RANGES` enforced; `ClassTooLarge` *(2026-10-08 — cycle 0.1.6b, RX-219: a row of `SYNTAX.md` Y-25's table, struck by the test that provokes it)*
 - [ ] *(2026-10-08 — cycle 0.1.6b, RX-219)* open question O-Y3 decided — `EmptyClass` raised where a class resolves to nothing, or retired as `EmptyAlternate` was — and its row in `SYNTAX.md` Y-25's table struck either way
-- [ ] 0.2's `(?i:…)` hook filled, and its pending test now green
+- [ ] 0.2's `(?i:…)` hook filled, and its pending test now green *(2026-10-08, cycle 0.2.1 — RX-228, RX-229: the hook is `fold_ranges` in `src/hir/build.npk`, where the build stops until then at every literal, class and `.` under `i` that reaches it; the test is `tests/unit/hir_build_fold.npk`, pending on this subcycle with exit 1, and "now green" is the run going red to say its marker is stale and the marker and its line deleted)*
 
 ### 0.3.5 — close
 - [ ] both table checks live and green
