@@ -224,6 +224,11 @@ length, and a `next` on a node in no list (`OutOfBounds`); and a walk longer tha
 which stops a node that wraps itself, and a node with two parents when every node hangs from the root. Beside a node
 nothing reaches, the walk's bound has room, and a shared node is written once for each parent: a builder builds a tree.
 `tests/unit/hir_dump.npk` holds both directions, and four units more each trap.
+*(2026-10-08, cycle 0.2.1 — RX-227: and the writer stops on a node whose `flags` hold a bit its kind does not take — H-4a's
+Bit column, `byte` on a `literal`, a `class` and a `wordboundary`, `lazy` on a `repeat` — `OutOfBounds`, so a dump that
+completes shows every bit its nodes hold and a dump compared with its expected text is a test of H-6. Five units trap
+now: `hir_dump_stray_bit.npk` is the fifth. A bit cycle 0.2.4 adds (H-9) is one this check refuses until that cycle
+says how the dump shows it.)*
 
 ---
 

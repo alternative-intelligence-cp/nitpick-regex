@@ -5898,3 +5898,31 @@ and B-5b refuse: *"a pending case is not a passing case"*; **the test left out o
 fills the hook** — *"how a defect gets forgotten between the day it is understood and the day it could be caught"*
 (B-5b), and nothing would redden the day it passes; **a second marker** — two grammars for one route out of the
 denominator, and every check B-5b holds the marker to written twice.
+
+### RX-227 — the dump stops on a bit a node's kind does not take, so a dump that completes shows every bit and is a test of H-6
+
+**2026-10-08, cycle 0.2.1 (the plan's PD-71), at compiler `5fbaf4a`** — `HIR.md` H-4a, H-6 and H-15, RX-225, and the cycle
+README's second 0.2.1 box: *"flags erased (H-6): nothing downstream knows what `i`, `s`, `m`, `u` or `x` meant. A test
+greps the HIR dump for any flag residue"*. The dump writes `byte` and `lazy` where H-4a puts them and reads no other
+bit, so a residue the dump cannot show cannot be grepped for — and the residue a builder leaves is exactly such a bit:
+copying a node's AST flags puts `AST_FLAG_U`, 16, on every node, which no word shows, and `AST_FLAG_M`, 2, on `(?m)^`,
+which is `HIR_FLAG_BYTE`'s value on a kind the text gives no `byte`.
+
+**The decision.** `hir_dump` stops on a node whose `flags` hold a bit its kind does not take — H-4a's Bit column:
+`HIR_FLAG_BYTE` on a `Literal`, a `Class` and a `WordBoundary`, `HIR_FLAG_LAZY` on a `Repeat`, none on any other —
+`OutOfBounds` through `vec_oob`, as it stops on a list's wrong count and a stray `next` (RX-225: the writer checks what
+the text cannot show). So a dump that completes shows every bit its nodes hold, and a test that compares a builder's
+dump with its expected text is a test of H-6 a leftover flag cannot pass. A unit, `hir_dump_stray_bit`, traps on a
+line-start anchor holding `HIR_FLAG_BYTE`; `hir_dump`, which holds every bit where H-4a puts it, exits 0 as before. H-15
+dated; `hir_dump.npk`'s header counts five trapping units. A bit cycle 0.2.4's computed properties add (H-9) is one this
+check refuses until that cycle says how the dump shows it.
+
+**Measured at `5fbaf4a`.** `hir_dump_stray_bit` exits 94 at both legs; with the check removed, 0, and with a mask that
+admits both bits on every kind, 0. Every unit of RX-225 exits as before, at both legs. The full run is `285/285`.
+
+*Alternatives declined:* **a residue test that walks the arena itself**, beside the dump — every builder's unit would
+need it, and a fixture's dump would still hide a bit; **the dump writing every bit as a number** — a word per bit the
+text does not have, and a canonical form that changes when cycle 0.2.4 adds its bits; **the check in `hir_set` and
+`hir_push`** — they store what a builder hands them, as the arena stores a wrong count, and the writer is where RX-225
+put the arena's other checks; **leaving it** — the cycle README's grep would read a text that cannot show what it
+looks for.

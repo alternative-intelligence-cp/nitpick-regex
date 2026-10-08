@@ -141,6 +141,15 @@ func:write_head = NIL(Hir->:h, HirNode:n, Bytes->:out) never fails {
     pass NIL;
 };
 
+// The bits a node of kind `k` may hold (H-4a): `HIR_FLAG_BYTE` on a `Literal`, a `Class` and a
+// `WordBoundary`, `HIR_FLAG_LAZY` on a `Repeat`, none on any other (RX-227). The text shows each
+// where it may be and nowhere else, so any other bit is one the dump would drop in silence.
+func:kind_bits = uint32(HirKind:k) never fails {
+    if ((k == HirKind.Literal) || (k == HirKind.Class) || (k == HirKind.WordBoundary)) { pass HIR_FLAG_BYTE; }
+    if (k == HirKind.Repeat) { pass HIR_FLAG_LAZY; }
+    pass 0u32;
+};
+
 // Whether a list's chain -- its first member and each one's `next` -- holds exactly its count,
 // `n.b`, of members. Walked at most `n.b + 1` steps, so a chain that loops ends here too.
 func:chain_holds = bool(Hir->:h, HirNode:n) never fails {
@@ -162,9 +171,11 @@ func:chain_holds = bool(Hir->:h, HirNode:n) never fails {
 // writer shows what the arena holds, and the reader says it is not a HIR.
 //
 // AND IT STOPS ON AN ARENA IT COULD NOT SHOW TRUTHFULLY, because the text has no place for
-// what is wrong there. A list's count that is not its chain's length, and a `next` on a node
-// in no list -- the root, a `Repeat`'s or a `Group`'s child -- each trap `OutOfBounds` at the
-// node, through `vec_oob`; a walk longer than twice the arena traps `DecreasesViolated` -- a
+// what is wrong there. A list's count that is not its chain's length, a `next` on a node in no
+// list -- the root, a `Repeat`'s or a `Group`'s child -- and a bit in `flags` the node's kind
+// does not take (H-4a; RX-227) each trap `OutOfBounds` at the node, through `vec_oob`, so a dump
+// that completes shows every bit its nodes hold; a walk longer than twice the arena traps
+// `DecreasesViolated` -- a
 // node that wraps itself, and a node with two parents when every node hangs from the root
 // (beside a node nothing reaches the bound has room, and a shared node is written once for
 // each parent). Each is a defect in the code that built the arena, and a builder's unit finds
@@ -186,6 +197,7 @@ pub func:hir_dump = NIL(Hir->:h, Bytes->:out) never fails {
         }
         else {
             HirNode:n = raw hir_get(<-h, v.node);
+            if ((n.flags & ~(raw kind_bits(n.kind))) != 0u32) { drop vec_oob(n.flags => int64); }
             if (v.op == VISIT_LIST) {
                 if (n.next != HIR_NONE) { drop vec_push(@todo, Visit{ node: n.next, op: VISIT_LIST }); }
             }
