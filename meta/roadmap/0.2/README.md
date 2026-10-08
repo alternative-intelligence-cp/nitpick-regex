@@ -38,7 +38,7 @@ RX-015, RX-031. Settled. **No open questions.**
 - [ ] the product multiplied on the way down, in `uint64`, narrowed only where proven (RX-015)
 - [ ] `NREGEX_REPEAT_MAX` on a single bound; `NREGEX_REPEAT_PRODUCT` on the nest *(2026-09-27, cycle 0.1.1: the single
   bound is the parser's since then — `RepeatTooLarge` at the number, RX-184 — so this subcycle's is the product)*
-- [ ] `((a{1000}){1000}){1000}` refused **at the third `{1000}`**, with that offset — asserted, because refusing at the end is a different and worse behaviour
+- [ ] `((a{1000}){1000}){1000}` refused **at the third `{1000}`**, with that offset — asserted, because refusing at the end is a different and worse behaviour *(2026-10-08 — cycle 0.1.6b, RX-219: as `RepeatProductTooLarge`, which `SYNTAX.md` Y-25's table lists for this subcycle; the test that provokes it strikes the row)*
 - [ ] a test that the refusal happens before any large allocation, by bounding the process's peak memory
 
 ### 0.2.3 — normalisation

@@ -5619,3 +5619,37 @@ lookbehind is known to fit S-6, if a consumer ever asks for one. No refusal and 
 reason was wrong is kept beside what is true; **the note left for a later subcycle that touches `SAFETY.md`** — the audit
 found that place named no cycle, and this one touches it; **the refusal of lookbehind reconsidered here** — RX-003 and
 S-6 decide it today, and a consumer's need is O-R1's question, not a close's.
+
+## The instruments — cycle 0.1.6b
+
+### RX-219 — the cycle 0.1 Gate amended: every kind is provoked by a test or listed with the cycle that will provoke it, and `check_error_kinds_tested` holds the list both ways
+
+**2026-10-08, cycle 0.1.6b (the plan's PD-63), at compiler `5fbaf4a`** — `SYNTAX.md` Y-25, `TESTING.md` §8 and V-19, and the
+cycle README's Gate and `ROADMAP.md`'s; the cycle audit's C4, S1 and K9. The Gate reads *"every kind in `SYNTAX.md` §9
+has a test that produces it, and `check_error_kinds_tested` is green"*. Of the thirty-eight kinds, thirty-four have a
+producer in `src/` and a unit that provokes them, and four have neither, and no parser can raise them: a product of
+repetitions is counted as the HIR is built (cycle 0.2.2), a class's ranges where it is resolved and a class that
+resolves to nothing is open question O-Y3 (both 0.3.4), and a program's instructions where it is compiled (0.6.2). So
+the Gate could not pass as written, and the cycle README's 0.1.6 box and O-Y3 named two of the four.
+
+**The decision.** Every kind in §9 is provoked by a test, or is a row of Y-25's table naming the cycle that will provoke
+it and why the parser cannot. `check_error_kinds_tested`, a tree check on every run, holds the table both ways: a kind
+no test provokes and no row lists fails it; so does a row whose kind a test provokes — stale, and read as a promise still
+owed — a row naming no kind `PatternErrorKind` declares, a row naming no cycle, and a row whose cycle's README does not
+name its kind, so every row's destination is a checklist's. A test provokes a kind when a unit under `tests/unit/` that
+parses a pattern names it outside a `pattern_error(…)` it builds — as a `refused` helper's argument, beside `.kind`, or
+as a `pick` arm. Self-check case 33 plants each way to be wrong beside a clean tree. The 0.2 and 0.3 READMEs name the
+kinds their subcycles raise, and the 0.3 README O-Y3. And two records the audit found beside the Gate: `TESTING.md`
+V-19's *"cycle 0.4"* for the second check reads cycle 0.6.1, as §8's table does (S1), and §9's RX-172 note is dated as
+the oldest of its four (K9).
+
+**Measured at `5fbaf4a`.** Over the tree the check reads thirty-eight kinds, thirty-four provoked by sixteen units that
+parse and four listed, and finds nothing; each of case 33's eight plants fails it by name and the clean tree passes; and
+each of the plan's §1.6 mutants of the check is red at case 33 or over the tree.
+
+*Alternatives declined:* **the four provoked now** — none is the parser's: each needs the HIR, the resolver or the
+compiler; **the four retired, as RX-181 retired `EmptyAlternate`** — each has a trigger a later cycle is planned to
+build, and `EmptyClass`'s is O-Y3's to decide; **the Gate kept, and cycle 0.1 left open until cycle 0.6** — a cycle held
+open by kinds it cannot reach; **the check made live where the last kind is provoked** — thirty-four kinds unguarded
+until then, the dormant-rule pattern the check exists to refuse; **the list in the check's own code** — a tree check
+diffs the library against a document, and which kinds wait is the specification's to say.

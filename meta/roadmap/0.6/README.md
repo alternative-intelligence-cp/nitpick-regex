@@ -40,7 +40,7 @@ RX-030, RX-031, RX-032. Settled. **No open questions.**
 - [ ] `a{2,4}` expands to the documented shape; `a{2,}` to `aa` plus a `Split` loop
 - [ ] greedy and lazy differ **only** in `Split` operand order, and a test asserts the two programs are otherwise identical
 - [ ] `NREGEX_REPEAT_PRODUCT` already checked at the HIR (H-8), so emission expands without re-deriving — asserted by a test that the compiler does no product arithmetic
-- [ ] `ProgramTooLarge` when `NREGEX_PROGRAM_INSTRUCTIONS` is exceeded
+- [ ] `ProgramTooLarge` when `NREGEX_PROGRAM_INSTRUCTIONS` is exceeded *(2026-10-08 — cycle 0.1.6b, RX-219: a row of `SYNTAX.md` Y-25's table, struck by the test that provokes it)*
 
 ### 0.6.3 — entry points
 - [ ] the unanchored `.*?` prefix compiled as a `Split` loop over the any-byte class

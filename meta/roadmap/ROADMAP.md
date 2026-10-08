@@ -228,6 +228,8 @@ by `NREGEX_NEST_DEPTH`, byte offsets on every error, and every
 **Gate:** every kind in §9 has a test that produces it, and
 `check_error_kinds_tested` is green — a kind nothing can produce is a promise
 the documentation makes and the code does not keep.
+*(2026-10-08, cycle 0.1.6b — RX-219: or is listed in `SYNTAX.md` Y-25's table with the cycle that will produce it — four
+are, none the parser's to raise — and the check holds the table both ways.)*
 
 ### 0.2 — The HIR
 `src/hir/`: the flat POD arena, the nine kinds, the desugaring table, the four

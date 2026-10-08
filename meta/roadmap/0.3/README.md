@@ -7,7 +7,7 @@ lookups over them.**
 
 RX-021, RX-022, RX-023. Settled.
 
-**Open questions to settle:** Q-1 / O-U2 (the version to pin — data, not
+**Open questions to settle:** *(2026-10-08 — cycle 0.1.6b, RX-219: and O-Y3, what `EmptyClass` names, at 0.3.4.)* Q-1 / O-U2 (the version to pin — data, not
 design; recorded when chosen).
 
 ## Subcycles
@@ -59,7 +59,8 @@ design; recorded when chosen).
 - [ ] union, intersection (`&&`), difference (`--`), symmetric difference (`~~`) over sorted range lists, with Y-17's precedence *(2026-10-01, cycle 0.1.3 — RX-196 replaces Y-17's order: the three share one precedence and apply left to right, union tighter and negation last, and cycle 0.1.3's parser builds the tree in that order — this subcycle evaluates the tree as built)*
 - [ ] negation within the correct universe
 - [ ] folding applied **at resolution**, so the engine never folds (U-13)
-- [ ] `NREGEX_CLASS_RANGES` enforced; `ClassTooLarge`
+- [ ] `NREGEX_CLASS_RANGES` enforced; `ClassTooLarge` *(2026-10-08 — cycle 0.1.6b, RX-219: a row of `SYNTAX.md` Y-25's table, struck by the test that provokes it)*
+- [ ] *(2026-10-08 — cycle 0.1.6b, RX-219)* open question O-Y3 decided — `EmptyClass` raised where a class resolves to nothing, or retired as `EmptyAlternate` was — and its row in `SYNTAX.md` Y-25's table struck either way
 - [ ] 0.2's `(?i:…)` hook filled, and its pending test now green
 
 ### 0.3.5 — close

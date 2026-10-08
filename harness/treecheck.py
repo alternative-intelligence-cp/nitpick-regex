@@ -1056,6 +1056,138 @@ def check_no_recursion(root):
                   f"{sum(len(v) for v in edges.values())} distinct edge(s)", fl, notes)
 
 
+# --- check_error_kinds_tested ---------------------------------------------------------
+
+_KINDS_FILE = os.path.join("src", "syntax", "pattern_error.npk")
+_KINDS_ENUM = re.compile(r"(?<![A-Za-z0-9_])pub\s+enum\s*:\s*PatternErrorKind\s*=\s*\{([^}]*)\}")
+_KIND_USE = re.compile(r"(?<![A-Za-z0-9_.])PatternErrorKind\s*\.\s*([A-Za-z_]\w*)")
+# A kind named as the first argument of `pattern_error(...)` is a value the unit BUILDS -- the `??` fallback every
+# refusal unit writes, or a sentence held without a pattern that raises it -- never one it provokes.
+_KIND_BUILT = re.compile(r"(?<![A-Za-z0-9_.])pattern_error\s*\(\s*$")
+# What turns a pattern into a refusal: the parse, and the two refusals it makes before any grammar.
+_PARSES = re.compile(r"(?<![A-Za-z0-9_.])(?:parse_pattern|parse_check_length|parse_check_encoding)\s*\(")
+_KINDS_TABLE = "| Kind no pattern reaches yet | Provoked from | Why the parser cannot |"
+_TABLE_ROW = re.compile(r"^\|\s*`([A-Za-z_]\w*)`\s*\|\s*([^|]*?)\s*\|")
+_CYCLE = re.compile(r"^cycle (\d+\.\d+)(?:\.\d+)?$")
+
+
+def _kinds_table(root):
+    """`SYNTAX.md` Y-25's table, as `[(kind, cycle cell, line)]` -- the rows under its header line, to the first line
+    that is no table row -- and whether the header was found."""
+    path = os.path.join(root, "meta", "specs", "SYNTAX.md")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            lines = fh.read().split("\n")
+    except OSError:
+        return [], False
+    rows, seen = [], False
+    for n, line in enumerate(lines, 1):
+        if not seen:
+            seen = line.strip() == _KINDS_TABLE
+            continue
+        if line.startswith("|---"):
+            continue
+        m = _TABLE_ROW.match(line)
+        if not m:
+            break
+        rows.append((m.group(1), m.group(2), n))
+    return rows, seen
+
+
+def check_error_kinds_tested(root):
+    """Every `PatternErrorKind` is provoked by a test, or listed with the cycle that will provoke it -- `SYNTAX.md`
+    Y-25 (RX-219), the cycle 0.1 Gate.
+
+    WHY. A kind nothing can produce is a promise the documentation makes and the code does not keep -- the shape the
+    compiler found three times and named the dormant-rule pattern, and what its `check_codes_tested` refuses. Four of
+    this library's kinds are raised by no parser: a product of repetitions, a class's ranges and a program's size are
+    counted where they are computed, and a class that resolves to nothing is open question O-Y3. So each such kind is a
+    row of Y-25's table, naming the cycle that will raise it, and the check holds the table BOTH WAYS: a kind no test
+    provokes and no row lists fails it; a row whose kind a test provokes fails it -- the row is stale, and the next
+    reader would take a provoked kind for a promise; and a row that names no kind the enum declares, or no cycle, or a
+    cycle whose README does not name the kind, fails it -- a destination nobody plans is the next C8.
+
+    WHAT "A TEST PROVOKES IT" MEANS HERE, AND WHAT IT CANNOT SEE. A unit under `tests/unit/` that parses -- calls
+    `parse_pattern`, `parse_check_length` or `parse_check_encoding` -- and names `PatternErrorKind.<kind>` in its code,
+    comments and strings blanked, outside the first argument of a `pattern_error(...)` it builds: as a `refused`
+    helper's argument, beside `.kind`, or as a `pick` arm, the four shapes the units hold. It reads names, not
+    meaning: a unit that names a kind only to require it ABSENT would count it provoked, so a test of that shape says
+    why in its own header, and review is the guard. The enum is read from `src/syntax/pattern_error.npk`."""
+    fl, notes = [], []
+    kinds_path = os.path.join(root, _KINDS_FILE)
+    try:
+        code = lexical.blank(lexical.read(kinds_path))
+    except (OSError, ValueError):
+        code = ""
+    m = _KINDS_ENUM.search(code)
+    if not m:
+        return Result("check_error_kinds_tested", "SYNTAX.md Y-25 (RX-219)", "no enum",
+                      [f"{_KINDS_FILE} declares no `pub enum:PatternErrorKind`, so there is no list of kinds to hold "
+                       f"to the tests -- SYNTAX.md §9 is the list, and Y-25 the rule (RX-172, RX-219)."])
+    kinds = [k.strip() for k in m.group(1).split(";") if k.strip()]
+    provoked, units, parsing = {}, npk_files(root, os.path.join("tests", "unit")), 0
+    for path in units:
+        text = _read(path)
+        c = lexical.blank(text)
+        if not _PARSES.search(c):
+            continue
+        parsing += 1
+        rel = os.path.relpath(path, root)
+        for u in _KIND_USE.finditer(c):
+            if _KIND_BUILT.search(c, max(0, u.start() - 48), u.start()):
+                continue
+            provoked.setdefault(u.group(1), []).append(rel)
+    rows, seen = _kinds_table(root)
+    listed = {}
+    for kind, cell, line in rows:
+        where = f"meta/specs/SYNTAX.md:{line}"
+        if kind in listed:
+            fl.append(f"{where}: Y-25's table lists `{kind}` twice. One row per kind (RX-219).")
+            continue
+        listed[kind] = cell
+        if kind not in kinds:
+            fl.append(f"{where}: Y-25's table lists `{kind}`, which `PatternErrorKind` does not declare. Strike the "
+                      f"row, or declare the kind in §9 and `{_KINDS_FILE}` by a decision (RX-219).")
+            continue
+        if kind in provoked:
+            fl.append(f"{where}: Y-25's table lists `{kind}` as a kind no pattern reaches yet, and "
+                      f"{provoked[kind][0]} provokes it. Strike the row in the commit that made the test: a provoked "
+                      f"kind left on the list reads as a promise still owed (RX-219).")
+            continue
+        cyc = _CYCLE.match(cell)
+        if not cyc:
+            fl.append(f"{where}: Y-25's table gives `{kind}` no cycle -- `{cell}`. Write the cycle that will provoke "
+                      f"it, as `cycle 0.3.4`: a destination nobody can find is a deferral with no owner (RX-219).")
+            continue
+        readme = [os.path.join(root, "meta", "roadmap", sub, cyc.group(1), "README.md") for sub in ("", "done")]
+        found = [p for p in readme if os.path.exists(p)]
+        said = False
+        for p in found:
+            with open(p, encoding="utf-8") as fh:
+                if f"`{kind}`" in fh.read():
+                    said = True
+        if not said:
+            fl.append(f"{where}: Y-25's table says `{kind}` is provoked from {cell}, and "
+                      f"{'no README of cycle ' + cyc.group(1) + ' exists' if not found else os.path.relpath(found[0], root) + ' does not name it'}. "
+                      f"The cycle's checklist names the kind it will raise, or the row names the cycle that does "
+                      f"(RX-219).")
+    for kind in kinds:
+        if kind not in provoked and kind not in listed:
+            fl.append(f"{_KINDS_FILE}: `{kind}` is provoked by no unit under tests/unit/ and listed in no row of "
+                      f"SYNTAX.md Y-25's table. A kind nothing can produce is a promise the documentation makes and the "
+                      f"code does not keep: write the test that provokes it, or list it with the cycle that will "
+                      f"(SYNTAX.md Y-25, RX-219).")
+    if not seen:
+        notes.append("SYNTAX.md holds no table headed `" + _KINDS_TABLE + "`, so every kind must be provoked.")
+    for kind in kinds:
+        if kind in listed and kind not in provoked:
+            notes.append(f"`{kind}`: listed, {listed[kind]}.")
+    return Result("check_error_kinds_tested", "SYNTAX.md Y-25 (RX-219)",
+                  f"{len(kinds)} kind(s) in PatternErrorKind, {sum(1 for k in kinds if k in provoked)} provoked by "
+                  f"{parsing} unit(s) that parse, {len(listed)} listed with the cycle that will provoke them",
+                  fl, notes)
+
+
 # --- check_specs_current --------------------------------------------------------------
 
 _SPEC_LINK = re.compile(r'\[[^\]]*\]\(([^)]+\.md)(?:#[^)]*)?\)')
@@ -1276,7 +1408,7 @@ def check_dated_measurements(root):
 
 ALL = [check_layering, check_error_budget, check_constants_named,
        check_no_division, check_accessor_confinement,
-       check_vec_elements_own_nothing, check_no_recursion,
+       check_vec_elements_own_nothing, check_no_recursion, check_error_kinds_tested,
        check_dated_measurements, check_specs_current]
 REPORTING_ONLY = {"check_specs_current"}
 

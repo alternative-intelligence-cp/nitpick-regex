@@ -59,6 +59,11 @@ reader stubbed to invent every import and see no code. Cases 20 and 21 are a
 lone CR and an escaped path hiding a syscall from B-2. Case 22 is RX-159's
 "every run" half, which no case exercised (N-27).
 
+CASE 33 IS THE CYCLE 0.1 GATE'S INSTRUMENT (cycle 0.1.6b, RX-219): `check_error_kinds_tested` fed a kind nothing
+provokes, one a unit only builds, one named in a unit that parses nothing and one in a comment, and four rows of
+`SYNTAX.md` Y-25's table -- stale, unknown, with no cycle, and with a cycle whose README does not name its kind -- each
+required to fail it by name, beside a clean tree whose listed kind a unit builds and names in a comment.
+
 WHY CASE 7 IS THE MOST IMPORTANT ONE IN THE LIST, though it cannot run for
 five more cycles: it is the case that proves RX-041 -- "every engine gives the
 same answer" -- is being CHECKED rather than assumed. Every other case guards
@@ -748,6 +753,73 @@ def _case32(d):
     return None                                   # handled by `_run_case32`
 
 
+def _kinds_tree(names, units, rows=(), readme="the kind it raises: `Gamma`"):
+    """A tree for `check_error_kinds_tested`: an enum of `names`, the units given, `SYNTAX.md` Y-25's table holding
+    `rows` -- `(kind, cycle cell)` -- and a README for cycle 0.9 saying `readme`."""
+    t = {"src/syntax/pattern_error.npk": "mod:pattern_error;\n\npub enum:PatternErrorKind = {\n"
+                                        + "".join(f"    {n};\n" for n in names) + "};\n",
+         "meta/specs/SYNTAX.md": "# the pattern language\n\n| Kind no pattern reaches yet | Provoked from | Why the parser "
+                                 "cannot |\n|---|---|---|\n" + "".join(f"| `{k}` | {c} | a reason |\n" for k, c in rows)
+                                 + "\nThe next paragraph.\n",
+         "meta/roadmap/0.9/README.md": "# Cycle 0.9\n\n- [ ] " + readme + "\n"}
+    t.update(units)
+    return t
+
+
+def _kinds_unit(*lines, parses=True):
+    """A unit under `tests/unit/` whose code holds `lines`, and a parse if `parses`."""
+    head = "    PatternError?:r = raw parse_pattern(p, @t);\n" if parses else ""
+    return ("mod:u;\n\nfunc:run = int32() never fails {\n" + head
+            + "".join("    " + l + "\n" for l in lines) + "    pass 0i32;\n};\n")
+
+
+def _run_case33(case):
+    """Case 33, on the instrument: `check_error_kinds_tested` over eight planted trees -- a kind no test provokes and
+    no row lists; one a unit only builds, as the `??` fallback every refusal unit writes; one named in a unit that
+    parses nothing; one named in a comment; and four rows of `SYNTAX.md` Y-25's table, one whose kind a test provokes,
+    one naming no kind the enum declares, one naming no cycle and one whose cycle's README does not name its kind --
+    and a clean tree whose listed kind a unit builds and names in a comment, neither of which provokes it (RX-219)."""
+    A = 'if (!(raw refused("(", PatternErrorKind.Alpha, 0i64, 1i64, 1u32))) { pass 1i32; }'
+    B = "if (e.kind != PatternErrorKind.Beta) { pass 2i32; }"
+    built = "PatternError:e = r ?? raw pattern_error(PatternErrorKind.Beta, 0i64, 0i64, 0u32);"
+    return _run_plants(case, "check_error_kinds_tested", [
+        ("a kind no test provokes and no row lists",
+         _kinds_tree(["Alpha", "Beta"], {"tests/unit/u.npk": _kinds_unit(A)}),
+         ["`Beta` is provoked by no unit"]),
+        ("a kind a unit only builds",
+         _kinds_tree(["Alpha", "Beta"], {"tests/unit/u.npk": _kinds_unit(A, built)}),
+         ["`Beta` is provoked by no unit"]),
+        ("a kind named in a unit that parses nothing",
+         _kinds_tree(["Alpha", "Beta"], {"tests/unit/u.npk": _kinds_unit(A),
+                                         "tests/unit/v.npk": _kinds_unit(B, parses=False)}),
+         ["`Beta` is provoked by no unit"]),
+        ("a kind named in a comment",
+         _kinds_tree(["Alpha", "Beta"], {"tests/unit/u.npk": _kinds_unit(A, "// " + B)}),
+         ["`Beta` is provoked by no unit"]),
+        ("a row whose kind a test provokes",
+         _kinds_tree(["Alpha", "Beta"], {"tests/unit/u.npk": _kinds_unit(A, B)}, [("Beta", "cycle 0.9.1")],
+                     "the kind it raises: `Beta`"),
+         ["lists `Beta` as a kind no pattern reaches yet"]),
+        ("a row naming no kind the enum declares",
+         _kinds_tree(["Alpha"], {"tests/unit/u.npk": _kinds_unit(A)}, [("Delta", "cycle 0.9.1")]),
+         ["lists `Delta`, which `PatternErrorKind` does not declare"]),
+        ("a row naming no cycle",
+         _kinds_tree(["Alpha", "Gamma"], {"tests/unit/u.npk": _kinds_unit(A)}, [("Gamma", "later")]),
+         ["gives `Gamma` no cycle"]),
+        ("a row whose cycle's README does not name its kind",
+         _kinds_tree(["Alpha", "Gamma"], {"tests/unit/u.npk": _kinds_unit(A)}, [("Gamma", "cycle 0.9.1")],
+                     "the kind it raises: none named"),
+         ["does not name it"]),
+    ], _kinds_tree(["Alpha", "Beta", "Gamma"],
+                   {"tests/unit/u.npk": _kinds_unit(A, B, "PatternError:g = r ?? raw pattern_error(PatternErrorKind.Gamma, 0i64, 0i64, 0u32);",
+                                                    "// PatternErrorKind.Gamma is listed, and this comment provokes nothing")},
+                   [("Gamma", "cycle 0.9.1")]))
+
+
+def _case33(d):
+    return None                                   # handled by `_run_case33`
+
+
 def _case19(d):
     """A RED UNIT HIDDEN BY TWO LONE CARRIAGE RETURNS -- the fifth audit's BL-9 (a).
 
@@ -1153,6 +1225,11 @@ CASES = [
          "RX-202: `check_constants_named` read a literal as decimal digits after the operator "
          "and passed all six -- a spelling it cannot read is a bound it cannot see",
          _case32, ()),
+    Case(33, "a kind no test provokes, one a unit only builds, one named where nothing parses or in a comment, "
+             "and a stale, an unknown, an undated and an unplanned row of Y-25's table",
+         "RX-219: the cycle 0.1 Gate -- every kind provoked or listed with the cycle that will provoke it, held "
+         "both ways; a kind nothing produces is the dormant-rule pattern the compiler's `check_codes_tested` refuses",
+         _case33, ()),
 ]
 
 
@@ -1260,6 +1337,8 @@ def _run_case(case, keep):
         return _run_case31(case)
     if case.num == 32:
         return _run_case32(case)
+    if case.num == 33:
+        return _run_case33(case)
     d = tempfile.mkdtemp(prefix=f"nregex-selfcheck-{case.num}-")
     try:
         toml = case.build_tree(d)

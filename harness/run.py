@@ -45,7 +45,9 @@ stub this replaced could assert almost nothing:
     than fails -- `treecheck.ALL` is the list, and the run prints each);
     *(2026-10-02, cycle 0.1.5: this list named eight until then and left out
     `check_no_recursion`, the ninth since cycle 0.1.2 (RX-192) -- found by cycle
-    0.1.4's record.)*
+    0.1.4's record.)* *(2026-10-08, cycle 0.1.6b: and `check_error_kinds_tested`,
+    the tenth -- every `PatternErrorKind` provoked by a unit or listed in
+    `SYNTAX.md` Y-25's table with the cycle that will provoke it (RX-219).)*
   * every unit a `pending-until:` marker took out of the denominator is on the
     reviewed list `harness/baseline/PENDING.txt`, gave exactly the exit its
     marker names on every leg and every run, and did not meet its expectation

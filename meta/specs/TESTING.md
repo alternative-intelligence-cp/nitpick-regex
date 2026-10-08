@@ -210,7 +210,7 @@ framing that let both be wrong. The framing is the column.
 | `check_no_syscalls` | **yes**, as a BUILD STEP and not a tree check | the object's undefined symbols, **and the IR's floor call edges**, against the committed baseline — RX-116 and RX-120, §2 |
 | `check_tables_regenerate` | no — **cycle 0.3** | the committed Unicode tables against a fresh generator run |
 | `check_table_invariants` | no — **cycle 0.3** | every range table sorted, disjoint, `lo <= hi`, within `U+10FFFF` |
-| `check_error_kinds_tested` | no — **cycle 0.1** | every `PatternErrorKind` against the tests that provoke it (`SYNTAX.md` Y-25) |
+| `check_error_kinds_tested` | **yes** — *since cycle 0.1.6b, RX-219; "no — cycle 0.1" until then* | every `PatternErrorKind` against the tests that provoke it, and `SYNTAX.md` Y-25's table of the kinds no pattern reaches yet against the cycles named to provoke them, both ways (`SYNTAX.md` Y-25) |
 | `check_inst_kinds_total` | no — **cycle 0.6** (0.6.1, the compiler's and the oracle's half; each engine's half with its cycle, the Pike VM's at 0.7) | every `InstKind` emitted by the compiler and handled by every engine and the oracle |
 | `check_hir_kinds_total` | no — **cycle 0.2** | the same for `HirKind` |
 | `check_byte_class_partition` | no — **cycle 0.4** (0.4.3) | `COMPILE.md` C-9's property, over every corpus program |
@@ -229,6 +229,8 @@ from this table: the count moved *inside* the subcycle that last corrected it.
 *(2026-10-01, cycle 0.1.2 — RX-192: **nine** run on every full invocation since
 `check_no_recursion` joined `ALL`, eight of which can fail the run; `check_no_syscalls`
 stays the build step beside them.)*
+*(2026-10-08, cycle 0.1.6b — RX-219: **ten** since `check_error_kinds_tested` joined `ALL`, nine of which can fail the
+run.)*
 
 **Rule V-22 — A CHECK IS A RULE ONLY OVER THE FILES IT OPENS, so every check
 here reports what it examined and not merely its verdict.** This module's own
@@ -250,6 +252,9 @@ that emits it. Both are stated in the future tense on purpose: the rule was
 written in the present, two lines under a table that listed them as running, and
 a reader had no way to tell. **Cycle 0.1 builds the first and cycle 0.4 the
 second**, and V-19 becomes a present-tense rule on the day the second lands.
+*(2026-10-08, cycle 0.1.6b — RX-219: the first exists, live since this cycle, and its half of the rule is in the present.
+The second is cycle 0.6.1's, as §8's table says — "cycle 0.4" above is the table's old cycle, which cycle 0.1.0b's EC11
+corrected there and not here (the cycle audit's S1).)*
 
 ---
 
@@ -338,6 +343,14 @@ requires it to report every one as a failure. The list is `harness/selfcheck.py`
     decimal, a hex, a binary and an octal literal, a width suffix past `u64`, a
     literal left of the comparison — each failing by its text and its value, and a
     clean tree passing (RX-202). On the instrument.
+33. `check_error_kinds_tested` over eight planted trees — a kind no test provokes
+    and no row lists; one a unit only builds, as the `??` fallback every refusal
+    unit writes; one named in a unit that parses nothing, and one in a comment;
+    and four rows of `SYNTAX.md` Y-25's table, one whose kind a test provokes, one
+    naming no kind the enum declares, one naming no cycle and one whose cycle's
+    README does not name its kind — each failing by name, and a clean tree passing
+    whose listed kind a unit builds and names in a comment (RX-219). On the
+    instrument.
 
 *(Reconciled 2026-09-25 by the third cycle 0.0 audit's triage, RX-154. This list
 had eight bullets and `CASES` eleven entries, and they disagreed in BOTH
@@ -381,6 +394,9 @@ day it was written.)*
 stood before — all six plants passed — and against two broken readers: one that never read
 the left of a comparison, and one that never read a base suffix. **33 cases, 29 live, 4
 pending** on the day it was written.)*
+
+*(Extended 2026-10-08 by cycle 0.1.6b, RX-219: 33. It was seen to fail against each mutant of the check that the plan's
+§1.6 lists. **34 cases, 30 live, 4 pending** on the day it was written.)*
 
 **Rule V-21 — the self-check runs first in every full invocation.** A harness
 that has not proven it can fail has not proven anything.

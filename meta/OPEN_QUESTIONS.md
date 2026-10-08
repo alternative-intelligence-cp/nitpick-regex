@@ -937,6 +937,8 @@ movemask intrinsic, which is a better request than a speculative one.
   resolution can see one. **Decide at cycle 0.3.4**, where a class's set is first computed; until then cycle
   0.1.6's `check_error_kinds_tested` must count it among the kinds a later cycle provokes, as it must
   `ClassTooLarge`.
+  *(2026-10-08, cycle 0.1.6b — RX-219: it does, from `specs/SYNTAX.md` Y-25's table, which names cycle 0.3.4 for both and
+  lists `RepeatProductTooLarge` and `ProgramTooLarge` too: four kinds, not two.)*
 
 ### Unicode
 

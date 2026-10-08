@@ -7,6 +7,8 @@
 // against the tests that provoke each kind, and it cannot be written against an
 // enum that is still moving; a kind added later is a kind nobody notices is
 // untested.
+// *(2026-10-08, cycle 0.1.6b -- RX-219: live on every run since; a kind no pattern
+// reaches yet is a row of `SYNTAX.md` Y-25's table, with the cycle that will.)*
 //
 // `PatternError` is `SAFETY.md` rule S-9's value: the kind, the byte offset into
 // the pattern (`SYNTAX.md` Y-10), a length where the construct spans more than a

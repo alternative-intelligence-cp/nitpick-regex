@@ -180,7 +180,7 @@ fixed, twenty-two findings; [`0.1.6.md`](0.1.6.md) §2 triages every one.)*
 - [ ] the parser's fuzz pass, a unit on every run: never traps, always ends, an AST or a refusal at a valid offset — the pattern's length one too, spanning nothing, as `(?<` gives (K6) — PD-65
 
 ### 0.1.6 — close
-- [ ] **`check_error_kinds_tested` live and green**: every `PatternErrorKind` in `SYNTAX.md` §9 has a test that provokes it *(2026-10-01 — RX-197: no pattern reaches `EmptyClass` in the parser, open question O-Y3 for cycle 0.3.4, so the check counts it with the kinds a later cycle provokes, as it does `ClassTooLarge`)* *(2026-10-01 — cycle 0.1.4: thirty-eight kinds; `DuplicateFlag` and `ExtendedAmbiguity` are new, each provoked by `parse_flag_refusals`)* *(2026-10-02 — cycle 0.1.5: `UnsupportedAnchor` and `UnsupportedQuoting`, which no pattern reached before, are provoked by `parse_declined`; `UnknownUnicodeProperty`'s detail 4, a block, is cycle 0.3.1's to raise, and the kind is provoked already)*
+- [ ] **`check_error_kinds_tested` live and green**: every `PatternErrorKind` in `SYNTAX.md` §9 has a test that provokes it *(2026-10-01 — RX-197: no pattern reaches `EmptyClass` in the parser, open question O-Y3 for cycle 0.3.4, so the check counts it with the kinds a later cycle provokes, as it does `ClassTooLarge`)* *(2026-10-01 — cycle 0.1.4: thirty-eight kinds; `DuplicateFlag` and `ExtendedAmbiguity` are new, each provoked by `parse_flag_refusals`)* *(2026-10-02 — cycle 0.1.5: `UnsupportedAnchor` and `UnsupportedQuoting`, which no pattern reached before, are provoked by `parse_declined`; `UnknownUnicodeProperty`'s detail 4, a block, is cycle 0.3.1's to raise, and the kind is provoked already)* *(2026-10-08 — cycle 0.1.6b, RX-219: the kinds a later cycle provokes are four, not two — `RepeatProductTooLarge` and `ProgramTooLarge` beside `EmptyClass` and `ClassTooLarge` — each a row of `SYNTAX.md` Y-25's table, which the check holds both ways)*
 - [ ] a fuzz pass over random byte strings as patterns: never traps, always terminates, always produces a program or an error with a valid offset
 - [ ] findings written; `0.2.0.md` written; archived
 
@@ -190,6 +190,10 @@ Every kind in `SYNTAX.md` §9 has a test that produces it, and
 `check_error_kinds_tested` is green. A kind nothing can produce is a promise
 the documentation makes and the code does not keep — the compiler found that
 shape three times and called it the dormant-rule pattern.
+*(2026-10-08, cycle 0.1.6b — RX-219: or is listed in `SYNTAX.md` Y-25's table with the cycle that will produce it, and
+`check_error_kinds_tested` holds the table both ways. Four kinds are listed — `RepeatProductTooLarge` (0.2.2),
+`EmptyClass` and `ClassTooLarge` (0.3.4), `ProgramTooLarge` (0.6.2) — none of them the parser's to raise, so the Gate
+as first written could not pass (the cycle audit's C4).)*
 
 ## Watch for
 

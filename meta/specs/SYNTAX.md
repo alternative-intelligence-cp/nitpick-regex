@@ -756,6 +756,18 @@ reads the lookaround's sentence.)*
 **Rule Y-25 — every kind has a test that provokes it**, and a harness check
 diffs the enum against the tests, so a kind nothing can produce is caught. This
 is the compiler's `check_codes_tested` in this library's terms.
+*(2026-10-08, cycle 0.1.6b — RX-219: or is a row of the table below, naming the cycle that will provoke it and why the
+parser cannot — four are. `check_error_kinds_tested` holds the table both ways on every run: a kind no test provokes
+and no row lists fails it, and so do a row whose kind a test provokes, a row naming no kind §9 declares, a row naming
+no cycle, and a row whose cycle's README does not name its kind. A test provokes a kind when a unit under `tests/unit/`
+that parses a pattern names it, outside a `pattern_error(…)` it builds.)*
+
+| Kind no pattern reaches yet | Provoked from | Why the parser cannot |
+|---|---|---|
+| `RepeatProductTooLarge` | cycle 0.2.2 | `NREGEX_REPEAT_PRODUCT` bounds a product across nested repetitions, counted as the HIR is built (`SAFETY.md` §5) |
+| `EmptyClass` | cycle 0.3.4 | every class the parser builds holds a member (Y-36); whether a class that resolves to nothing is this kind is open question O-Y3 |
+| `ClassTooLarge` | cycle 0.3.4 | `NREGEX_CLASS_RANGES` counts a class's ranges after folding, where it is resolved (`SAFETY.md` §5) |
+| `ProgramTooLarge` | cycle 0.6.2 | `NREGEX_PROGRAM_INSTRUCTIONS` counts a compiled program's instructions (`SAFETY.md` §5) |
 
 **What each refusal cycle 0.1.1 makes carries** — Y-10's offset and length, and the
 detail a message is built from (Y-29 … Y-32) *(and, since 2026-10-01, each cycle 0.1.3's classes make — Y-36 … Y-38,
@@ -818,6 +830,9 @@ where a codepoint was due. `UnknownUnicodeProperty`'s details are reasons, not c
 before the parser produces any of them, and `tests/unit/pattern_error_unit.npk`
 holds the enum to the list with an exhaustive `pick`. The harness check is
 cycle 0.1.6's.)*
+*(2026-10-08, cycle 0.1.6b — the cycle audit's K9: that note is the oldest of the four above it, though it stands last —
+thirty-seven was cycle 0.1.0's count, and §9 holds thirty-eight since cycle 0.1.4 (RX-207); the harness check is live
+since this cycle (Y-25, RX-219).)*
 
 ---
 
