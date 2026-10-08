@@ -29,7 +29,7 @@ index 77c41daab90d27e2394a91c9ff1bc04fa42eb7a3..972b6927ebce84c476749ff7ffbe9b51
 +**Measured at `5fbaf4a`.** The unit exits 0 at −O0 and through `opt -O2`, under a second a leg; it accepts 17 252
 +patterns and refuses 102 748, meeting thirty-one of the thirty-four kinds the parser raises — all but `NestTooDeep`,
 +`TooManyCaptureGroups` and `PatternTooLong`, which need patterns longer than its own and which `parse_limits` and
-+`parse_nest_deep` hold; and each of the plan's §1.7 mutants is red at its case.
++`parse_nest_deep` hold; and each of the plan's §1.6 mutants is red at its case.
 +
 +*Alternatives declined:* **a one-off campaign, recorded and not kept** — the property would hold on the day it ran and
 +on no later commit; **a fuzzer in `tools/` driving the parser from Python** — a process per pattern, and V-17's

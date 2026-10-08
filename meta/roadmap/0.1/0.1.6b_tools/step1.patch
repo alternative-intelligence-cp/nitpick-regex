@@ -310,7 +310,7 @@ index 66a57d9e5a47297aa36cdb72422c91f3a545fe9e..71d43872231da31f9d1e17659e397e1d
 +
 +**Measured at `5fbaf4a`.** Over the tree the check reads thirty-eight kinds, thirty-four provoked by sixteen units that
 +parse and four listed, and finds nothing; each of case 33's eight plants fails it by name and the clean tree passes; and
-+each of the plan's §1.4 mutants of the check is red at case 33 or over the tree.
++each of the plan's §1.6 mutants of the check is red at case 33 or over the tree.
 +
 +*Alternatives declined:* **the four provoked now** — none is the parser's: each needs the HIR, the resolver or the
 +compiler; **the four retired, as RX-181 retired `EmptyAlternate`** — each has a trigger a later cycle is planned to
@@ -502,7 +502,7 @@ index 9a7809295f4063cf732d7ab429d29a08cf14a937..b1aaa8ce219a7f42da3f25f62c9d46fc
  pending** on the day it was written.)*
  
 +*(Extended @@DATE@@ by cycle 0.1.6b, RX-219: 33. It was seen to fail against each mutant of the check that the plan's
-+§1.4 lists. **34 cases, 30 live, 4 pending** on the day it was written.)*
++§1.6 lists. **34 cases, 30 live, 4 pending** on the day it was written.)*
 +
  **Rule V-21 — the self-check runs first in every full invocation.** A harness
  that has not proven it can fail has not proven anything.
