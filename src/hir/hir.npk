@@ -1,17 +1,22 @@
-// `src/hir/` — the high-level intermediate. PLACEHOLDER: nothing yet.
+// `src/hir/hir.npk` — THE HIGH-LEVEL INTERMEDIATE'S LAYER ENTRY. A module above `hir`
+// writes one import, this file, and reaches what the layer offers.
 //
-// FILLED BY cycle 0.2, governed by `meta/specs/HIR.md`. Desugaring and
-// normalisation, flattened into a POD arena: a node declares no owning field,
-// which is why `HIR.md` H-2 keeps its operands as offsets into a `Bytes` rather
-// than as owned strings. That is H-2's design, and a `Vec` of nodes MUST keep it
-// (`SAFETY.md` S-23a, RX-155) -- the language would not: an owning element is
-// accepted in an array or a `Vec`, and `vec_get` then MOVES it out.
-// *(2026-09-28, cycle 0.1.1b -- RX-188: for a `Vec` the language does now -- `Vec<T: Copy>`
-// refuses an owning element at the type, as `vec_get` has since cycle 0.0.4e -- so a
-// node type derives `Copy`. An array still accepts one.)*
+// FILLED BY cycle 0.2, governed by `meta/specs/HIR.md`. Desugaring and normalisation,
+// flattened into a POD arena: a node declares no owning field, which is why `HIR.md` H-2
+// keeps a group's name as an offset into a `Bytes` rather than as an owned string. That is
+// H-2's design, and a `Vec` of nodes MUST keep it (`SAFETY.md` S-23a, RX-155) -- and since
+// `Vec<T: Copy>` (RX-188) the compiler keeps it too, at the type.
 //
-// LAYERING (`BUILD.md` §6, rule B-16). May import: `syntax`, `unicode`,
-// `core`.
+// SINCE CYCLE 0.2.0 IT RE-EXPORTS ONE NAME: `unicode`'s `ClassRange` (RX-222), the type a
+// class's ranges are, for the oracle, which reads every class's ranges and may import `core`
+// and `hir` and nothing else (B-17). The arena is not here yet.
 //
-// See `src/core/core.npk` for why a placeholder exists at all (P-6).
+// EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1 and 3).
+//
+// LAYERING (`BUILD.md` §6, rule B-16). May import: `syntax`, `unicode`, `core`. A program
+// importing this file owes the language's six arms and nothing of this library's.
 mod:hir;
+
+// ---- a class's ranges, `unicode`'s type (RX-222) -- re-exported, because the oracle may
+// import `core` and `hir` and nothing else (B-17), and it reads every class's ranges -------
+pub use "../unicode/unicode.npk".ClassRange;

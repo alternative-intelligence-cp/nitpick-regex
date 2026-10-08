@@ -109,7 +109,7 @@ src/          # THE LIBRARY — Nitpick source only
   core/       #   storage primitives, bitsets, named limits
   syntax/     #   the pattern parser
   hir/        #   desugaring, normalisation, literal extraction
-  unicode/    #   GENERATED property and case-folding tables
+  unicode/    #   GENERATED property and case-folding tables, and their range type
   compile/    #   HIR -> NFA program, UTF-8 automata, alphabet compression
   engine/     #   Pike VM, lazy DFA, prefilters, the meta-engine
   api/        #   the public surface

@@ -1,11 +1,21 @@
-// `src/unicode/` — the generated Unicode tables. PLACEHOLDER: nothing yet.
+// `src/unicode/unicode.npk` — THE UNICODE LAYER'S ENTRY: U-4'S RANGE TYPE NOW, THE TABLES AT
+// CYCLE 0.3.
 //
-// FILLED BY cycle 0.3, governed by `meta/specs/UNICODE.md`. Everything here is
-// GENERATED from a pinned UCD by `tools/gen_unicode.py` and committed as
-// Nitpick source, so a build needs the compiler and nothing else — no Python,
-// no network. The `.gitignore`'s "NOT ignored, deliberately" block says so.
+// FILLED BY cycle 0.3, governed by `meta/specs/UNICODE.md`. The tables are GENERATED from a
+// pinned UCD by `tools/gen_unicode.py` and committed as Nitpick source, so a build needs the
+// compiler and nothing else — no Python, no network. The `.gitignore`'s "NOT ignored,
+// deliberately" block says so.
 //
-// LAYERING (`BUILD.md` §6, rule B-16). May import: `core`. Nothing else.
+// SINCE CYCLE 0.2.0 THE LAYER HOLDS A SECOND MODULE WRITTEN BY HAND: `class_range.npk`, U-4's
+// `ClassRange`, which `hir`'s classes hold and the tables will (RX-222). It is declared here
+// because `hir` sits to the left of `unicode` in B-16's diagram: a type declared in `hir`
+// could not be named by the tables.
 //
-// See `src/core/core.npk` for why a placeholder exists at all (P-6).
+// EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1 and 3).
+//
+// LAYERING (`BUILD.md` §6, rule B-16). May import: `core`. Nothing else. A program
+// importing this file owes the language's six arms and nothing of this library's.
 mod:unicode;
+
+// ---- U-4's range: one class's members, one table's rows (RX-222) ---------------------
+pub use "./class_range.npk".ClassRange;

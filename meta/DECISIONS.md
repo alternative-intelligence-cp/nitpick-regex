@@ -5724,3 +5724,31 @@ structured fuzzer is cycle 0.12.0's, where it belongs; **`regex_escape`'s round 
 `regex_escape.npk` holds every ASCII byte in five places and the fourteen names in two, and the auditor's exhaustive
 41 384 texts found the one class it misread, which it now holds; **`(?<` moved to byte 2, so no offset is the
 pattern's length** — the end is where the name was due, and Y-29 says so.
+
+## The arena — cycle 0.2.0
+
+### RX-222 — `ClassRange` is `unicode`'s, declared now: U-4's range type, before its tables, and re-exported by `hir` for the oracle
+
+**2026-10-08, cycle 0.2.0 (the plan's PD-66), at compiler `5fbaf4a`** — `UNICODE.md` U-4, `HIR.md` H-2, `BUILD.md`
+B-11, B-16 and B-17. U-4 declares the one representation a class and a generated table share — *"the same shape a
+class uses, so a property lookup and a class test are the same code"* — and H-2's `Hir.ranges` holds it. A HIR's
+classes need the type at this subcycle; cycle 0.3.0's tables are generated later. And `hir` sits to the left of
+`unicode` in B-16's diagram, so a type declared in `hir` could not be named by the tables, while the oracle may import
+`core` and `hir` and nothing else (B-17) and reads every class's ranges.
+
+**The decision.** `src/unicode/class_range.npk`, written by hand:
+`#[derive(Copy)] pub struct:ClassRange = { uint32:lo; uint32:hi; }`, both ends inclusive. A class's ranges are of
+codepoints, `0 … 0x10FFFF`, or under `(?-u)` of bytes, `0 … 255`, and the node that holds them says which, never the
+range. `src/unicode/unicode.npk` becomes the layer's entry, one `pub use` per name (B-15a), and re-exports it;
+`src/hir/hir.npk` becomes `hir`'s entry and re-exports it again, for the oracle. U-4 dated; the layer's README and the
+two placeholders' headers rewritten. U-1 and U-4 dated, and with them the `.gitignore`'s note, the 0.3 README's
+emitted-shape item and the public README's layout line, since two files of `src/unicode/` are now not generated.
+
+**Measured at `5fbaf4a`.** `#size_of<ClassRange>()` is 8. The three files compile as roots, and a program importing
+any one of them owes the language's six arms and nothing of this library's. The full run is `261/261`, the new file
+swept.
+
+*Alternatives declined:* **declared in `hir`** — the tables could not name it, and cycle 0.3.0 would move it and every
+import with it; **declared in `core`** — `core` is the storage primitives (B-11), and U-4 makes this the tables' type;
+**left to cycle 0.3.0** — this subcycle's classes hold it; **a second type for a range of bytes** — one range type is
+U-4's point; **the oracle importing `unicode`** — B-17 forbids it, and the re-export costs one line.

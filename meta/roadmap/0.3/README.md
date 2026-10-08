@@ -27,7 +27,7 @@ design; recorded when chosen).
 - [ ] Q-1 answered: the UCD version pinned, recorded in `src/unicode/version.npk` and in `meta/DECISIONS.md` beside RX-021
 - [ ] reads `DerivedGeneralCategory.txt`, `Scripts.txt`, `ScriptExtensions.txt`, `DerivedCoreProperties.txt`, `PropList.txt`, `CaseFolding.txt`, `PropertyAliases.txt`, `PropertyValueAliases.txt` *(2026-10-01 — cycle 0.1.4, RX-207: and holds the parser's twenty-one white-space codepoints past ASCII, named in `parse.npk` for `x` (`SYNTAX.md` Y-42), to the White_Space and Pattern_White_Space it generates)*
 - [ ] the UCD files themselves **gitignored**; the generated tables **committed**
-- [ ] the emitted shape is `ClassRange { uint32:lo; uint32:hi; }` arrays, sorted and disjoint (U-4)
+- [ ] the emitted shape is `ClassRange { uint32:lo; uint32:hi; }` arrays, sorted and disjoint (U-4) *(2026-10-08, cycle 0.2.0 — RX-222: `ClassRange` is declared already, by hand, in `src/unicode/class_range.npk`, and `unicode.npk` is the layer's entry; the tables import the type, the entry re-exports them, and `check_tables_regenerate` reads the generated files, not those two)*
 - [ ] every generated file carries the Unicode version and the generator's name in its header
 - [ ] `check_tables_regenerate` live and **seen to fail** against a hand-edited table
 - [ ] `check_table_invariants` live: sorted, disjoint, `lo <= hi`, every range within `U+10FFFF`, and **no range overlapping the surrogates** (C-3)

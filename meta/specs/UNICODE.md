@@ -10,6 +10,8 @@ Properties, scripts, case folding, and where the tables come from.
 as Nitpick source.** `tools/gen_unicode.py` reads the Unicode Character
 Database and writes `src/unicode/*.npk`. A build needs the compiler and nothing
 else: no Python, no network, no `/usr/share/unicode`.
+*(2026-10-08, cycle 0.2.0 — RX-222: the tables are; two files beside them are written by hand — `class_range.npk`, U-4's
+type, and `unicode.npk`, the layer's entry — and U-2's comparison reads the generated files, not those two.)*
 
 **Rule U-2 — the generator is checked, not trusted.** The harness re-runs it
 and requires the committed tables to be **byte-identical** to what it would
@@ -34,6 +36,10 @@ shape a class uses, so a property lookup and a class test are the same code:
 ```nitpick
 pub struct:ClassRange = { uint32:lo; uint32:hi; };   // inclusive, sorted, disjoint
 ```
+*(2026-10-08, cycle 0.2.0 — RX-222: declared at cycle 0.2.0, by hand, in `src/unicode/class_range.npk` —
+`unicode.npk`, the layer's entry, re-exporting it — and re-exported again by `src/hir/hir.npk` for the oracle
+(`BUILD.md` B-17): a HIR's classes hold it before any table exists, and `hir` sits to the left of `unicode` (B-16).
+Under `(?-u)` the same type holds a class of bytes, `0 … 255`, and the node says which, never the range.)*
 
 Not a trie, and deliberately: a binary search over a sorted disjoint range
 array has one invariant (`lo <= hi`, each `lo` above the previous `hi`), that

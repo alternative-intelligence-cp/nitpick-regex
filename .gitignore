@@ -60,7 +60,10 @@ meta/research/corpora/*/
 #                         compiler, never a Python generator and never a
 #                         network fetch. The generator in tools/ regenerates
 #                         them and the harness checks the committed tables
-#                         match what it would emit.
+#                         match what it would emit. (Two files there are
+#                         written by hand since cycle 0.2.0, RX-222: the
+#                         tables' range type, class_range.npk, and the
+#                         layer's entry, unicode.npk.)
 #   tests/fixtures/     — committed pattern/haystack/expectation triples,
 #                         including everything the fuzzer ever found. They are
 #                         the regression corpus and must be byte-stable.

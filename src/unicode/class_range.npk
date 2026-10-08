@@ -1,0 +1,28 @@
+// `src/unicode/class_range.npk` — ONE RANGE OF CODEPOINTS, OR OF BYTES. Cycle 0.2.0, RX-222;
+// `meta/specs/UNICODE.md` U-4.
+//
+// U-4'S TYPE, DECLARED AT ITS LAYER BEFORE ITS TABLES. A class is a list of these
+// (`HIR.md` H-2's `Hir.ranges`), and so is every table cycle 0.3 generates here --
+// "the same shape a class uses, so a property lookup and a class test are the same
+// code" (U-4). `hir` sits to the left of `unicode` in `BUILD.md` B-16's diagram, so a
+// type both use is declared HERE: a `ClassRange` declared in `src/hir/` could not be
+// named by the tables, which may not import `hir`. Like the layer's entry, `unicode.npk`,
+// it is written by hand; the tables beside it from cycle 0.3.0 are generated.
+//
+// INCLUSIVE AT BOTH ENDS: `lo` and `hi` are the first and the last member. A class's
+// list is sorted and disjoint once cycle 0.2.3 normalises it (H-13); a range read from
+// a HIR dump only has `lo <= hi`. Codepoints are `0 … 0x10FFFF`, surrogates excluded;
+// under `(?-u)` a class is over bytes, `0 … 255`, and its node says so (H-4a's
+// `HIR_FLAG_BYTE`), not the range.
+//
+// It owns nothing, so a `Vec` holds it, and it derives `Copy`, which every `Vec`
+// element must (`Vec<T: Copy>`, RX-188).
+//
+// LAYERING (`BUILD.md` §6, B-16). Imports nothing.
+mod:class_range;
+
+#[derive(Copy)]
+pub struct:ClassRange = {
+    uint32:lo;      // the first member
+    uint32:hi;      // the last member, never below `lo`
+};
