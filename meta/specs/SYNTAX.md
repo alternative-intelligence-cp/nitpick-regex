@@ -393,6 +393,10 @@ classes — `NREGEX_NEST_DEPTH`, 250, together — are open around it is `NestTo
 bound, before a byte after it is read; a POSIX class's `[:` opens no class and nests nothing. So 250 nested classes
 parse and the 251st `[` is `NestTooDeep` at byte 250, and so is a `[` inside 250 groups, or the 126th `[` inside 125.
 The refusal's sentence names both: *"the `(` or `[` here would nest groups and classes 251 deep"*.)*
+*(2026-10-08, cycle 0.1.6a — RX-216: and since the bound is decided before the head is read, a `(` that begins `(?i)` or
+`(?#` inside 250 levels is `NestTooDeep` too, though neither nests anything. So the sentence says what is open around
+the refused byte: *"groups and classes are open 250 deep around the `(` or `[` here, as deep as they may nest
+(NREGEX_NEST_DEPTH), so nregex refuses it before reading what it begins"*.)*
 
 ---
 
@@ -765,7 +769,7 @@ RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-2
 | `AtomicGroupUnsupported` | a quantifier made possessive | the quantifier | through the `+` | 43 |
 | `InvalidPatternEncoding` | ill-formed UTF-8 | the sequence's first byte | through the byte that broke it | that byte; 0 when cut short |
 | `PatternTooLong` (cycle 0.1.0) | over `NREGEX_PATTERN_BYTES` | the first byte past the bound | the bytes over it | the bound |
-| `NestTooDeep` (cycle 0.1.2) | a `(` that would nest groups deeper than `NREGEX_NEST_DEPTH` (Y-35) — *and since cycle 0.1.3 a `[` that would nest groups and classes deeper, counted together (RX-198)* | that `(` *or `[`* | 1 | the bound |
+| `NestTooDeep` (cycle 0.1.2) | a `(` that would nest groups deeper than `NREGEX_NEST_DEPTH` (Y-35) — *and since cycle 0.1.3 a `[` that would nest groups and classes deeper, counted together (RX-198)* — *whatever the `(` begins, `(?i)` and `(?#` too, since its head is not read (RX-216)* | that `(` *or `[`* | 1 | the bound |
 | `UnclosedClass` (cycle 0.1.3) | the pattern ends inside a class — not inside an escape, a property's name or a `[:` | the innermost open `[` | 1 | 93 when that class's first member is a `]`; 0 |
 | `BadClassRange` (cycle 0.1.3) | a range's end below its start; a class at either end | the range's first byte | through the byte that made it bad | 0; 1 |
 | `ClassOpMismatch` (cycle 0.1.3) | `&&`, `--` or `~~` with no member before it or after it | the operator | 2 | its byte: 38, 45 or 126 |

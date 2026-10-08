@@ -4925,6 +4925,9 @@ Perl and Python read the same bytes as the range `-`–`a`, so either reading su
 or before `]`, refused** — Rust, Perl and Python read both as a `-`.
 
 ### RX-198 — groups and classes nest at most `NREGEX_NEST_DEPTH` deep together, decided at the `(` or `[` that would go deeper
+> **SUPERSEDED IN PART by RX-216 (2026-10-08)** — the sentence it quotes, *"the `(` or `[` here would nest groups and
+> classes 251 deep"*, false for a `(` that begins `(?i)` or `(?#` at the bound: the sentence says what is open around
+> the refused byte. The bound and where it is decided are as this decision says.
 
 **2026-10-01, cycle 0.1.3 (the plan's PD-42), at compiler `5fbaf4a`** — `SYNTAX.md` Y-35's last sentence, *"a class
 nests too from cycle 0.1.3, which bounds it"*, and `SAFETY.md` S-18. It supersedes in part RX-193 — the sentence that
@@ -5524,3 +5527,26 @@ way, which keeps a detail naming Rust's and Perl's word boundaries for a brace t
 it as one; **a letter or `-`, as Rust tests** — no name either engine reads begins with `-`, and `\b{-1}` reads better as
 a bound gone wrong; **every brace a digit does not begin, as Perl reads every `\b{…}` as a boundary** — RX-213's rule,
 whose sentence was false for `\b{,3}`.
+
+### RX-216 — `NestTooDeep` says what is open around the `(` or `[` it refuses, not what that `(` would nest
+
+**2026-10-08, cycle 0.1.6a (the plan's PD-60), at compiler `5fbaf4a`** — `SYNTAX.md` Y-34 and Y-35; the cycle audit's K7.
+RX-198's sentence says *"the `(` or `[` here would nest groups and classes 251 deep"*. Y-35 decides the bound at the
+`(`, before a byte after it is read, so a `(` that begins a flags head or a comment group inside 250 levels — `(?i)`,
+`(?#` — is `NestTooDeep` as well, and neither nests anything: for those the sentence is false, measured at `5fbaf4a`.
+Deciding after the head would undo what RX-193 chose — one rule, and the parse stopping where the bound is — so the
+sentence moves and the rule stays.
+
+**The decision.** The sentence says what is true at the refused byte: *"nesting too deep at byte 250: groups and
+classes are open 250 deep around the `(` or `[` here, as deep as they may nest (NREGEX_NEST_DEPTH), so nregex refuses
+it before reading what it begins. Nest fewer: write `(?:a)` as `a`, and `[[a]]` as `[a]`."* — its number the bound,
+the detail. `tests/unit/pattern_error_text.npk` holds it for 251 groups (23) and 251 classes (35), and with its kind and
+its byte for `(?i)` inside 250 groups (83).
+
+**Measured at `5fbaf4a`.** `pattern_error_text.npk` passes at −O0 and through `opt -O2`, and against the text before
+this decision exits 23.
+
+*Alternatives declined:* **the bound decided after the head is read, so `(?i)` there parses** — two rules where RX-193
+chose one, and `(?i:` opens a group, which the bound must still refuse before its body; **the sentence kept, and a note in
+Y-35** — a sentence a user reads, false for an input the rule names; **"would open a group or a class"** — false for
+the same two.
