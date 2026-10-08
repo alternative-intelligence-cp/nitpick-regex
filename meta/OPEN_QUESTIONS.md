@@ -882,6 +882,11 @@ movemask intrinsic, which is a better request than a speculative one.
   point, a step budget in the options, an explicit error when it is exhausted,
   and a documentation page stating that the linear-time guarantee does not
   apply. Declining a feature is cheaper to revisit than removing one.
+  *(2026-10-08, cycle 0.1.6a — RX-218: and lookbehind may not need a backtracker at all. A captureless lookbehind is
+  known to fit `SAFETY.md` S-6: Barrière and Pit-Claudel's streaming algorithm (PLDI 2024, its §4.4) matches it in
+  linear time with no space beyond the automaton's, whatever the pattern syntax
+  ([`research/lookaround-linear-time.md`](research/lookaround-linear-time.md)). Lookahead, and a capture inside a
+  lookbehind, are not known to. If a consumer asks for lookbehind, that is where this question starts.)*
 - **O-R2 — a reverse DFA to find a match's start.** It is how Rust's `regex`
   avoids the Pike VM for simple captures. It doubles the compiler's output and
   needs its own correctness argument. **Decide at cycle 0.8**, where the DFA's

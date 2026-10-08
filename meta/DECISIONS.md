@@ -5580,3 +5580,28 @@ names `\g` and `\K` beside `\k`, `\G` and `\Z` — `SYNTAX.md` §9's row, `COMPA
 *Alternatives declined:* **RX-210's text rewritten** — a settled decision's text is never rewritten, and the marker says
 what changed and why; **a dated note at each of the three places and no decision** — the audit's other way, but the
 answer is the author's, and a decision is where this repository records one, beside RX-209, as the workbench asked.
+
+### RX-218 — `SAFETY.md` S-2's lookaround row says what is true: automata can match lookaround, and in linear time — the refusal stands on RX-003 and S-6, not on its being "not regular"
+
+**2026-10-08, cycle 0.1.6a (the plan's PD-62), at compiler `5fbaf4a`** — `SAFETY.md` S-2; per
+`meta/research/lookaround-linear-time.md`, as of 2026-10-01; the cycle audit's C8; and the author's answer to the
+workbench's question 20 (d), 2026-10-02: a dated note on S-2's row, by a decision, at the next subcycle that touches
+`SAFETY.md` — this one, since the audit found that place named no cycle. S-2 says lookahead and lookbehind are *"not
+regular either"*, that automata express *"some"* of it at exponential cost, and that *"the general case needs
+backtracking"*. The digest's primaries say otherwise: finite automata decide matching with lookaround, a deterministic
+one doubly exponential in the worst case (Mamouras and Chattopadhyay, citing Morihata 2012), and two peer-reviewed 2024
+algorithms match it in O(m·n) without backtracking. RX-212 took the false claim out of the sentence a user reads; the
+safety document kept it, and cycle 0.1.5's plan named it for the author.
+
+**The decision.** A dated note under S-2's table, its text kept: what the algorithms ask — Mamouras and Chattopadhyay's
+right-to-left passes over the haystack for a lookahead, and Barrière and Pit-Claudel's general one an oracle as long as
+the haystack, memory a search may not take (S-6), while a lookbehind alone streams and their captureless lookbehind
+needs no extra space, whatever the pattern syntax — and what the refusal stands on: RX-003 keeps the engines automata
+that read no lookaround, and S-6 keeps every search from allocating. The note names the class the row's two examples
+stand for, `(?!…)`, `(?<!…)` and `\K` with them (`SYNTAX.md` Y-30, Y-44). And O-R1's record takes in that a captureless
+lookbehind is known to fit S-6, if a consumer ever asks for one. No refusal and no sentence moves.
+
+*Alternatives declined:* **S-2's row rewritten** — its text was the reason the refusal was first written, and how that
+reason was wrong is kept beside what is true; **the note left for a later subcycle that touches `SAFETY.md`** — the audit
+found that place named no cycle, and this one touches it; **the refusal of lookbehind reconsidered here** — RX-003 and
+S-6 decide it today, and a consumer's need is O-R1's question, not a close's.

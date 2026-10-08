@@ -114,6 +114,19 @@ it. So the engine is a finite automaton, and the bound is structural.
 | **atomic groups** (`(?>…)`) and **possessive quantifiers** (`a*+`) | these are backtracking-*control* constructs. Under an automaton there is no backtracking to control, and pretending to honour them would change which strings match |
 | **recursion / subroutine calls** (`(?R)`, `(?1)`) | context-free, not regular |
 
+*(2026-10-08, cycle 0.1.6a — RX-218, the author's answer to the workbench's question 20 (d): the lookaround row's reasons,
+read against the published algorithms ([`../research/lookaround-linear-time.md`](../research/lookaround-linear-time.md),
+as of 2026-10-01), are not what is true. Finite automata do decide matching with lookahead and lookbehind — a
+deterministic one doubly exponential in the pattern in the worst case — and two 2024 algorithms match them in O(m·n),
+backtracking nowhere: Mamouras and Chattopadhyay's makes right-to-left passes over the haystack for a lookahead, and
+Barrière and Pit-Claudel's for every lookaround keeps an oracle as long as the haystack, memory a search may not take
+(S-6); a lookbehind alone streams in one pass, and Barrière and Pit-Claudel's captureless lookbehind needs no extra space,
+whatever the pattern syntax, JavaScript's or another. So the refusal stands on what does hold here — RX-003 keeps the
+engines automata that read no lookaround, and S-6 keeps every search from allocating — not on lookaround being "not
+regular" or needing backtracking.
+The row's two examples stand for a class the parser refuses whole: `(?=…)`, `(?!…)`, `(?<=…)`, `(?<!…)` (`SYNTAX.md`
+Y-30) and `\K` (Y-44).)*
+
 Each is **refused at compile time, by name, with the byte offset** — never
 silently accepted and never quietly reinterpreted. A user who needs one needs a
 parser, and `COMPAT.md` §4 says so with a pointer.
