@@ -200,7 +200,7 @@ framing that let both be wrong. The framing is the column.
 |---|---|---|
 | `check_layering` | **yes** | every `use` edge against `BUILD.md` §6, including the oracle's restriction |
 | `check_error_budget` | **yes** | every `error:` declaration, public or private, keyed by its module, against `SAFETY.md` §4 — **exactly one**, `api.ERegexPattern` (RX-179) |
-| `check_constants_named` | **yes** | no bound outside `src/core/limits.npk` — *since cycle 0.1.4 a literal in every spelling the compiler's lexer reads an integer, and on either side of the comparison (RX-202)* |
+| `check_constants_named` | **yes** | no bound outside `src/core/limits.npk` — *since cycle 0.1.4 a literal in every spelling the compiler's lexer reads an integer, and on either side of the comparison (RX-202)* — *since cycle 0.1.6b a character literal by its code point and a literal behind a widening, each spelling asked of the pinned compiler by self-check case 32 (RX-220)* |
 | `check_no_division` | **yes** | no `/` or `%` under `src/` — `SAFETY.md` S-25 (RX-132), because a division arms two `failsafe` arms in every importer |
 | `check_accessor_confinement` | **yes** | no `.items[` outside `src/core/vec.npk`, no `.ptr[` outside `src/core/bytes.npk`, **within `src/`** — `SAFETY.md` S-23, **the only bounds check this library has** (RX-136). *Since cycle 0.0.4c `Vec`'s half is the compiler's too — `items` is `hidden`, so `.items` outside `vec.npk` is `NITPICK-TYPE-080` in every module; `Bytes`' half is not, because a sealed `buf` admits a write THROUGH `.ptr` (RX-153). The check stays for both, and for the owning files' own use of their accessors. Since cycle 0.0.4d `Bytes`' half is the compiler's too: `buf` is `hidden` (RX-163). Since cycle 0.1.0b the spaced forms too — `. items [`, and either split across a line break (RX-179)* |
 | `check_vec_elements_own_nothing` | **yes** | every `Vec` element named under `src/` — in a `Vec<…>`, with or without a space, and in a `vec_…::<…>` turbofish — is CLEARED as owning nothing, **default-deny** (RX-158): each name in it is one of the language's non-owning scalars or a struct or enum declared under `src/` whose fields and payloads clear the same way, every declaration of that name judged; a pointer, a slice, `wild` storage, a prelude type, a bare type parameter or an unresolved name fails — `SAFETY.md` S-23a (RX-155). The language accepts an owning element and `vec_get` then MOVES it out; this is what makes the restriction a rule. Only `vec.npk`'s own `Vec<T>` over its type parameter is exempt, and `tests/` is out of scope because the owning units measure the verbs there. *Since cycle 0.1.1b (RX-188, RX-190) the compiler refuses an element that drops, at the type, and this check is the belt there; it stays the rule for an element that holds a block — a `Copy` struct may hold a pointer or a slice. The declaration `Vec<T: Copy>` is exempt as its parameter, and `tests/` stays out because it ships nothing.* *It was a denylist of nine words until the fourth cycle 0.0 audit walked twelve shapes past it (N-18)* |
@@ -342,7 +342,11 @@ requires it to report every one as a failure. The list is `harness/selfcheck.py`
     compiler accepts that its first pattern could not read — a digit-separated
     decimal, a hex, a binary and an octal literal, a width suffix past `u64`, a
     literal left of the comparison — each failing by its text and its value, and a
-    clean tree passing (RX-202). On the instrument.
+    clean tree passing (RX-202). On the instrument. *(Since cycle 0.1.6b, RX-220:
+    and three plants more — a character literal widened, on either side, and a
+    literal behind a widening — and then the pinned compiler is asked about every
+    spelling the plants hold, in one program that must exit 0, and the reader
+    about each line of it.)*
 33. `check_error_kinds_tested` over eight planted trees — a kind no test provokes
     and no row lists; one a unit only builds, as the `??` fallback every refusal
     unit writes; one named in a unit that parses nothing, and one in a comment;

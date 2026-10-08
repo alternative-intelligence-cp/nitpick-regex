@@ -721,16 +721,20 @@ def _zz(cmp):
 
 
 def _run_case32(case):
-    """Case 32, on the instrument: `check_constants_named` over six planted bounds, each a
-    spelling the pinned compiler accepts and the check's first pattern could not read -- a
-    digit-separated decimal, a hex, a binary and an octal literal, a width suffix past the eight it
-    listed, and a literal on the LEFT of the comparison -- and a clean control holding each spelling
-    at a small value, a shift, a bound in a comment and in a string, and one in `limits.npk`, the
-    file that may hold them (RX-202)."""
+    """Case 32, on the instrument: `check_constants_named` over six planted bounds, each a spelling the pinned compiler
+    accepts and the check's first pattern could not read -- a digit-separated decimal, a hex, a binary and an octal
+    literal, a width suffix past the eight it listed, and a literal on the LEFT of the comparison -- and a clean control
+    holding each spelling at a small value, a shift, a bound in a comment and in a string, and one in `limits.npk`, the
+    file that may hold them (RX-202).
+    *(2026-10-08, cycle 0.1.6b -- RX-220: and three plants more -- a character literal widened, `('\\u{10000}' => int64)`,
+    on either side of the comparison, and a numeric literal behind a widening -- each of which passed it, a small
+    character literal and a generic's `>(` in the control; then the PINNED COMPILER is asked about every spelling the
+    plants hold, in one program, and the reader about each line of it, so a re-pin that moves the numeric scan is a red
+    run here and not only in a re-read -- `nitpick-time`'s part E3, ported, the cycle audit's C5.)*"""
     lim = os.path.join("src", "core", "limits.npk")
     with open(os.path.join(ROOT, lim), encoding="utf-8") as fh:
         limits = fh.read()
-    return _run_plants(case, "check_constants_named", [
+    out = _run_plants(case, "check_constants_named", [
         ("a digit-separated decimal", {"src/core/zz.npk": _zz("n > 1_000_000i64")},
          ["src/core/zz.npk:4", "`1_000_000i64` (1000000)"]),
         ("a hex literal", {"src/core/zz.npk": _zz("n > 10FFFFhexi64")},
@@ -743,10 +747,102 @@ def _run_case32(case):
          ["src/core/zz.npk:4", "`1000i128` (1000)"]),
         ("a literal left of the comparison", {"src/core/zz.npk": _zz("65_536i64 <= n")},
          ["src/core/zz.npk:4", "`65_536i64` (65536)"]),
-    ], {"src/core/zz.npk": _zz("(n > 0FFhex) || (n >= 1_00i64) || (1_0_0i64 < n) || ((n >> 6i64) < 4i64)")
+        ("a character literal, widened", {"src/core/zz.npk": _zz("n > ('\\u{10000}' => int64)")},
+         ["src/core/zz.npk:4", "`'\\u{10000}'` (65536)"]),
+        ("a character literal, widened, left of the comparison",
+         {"src/core/zz.npk": _zz("('\\u{10000}' => int64) <= n")},
+         ["src/core/zz.npk:4", "`'\\u{10000}'` (65536)"]),
+        ("a literal behind a widening", {"src/core/zz.npk": _zz("n > (65536i32 => int64)")},
+         ["src/core/zz.npk:4", "`65536i32` (65536)"]),
+    ], {"src/core/zz.npk": _zz("(n > 0FFhex) || (n >= 1_00i64) || (1_0_0i64 < n) || ((n >> 6i64) < 4i64)"
+                               " || (n > (' ' => int64)) || (zz_id::<int64>(1000i64) == n)")
                            + "\n// n > 1_000_000i64, in a comment\n"
-                           + "pub func:zz_s = string() never fails {\n    pass \"n > 99_999\";\n};\n",
+                           + "pub func:zz_s = string() never fails {\n    pass \"n > ('\\u{10000}' => int64)\";\n};\n",
         lim: limits + "\npub func:zz_l = bool(int64:n) never fails {\n    pass n > 1_000_000i64;\n};\n"})
+    if not out.ok:
+        return out
+    wrong = _numeric_forms()
+    if wrong:
+        return Outcome(case, False, wrong)
+    return Outcome(case, True, out.detail + f"; and the pinned compiler and the reader read all {len(_NUM_LINES)} "
+                                            f"of its spellings as one number each")
+
+
+# THE SPELLINGS `check_constants_named` READS (RX-202, RX-220), asked of the pinned compiler: line by line, each
+# spelling against the plain decimal it must be read as, so the program exits 0 only if the compiler reads every one
+# so -- and the reader, `_int_value` or `_char_value`, must read each spelling on its line as that decimal too. A
+# re-pin that moves the compiler's numeric scan or its character literals -- a base suffix, a width, the separator,
+# an escape -- is a red run (`BUILD.md` B-4e). `nitpick-time`'s part E3, ported (TM-231).
+_NUM_FORMS = (
+    ("1_000_000i64", "1_000_000i64", 1000000), ("10FFFFhexi64", "10FFFFhexi64", 1114111),
+    ("1111_0100bin", None, 244), ("777oct", None, 511), ("(1000i128 =>! int64)", "1000i128", 1000),
+    ("65_536i64", "65_536i64", 65536), ("('\\u{10000}' => int64)", "'\\u{10000}'", 65536),
+    ("(65536i32 => int64)", "65536i32", 65536),
+)
+
+
+def _num_program():
+    """`(text, lines)`: the program, and `[(line, token, value)]` -- the token on each line the reader must read as
+    `value`. A literal with no width suffix is bound to an `int64` first, as a comparison against `n` types it."""
+    body, lines, ln = [], [], 4
+    for k, (expr, tok, value) in enumerate(_NUM_FORMS):
+        if tok is None:
+            body.append(f"    int64:v{k} = {expr};\n")
+            ln += 1
+            body.append(f"    if (v{k} != {value}i64) {{ exit {10 + k}i32; }}\n")
+            lines.append((ln - 1, expr, value))
+        else:
+            body.append(f"    if ({expr} != {value}i64) {{ exit {10 + k}i32; }}\n")
+            lines.append((ln, tok, value))
+        ln += 1
+    text = ("mod:numeric_forms;\n\nfunc:main = int32(cstring[]:_~argv) {\n" + "".join(body)
+            + "    exit 0i32;\n};\n" + FAILSAFE)
+    return text, lines
+
+
+_NUM_TEXT, _NUM_LINES = _num_program()
+
+
+def _numeric_forms():
+    """Case 32's second half: the reader on each line of `_NUM_TEXT`, and the pinned compiler on the program, built
+    with the manifest's flags and run. Returns what disagreed, or ''."""
+    import build
+    import manifest
+    import toolchain
+    import treecheck
+    wrong = []
+    lines = _NUM_TEXT.split("\n")
+    for ln, tok, value in _NUM_LINES:
+        if tok not in lines[ln - 1]:
+            wrong.append(f"line {ln} of the numeric program does not hold `{tok}`")
+            continue
+        got = treecheck._char_value(tok) if tok.startswith("'") else treecheck._int_value(tok)
+        if got != value:
+            wrong.append(f"the reader reads `{tok}` as {got}, and the program asserts {value}")
+    npkc, npkrt = toolchain.compiler(lambda s: None)
+    d = tempfile.mkdtemp(prefix="nregex-selfcheck-32-")
+    try:
+        _write(d, "numeric_forms.npk", _NUM_TEXT)
+        c = build.Ctx(ROOT, manifest.read(os.path.join(ROOT, "nitpick.toml")), npkc, npkrt, d, lambda s: None)
+        ll, obj, exe = (os.path.join(d, "numeric_forms" + x) for x in (".ll", ".o", ""))
+        r = build.emit(c, "numeric_forms.npk", ll, cwd=d)
+        if r.code != 0:
+            wrong.append("the pinned compiler refused the numeric program: " + r.err.strip()[:200])
+        elif build.llc(c, c.llc_flags, ll, obj).code != 0 or build.link(c, obj, exe).code != 0:
+            wrong.append("the numeric program did not assemble or link")
+        else:
+            x = build.Run([exe]).status
+            if x != 0:
+                k = (x - 10) if x is not None else -1
+                what = (f"its spelling `{_NUM_FORMS[k][0]}` was read as another number"
+                        if 0 <= k < len(_NUM_FORMS) else "it did not run to its end")
+                wrong.append(f"the pinned compiler's numeric program exited {x}: {what}. THE COMPILER'S NUMERIC "
+                             f"SCAN HAS MOVED FROM WHAT `_int_value` AND `_char_value` MIRROR: re-read "
+                             f"`src/frontend/numeric.npk`, `num_width.npk`, `lexer.npk` and `escapes.npk` at the new "
+                             f"pin (BUILD.md B-4e) and bring the reader to them, in the adoption that moved the pin.")
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+    return "; ".join(wrong)
 
 
 def _case32(d):
@@ -1221,9 +1317,11 @@ CASES = [
          "as `0 - signal` -- shown red here, so `expect-exit: 0` is met by a normal exit alone",
          _case31, ()),
     Case(32, "a bound compared in each spelling the compiler accepts: digit-separated, hex, "
-             "binary, octal, a wide width suffix, and left of the operator",
+             "binary, octal, a wide width suffix, and left of the operator -- and a character "
+             "literal and a literal behind a widening, either side, each spelling asked of the compiler",
          "RX-202: `check_constants_named` read a literal as decimal digits after the operator "
-         "and passed all six -- a spelling it cannot read is a bound it cannot see",
+         "and passed all six -- a spelling it cannot read is a bound it cannot see; RX-220: and a "
+         "re-pin that moves the numeric scan is red here",
          _case32, ()),
     Case(33, "a kind no test provokes, one a unit only builds, one named where nothing parses or in a comment, "
              "and a stale, an unknown, an undated and an unplanned row of Y-25's table",

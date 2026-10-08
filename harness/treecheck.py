@@ -338,6 +338,50 @@ _BASES = (("hex", 16), ("bin", 2), ("oct", 8), ("ter", 3), ("tri", 3), ("non", 9
 # `==` -- with the literal on EITHER side of it: a bound is spent whichever side it is written on.
 _CMP_RIGHT = re.compile(r"(?<![<>=-])[<>]=?(?![<>=])\s*-?\s*(" + _NUM + ")")
 _CMP_LEFT = re.compile(r"(?<![0-9A-Za-z_.])(" + _NUM + r")\s*(?<![<>=-])[<>]=?(?![<>=])")
+# *(2026-10-08, cycle 0.1.6b -- RX-220: and a CHARACTER literal, read by its code point -- `'\u{10000}' => int64` is
+# 65 536 at `5fbaf4a` -- and a literal behind a WIDENING, `(65536i32 => int64)`, on either side of the comparison. A
+# character literal meets an integer only so, widened, and `n > ('\u{10000}' => int64)` passed this check while
+# `n > 65536i64` failed it -- the cycle audit's C5. A generic's `>(` holds no `=>` after its literal, so it is not read
+# as one. `_char_value` is `nitpick-time`'s TM-231 reader, ported.)*
+_CMP_RIGHT_CAST = re.compile(r"(?<![<>=-])[<>]=?(?![<>=])\s*\(\s*-?\s*(" + _NUM + r")\s*=>")
+_CMP_LEFT_CAST = re.compile(r"\(\s*(" + _NUM + r")\s*=>\s*[A-Za-z_]\w*\s*\)\s*(?<![<>=-])[<>]=?(?![<>=])")
+
+
+def _char_value(text):
+    """A character literal's code point, as the compiler's lexer reads it -- `'x'`, one code point in UTF-8, or one
+    escape -- or None."""
+    body = text[1:-1] if len(text) >= 3 and text.endswith("'") else ""
+    if body.startswith("\\"):
+        r = lexical._escape(body, 0)
+        return r[0] if r and r[1] == len(body) else None
+    try:
+        cp = body.encode("latin-1").decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    return ord(cp) if len(cp) == 1 else None
+
+
+def _valued(text):
+    """`lexical.blank`'s text, but each character literal the reader can read written as its code point in decimal,
+    so a comparison reads it as a number; and `{offset: the literal's text}` for each, so a finding names it as
+    written."""
+    sp = lexical.spans(text)
+    code = lexical.blank(text, sp)
+    out, orig, last, at = [], {}, 0, 0
+    for kind, s, e in sorted(sp, key=lambda x: x[1]):
+        if kind != "char":
+            continue
+        v = _char_value(text[s:e])
+        if v is None:
+            continue
+        out.append(code[last:s])
+        at += s - last
+        orig[at] = text[s:e]
+        out.append(str(v))
+        at += len(str(v))
+        last = e
+    out.append(code[last:])
+    return "".join(out), orig
 
 
 def _int_value(tok):
@@ -381,7 +425,12 @@ def check_constants_named(root):
     spent at a comparison -- `if (n > 65536)` -- so that is what is looked for,
     and the small values that are structure rather than policy (a bit width, a
     byte, an alignment) are excluded by value. A narrow check that runs is worth
-    more than a broad one that gets switched off."""
+    more than a broad one that gets switched off.
+
+    *(2026-10-08, cycle 0.1.6b -- RX-220: a character literal is a number here too,
+    read by its code point, and a literal behind a widening is read on either
+    side -- `n > ('\\u{10000}' => int64)` passed this check, the cycle audit's C5;
+    a finding names the character literal as written.)*"""
     fl = []
     files = [p for p in npk_files(root, "src")
              if os.path.relpath(p, root) != LIMITS_FILE]
@@ -391,9 +440,12 @@ def check_constants_named(root):
             text = lexical.read(p)
         except OSError:
             continue
-        for ln, code in enumerate(lexical.blank(text).split("\n"), 1):
+        valued, orig = _valued(text)
+        at = 0
+        for ln, code in enumerate(valued.split("\n"), 1):
             seen = set()
-            for m in list(_CMP_RIGHT.finditer(code)) + list(_CMP_LEFT.finditer(code)):
+            for m in (list(_CMP_RIGHT.finditer(code)) + list(_CMP_LEFT.finditer(code))
+                      + list(_CMP_RIGHT_CAST.finditer(code)) + list(_CMP_LEFT_CAST.finditer(code))):
                 if m.start(1) in seen:
                     continue
                 seen.add(m.start(1))
@@ -401,12 +453,14 @@ def check_constants_named(root):
                 v = _int_value(tok)
                 if v in _SMALL:
                     continue
+                tok = orig.get(at + m.start(1), tok)
                 said = f"`{tok}`" if v is None or tok == str(v) else f"`{tok}` ({v})"
                 fl.append(f"{rel}:{ln}: the literal {said} is compared against outside "
                           f"`{LIMITS_FILE}`. EVERY BOUND IS A NAMED CONSTANT THERE "
                           f"(SAFETY.md S-12, RX-062), with the specification rule that "
                           f"set it beside it -- a bound written inline is a bound "
                           f"nobody can find when the specification changes.")
+            at += len(code) + 1
 
     # The limits file itself: present from 0.0.4, and its nine names are the
     # table SAFETY.md §5 declares. Absent today, which is stated rather than

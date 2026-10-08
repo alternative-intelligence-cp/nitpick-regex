@@ -354,6 +354,12 @@ literal's width (DEF-145), not its span; the mirror did not move.)*
 literal, which `harness/treecheck.py`'s literal reader for `check_constants_named` mirrors: a token from a
 decimal digit through letters, digits and `_`, its base suffix and its width suffix. A change there is a
 change to that reader, and self-check case 32 holds six of its spellings.)*
+*(2026-10-08, cycle 0.1.6b — RX-220: and `src/frontend/numeric.npk` and `src/frontend/num_width.npk`, which `lexer.npk`
+imports at `5fbaf4a` and where a literal's value is decided — `num_scan` and `num_width_of`, which that reader's
+`_int_value` mirrors — and `escapes.npk`'s escapes for a character literal's code point, which its `_char_value`
+reads; and self-check case 32 asks the pinned compiler about every spelling it holds, so a re-pin that moves one is a
+red run and not only a re-read. `numeric.npk` and `num_width.npk` are unchanged from `c970483` to `5fbaf4a`; this list
+named neither — the cycle audit's C5.)*
 
 **Rule B-1a (RX-176) — the manifest pins the target, and the runner holds every
 emission it links to it.** `[toolchain]` carries `triple` and `datalayout`

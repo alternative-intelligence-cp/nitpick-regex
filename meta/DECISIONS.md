@@ -5051,6 +5051,9 @@ the class parser, whose reading of a class's bytes this is.
 ## Escapes and flags — cycle 0.1.4
 
 ### RX-202 — `check_constants_named` reads a literal as the compiler's lexer does: every base, separator and width suffix, on either side of the comparison
+> **SUPERSEDED IN PART by RX-220 (2026-10-08)** — what it reads as a literal: a character literal too, by its code point,
+> and a literal behind a widening, `(65536i32 => int64)`, on either side; and what self-check case 32 asks, which is
+> the pinned compiler as well as the reader. Every spelling it reads is as this decision says.
 
 **2026-10-01, cycle 0.1.4 (the plan's PD-46), at compiler `5fbaf4a`** — `SAFETY.md` S-12 (RX-062), `TESTING.md` V-20.
 The check found a bound by one pattern — `<`, `>`, `<=` or `>=`, then decimal digits and one of eight width
@@ -5653,3 +5656,36 @@ build, and `EmptyClass`'s is O-Y3's to decide; **the Gate kept, and cycle 0.1 le
 open by kinds it cannot reach; **the check made live where the last kind is provoked** — thirty-four kinds unguarded
 until then, the dormant-rule pattern the check exists to refuse; **the list in the check's own code** — a tree check
 diffs the library against a document, and which kinds wait is the specification's to say.
+
+### RX-220 — `check_constants_named` reads a character literal by its code point and a literal behind a widening, B-4e's re-read names the files a literal's value is decided in, and case 32 asks the pinned compiler
+
+**2026-10-08, cycle 0.1.6b (the plan's PD-64), at compiler `5fbaf4a`** — `TESTING.md` §8, `BUILD.md` B-4e; the cycle
+audit's C5. The literal reader `nitpick-time` shares with this repository reads less here, in three ways, each measured
+at `5fbaf4a`. A character literal is blanked, not read: `pass n > ('\u{10000}' => int64);` planted in a copy's
+`src/core/bytes.npk` compiles and passes the check, where `n > 65536i64` fails it — and `'\u{10000}' => int64` is
+65 536, a program exiting 0 on that equality at both legs; and a literal behind a widening, `(65536i32 => int64)`, is
+read on neither side, since the comparison's patterns want the literal next to the operator. B-4e's re-read lists
+`lexer.npk`, `escapes.npk`, `parse_decl.npk` and `LEXICAL_REFERENCE.md`, and not `numeric.npk` or `num_width.npk`,
+which `lexer.npk` imports and where `num_scan` and `num_width_of` decide a literal's value. And self-check case 32 is
+the reader against itself: nothing asks the pinned compiler, so a re-pin that moved `num_scan` would fail
+`nitpick-time`'s run, whose part E3 asks it (TM-231), and pass this one.
+
+**The decision.** The check reads each character literal as its code point — `_char_value`, `nitpick-time`'s TM-231
+reader ported — and a literal behind a widening on either side of a comparison, `(literal => T)`, a generic call's
+`>(` holding no `=>` after its literal; a finding names a character literal as written. B-4e's list names
+`numeric.npk` and `num_width.npk`, and `escapes.npk` for a character literal's code point. And case 32 plants a
+character literal widened, on either side, and a numeric literal behind a widening, beside its six; holds a small
+character literal and a generic's `>(` in its clean tree; and then builds one program asserting every spelling it
+plants against the decimal it must be, with the pinned compiler and the manifest's flags, requires it to exit 0, and
+requires the reader to read each spelling on its line as that decimal — `nitpick-time`'s E3, ported.
+
+**Measured at `5fbaf4a`.** Over the tree the check finds nothing, as before: `src/` holds no character literal and no
+literal behind a widening at a comparison. Case 32's nine plants each fail it by name, its clean tree passes, and the
+program exits 0 at −O0, its eight spellings read alike by the reader; each of the plan's §1.6 mutants is red at case 32.
+
+*Alternatives declined:* **the character literal declined by a decision** — the audit's other way, but `src/` is a
+parser, and `c >= ('a' => int32)` is how a byte comparison reads to anyone who has not met `CH_LOWER_A`, a bound the
+check would then not see; **`nitpick-time`'s whole reader, every literal held by value** — this check's rule is a bound
+spent at a comparison, and its small values are structure, not policy (RX-062); **the compiler half as a unit under
+`tests/`** — the reader and the compiler would then be asked in two places, and a unit is the library's test, where
+this is the harness's.
