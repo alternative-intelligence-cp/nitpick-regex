@@ -1,0 +1,187 @@
+// expect-exit: 0
+//
+// THE PARSER'S FUZZ PASS (cycle 0.1.6b; RX-221; the cycle README's 0.1.6 item, "a fuzz pass over random byte strings
+// as patterns"). Random byte strings, a fixed seed, and for each the parser must answer: it never traps -- a trap
+// leaves through `failsafe`'s arms, 91 and above -- it ends, since every loop states what decreases and the runner
+// kills a unit at thirty seconds; and it builds a tree whose every node lies inside the pattern, or refuses with an
+// offset and a span inside it: offset + length at most the pattern's length, the length itself when the pattern
+// ended where something was due, spanning nothing (`(?<`, `BadGroupName` at byte 3 of three -- `SYNTAX.md` Y-10).
+//
+// THREE ALPHABETS, because they fail differently: every byte alike, 0 to LONGEST of them, which tests the encoding
+// check and the first refusal; a pattern's own bytes -- brackets, braces, operators, the letters of escapes and
+// flags, digits, white space, `é` -- which reach the grammar; and a pattern's own TOKENS, up to fifteen of the
+// sixty-four below, up to LONGEST_TOKENS bytes -- a group head, a flag group, a POSIX class, an escape begun or
+// whole, a bound -- which reach the refusals a byte at a time almost never builds: a group's name, a flag named
+// twice, `x`'s white space, byte mode, a surrogate. PATTERNS patterns of each. And THREE FLOORS, so the pass cannot
+// be green by looking nowhere: enough patterns accepted (16), enough refused (17), and enough kinds of refusal met
+// (18). A case that differs exits with its number; the pattern that made it is the run's, found from the seed.
+mod:parse_fuzz;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+
+fixed int64:PATTERNS = 40000i64;     // per alphabet
+fixed int64:LONGEST = 48i64;         // the longest pattern of bytes
+fixed int64:LONGEST_TOKENS = 96i64;  // the longest pattern of tokens
+fixed int64:ACCEPTED_FLOOR = 4000i64;
+fixed int64:REFUSED_FLOOR = 4000i64;
+fixed int64:KINDS_FLOOR = 28i64;
+
+// xorshift64 (Marsaglia), as `sparseset_unit.npk` writes it.
+func:next_rng = uint64(uint64:s) never fails {
+    uint64:x = s;
+    x = x ^ (x << 13u64);
+    x = x ^ (x >> 7u64);
+    x = x ^ (x << 17u64);
+    pass x;
+};
+
+// The tree in `t` lies inside a pattern of `len` bytes: its root and every `next` name a node of the arena or
+// `AST_NONE`, and every node's span is inside the pattern -- 0, or the case that failed.
+func:tree_inside = int32(Ast:t, int64:len) never fails {
+    int64:n = raw ast_len(t);
+    if ((t.root < 0i64) || (t.root >= n)) { pass 13i32; }
+    int64:i = 0i64;
+    while (i < n) decreases n - i {
+        AstNode:x = raw ast_get(t, i);
+        if ((x.pos < 0i64) || (x.len < 0i64) || ((x.pos + x.len) > len)) { pass 14i32; }
+        if ((x.next != AST_NONE) && ((x.next < 0i64) || (x.next >= n))) { pass 15i32; }
+        i = i + 1i64;
+    }
+    pass 0i32;
+};
+
+func:run = int32() never fails {
+    // a pattern's own bytes: every metacharacter and closer, the class operators' and a POSIX class's, the bytes a
+    // group head and a flag group read, white space, the letters of every escape and flag, digits, and the two bytes
+    // of `é` in UTF-8 -- sixty-four, so six bits of the generator choose one
+    uint8[64]:meta = [40u8, 41u8, 91u8, 93u8, 123u8, 125u8, 124u8, 42u8, 43u8, 63u8, 92u8, 94u8, 36u8, 46u8, 45u8,
+                      58u8, 38u8, 126u8, 35u8, 60u8, 62u8, 61u8, 33u8, 44u8, 32u8, 10u8, 97u8, 98u8, 120u8, 117u8,
+                      85u8, 112u8, 80u8, 100u8, 119u8, 115u8, 68u8, 107u8, 103u8, 75u8, 66u8, 65u8, 122u8, 81u8,
+                      69u8, 71u8, 105u8, 109u8, 48u8, 49u8, 50u8, 57u8, 39u8, 95u8, 64u8, 37u8, 47u8, 34u8, 59u8,
+                      82u8, 9u8, 13u8, 195u8, 169u8];
+    uint8[64]:met = [0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
+                     0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
+                     0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
+                     0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8];
+    // a pattern's tokens, end to end, and where each begins: `(`, `)`, `(?:`, `(?<n>`, `(?<`, `(?P<`, `(?'`, `(?=`,
+    // `(?i)`, `(?x)`, `(?-u)`, `(?ii`, `(?i-`, `[`, `]`, `[^`, `[:alpha:]`, `[:`, `:]`, `&&`, `--`, `~~`, `\`, `\x{`,
+    // `\x{D800}`, `\u00`, `\U0011FFFF`, `\p{`, `\pL`, `\d`, `\b`, `\b{x}`, `\1`, `\Q`, `\K`, `\g<`, `{`, `}`, `{2,`,
+    // `{3,1}`, `{1001}`, `*`, `+`, `?`, `|`, `.`, `^`, `$`, `a`, `n`, `1`, a space, `#`, a line feed, `é`, a lone C3,
+    // U+2028, `\#`, `\ `, `-`, `\:`, `(?#`, `\G` and `\0`
+    uint8[166]:tok = [40u8, 41u8, 40u8, 63u8, 58u8, 40u8, 63u8, 60u8, 110u8, 62u8, 40u8, 63u8, 60u8, 40u8, 63u8, 80u8,
+                        60u8, 40u8, 63u8, 39u8, 40u8, 63u8, 61u8, 40u8, 63u8, 105u8, 41u8, 40u8, 63u8, 120u8, 41u8, 40u8,
+                        63u8, 45u8, 117u8, 41u8, 40u8, 63u8, 105u8, 105u8, 40u8, 63u8, 105u8, 45u8, 91u8, 93u8, 91u8, 94u8,
+                        91u8, 58u8, 97u8, 108u8, 112u8, 104u8, 97u8, 58u8, 93u8, 91u8, 58u8, 58u8, 93u8, 38u8, 38u8, 45u8,
+                        45u8, 126u8, 126u8, 92u8, 92u8, 120u8, 123u8, 92u8, 120u8, 123u8, 68u8, 56u8, 48u8, 48u8, 125u8, 92u8,
+                        117u8, 48u8, 48u8, 92u8, 85u8, 48u8, 48u8, 49u8, 49u8, 70u8, 70u8, 70u8, 70u8, 92u8, 112u8, 123u8,
+                        92u8, 112u8, 76u8, 92u8, 100u8, 92u8, 98u8, 92u8, 98u8, 123u8, 120u8, 125u8, 92u8, 49u8, 92u8, 81u8,
+                        92u8, 75u8, 92u8, 103u8, 60u8, 123u8, 125u8, 123u8, 50u8, 44u8, 123u8, 51u8, 44u8, 49u8, 125u8, 123u8,
+                        49u8, 48u8, 48u8, 49u8, 125u8, 42u8, 43u8, 63u8, 124u8, 46u8, 94u8, 36u8, 97u8, 110u8, 49u8, 32u8,
+                        35u8, 10u8, 195u8, 169u8, 195u8, 226u8, 128u8, 168u8, 92u8, 35u8, 92u8, 32u8, 45u8, 92u8, 58u8, 40u8,
+                        63u8, 35u8, 92u8, 71u8, 92u8, 48u8];
+    int64[65]:tok_at = [0i64, 1i64, 2i64, 5i64, 10i64, 13i64, 17i64, 20i64, 23i64, 27i64, 31i64, 36i64,
+                        40i64, 44i64, 45i64, 46i64, 48i64, 57i64, 59i64, 61i64, 63i64, 65i64, 67i64, 68i64,
+                        71i64, 79i64, 83i64, 93i64, 96i64, 99i64, 101i64, 103i64, 108i64, 110i64, 112i64, 114i64,
+                        117i64, 118i64, 119i64, 122i64, 127i64, 133i64, 134i64, 135i64, 136i64, 137i64, 138i64, 139i64,
+                        140i64, 141i64, 142i64, 143i64, 144i64, 145i64, 146i64, 148i64, 149i64, 152i64, 154i64, 156i64,
+                        157i64, 159i64, 162i64, 164i64, 166i64];
+    uint8[128]:pat = [0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
+                      0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
+                      0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
+                      0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
+                      0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
+                      0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
+                      0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
+                      0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8];
+    uint64:rng = 88172645463325252u64;
+    int64:accepted = 0i64;
+    int64:refused = 0i64;
+    int64:which = 0i64;                  // 0 every byte alike, 1 a pattern's own bytes, 2 its tokens
+    int64:k = 0i64;
+    while (k < (3i64 * PATTERNS)) decreases (3i64 * PATTERNS) - k {
+        rng = raw next_rng(rng);
+        int64:len = 0i64;
+        if (which == 2i64) {
+            int64:count = ((rng >> 11u64) & 15u64) =>! int64;
+            int64:c = 0i64;
+            while (c < count) decreases count - c {
+                rng = raw next_rng(rng);
+                int64:ti = ((rng >> 32u64) & 63u64) =>! int64;
+                int64:from = tok_at[ti];
+                int64:upto = tok_at[ti + 1i64];
+                if ((len + (upto - from)) <= LONGEST_TOKENS) {
+                    int64:q = from;
+                    while (q < upto) decreases upto - q {
+                        pat[len] = tok[q];
+                        len = len + 1i64;
+                        q = q + 1i64;
+                    }
+                }
+                c = c + 1i64;
+            }
+        } else {
+            len = ((rng >> 11u64) & 63u64) =>! int64;
+            if (len > LONGEST) { len = len - LONGEST; }
+            int64:j = 0i64;
+            while (j < len) decreases len - j {
+                rng = raw next_rng(rng);
+                uint8:b = (rng >> 24u64) =>! uint8;
+                if (which == 1i64) { b = meta[((rng >> 32u64) & 63u64) =>! int64]; }
+                pat[j] = b;
+                j = j + 1i64;
+            }
+        }
+        Ast:t = raw ast_init(8i64);
+        PatternError?:r = raw parse_pattern(pat[0i64...len], @t);
+        if (r == NIL) {
+            int32:bad = raw tree_inside(t, len);
+            drop ast_free(@t);
+            if (bad != 0i32) { pass bad; }
+            accepted = accepted + 1i64;
+        } else {
+            drop ast_free(@t);
+            PatternError:e = r ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
+            if ((e.offset < 0i64) || (e.offset > len)) { pass 10i32; }
+            if ((e.span_len < 0i64) || ((e.offset + e.span_len) > len)) { pass 11i32; }
+            met[((e.kind =>! int32) => int64) & 63i64] = 1u8;
+            refused = refused + 1i64;
+        }
+        which = which + 1i64;
+        if (which == 3i64) { which = 0i64; }
+        k = k + 1i64;
+    }
+    if (accepted < ACCEPTED_FLOOR) { pass 16i32; }
+    if (refused < REFUSED_FLOOR) { pass 17i32; }
+    int64:kinds = 0i64;
+    int64:m = 0i64;
+    while (m < 64i64) decreases 64i64 - m {
+        kinds = kinds + (met[m] => int64);
+        m = m + 1i64;
+    }
+    if (kinds < KINDS_FLOOR) { pass 18i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:r = raw run();
+    exit r;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

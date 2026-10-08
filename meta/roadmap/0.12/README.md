@@ -27,7 +27,7 @@ recommendation: yes, with the cost measured at 0.13 before confirming).
 ### 0.12.0 — the pattern fuzzer
 - [ ] `tools/fuzz_pattern.py`: random trees over `SYNTAX.md` §1, biased toward nesting, large repetitions, large classes, and every refused construct
 - [ ] the invariants (V-17): the compiler produces a program **or** a `PatternError` with a valid offset; it never traps; it never exceeds a bound without reporting it; it always terminates
-- [ ] also fuzz **raw bytes as patterns**, since a pattern arrives from a user
+- [ ] also fuzz **raw bytes as patterns**, since a pattern arrives from a user *(2026-10-08 — cycle 0.1.6b, RX-221: a seeded pass of 120 000 runs on every invocation since then, `tests/unit/parse_fuzz.npk`; this item is the campaign's hundred million)*
 - [ ] a hundred million inputs clean
 - [ ] everything it found committed as a permanent fixture, minimised, with the defect named
 

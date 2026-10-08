@@ -179,6 +179,12 @@ it: the reader of either one sees a complete page. RX-136.)*
 **Rule V-18 — anything a fuzzer finds becomes a permanent fixture**, minimised,
 with the defect named.
 
+*(2026-10-08, cycle 0.1.6b — RX-221: the parser's half of the pattern fuzzer's invariants is held on every run already, by
+a unit, `tests/unit/parse_fuzz.npk`: 120 000 patterns from three alphabets and a fixed seed, none trapping, each a tree
+inside the pattern or a refusal whose offset and length lie inside it, with floors on what it accepts, refuses and
+meets. The pattern fuzzer above — structured, a hundred million patterns, the compiler's half too — is still cycle
+0.12.0's, and V-18 holds for what either finds.)*
+
 ---
 
 ## 8. What the harness checks about the tree

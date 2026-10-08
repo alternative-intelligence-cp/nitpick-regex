@@ -163,6 +163,10 @@ together nest at most `NREGEX_NEST_DEPTH` deep, and a `[` that would go deeper i
 **Rule Y-10 — every error carries a byte offset into the pattern**, and a
 length where the construct spans more than a point. A user gets "unclosed
 group at byte 14", not "invalid pattern".
+*(2026-10-08, cycle 0.1.6b — RX-221, the cycle audit's K6: an offset is a byte of the pattern, or the pattern's length
+where it ended where something was due — `(?<` is `BadGroupName` at byte 3 of three, spanning nothing (Y-29) — and a
+refusal's offset and length lie inside the pattern, offset + length at most its length. `tests/unit/parse_fuzz.npk`
+holds that over 120 000 seeded patterns on every run.)*
 
 **Rule Y-11 — the parser reads bytes, not codepoints, except inside a literal
 or a class**, where a multi-byte UTF-8 sequence is decoded to a codepoint. A

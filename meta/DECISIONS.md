@@ -5689,3 +5689,34 @@ check would then not see; **`nitpick-time`'s whole reader, every literal held by
 spent at a comparison, and its small values are structure, not policy (RX-062); **the compiler half as a unit under
 `tests/`** — the reader and the compiler would then be asked in two places, and a unit is the library's test, where
 this is the harness's.
+
+### RX-221 — the parser's fuzz pass is a unit on every run: 120 000 seeded patterns from three alphabets, none trapping, each a tree inside the pattern or a refusal whose offset and length lie inside it — the pattern's length a valid offset, spanning nothing
+
+**2026-10-08, cycle 0.1.6b (the plan's PD-65), at compiler `5fbaf4a`** — `SYNTAX.md` Y-10, `TESTING.md` §7; the cycle
+README's 0.1.6 item, *"a fuzz pass over random byte strings as patterns: never traps, always terminates, always
+produces a program or an error with a valid offset"*; and the cycle audit's K6, which asked whether the offset `(?<`
+gives — byte 3 of a 3-byte pattern, spanning nothing, the one refusal at the pattern's length in the 137 560 patterns
+the auditor enumerated — is a valid one. Nothing held the property on a run: the auditor's 2.4 million patterns and
+800 000 random byte strings were the audit's, and `TESTING.md` V-17's pattern fuzzer is cycle 0.12.0's.
+
+**The decision.** `tests/unit/parse_fuzz.npk`, a unit the harness runs on every invocation at both legs: 40 000
+patterns from each of three alphabets — every byte alike, a pattern's own sixty-four bytes, and sixty-four of its
+tokens, which reach the refusals a byte at a time almost never builds — from a fixed seed, so a red names its pattern
+by rerunning. Each must be a tree whose root and every `next` name a node of the arena and whose every node lies inside
+the pattern, or a refusal with 0 ≤ offset and offset + length ≤ the pattern's length. So an offset is a byte of the
+pattern or its length, where the pattern ended where something was due, as `(?<`'s does, spanning nothing (Y-10's
+note). It never traps, since a trap leaves through `failsafe`'s arms, and it ends, since every loop states what
+decreases and the runner kills a unit at thirty seconds. Three floors keep it from passing by looking nowhere: 4 000
+patterns accepted and 4 000 refused, and twenty-eight kinds of refusal met.
+
+**Measured at `5fbaf4a`.** The unit exits 0 at −O0 and through `opt -O2`, under a second a leg; it accepts 17 252
+patterns and refuses 102 748, meeting thirty-one of the thirty-four kinds the parser raises — all but `NestTooDeep`,
+`TooManyCaptureGroups` and `PatternTooLong`, which need patterns longer than its own and which `parse_limits` and
+`parse_nest_deep` hold; and each of the plan's §1.6 mutants is red at its case.
+
+*Alternatives declined:* **a one-off campaign, recorded and not kept** — the property would hold on the day it ran and
+on no later commit; **a fuzzer in `tools/` driving the parser from Python** — a process per pattern, and V-17's
+structured fuzzer is cycle 0.12.0's, where it belongs; **`regex_escape`'s round trip fuzzed here too** —
+`regex_escape.npk` holds every ASCII byte in five places and the fourteen names in two, and the auditor's exhaustive
+41 384 texts found the one class it misread, which it now holds; **`(?<` moved to byte 2, so no offset is the
+pattern's length** — the end is where the name was due, and Y-29 says so.
