@@ -44,6 +44,7 @@ design; recorded when chosen).
 - [ ] **`\w` is `[\p{Alphabetic}\p{M}\p{Nd}\p{Pc}\p{Join_Control}]`** (U-10) — a test asserts a Devanagari word and an emoji ZWJ sequence are matched by `\w+` without splitting
 - [ ] complements taken **within the relevant universe** — all codepoints in Unicode mode, all 256 bytes in byte mode — with a test showing `\W` differs between the two
 - [ ] the fourteen POSIX bracket classes, inside a class only
+- [ ] *(2026-10-08 — cycle 0.1.6a, the cycle 0.1 audit's D1)* **a rule in `UNICODE.md` §3 giving each of the fourteen POSIX classes its set in Unicode mode and in byte mode, decided before the code** — `SYNTAX.md` Y-43 cites U-9 for their ASCII meanings, and U-9 pins `\d`, `\w` and `\s` alone; Rust's `regex` reads every POSIX class as ASCII in either mode, and UTS #18 gives each a Unicode set — thirteen in its Annex C, `ascii` as its ASCII property — so which this library takes is a decision with a research item
 
 ### 0.3.3 — case folding
 - [ ] `CaseFolding.txt`'s `C` and `S` entries only (RX-022)

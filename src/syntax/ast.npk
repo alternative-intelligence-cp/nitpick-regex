@@ -78,6 +78,10 @@ pub enum:AstKind = {
 // `vec_get` hands back a `T: Copy` by value (RX-177), and a node owns nothing, so it
 // derives `Copy` -- and so does its kind, because a struct is `Copy` only when every
 // member is (the compiler's D-327; `NITPICK-TYPE-087` names the member otherwise).
+// *(2026-10-08, cycle 0.1.6a -- the cycle audit's C7: or is a structural kind, a pointer or a slice, which D-327
+// passes in a `Copy` struct, measured at `5fbaf4a`; a user enum is neither until it derives `Copy`, which is
+// why `AstKind` does. And RX-190 is why `check_vec_elements_own_nothing` still reads a `Vec`'s element: `Copy`
+// admits a member that holds a block.)*
 #[derive(Copy)]
 pub struct:AstNode = {
     AstKind:kind;      // Y-27

@@ -81,6 +81,8 @@ end of a word, and Perl, PCRE, Python and Java as the bytes, so each is `Unknown
   what was read, its detail `NOT_A_CODEPOINT` (RX-203). So `\u{41}` is `BadUnicodeEscape` at its `{`: braces are
   `\x`'s. A surrogate, U+D800 … U+DFFF, or a value past U+10FFFF is `InvalidCodepoint` at the `\`, spanning the
   escape, its detail the surrogate's value, or `NOT_A_CODEPOINT`.
+  *(2026-10-08, cycle 0.1.6a — the cycle audit's K3: `\u{41}` is `BadUnicodeEscape` at the `\`, as this bullet's rule
+  says — byte 0, spanning `\u{`, its detail the `{` (123); only the detail is the `{`.)*
 - **ASCII that is neither a letter nor a digit** names itself (Y-2).
 - **`d D w W s S`, `p` and `P`** name classes (Y-37). **`A` and `z`** are `Anchor` 2 and 3, **`b` and `B`**
   `WordBoundary` 0 and 1 (§6, Y-27) — outside a class; inside one each is `UnknownEscape`, a position a class cannot
@@ -257,6 +259,9 @@ punctuation, a `Literal` spanning two bytes (Y-2), and `\` as the last byte is
 `TrailingBackslash` at it.
 *(2026-10-01, cycle 0.1.4 — RX-204: and every other escape as Y-40 reads it.)*
 *(2026-10-01, cycle 0.1.4 — RX-205: but `\<` and `\>`, which are refused (Y-2's note).)*
+*(2026-10-08, cycle 0.1.6a — the cycle audit's K4: and two modes read more than the twelve — under `x` white space
+between constructs is skipped or refused and `#` begins a comment (Y-42), and under `(?-u)` a codepoint past ASCII is
+refused (Y-43).)*
 
 **Rule Y-29 (RX-185) — groups.** `(` opens a capturing group, numbered by its `(`
 (Y-6); `(?:` a non-capturing one; `(?<name>` a capturing one named by
@@ -484,6 +489,9 @@ and two hex digits, which name a byte whatever its value: `(?-u)\xE9` is the byt
 which no codepoint past ASCII is — since a property names codepoints. `\d`, `\w`, `\s`, the POSIX classes, `.`, `\b`
 and `\B` keep their ASCII meanings (`UNICODE.md` U-9), which the nodes' flags carry. `(?u)` and `(?u:…)` turn Unicode
 back on.
+*(2026-10-08, cycle 0.1.6a — the cycle audit's D1: U-9 pins `\d`, `\w` and `\s` alone. What each of §5.1's fourteen
+POSIX classes matches, in Unicode mode and in byte mode, no rule says yet; cycle 0.3.2 writes one in `UNICODE.md` §3
+before its code, the 0.3 README's item. `\b` and `\B` are `UNICODE.md` §5's, U-15 … U-17, and `.` is Y-13's.)*
 
 ---
 
@@ -756,7 +764,7 @@ RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-2
 
 | Kind | Raised when | Offset | Length | Detail |
 |---|---|---|---|---|
-| `UnclosedGroup` | the pattern ends inside a group | the innermost open `(` | 1; 2 for `(?` at the end | how many groups are open |
+| `UnclosedGroup` | the pattern ends inside a group | the innermost open `(` | 1; 2 for `(?` at the end — *the head read when the pattern ends inside one, `(?` or a head of flags: `(?i` is 3 (Y-41, RX-206)* | how many groups are open |
 | `UnopenedGroup` | `)` with no group open | the `)` | 1 | 0 |
 | `TrailingBackslash` | `\` is the last byte | the `\` | 1 | 0 |
 | `NothingToRepeat` | a quantifier with no atom before it | the quantifier | 1 | its first byte |
@@ -770,7 +778,7 @@ RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-2
 | `WrongNamedGroupSpelling` | `(?P<` or `(?'` | the `(` | the head | 80 or 39 |
 | `LookaroundUnsupported`, `AtomicGroupUnsupported`, `RecursionUnsupported`, `BackreferenceUnsupported`, `UnsupportedGroup` | Y-30's group heads | the `(` | the head | its last byte |
 | `AtomicGroupUnsupported` | a quantifier made possessive | the quantifier | through the `+` | 43 |
-| `InvalidPatternEncoding` | ill-formed UTF-8 | the sequence's first byte | through the byte that broke it | that byte; 0 when cut short |
+| `InvalidPatternEncoding` | ill-formed UTF-8 | the sequence's first byte | through the byte that broke it | that byte; 0 when cut short — *and 0 for a NUL that broke it, which the length tells apart: `C3 00` spans 2, `C3` at the end 1, and no sentence reads the detail (RX-183)* |
 | `PatternTooLong` (cycle 0.1.0) | over `NREGEX_PATTERN_BYTES` | the first byte past the bound | the bytes over it | the bound |
 | `NestTooDeep` (cycle 0.1.2) | a `(` that would nest groups deeper than `NREGEX_NEST_DEPTH` (Y-35) — *and since cycle 0.1.3 a `[` that would nest groups and classes deeper, counted together (RX-198)* — *whatever the `(` begins, `(?i)` and `(?#` too, since its head is not read (RX-216)* | that `(` *or `[`* | 1 | the bound |
 | `UnclosedClass` (cycle 0.1.3) | the pattern ends inside a class — not inside an escape, a property's name or a `[:` | the innermost open `[` | 1 | 93 when that class's first member is a `]`; 0 |

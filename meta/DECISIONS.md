@@ -4271,6 +4271,9 @@ construct 0.1.0 writes needs one, and the grammar names where one is needed when
 narrowing.
 
 ### RX-174 — the AST is a flat arena of sixteen kinds of 56-byte node that own nothing, every operand an `int64`, and only `ast.npk` touches its `Vec`
+> **SUPERSEDED IN PART by RX-177 (2026-09-27)** — *"`AstNode` implements `Pod` in one line"*: `Pod` retired into the
+> prelude's `Copy`, which `AstNode` and `AstKind` derive. Every other part is as this decision says. *(Marked
+> 2026-10-08, cycle 0.1.6a — the cycle audit's S2: the marker was not added when RX-177 landed.)*
 
 **2026-09-26, cycle 0.1.0 (the plan's PD-18), at compiler `c970483`.** `src/syntax/ast.npk`, and `SYNTAX.md`
 rules Y-26 (the node) and Y-27 (the kinds):
@@ -4522,6 +4525,10 @@ both literally; **an unfinished `{` taken as a literal**, PCRE's rule — a patt
 brace completes is the context-dependence Y-2 refuses.
 
 ### RX-184 — quantifiers: the six forms and the lazy `?`, a `{` always a bound, and each refusal decided at the quantifier's first byte
+> **SUPERSEDED IN PART by RX-213 (2026-10-02)** — *"a `{` that is not `{n}`, `{n,}` or `{n,m}` in decimal digits is
+> `BadRepeatBounds` (detail 0)"*: after `\b` or `\B`, detail 2, which RX-215 gives only when a letter follows the `{`.
+> Every other part is as this decision says. *(Marked 2026-10-08, cycle 0.1.6a — the cycle audit's S2: the marker was not
+> added when RX-213 landed.)*
 
 **2026-09-27, cycle 0.1.1 (the plan's PD-28)** — `SYNTAX.md` Y-32. `NothingToRepeat` and `DoubleRepeat` are decided at
 the quantifier's first byte, before a bound is read; a `{` that is not `{n}`, `{n,}` or `{n,m}` in decimal digits
@@ -5367,6 +5374,8 @@ class holds codepoints, and no engine reads a position there.
 > **SUPERSEDED IN PART by RX-214 (2026-10-08)** — the set of bytes it escapes: `:` joins them, since straight after a
 > nested class's `[` a text that began `:alpha:` was read as the POSIX class, with no error; and the claim *"between `[`
 > and `]`"*, which held for none of those texts. Every other byte, and every other form, is as this decision says.
+> *(Noted 2026-10-08, cycle 0.1.6a — the cycle audit's S4: its *"as it does `pattern_error_text`"* reads as the present;
+> `src/lib.npk` re-exports `ERegexPattern` alone today, and both at cycle 0.10.5 (`API.md` §1, RX-187).)*
 
 **2026-10-02, cycle 0.1.5 (the plan's PD-55), at compiler `5fbaf4a`** — `SYNTAX.md` Y-24 and Y-45, `API.md` §1; per
 `meta/research/refusal-syntax-reference-engines.md`, as of 2026-10-01. Y-24 names `regex_escape` the way to match a
