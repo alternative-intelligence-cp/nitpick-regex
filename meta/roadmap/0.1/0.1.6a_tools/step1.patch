@@ -1,5 +1,5 @@
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index b7908e529c486c2ea6894c78b9d599fb243bc489..8d05000322fce99cb66c4784d79d93618c779257 100644
+index b7908e529c486c2ea6894c78b9d599fb243bc489..064025008c9b519c68fc07e02661ad9e65b37c3f 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
 @@ -5357,6 +5357,9 @@ to write `K`, and the author amended the plan on 2026-10-02; **`\K` refused as l
@@ -28,7 +28,7 @@ index b7908e529c486c2ea6894c78b9d599fb243bc489..8d05000322fce99cb66c4784d79d9361
 +make `[a[:alpha:]]`, which parses — `a` or a letter — and `[\w--[` and `regex_escape(":digit:")` and `]]` make `\w`
 +less the digits, not less `:`, `d`, `i`, `g` and `t`. A wrong answer with no error, for the fourteen texts `:name:`, in
 +a nested class only; their `:^name:` twins, whose `^` it escapes, were refused there, `UnknownPosixClass`. After the
-+outermost `[` the fourteen, and every text that begins and ends with `:` and holds another codepoint, were refused
++outermost `[` the fourteen, and every text that begins and ends with `:`, holds a codepoint not `:` and is written with no `\`, were refused
 +(RX-200): loud, and Y-45's *"between `[` and `]` one member each"* false for them. Measured on 2026-10-08, regex-syntax 0.8.11's `is_meta_character` holds no `:`, and it reads
 +`[[:alpha:]]` and `[a[:alpha:]]` as the POSIX class, so Rust's escaped text is misread there too
 +(`meta/research/refusal-syntax-reference-engines.md`, its addendum of 2026-10-08).

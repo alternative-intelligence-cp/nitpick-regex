@@ -117,6 +117,15 @@ and no amount of engine work makes it one in linear time. What to use instead:
 - **"the same text twice"** — match once and compare, which is what a
   backreference does anyway, at the cost of the guarantee.
 
+*(2026-10-08, cycle 0.1.6a — RX-218: *"is not a regular expression, and no amount
+of engine work makes it one in linear time"* is not true of lookaround. Finite
+automata decide matching with lookahead and lookbehind, and two 2024 algorithms
+match them in linear time
+([`../research/lookaround-linear-time.md`](../research/lookaround-linear-time.md));
+nregex refuses them on RX-003, whose automata read none of it, and on `SAFETY.md`
+S-6, which keeps a search from allocating — S-2's note says what each algorithm
+asks. Of backreferences it stands.)*
+
 **Rule K-2 — the documentation says this on the same page as the refusal**, not
 in a corner. A user who hits `BackreferenceUnsupported` should reach the answer
 in one click.

@@ -1,8 +1,8 @@
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index c7de1d09b1802de1f0a3fa58d5d4e764f828a479..66a57d9e5a47297aa36cdb72422c91f3a545fe9e 100644
+index a7399cc19627d9a4a1e02331ff221f1c1e56b841..38b3fe5fedbf7a5034bc667930cf8080f75471f2 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
-@@ -4271,6 +4271,9 @@ construct 0.1.0 writes needs one, and the grammar names where one is needed when
+@@ -4276,6 +4276,9 @@ construct 0.1.0 writes needs one, and the grammar names where one is needed when
  narrowing.
  
  ### RX-174 — the AST is a flat arena of sixteen kinds of 56-byte node that own nothing, every operand an `int64`, and only `ast.npk` touches its `Vec`
@@ -12,7 +12,7 @@ index c7de1d09b1802de1f0a3fa58d5d4e764f828a479..66a57d9e5a47297aa36cdb72422c91f3
  
  **2026-09-26, cycle 0.1.0 (the plan's PD-18), at compiler `c970483`.** `src/syntax/ast.npk`, and `SYNTAX.md`
  rules Y-26 (the node) and Y-27 (the kinds):
-@@ -4522,6 +4525,10 @@ both literally; **an unfinished `{` taken as a literal**, PCRE's rule — a patt
+@@ -4527,6 +4530,10 @@ both literally; **an unfinished `{` taken as a literal**, PCRE's rule — a patt
  brace completes is the context-dependence Y-2 refuses.
  
  ### RX-184 — quantifiers: the six forms and the lazy `?`, a `{` always a bound, and each refusal decided at the quantifier's first byte
@@ -23,7 +23,7 @@ index c7de1d09b1802de1f0a3fa58d5d4e764f828a479..66a57d9e5a47297aa36cdb72422c91f3
  
  **2026-09-27, cycle 0.1.1 (the plan's PD-28)** — `SYNTAX.md` Y-32. `NothingToRepeat` and `DoubleRepeat` are decided at
  the quantifier's first byte, before a bound is read; a `{` that is not `{n}`, `{n,}` or `{n,m}` in decimal digits
-@@ -5367,6 +5374,8 @@ class holds codepoints, and no engine reads a position there.
+@@ -5372,6 +5379,8 @@ class holds codepoints, and no engine reads a position there.
  > **SUPERSEDED IN PART by RX-214 (@@DATE@@)** — the set of bytes it escapes: `:` joins them, since straight after a
  > nested class's `[` a text that began `:alpha:` was read as the POSIX class, with no error; and the claim *"between `[`
  > and `]`"*, which held for none of those texts. Every other byte, and every other form, is as this decision says.
@@ -46,14 +46,14 @@ index 4118dee15c9f997b89bb1a05712726eed3c66095..370929310972f7893723433cfbafbed0
  - [x] `x` mode: whitespace and `#`-to-end-of-line ignored, per O-Y2's answer *(2026-10-01 — RX-201: outside a class; inside one, a white-space byte or a `#` is refused at it (Y-39), with a kind this subcycle adds to §9 and a sentence naming `\x20` and `\#`; `(?xx)`, a repeated flag, refused saying so)* — **RX-207, `3ad9cfd` — between constructs only, and what the engines read two ways refused**: `parse_flags` 30–47; inside a construct a white-space byte is the construct's own, so `\x4 1`, `a{2, 3}`, `( ?:a)`, `a* ?`, `(?i x)` and `(?<a b>c)` are refused (`parse_flag_refusals` 80–85); RX-201's refusal made, `ExtendedAmbiguity`, a kind after `WrongNamedGroupSpelling` (60–67), and white space past ASCII too, the twenty-one codepoints of White_Space and Pattern_White_Space (70–76); `(?xx)` `DuplicateFlag` (23), its sentence naming `xx` (text 59); text 60–63
  - [x] `(?-u)` byte mode, and `ByteModeNonAscii` when a non-ASCII literal appears under it (Y-14) — **naming the codepoint** — **RX-208, `61cdf5c` — `\xHH` a byte, every other spelling past ASCII refused**: `parse_flags` 50–61, `AST_FLAG_BYTE` on every `Literal` read under `(?-u)`; `ByteModeNonAscii` for `é`, `\x{E9}`, `\u00E9`, `\U0001F600`, a class member and a range's end, and `\p` and `\P` at their `\` (`parse_escape_refusals` 78–90); the sentence names the codepoint and its UTF-8 bytes, and the one byte below U+0100 (text 64–66)
 diff --git a/meta/roadmap/0.3/README.md b/meta/roadmap/0.3/README.md
-index de6eff8e45da8ba8ce119274fb8d62fe9e47a83f..93ae1638aede9341f8e99cf5f07e715b741d1a45 100644
+index de6eff8e45da8ba8ce119274fb8d62fe9e47a83f..a85e15405c00d4c9f07415f26054ba70100a8084 100644
 --- a/meta/roadmap/0.3/README.md
 +++ b/meta/roadmap/0.3/README.md
 @@ -44,6 +44,7 @@ design; recorded when chosen).
  - [ ] **`\w` is `[\p{Alphabetic}\p{M}\p{Nd}\p{Pc}\p{Join_Control}]`** (U-10) — a test asserts a Devanagari word and an emoji ZWJ sequence are matched by `\w+` without splitting
  - [ ] complements taken **within the relevant universe** — all codepoints in Unicode mode, all 256 bytes in byte mode — with a test showing `\W` differs between the two
  - [ ] the fourteen POSIX bracket classes, inside a class only
-+- [ ] *(@@DATE@@ — cycle 0.1.6a, the cycle 0.1 audit's D1)* **a rule in `UNICODE.md` §3 giving each of the fourteen POSIX classes its set in Unicode mode and in byte mode, decided before the code** — `SYNTAX.md` Y-43 cites U-9 for their ASCII meanings, and U-9 pins `\d`, `\w` and `\s` alone; Rust's `regex` reads every POSIX class as ASCII in either mode, and UTS #18 Annex C gives each a Unicode set, so which this library takes is a decision with a research item
++- [ ] *(@@DATE@@ — cycle 0.1.6a, the cycle 0.1 audit's D1)* **a rule in `UNICODE.md` §3 giving each of the fourteen POSIX classes its set in Unicode mode and in byte mode, decided before the code** — `SYNTAX.md` Y-43 cites U-9 for their ASCII meanings, and U-9 pins `\d`, `\w` and `\s` alone; Rust's `regex` reads every POSIX class as ASCII in either mode, and UTS #18 gives each a Unicode set — thirteen in its Annex C, `ascii` as its ASCII property — so which this library takes is a decision with a research item
  
  ### 0.3.3 — case folding
  - [ ] `CaseFolding.txt`'s `C` and `S` entries only (RX-022)

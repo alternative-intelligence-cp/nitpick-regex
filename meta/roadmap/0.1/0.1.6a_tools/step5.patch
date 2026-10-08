@@ -1,8 +1,36 @@
+diff --git a/README.md b/README.md
+index b0e5041654faa91d416473c6e2c9c3d80c236438..567f1010ba98ee63f6a4ed47958a0977ed4e8794 100644
+--- a/README.md
++++ b/README.md
+@@ -54,6 +54,11 @@ This is the choice RE2 and Rust's `regex` made, for the same reason.
+ and no lookaround.** Neither describes a regular language, and both are exactly
+ what makes backtracking unavoidable. A pattern needing them is refused at
+ compile time, by name, with the position — never accepted and then slow.
++*(@@DATE@@ — of lookaround the second sentence is not true: finite automata
++can match lookahead and lookbehind, and in linear time, by algorithms published
++in 2024. `nregex` refuses lookaround because its automata read none of it and a
++search allocates nothing; [`meta/specs/SAFETY.md`](meta/specs/SAFETY.md) S-2's
++note says what each algorithm asks, and RX-218 records it.)*
+ 
+ ## What follows from it
+ 
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index 93c434a220c82eee3b89342de30d5453cfc6242f..c7de1d09b1802de1f0a3fa58d5d4e764f828a479 100644
+index 2b31d0b5c97f315ee904d81a54b70e6378b44fef..a7399cc19627d9a4a1e02331ff221f1c1e56b841 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
-@@ -5580,3 +5580,28 @@ names `\g` and `\K` beside `\k`, `\G` and `\Z` — `SYNTAX.md` §9's row, `COMPA
+@@ -41,6 +41,11 @@ diffed, because reading either alone never reveals the gap — and
+ `TESTING.md` §8's checks are that diff, applied here.
+ 
+ ### RX-003 — automata only: linear time guaranteed, no backreferences, no lookaround
++> *(Noted @@DATE@@, cycle 0.1.6a — RX-218: *"None of them describes a regular language; each is exactly what makes
++> backtracking unavoidable"* is not true of lookahead and lookbehind: finite automata decide matching with them, and
++> two 2024 algorithms match them in O(m·n) without backtracking. Their refusal stands on this decision's automata,
++> which read no lookaround, and on `SAFETY.md` S-6.)*
++
+ **2026-09-03. The decision the whole library is arranged around.**
+ 
+ The engine is a finite automaton — Thompson construction, a Pike VM, a lazy
+@@ -5580,3 +5585,28 @@ names `\g` and `\K` beside `\k`, `\G` and `\Z` — `SYNTAX.md` §9's row, `COMPA
  *Alternatives declined:* **RX-210's text rewritten** — a settled decision's text is never rewritten, and the marker says
  what changed and why; **a dated note at each of the three places and no decision** — the audit's other way, but the
  answer is the author's, and a decision is where this repository records one, beside RX-209, as the workbench asked.
@@ -47,6 +75,26 @@ index 47a68c85f600d432595a27e7626fd72f2a090bd6..afd9013e723a5141b56f3ac7970e3919
  - **O-R2 — a reverse DFA to find a match's start.** It is how Rust's `regex`
    avoids the Pike VM for simple captures. It doubles the compiler's output and
    needs its own correctness argument. **Decide at cycle 0.8**, where the DFA's
+diff --git a/meta/specs/COMPAT.md b/meta/specs/COMPAT.md
+index 8f9211338a65fdd416662848fc12cdddc6f24921..26ebc345db48942cb802f9c07fdf17e095a02deb 100644
+--- a/meta/specs/COMPAT.md
++++ b/meta/specs/COMPAT.md
+@@ -117,6 +117,15 @@ and no amount of engine work makes it one in linear time. What to use instead:
+ - **"the same text twice"** — match once and compare, which is what a
+   backreference does anyway, at the cost of the guarantee.
+ 
++*(@@DATE@@, cycle 0.1.6a — RX-218: *"is not a regular expression, and no amount
++of engine work makes it one in linear time"* is not true of lookaround. Finite
++automata decide matching with lookahead and lookbehind, and two 2024 algorithms
++match them in linear time
++([`../research/lookaround-linear-time.md`](../research/lookaround-linear-time.md));
++nregex refuses them on RX-003, whose automata read none of it, and on `SAFETY.md`
++S-6, which keeps a search from allocating — S-2's note says what each algorithm
++asks. Of backreferences it stands.)*
++
+ **Rule K-2 — the documentation says this on the same page as the refusal**, not
+ in a corner. A user who hits `BackreferenceUnsupported` should reach the answer
+ in one click.
 diff --git a/meta/specs/SAFETY.md b/meta/specs/SAFETY.md
 index 832b037573106fb4ee6eaa79893315dfa76ecccd..2da0cee35d2479a145f81dae7adc3570486e7939 100644
 --- a/meta/specs/SAFETY.md

@@ -56,6 +56,11 @@ This is the choice RE2 and Rust's `regex` made, for the same reason.
 and no lookaround.** Neither describes a regular language, and both are exactly
 what makes backtracking unavoidable. A pattern needing them is refused at
 compile time, by name, with the position — never accepted and then slow.
+*(2026-10-08 — of lookaround the second sentence is not true: finite automata
+can match lookahead and lookbehind, and in linear time, by algorithms published
+in 2024. `nregex` refuses lookaround because its automata read none of it and a
+search allocates nothing; [`meta/specs/SAFETY.md`](meta/specs/SAFETY.md) S-2's
+note says what each algorithm asks, and RX-218 records it.)*
 
 ## What follows from it
 

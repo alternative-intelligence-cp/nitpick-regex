@@ -41,6 +41,11 @@ diffed, because reading either alone never reveals the gap — and
 `TESTING.md` §8's checks are that diff, applied here.
 
 ### RX-003 — automata only: linear time guaranteed, no backreferences, no lookaround
+> *(Noted 2026-10-08, cycle 0.1.6a — RX-218: *"None of them describes a regular language; each is exactly what makes
+> backtracking unavoidable"* is not true of lookahead and lookbehind: finite automata decide matching with them, and
+> two 2024 algorithms match them in O(m·n) without backtracking. Their refusal stands on this decision's automata,
+> which read no lookaround, and on `SAFETY.md` S-6.)*
+
 **2026-09-03. The decision the whole library is arranged around.**
 
 The engine is a finite automaton — Thompson construction, a Pike VM, a lazy
