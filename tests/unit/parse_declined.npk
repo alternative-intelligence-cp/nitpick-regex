@@ -17,6 +17,9 @@
 // *(2026-10-02, cycle 0.1.5 -- RX-210, the author's amendment of 2026-10-02: and `\K`, Perl's and PCRE's
 // reset of a match's start, `LookaroundUnsupported` at the `\`; in a class `UnknownEscape`, as `\G` and `\Z`
 // are (60-63).)*
+// *(2026-10-08, cycle 0.1.6a -- RX-217: the in-class half, `[\K]` (63), was cycle 0.1.5's worker's reading of
+// RX-209, which the author accepted on 2026-10-02 as the workbench's question 23 -- not his amendment, which is
+// `\K` outside a class.)*
 //
 // THIS IS THE CYCLE README'S "A REJECTION TEST PER REFUSAL". `tests/rejection/` holds what the COMPILER
 // refuses, each file with its exact codes (`BUILD.md` B-7); a refused pattern is a value `parse_pattern`
@@ -91,6 +94,7 @@ func:run = int32() never fails {
     if (!(raw refused("[\\g]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 103u32)))                    { pass 57i32; }
     // `\K`: Perl's and PCRE's reset of a match's start, a lookbehind in effect -- refused as lookaround, the
     // author's amendment of 2026-10-02 (RX-210); in a class no position, so the letter no rule names
+    // *(2026-10-08 -- RX-217: that half, 63, the worker's reading, accepted as the workbench's question 23)*
     if (!(raw refused("\\K", PatternErrorKind.LookaroundUnsupported, 0i64, 2i64, 75u32)))               { pass 60i32; }
     if (!(raw refused("foo\\Kbar", PatternErrorKind.LookaroundUnsupported, 3i64, 2i64, 75u32)))         { pass 61i32; }
     if (!(raw refused("(a)\\K(", PatternErrorKind.LookaroundUnsupported, 3i64, 2i64, 75u32)))           { pass 62i32; }

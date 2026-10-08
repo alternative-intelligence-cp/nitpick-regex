@@ -308,6 +308,9 @@ its detail the third, as Y-30's `(?P>` is; in a class `\g` stays `UnknownEscape`
 `LookaroundUnsupported` — Perl's and PCRE's reset of a match's start, which keeps what matched before it out of the
 match, as a lookbehind would — at the `\`, spanning it and the `K`, its detail `K` (75); in a class `\K` stays
 `UnknownEscape`, as `\G` and `\Z` do.)*
+*(2026-10-08, cycle 0.1.6a — RX-217: the note above holds two halves as the author's amendment, and only the first is:
+`\K` outside a class. That `[\K]` stays `UnknownEscape` was cycle 0.1.5's worker's reading of RX-209 — no engine reads a
+position in a class — which the author accepted on 2026-10-02 as the workbench's question 23.)*
 
 **Rule Y-31 (RX-186) — until its parser exists, a construct is refused
 PROVISIONALLY**, with the kind its parser gives a member it does not know: `[` is
@@ -789,7 +792,7 @@ RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-2
 | `BackreferenceUnsupported` (cycle 0.1.5, RX-209) | `\1` … `\9` or `\k`, outside a class | the `\` | 2 | the digit or `k`: 49 … 57, 107 |
 | `UnsupportedAnchor` (cycle 0.1.5, RX-209) | `\G` or `\Z`, outside a class | the `\` | 2 | 71 or 90 |
 | `UnsupportedQuoting` (cycle 0.1.5, RX-209) | `\Q` or `\E`, in a class or out | the `\` | 2 | 81 or 69 |
-| `UnknownEscape` (cycle 0.1.5, RX-209) | in a class, a `\` before a digit `1` … `9`, `k`, `G` or `Z` | the `\` | 2 | that byte |
+| `UnknownEscape` (cycle 0.1.5, RX-209) | in a class, a `\` before a digit `1` … `9`, `k`, `G` or `Z` — *and `g` and `K` (RX-210, RX-217)* | the `\` | 2 | that byte |
 | `UnknownUnicodeProperty` (cycle 0.3.1, RX-212) | a Unicode block, `\p{InGreek}` or `\p{Block=Greek}` (`UNICODE.md` U-8) | the `\` | through its `}` | 4 |
 | `BackreferenceUnsupported` (cycle 0.1.5, RX-210) | `\g` outside a class, but before `<` or `'` | the `\` | 2 | 103 |
 | `RecursionUnsupported` (cycle 0.1.5, RX-210) | `\g<` or `\g'` outside a class | the `\` | 3 | 60 or 39 |

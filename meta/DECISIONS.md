@@ -5321,6 +5321,10 @@ four read octal; **`\G` and `\Z` in a class refused as anchors** — a class hol
 them since 0.1.1.
 
 ### RX-210 — `\g` is refused as what it is where it means anything: a backreference, and before `<` or `'` a call of a group — and `\K`, by the author's amendment, as lookaround
+> **SUPERSEDED IN PART by RX-217 (2026-10-08)** — the attribution of `\K`'s in-class half, which its paragraph *"The
+> author's amendment, 2026-10-02"* holds as his: that `[\K]` stays `UnknownEscape` was cycle 0.1.5's worker's reading of
+> RX-209, which the author accepted on 2026-10-02 as the workbench's question 23. What `\K` and `\g` are, in a class and
+> out, is as this decision says.
 
 **2026-10-02, cycle 0.1.5 (the plan's PD-54), at compiler `5fbaf4a`** — `SYNTAX.md` Y-44; per
 `meta/research/refusal-syntax-reference-engines.md`, as of 2026-10-01, and for `\K` its addendum of 2026-10-02.
@@ -5550,3 +5554,29 @@ this decision exits 23.
 chose one, and `(?i:` opens a group, which the bound must still refuse before its body; **the sentence kept, and a note in
 Y-35** — a sentence a user reads, false for an input the rule names; **"would open a group or a class"** — false for
 the same two.
+
+### RX-217 — `\K` in a class stays `UnknownEscape`: cycle 0.1.5's worker's reading of RX-209, which the author accepted as the workbench's question 23 — recorded as that, not as his amendment
+
+**2026-10-08, cycle 0.1.6a (the plan's PD-61), at compiler `5fbaf4a`** — `SYNTAX.md` Y-44 and §9, `COMPAT.md` §3; the
+cycle audit's C6 and K1, and the second and third of cycle 0.1.5's verifier's findings. The author amended cycle 0.1.5's
+plan on 2026-10-02: `\K` refused as lookaround, with the lookaround's sentence (RX-210). What `\K` is inside a class he
+did not say. The worker read RX-209's rule — a class holds codepoints, and no engine reads a group or a position in one —
+as keeping `[\K]` `UnknownEscape`, as `[\G]` and `[\Z]` are, and its record said so: *"That half is this worker's
+reading of RX-209's rule, not the author's words"*. But RX-210's paragraph *"The author's amendment, 2026-10-02"* and
+Y-44's note *"the author's amendment of 2026-10-02"* hold that half as his. He accepted the reading at 09:45 on
+2026-10-02, the workbench's question 23 — *"im fine with your recomendation for question 23"* — and the workbench's
+record asked that this repository record it beside RX-209.
+
+**The decision.** No pattern moves: `[\K]` is `UnknownEscape` at the `\`, spanning two bytes, its detail `K` (75), and
+`\K` outside a class `LookaroundUnsupported` (RX-210). The record moves: this decision is the in-class half, the
+worker's reading the author accepted as question 23; RX-210 carries its marker, and Y-44's note and
+`tests/unit/parse_declined.npk`'s header a dated note each. And every list of what stays `UnknownEscape` in a class
+names `\g` and `\K` beside `\k`, `\G` and `\Z` — `SYNTAX.md` §9's row, `COMPAT.md` §3's row, and the comment over
+`class_escape`, which each named three.
+
+**Measured at `5fbaf4a`.** `[\K]` is `UnknownEscape` at byte 1, length 2, detail 75, and `[\g]` the same with detail
+103 — `tests/unit/parse_declined.npk` cases 63 and 57, unchanged.
+
+*Alternatives declined:* **RX-210's text rewritten** — a settled decision's text is never rewritten, and the marker says
+what changed and why; **a dated note at each of the three places and no decision** — the audit's other way, but the
+answer is the author's, and a decision is where this repository records one, beside RX-209, as the workbench asked.

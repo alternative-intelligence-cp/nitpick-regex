@@ -1252,6 +1252,8 @@ func:class_close = PatternError?(Ast->:out, ClassFrame->:cf, uint32:flags, int64
 // `UnsupportedQuoting`, as outside a class (Y-44); every other escape is `UnknownEscape` -- `\b`, `\B`, `\A`
 // and `\z` too, since a class holds codepoints and they name positions, `\<` and `\>` (RX-205), and the
 // digits, `\k`, `\G` and `\Z`, which no engine reads in a class as a group or a position (Y-44).
+// *(2026-10-08, cycle 0.1.6a -- RX-217: and `\g` and `\K`, which RX-210 refuses outside a class: no engine reads a
+// group or a position here either.)*
 func:class_escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame->:cf, int64:at) never fails {
     int32:d = raw cursor_peek(@p.c);
     if (d == CURSOR_END) {

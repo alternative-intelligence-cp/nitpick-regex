@@ -18,6 +18,8 @@
 // *(2026-10-02, cycle 0.1.5 -- RX-210, the author's amendment of 2026-10-02: and `\K`, Perl's and PCRE's
 // reset of a match's start, refused as lookaround, which case 47 held as an unknown letter until then;
 // `parse_declined.npk`'s cases 60-63 hold it.)*
+// *(2026-10-08, cycle 0.1.6a -- RX-217: 60-62 the amendment's, outside a class; 63, `[\K]` `UnknownEscape`, the
+// worker's reading of RX-209, accepted as the workbench's question 23.)*
 mod:parse_escape_refusals;
 
 use "../../src/core/core.npk".*;

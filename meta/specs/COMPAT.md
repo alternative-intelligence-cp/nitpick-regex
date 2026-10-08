@@ -82,7 +82,7 @@ The list a user migrating from Python, PHP, Java or JavaScript needs.
 | `\<`, `\>` — the bytes in Perl, PCRE, Python and Java | refused, since Rust's `regex` and GNU `grep` read word assertions; write `<` or `>` (Y-40, RX-205) |
 | `\E` alone — ignored by Perl and PCRE, refused by Java | refused, `UnsupportedQuoting`, as `\Q` is (`SYNTAX.md` Y-44, RX-209) |
 | `[\1]` … `[\7]` — octal in a class in Perl, PCRE and Python | refused, `UnknownEscape`; write the hex form, `\x01` (Y-44) |
-| `[\k]`, `[\G]`, `[\Z]` — the letter in Perl | refused, `UnknownEscape`, as any letter no rule names in a class (Y-44) |
+| `[\k]`, `[\G]`, `[\Z]` — the letter in Perl | refused, `UnknownEscape`, as any letter no rule names in a class (Y-44) — *and `[\g]`, the letter in Perl and PCRE, and `[\K]`, the letter in Perl (RX-210, RX-217)* |
 | `\g1`, `\g{-1}`, `\g{name}` — Perl's and PCRE's backreferences; `\g<1>`, `\g'1'` — PCRE's call of a group | refused, `BackreferenceUnsupported` and `RecursionUnsupported` (`SYNTAX.md` Y-44, RX-210) |
 | `\b{wb}`, `\b{sb}`, `\b{gcb}`, `\b{lb}`, `\B{wb}` — Perl's Unicode boundaries | refused, `BadRepeatBounds`, naming `\b` and Perl's reading (`SYNTAX.md` Y-32, RX-213) |
 | `(?i)` after the pattern's start — global in Python, which requires it first | from there to the enclosing group's `)`, across `|`, as in Perl, PCRE and Rust (`SYNTAX.md` Y-41, RX-206) |
