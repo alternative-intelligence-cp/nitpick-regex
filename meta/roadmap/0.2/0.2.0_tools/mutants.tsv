@@ -1,0 +1,41 @@
+# 0.2.0's mutants of src/hir/repr.npk and src/hir/dump.npk -- each one rule broken in a copy of a tree, the text matched
+# exactly ONCE or the row is a STOP; `mutants.py` builds every unit below that the tree holds, in the copy, at both
+# legs, and prints the units whose exits differ from the unchanged copy's. TAB-separated; `\n` in a text is a newline.
+# The first column lists where a row runs: `0c`, block 0c over the close's code, and `6`, block 6 over the tree. The
+# close's thirty-two rows run at both; `walk-bound-plus-one` at step 6 alone, since the close's code IS that mutant. The
+# exit each is aimed at is the plan's section 1.7.
+# units: hir_size hir_unit hir_oob_get hir_oob_set_root hir_dump hir_dump_count hir_dump_stray_next hir_dump_not_a_tree hir_dump_shared
+# steps	name	file	the text	its replacement
+0c,6	write-no-literal-byte	src/hir/dump.npk	drop put(out, "literal");\n            if (byte) { drop put(out, " byte"); }	drop put(out, "literal");
+0c,6	write-no-lazy	src/hir/dump.npk	if ((n.flags & HIR_FLAG_LAZY) != 0u32) { drop put(out, " lazy"); }	if (false) { drop put(out, " lazy"); }
+0c,6	write-no-space	src/hir/dump.npk	if (!first) { drop put(out, " "); }	if (false) { drop put(out, " "); }
+0c,6	write-no-sibling	src/hir/dump.npk	if (n.next != HIR_NONE) { drop vec_push(@todo, Visit{ node: n.next, op: VISIT_LIST }); }	if (false) { drop vec_push(@todo, Visit{ node: n.next, op: VISIT_LIST }); }
+0c,6	write-unbounded-zero	src/hir/dump.npk	if (n.c == HIR_NONE) { drop put(out, " -"); }	if (n.c == HIR_NONE) { drop put(out, " 0"); }
+0c,6	write-anchor-line-end	src/hir/dump.npk	            else { drop num(out, n.a); }	            else { drop put(out, "line-end"); }
+0c,6	write-boundary-not	src/hir/dump.npk	else if (n.a != HIR_WORD) { drop put(out, " "); drop num(out, n.a); }	else if (n.a != HIR_WORD) { drop put(out, " not"); }
+0c,6	write-no-count-check	src/hir/dump.npk	if (!(raw chain_holds(h, n))) { drop vec_oob(n.b); }	if (false) { drop vec_oob(n.b); }
+0c,6	write-no-next-check	src/hir/dump.npk	else if (n.next != HIR_NONE) { drop vec_oob(n.next); }	else if (false) { drop vec_oob(n.next); }
+6	walk-bound-plus-one	src/hir/dump.npk	int64:budget = 2i64 * (raw hir_len(<-h)) - 1i64;	int64:budget = 2i64 * (raw hir_len(<-h)) + 1i64;
+0c,6	read-leading-zero	src/hir/dump.npk	        r.pos = r.pos + 1i64;\n        if (raw is_digit(raw byte_at(text, r.pos))) { pass HIR_NONE; }\n        pass 0i64;	        r.pos = r.pos + 1i64;\n        pass 0i64;
+0c,6	read-nineteen-digits	src/hir/dump.npk	fixed int64:DIGITS_MAX = 18i64;	fixed int64:DIGITS_MAX = 19i64;
+0c,6	read-any-digits	src/hir/dump.npk	if (digits == DIGITS_MAX) { pass HIR_NONE; }	if (false) { pass HIR_NONE; }
+0c,6	read-any-group	src/hir/dump.npk	if (k != r.next_group) { pass s; }	if (k < 0i64) { pass s; }
+0c,6	read-childless	src/hir/dump.npk	&& (f.count != 1i64)) { pass at; }	&& (f.count > 1i64)) { pass at; }
+0c,6	read-trailing-bytes	src/hir/dump.npk	if (r.pos < text.len) { pass r.pos; }	if (false) { pass r.pos; }
+0c,6	read-range-reversed	src/hir/dump.npk	if (lo > hi) { pass s; }	if (false) { pass s; }
+0c,6	read-max-below-min	src/hir/dump.npk	if (hi < lo) { pass t; }	if (false) { pass t; }
+0c,6	read-count-high	src/hir/dump.npk	n.b = f.count;	n.b = f.count + 1i64;
+0c,6	read-no-link	src/hir/dump.npk	        prev.next = i;\n	
+0c,6	read-past-10ffff	src/hir/dump.npk	else if (v >= (NOT_A_CODEPOINT => int64)) { pass s; }	else if (false) { pass s; }
+0c,6	read-not-as-word	src/hir/dump.npk	else if (raw word_is(text, w, n, "not")) { a = HIR_NOT_WORD; }	else if (raw word_is(text, w, n, "not")) { a = HIR_WORD; }
+0c,6	read-line-start-as-end	src/hir/dump.npk	"line-start")) { a = HIR_LINE_START; }	"line-start")) { a = HIR_LINE_END; }
+0c,6	read-root-early	src/hir/dump.npk	        r.top = i;\n	        r.top = i;\n        drop hir_set_root(out, i);\n
+0c,6	read-name-minus	src/hir/dump.npk	while (raw is_name_char(raw byte_at(text, r.pos))) decreases	while ((raw is_name_char(raw byte_at(text, r.pos))) || ((raw byte_at(text, r.pos)) == CH_MINUS)) decreases
+0c,6	init-no-group-0	src/hir/repr.npk	    drop vec_push(@h.groups, GroupInfo{ off: 0i64, len: 0i64 });\n	
+0c,6	group-name-at-0	src/hir/repr.npk	GroupInfo{ off: off, len: name.len }	GroupInfo{ off: 0i64, len: name.len }
+0c,6	set-root-no-upper	src/hir/repr.npk	    if (i >= h.nodes.count) { drop vec_oob(i); }\n	
+0c,6	free-keeps-nodes	src/hir/repr.npk	    drop vec_free(@h.nodes);\n	
+0c,6	push-answers-count	src/hir/repr.npk	pass h.nodes.count - 1i64;	pass h.nodes.count;
+0c,6	get-reads-0	src/hir/repr.npk	pass raw vec_get(h.nodes, i);	pass raw vec_get(h.nodes, 0i64);
+0c,6	range-reads-0	src/hir/repr.npk	pass raw vec_get(h.ranges, i);	pass raw vec_get(h.ranges, 0i64);
+0c,6	put-name-short	src/hir/repr.npk	while (i < g.len) decreases g.len - i {	while (i < g.len - 1i64) decreases g.len - i {

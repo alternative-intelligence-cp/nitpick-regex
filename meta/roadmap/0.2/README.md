@@ -26,7 +26,7 @@ RX-015, RX-031. Settled. **No open questions.**
 
 | # | Topic | Ends with |
 |---|---|---|
-| 0.2.0 | **The arena** — the nine kinds, the flat POD representation, the dump — **[`0.2.0.md`](0.2.0.md)**, written at cycle 0.1's close, measured at `5fbaf4a` and not rehearsed from its blocks; PD-66 … PD-69 are the orchestrator's to accept first | a HIR that round-trips through its text form |
+| 0.2.0 | **The arena** — the nine kinds, the flat POD representation, the dump — **[`0.2.0.md`](0.2.0.md)**, written at cycle 0.1's close and measured at `5fbaf4a`, then rehearsed in its real position at `5fbaf4a` by cycle 0.2's planner, three records first — the author's words for `README.md`'s price paragraph, four decisions' first paragraphs freed from their notes' blockquotes, and `ROADMAP.md`'s cycle 0.1 sentence dated; PD-66 … PD-69 are the orchestrator's to accept | a HIR that round-trips through its text form |
 | 0.2.1 | **Desugaring** — `HIR.md` §3's table, exactly and nothing else | every row tested; flags erased |
 | 0.2.2 | **The repetition product** — the bound checked on the way down | `((a{1000}){1000}){1000}` refused at the third `{1000}` |
 | 0.2.3 | **Normalisation** — flattening, merging, canonical form | structurally equal patterns produce identical dumps |

@@ -1,0 +1,36 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 0dcd5b7ac437fdf8d10768f9ecffe3197f01b581..58b81a397321cf239955184ae6cf6e82e8eadd94 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -254,6 +254,7 @@ engine does not handle is a wrong answer waiting for the pattern that emits it.
+ > **SUPERSEDED IN PART by RX-155 (2026-09-25)** — its clause that a pointer
+ > graph "is also refused by TYPE-046 the moment any node owns a string". Nothing
+ > refuses an owning node; the POD program is this library's design, and stands.
++
+ **2026-09-03.** A `Program` is therefore copyable, comparable and dumpable,
+ which is what makes a compiled program a committed fixture and a compiler
+ change a visible diff rather than behaviour nobody can inspect. The alternative
+@@ -265,6 +266,7 @@ string, and would dangle on the first `Vec` growth in any case.
+ > guard — the failure is a segfault"*: since `c3bdae2` every emitted function checks its stack
+ > before its frame exists (the compiler's D-305), so a recursion deeper than its stack traps
+ > `StackExhausted`, a controlled stop of the whole program. The rule stands, for RX-191's reasons.
++
+ **2026-09-03.** A recursive-descent parser on `((((((…` blows the call stack,
+ and the language has no stack-depth guard — the failure is a segfault, not a
+ controlled stop, which is precisely what this ecosystem exists to prevent. The
+@@ -548,6 +550,7 @@ hypothesis, the decision says so.*
+ > **SUPERSEDED IN PART by RX-155 (2026-09-25)** — its parenthesis "TYPE-046
+ > forces it" of the POD structures. Nothing forces it; `SAFETY.md` S-23a now
+ > requires it of anything a `Vec` holds. The decision stands.
++
+ **2026-09-03, settling the workbench's tenth author question for this
+ repository.** *(That question is `../BOARD.md`'s, not this repository's; the
+ author ruled that the unfalsifiable leak gate is corrected in each repository
+@@ -737,6 +740,7 @@ housekeeping the author asked for.*
+ > **SUPERSEDED IN PART by RX-171 (2026-09-26)** — its rule 2 and the every-file check its last paragraph asks
+ > for: a plain `use` above a `pub use` of the same path no longer cancels the re-export (the compiler's DEF-7,
+ > fixed at `94874ce`). Rules 1 and 3 stand.
++
+ **2026-09-03, from building `src/lib.npk` and measuring what a consumer can
+ see.**
+ 

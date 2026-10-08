@@ -1,0 +1,882 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 554ec1b33258a505820b02e1adbd311941bb861c..31198155d76d2b96f86fb2dc30abf3caa012a908 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -5752,3 +5752,73 @@ swept.
+ import with it; **declared in `core`** — `core` is the storage primitives (B-11), and U-4 makes this the tables' type;
+ **left to cycle 0.3.0** — this subcycle's classes hold it; **a second type for a range of bytes** — one range type is
+ U-4's point; **the oracle importing `unicode`** — B-17 forbids it, and the re-export costs one line.
++
++### RX-223 — the arena: H-4's nine kinds, a 40-byte node of `int64` operands and a sibling with no position, the byte forms a bit, and `Hir` behind its accessors
++
++**@@RUN_DATE@@, cycle 0.2.0 (the plan's PD-67), at compiler `5fbaf4a`** — `HIR.md` H-2 … H-4, H-6, H-7 and H-13;
++`SYNTAX.md` Y-13 and Y-26, and RX-174; `UNICODE.md` U-19; `SAFETY.md` S-19, S-23 and S-23a. H-2 draws a node of three
++`int32` operands — *"first child, class index, group number"*, *"second child, repetition minimum"*, *"sibling,
++repetition maximum"* — and a flags word. For this arena two things are wrong with it. Every value a HIR stores comes
++from an `int64` — an AST operand, a `Vec`'s count — and the language has no checked narrowing, so an `int32` field is
++an unchecked `=>!` at every write, which is why the AST's operands are `int64` (Y-26, RX-174). And three operands
++cannot hold a `Repeat`'s child, minimum and maximum and the sibling it needs as a member of a `Concat`. H-4 says a
++`Literal` is one codepoint, while `(?-u)` makes a literal a byte, a class a class of bytes and `\b` ASCII's (Y-13), the
++two modes mix in one pattern (U-19), and H-6 erases every flag. H-13 makes structurally equal patterns literally
++equal, so a node can hold no position.
++
++**The decision.** `src/hir/repr.npk`: `HirKind`, H-4's nine in its order, deriving `Copy`; `HirNode` `{ HirKind:kind;
++uint32:flags; int64:a; int64:b; int64:c; int64:next; }`, deriving `Copy` — `int64` operands and a `next`, as the
++AST's, and no position; `HIR_NONE`, −1, the index that names no node; two bits, `HIR_FLAG_LAZY` 1 on a `Repeat` and
++`HIR_FLAG_BYTE` 2 on a `Literal` that is a byte, a `Class` of bytes and a `WordBoundary` over ASCII — `u` erased into
++what a node matches; an `Anchor`'s four values, `HIR_TEXT_START`, `HIR_TEXT_END`, `HIR_LINE_START` and `HIR_LINE_END`,
++0 … 3, `m` erased; and a `WordBoundary`'s two, `HIR_WORD` 0 and `HIR_NOT_WORD` 1. **A new rule, `HIR.md` H-4a**, says
++what each kind's operands hold. `Hir` holds its arena, its ranges, its names and its groups `hidden` and its root
++`sealed`, and is built and read through `hir_init`, `hir_len`, `hir_push`, `hir_get`, `hir_set`, `hir_set_root`,
++`hir_range_count`, `hir_push_range` and `hir_range`, and freed by `hir_free` — `vec_get`, `vec_set` and `vec_push`
++underneath, the only bounds check (S-23). `src/hir/hir.npk` re-exports each name, one `pub use` per line. Units
++`hir_size`, `hir_unit`, `hir_oob_get` and `hir_oob_set_root`, and the refusal `tests/rejection/hir_nodes_read.npk`.
++H-2 and H-4 dated; `BUILD.md` §7 gains `arena`; the cycle README's third 0.2.0 box restated.
++
++**Measured at `5fbaf4a`.** `#size_of<HirNode>()` is **40** at both legs — `tests/unit/hir_size.npk` exits with it —
++where H-2's drawing measures 20; `HirKind` is 4 and `Hir` 112. `hir_unit` exits 0, and `hir_oob_get` and
++`hir_oob_set_root` 94, `OutOfBounds`, at both legs. The refusal is `NITPICK-TYPE-080` at 23:16, and the file compiles
++with `hidden` replaced by `sealed` on `nodes`. `mod:arena;` is `NITPICK-PARSE-001` — `arena` is a keyword — so the
++module is `repr.npk`, after H-2's section. A program importing `hir.npk` owes `core`'s eleven arms. The full run is
++`272/272`.
++
++*Alternatives declined:* **H-2 as drawn** — 20 bytes, an unchecked narrowing at every write, and no sibling for a
++`Repeat`; **`int32` operands with a `next`** — 24 bytes and the same narrowing, for a structure proportional to its
++pattern (H-7) whose 40 bytes are paid once per pattern, at compile time; **children in a second `Vec` of indexes** —
++an indirection the AST does not have and nothing here needs; **a position on the node** — `ab` and `(?:a)b` would be
++two HIRs (H-13), and a refusal made while a HIR is built takes its offset from the AST node being read; **three more
++kinds for the byte forms** — H-4 closes the list at nine, and a byte is still a literal; **the pattern's flags on the
++node** — H-6.
++
++### RX-224 — `GroupInfo` shaped, a name's offset and length in `Hir.names`, group 0 the whole match; `Literal` left to cycle 0.2.5
++
++**@@RUN_DATE@@, cycle 0.2.0 (the plan's PD-68), at compiler `5fbaf4a`** — `HIR.md` H-2 and H-11, `COMPILE.md` C-16,
++`SYNTAX.md` Y-6, and `SAFETY.md` S-23a's RX-182 note, *"Two types are left to shape, `Literal` and `GroupInfo`, at cycle
++0.2"*, which the cycle README's second 0.2.0 box asks for. `GroupInfo` is needed now, and a group's name must outlive
++its pattern: a HIR read from its dump has none. `Literal` is what H-11's extraction produces, in three roles — a
++required prefix, a first-byte set, an inner literal — and whether an entry is a whole match or a prefix is that
++analysis's to know, at cycle 0.2.5.
++
++**The decision.** `#[derive(Copy)] pub struct:GroupInfo = { int64:off; int64:len; }` — a name's offset and length in
++`Hir.names`, a length of 0 for a group with no name. `Hir.groups[k]` is group `k`: `hir_init` pushes group 0, the
++whole match, with no name, as C-16 counts slots, so a pattern's groups are numbered from 1 as Y-6 numbers them and the
++number is the index. `hir_add_group(Hir->, uint8[]:name) -> int64` copies the name into `Hir.names` and answers the
++number; `hir_group` and `hir_group_count` read the table, and `hir_put_name` copies a name out — a view of `Hir.names`
++could not be handed back (D-004). `Hir` holds no `literals` until cycle 0.2.5, which shapes `Literal` with the
++extraction that fills it. H-2 and S-23a dated, `src/core/vec.npk`'s two comments dated, the cycle README's second 0.2.0
++box restated and 0.2.5's checklist given `Literal`.
++
++**Measured at `5fbaf4a`.** `#size_of<GroupInfo>()` is 16 (`hir_unit` case 69). A fresh `Hir` holds group 0 with no
++name; three groups added answer 1, 2 and 3 and hold their names' places in `Hir.names`, and `hir_put_name` copies each
++name out, nothing for the unnamed one (`hir_unit` 50 … 58). A struct named `Literal` declared beside an enum whose
++variant is `Literal`, in one module, compiles and runs at both legs, so the name stays free for cycle 0.2.5.
++`check_vec_elements_own_nothing` clears `Vec<GroupInfo>`.
++
++*Alternatives declined:* **names as offsets into the pattern**, as the AST holds them (RX-182) — a HIR read from its
++text has no pattern; **an owning `string` per group** — S-23a, and `Vec<T: Copy>` refuses one at the type; **`groups`
++without group 0** — `k − 1` wherever a number is an index; **`Literal` shaped now, an offset and a length into a second
++`Bytes`** — an empty `Vec` and a `Bytes` in every HIR for five subcycles, and a guess at 0.2.5's design.
+diff --git a/meta/roadmap/0.2/README.md b/meta/roadmap/0.2/README.md
+index 0c10e5d5df75322318768f4c4427b8d14f52b90b..70a8e8d6d0d96cf6693290875d82d01e8321ded3 100644
+--- a/meta/roadmap/0.2/README.md
++++ b/meta/roadmap/0.2/README.md
+@@ -38,8 +38,8 @@ RX-015, RX-031. Settled. **No open questions.**
+ 
+ ### 0.2.0 — the arena
+ - [ ] `HirNode` as a POD struct with no owning field; `#size_of` asserted
+-- [ ] `Literal` and `GroupInfo` shaped to own nothing — offsets into a `Bytes`, the way `Hir.names` holds group names — because a `Vec` holds a `T` that owns nothing (`SAFETY.md` S-23a, RX-155) and `check_vec_elements_own_nothing` fails the run otherwise. `HIR.md` §2 names both without fields; this cycle is where they get them — and each `#[derive(Copy)]`s, as every `Vec` element must since `Vec` is `Vec<T: Copy>` (cycle 0.1.1b, RX-188)
+-- [ ] children by `int32` index, never by pointer (H-3)
++- [ ] `Literal` and `GroupInfo` shaped to own nothing — offsets into a `Bytes`, the way `Hir.names` holds group names — because a `Vec` holds a `T` that owns nothing (`SAFETY.md` S-23a, RX-155) and `check_vec_elements_own_nothing` fails the run otherwise. `HIR.md` §2 names both without fields; this cycle is where they get them — and each `#[derive(Copy)]`s, as every `Vec` element must since `Vec` is `Vec<T: Copy>` (cycle 0.1.1b, RX-188) *(@@RUN_DATE@@, cycle 0.2.0 — RX-224: `GroupInfo` here, a name's offset and length in `Hir.names`; `Literal` is 0.2.5's, shaped with the extraction that fills it, and its checklist says so)*
++- [ ] children by `int32` index, never by pointer (H-3) *(@@RUN_DATE@@, cycle 0.2.0 — RX-223: by `int64` index, the AST's width — an `int32` field would be narrowed unchecked at every write)*
+ - [ ] names in one `Bytes`, referenced by offset and length
+ - [ ] the nine kinds from H-4
+ - [ ] a stable text dump and its parser, round-tripping — this is what makes a HIR a committed fixture
+@@ -71,6 +71,7 @@ RX-015, RX-031. Settled. **No open questions.**
+ - [ ] each flag asserted against a hand-computed reference over fifty patterns
+ 
+ ### 0.2.5 — literal extraction
++- [ ] `Literal` shaped to own nothing, `Hir.literals` added and the dump given its section for them — moved here from 0.2.0 by RX-224, because its fields depend on the three roles H-11 names
+ - [ ] required prefix, first-byte set, inner required literal
+ - [ ] bounded by `NREGEX_LITERAL_LIMIT` and `NREGEX_LITERAL_BYTES`
+ - [ ] **conservative**: a pattern that defeats the analysis gets an empty set, never a wrong one (H-12)
+diff --git a/meta/specs/BUILD.md b/meta/specs/BUILD.md
+index 985c5c95cd9fe180564b3a8cd3b71b85559662af..f6ea799439c24a97ca6b5e9f51fef68b703c516d 100644
+--- a/meta/specs/BUILD.md
++++ b/meta/specs/BUILD.md
+@@ -688,13 +688,15 @@ an ordinary name and is not:
+ | `mod` | the module keyword |
+ | `on`, `as`, `with`, `where`, `never`, `fails` | keywords |
+ | `Rules`, `fixed`, `Self`, `impl`, `trait`, `assoc` | keywords |
++| `arena` | a keyword at `5fbaf4a` — `mod:arena;` is `NITPICK-PARSE-001` — and the HIR is an arena (RX-223) |
+ 
+ The substitutes this library uses, fixed here so they are used consistently:
+ `hi` for a range's upper bound and for a `Match`'s end offset (**not** because
+ `Match.end` is refused — it is not, RX-134; because the pair reads better and
+ `API.md` A-3 settled it); `src` for an
+ input cursor; `bound` for a limit; `dot` for the any-character construct;
+-`rng` for a codepoint range value; `sel` for a selection.
++`rng` for a codepoint range value; `sel` for a selection; `repr` for the HIR's
++arena module (RX-223).
+ 
+ **Rule B-18 — `Match`'s fields are `lo` and `hi`.** Stated in `API.md` §2 and
+ here, because `start`/`end` is what everyone reaches for and `end` does not
+diff --git a/meta/specs/HIR.md b/meta/specs/HIR.md
+index 39ca8e0604753462b5d3c49bc609bc689bbe0ce9..cb3c22d3d173b93052d28f00283d8d6b6b5c93ff 100644
+--- a/meta/specs/HIR.md
++++ b/meta/specs/HIR.md
+@@ -57,6 +57,15 @@ offset and length.
+ `HirNode`, `ClassRange`, `Literal`, `GroupInfo` — `#[derive(Copy)]`s, with every enum it
+ holds: `Vec` is `Vec<T: Copy>`, and a struct of scalars that does not say so is
+ `NITPICK-TYPE-017` at its `Vec`, measured at `5fbaf4a`.)*
++*(@@RUN_DATE@@, cycle 0.2.0 — RX-223, RX-224: the node `src/hir/repr.npk` declares is not the one drawn. Its operands are
++`int64`, as the AST's (`SYNTAX.md` Y-26), because each comes from an `int64` and an `int32` field would be narrowed
++unchecked at every write; and it has a fourth, `next`, the sibling a list needs, which three operands cannot hold beside
++a `Repeat`'s child, minimum and maximum — **40 bytes**, measured (`tests/unit/hir_size.npk`), where the drawing
++measures 20 at `5fbaf4a`. It holds no position, because structurally equal patterns are literally equal (H-13). H-4a
++says what each kind's operands hold. `Hir`'s fields are `hidden` but `root`, which is `sealed` and an `int64`, so every
++access goes through `repr.npk`'s accessors. `Hir` holds no `literals` until cycle 0.2.5, which shapes `Literal` with
++the extraction that fills it; `groups[k]` is group `k`, group 0 the whole match with no name (`COMPILE.md` C-16), each
++a `GroupInfo` — its name's offset and length in `names`.)*
+ 
+ **Rule H-3 — children are found by index, never by pointer.** The language
+ would allow a pointer tree, and it would be worse: a `Vec<HirNode>` reallocates
+@@ -67,6 +76,29 @@ This is the same reasoning the compiler applies to `Handle<T>` (D-017).
+ `Class`, `Concat`, `Alternate`, `Repeat`, `Group`, `Anchor`, `WordBoundary`.
+ Nine. A tree check asserts every kind is produced by the parser, consumed by
+ the compiler, and handled by the oracle.
++*(@@RUN_DATE@@, cycle 0.2.0 — RX-223: a `Literal` is one codepoint, or under `(?-u)` one byte, `HIR_FLAG_BYTE` set
++(`SYNTAX.md` Y-13; the modes mix in one pattern, `UNICODE.md` U-19); a `Class` and a `WordBoundary` the same. Still
++nine kinds.)*
++
++**Rule H-4a — each kind's operands** (RX-223):
++
++| Kind | `a` | `b` | `c` | Bit |
++|---|---|---|---|---|
++| `Empty` | | | | |
++| `Literal` | its codepoint; a byte under `BYTE` | | | `HIR_FLAG_BYTE` |
++| `Class` | its first range's index in `ranges` | how many ranges | | `HIR_FLAG_BYTE`: the ranges are bytes |
++| `Concat` | the first piece | how many | | |
++| `Alternate` | the first alternative | how many | | |
++| `Repeat` | the repeated node | the minimum | the maximum; `HIR_NONE` if unbounded | `HIR_FLAG_LAZY` |
++| `Group` | the body | its group number, from 1 | | |
++| `Anchor` | `HIR_TEXT_START` 0, `HIR_TEXT_END` 1, `HIR_LINE_START` 2, `HIR_LINE_END` 3 | | | |
++| `WordBoundary` | `HIR_WORD` 0, `HIR_NOT_WORD` 1 | | | `HIR_FLAG_BYTE`: a word character is ASCII's |
++
++A list's members — a `Concat`'s pieces, an `Alternate`'s alternatives — are its first member and each member's `next`,
++`b` of them, in the order written; a node in no list — the root, a `Repeat`'s or a `Group`'s child — has `next`
++`HIR_NONE`. `flags` holds the two bits above, and cycle 0.2.4's computed properties (H-9) take others. No pattern flag
++survives (H-6): `m` is an `Anchor`'s value, `s` a `.`'s class, `i` folded ranges, `x` the parser's, and `u` is
++`HIR_FLAG_BYTE`, which says what a node matches.
+ 
+ ---
+ 
+diff --git a/meta/specs/SAFETY.md b/meta/specs/SAFETY.md
+index 25e3d20a3472443441e1f5b5cdb1f5334c62344b..407c331cdae74e661346148a4c96464bf6568c33 100644
+--- a/meta/specs/SAFETY.md
++++ b/meta/specs/SAFETY.md
+@@ -712,6 +712,9 @@ owned — and `check_vec_elements_own_nothing` clears `Vec<Frame>` and
+ are left to shape, `Literal` and `GroupInfo`, at cycle 0.2.)*
+ *(2026-09-28 — RX-188: what stands between a `Vec<string>` and the verbs is the
+ compiler now, at the type; and each of those two derives `Copy`.)*
++*(@@RUN_DATE@@, cycle 0.2.0 — RX-224: `GroupInfo` is shaped — a group name's offset and length in `Hir.names`, two
++`int64`s, deriving `Copy` — and `check_vec_elements_own_nothing` clears `Vec<GroupInfo>`, as it clears `Vec<HirNode>`
++and `Vec<ClassRange>` (RX-223, RX-222); `Literal` is cycle 0.2.5's, shaped with the extraction that fills it.)*
+ 
+ *A cycle that needs an owning element lifts S-23a by a decision*, and the
+ compiler's own `List<T>` at `c3bdae2` is the shape it would take: removals that
+diff --git a/src/core/vec.npk b/src/core/vec.npk
+index 4cefaaee887515610f486dd30da40ec46ff42a9f..136593c8e009902ed89f1e4c049cf538482cae5d 100644
+--- a/src/core/vec.npk
++++ b/src/core/vec.npk
+@@ -314,12 +314,16 @@
+ // and so is its `GroupName`; each refers to a group's name by its place in the
+ // PATTERN, as the AST does (RX-174), rather than by an offset into a `Bytes`, and
+ // the check clears both. `Literal` and `GroupInfo` are the two left, at cycle 0.2.)*
++// *(@@RUN_DATE@@, cycle 0.2.0 -- RX-224: `GroupInfo` is shaped, a name's offset and length in
++// `Hir.names`; `Literal` is cycle 0.2.5's, with the extraction that fills it.)*
+ // *(2026-09-28, cycle 0.1.1b -- RX-188. THE COMPILER SAYS IT NOW, AT THE TYPE: `Vec` is
+ // `Vec<T: Copy>`, so at an owning `T` the table above cannot be written -- every row
+ // is NITPICK-TYPE-017, at the type and at the verb -- and the units that measured it
+ // are retired; the table is RX-155's measurement, kept. An element type derives
+ // `Copy`, as `AstNode`, `Frame` and `GroupName` do and `Literal` and `GroupInfo`
+ // will.)*
++// *(@@RUN_DATE@@, cycle 0.2.0 -- RX-223, RX-224: `HirNode` and `GroupInfo` do, and `ClassRange`
++// (RX-222); `Literal` will at cycle 0.2.5.)*
+ //
+ // LAYERING (`BUILD.md` §6, B-16). `core` imports nothing outside `core`. This
+ // file imports nothing at all.
+diff --git a/src/hir/hir.npk b/src/hir/hir.npk
+index d0e1ddee8ae50558262c38d54ec7d96583c0bfc2..a2dd4b7c6ba7ef52374f2df8318c30ec91329710 100644
+--- a/src/hir/hir.npk
++++ b/src/hir/hir.npk
+@@ -7,16 +7,45 @@
+ // H-2's design, and a `Vec` of nodes MUST keep it (`SAFETY.md` S-23a, RX-155) -- and since
+ // `Vec<T: Copy>` (RX-188) the compiler keeps it too, at the type.
+ //
+-// SINCE CYCLE 0.2.0 IT RE-EXPORTS ONE NAME: `unicode`'s `ClassRange` (RX-222), the type a
+-// class's ranges are, for the oracle, which reads every class's ranges and may import `core`
+-// and `hir` and nothing else (B-17). The arena is not here yet.
++// SINCE CYCLE 0.2.0 THE LAYER HOLDS THE ARENA: `repr.npk`, the nine kinds and the arena
++// (RX-223, RX-224), with `ClassRange` from `unicode` (RX-222). Nothing builds a HIR from a
++// pattern yet; cycle 0.2.1's desugaring does.
+ //
+ // EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1 and 3).
+ //
+ // LAYERING (`BUILD.md` §6, rule B-16). May import: `syntax`, `unicode`, `core`. A program
+-// importing this file owes the language's six arms and nothing of this library's.
++// importing this file owes `core`'s eleven arms.
+ mod:hir;
+ 
+ // ---- a class's ranges, `unicode`'s type (RX-222) -- re-exported, because the oracle may
+ // import `core` and `hir` and nothing else (B-17), and it reads every class's ranges -------
+ pub use "../unicode/unicode.npk".ClassRange;
++
++// ---- the arena (RX-223, RX-224) ---------------------------------------------------------
++pub use "./repr.npk".HIR_NONE;
++pub use "./repr.npk".HIR_FLAG_LAZY;
++pub use "./repr.npk".HIR_FLAG_BYTE;
++pub use "./repr.npk".HIR_TEXT_START;
++pub use "./repr.npk".HIR_TEXT_END;
++pub use "./repr.npk".HIR_LINE_START;
++pub use "./repr.npk".HIR_LINE_END;
++pub use "./repr.npk".HIR_WORD;
++pub use "./repr.npk".HIR_NOT_WORD;
++pub use "./repr.npk".HirKind;
++pub use "./repr.npk".HirNode;
++pub use "./repr.npk".GroupInfo;
++pub use "./repr.npk".Hir;
++pub use "./repr.npk".hir_init;
++pub use "./repr.npk".hir_len;
++pub use "./repr.npk".hir_push;
++pub use "./repr.npk".hir_get;
++pub use "./repr.npk".hir_set;
++pub use "./repr.npk".hir_set_root;
++pub use "./repr.npk".hir_range_count;
++pub use "./repr.npk".hir_push_range;
++pub use "./repr.npk".hir_range;
++pub use "./repr.npk".hir_group_count;
++pub use "./repr.npk".hir_add_group;
++pub use "./repr.npk".hir_group;
++pub use "./repr.npk".hir_put_name;
++pub use "./repr.npk".hir_free;
+diff --git a/src/hir/repr.npk b/src/hir/repr.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..d3e28e7809f6939c8bf650faff99972e6f8f3922
+--- /dev/null
++++ b/src/hir/repr.npk
+@@ -0,0 +1,217 @@
++// `src/hir/repr.npk` — THE HIR: A FLAT ARENA OF NINE KINDS OF NODE THAT OWN NOTHING.
++// Cycle 0.2.0, RX-223 and RX-224; `meta/specs/HIR.md` rules H-2 … H-4.
++//
++// THE AST'S SHAPE, FOR THE AST'S REASON (`SYNTAX.md` Y-26, RX-174). The tree is a
++// `Vec<HirNode>`, and a node names another by INDEX, never by pointer: a `Vec`
++// reallocates as it grows and every pointer into it would dangle, while an index survives
++// (H-3). A node owns nothing -- no `string`, no `Vec`, no pointer -- which is what lets a
++// `Vec` hold it (`SAFETY.md` S-23a; `check_vec_elements_own_nothing` clears it by reading
++// this file) and what lets `vec_get` hand it back by value (it derives `Copy`). A group's
++// name is not a node's: it is copied once into `Hir.names`, and `GroupInfo` holds its
++// offset and length there, so a HIR outlives the pattern it was built from.
++//
++// EVERY OPERAND IS `int64`, AND EVERY NODE HAS A `next` (RX-223). `HIR.md` H-2 drew three
++// `int32` operands. Two things are wrong with that for this arena: the values come from
++// `int64`s -- the AST's operands, a `Vec`'s count -- and the language has no checked
++// narrowing (`=>!` truncates in silence), so an `int32` field needs a hand-written range
++// check at every write; and three operands cannot hold a `Repeat`'s child, minimum and
++// maximum AND the sibling a list needs. So the AST's answer is the HIR's too: `int64`
++// operands and a `next`. FORTY BYTES, MEASURED -- `tests/unit/hir_size.npk` exits with
++// `#size_of<HirNode>()` -- where H-2's drawing measures 20; a HIR is proportional to its
++// pattern (H-7), so that is paid once per pattern, at compile time.
++//
++// NO POSITION. Unlike the AST, a node holds no offset into the pattern: structurally equal
++// patterns must give literally equal HIRs (H-13), and an offset would tell `ab` from
++// `(?:a)b`. A refusal made while the HIR is built takes its offset from the AST node it
++// is building from (cycle 0.2.2's `RepeatProductTooLarge`).
++//
++// THE ARENA IS THE COMPILER'S TO GUARD. Every field of `Hir` but `root` is `hidden` (the
++// compiler's D-314): outside this file it cannot be read (NITPICK-TYPE-080,
++// `tests/rejection/hir_nodes_read.npk`), so every access goes through the functions below
++// -- `vec_get`, `vec_set`, `vec_push`, `bytes_get` underneath, the only bounds check this
++// library has (S-23). `root` is `sealed`: read anywhere, set only by `hir_set_root`.
++//
++// LAYERING (`BUILD.md` §6, B-16). Imports `core`, whose eleven arms a program importing
++// this file owes, and `unicode` for `ClassRange` (RX-222), which adds none.
++mod:repr;
++
++use "../core/core.npk".*;
++use "../unicode/unicode.npk".*;
++
++// The index that names no node: an absent sibling, an unbounded repetition's maximum, and
++// the root of a `Hir` that nothing has been built into.
++pub fixed int64:HIR_NONE = -1i64;
++
++// The flag bits (RX-223). Each belongs to its kinds, as the AST's per-kind bits do (Y-26);
++// cycle 0.2.4's computed properties (H-9) take bits above them. NO PATTERN FLAG SURVIVES
++// HERE (H-6): `m` is an `Anchor`'s value, `s` a `.`'s class, `i` folded ranges, `x` the
++// parser's -- and `u` is `HIR_FLAG_BYTE`, which says what a node MATCHES, a byte rather than
++// a codepoint, never how to read anything at run time.
++pub fixed uint32:HIR_FLAG_LAZY = 1u32;   // a `Repeat` that prefers fewer iterations
++pub fixed uint32:HIR_FLAG_BYTE = 2u32;   // a `Literal` that is a byte, a `Class` of bytes, a `WordBoundary` over ASCII
++
++// An `Anchor`'s `a` (`SYNTAX.md` §6, `m` erased).
++pub fixed int64:HIR_TEXT_START = 0i64;   // the haystack's start: `^`, `\A`
++pub fixed int64:HIR_TEXT_END = 1i64;     // the haystack's end: `$`, `\z`
++pub fixed int64:HIR_LINE_START = 2i64;   // the haystack's start and after every `\n`: `^` under `m`
++pub fixed int64:HIR_LINE_END = 3i64;     // the haystack's end and before every `\n`: `$` under `m`
++
++// A `WordBoundary`'s `a` (`UNICODE.md` §5); under `HIR_FLAG_BYTE` a word character is ASCII's.
++pub fixed int64:HIR_WORD = 0i64;         // `\b`
++pub fixed int64:HIR_NOT_WORD = 1i64;     // `\B`
++
++// `HIR.md` H-4's closed list, in its order; what each kind's operands hold is H-2's table
++// (RX-223). `tests/unit/hir_unit.npk` holds this list to the order with an exhaustive `pick`.
++#[derive(Copy)]
++pub enum:HirKind = {
++    Empty;
++    Literal;
++    Class;
++    Concat;
++    Alternate;
++    Repeat;
++    Group;
++    Anchor;
++    WordBoundary;
++};
++
++#[derive(Copy)]
++pub struct:HirNode = {
++    HirKind:kind;      // H-4
++    uint32:flags;      // the HIR_FLAG_ bits
++    int64:a;           // H-2's operands, by kind
++    int64:b;
++    int64:c;
++    int64:next;        // the next sibling in its parent's list, or HIR_NONE
++};
++
++// One capture group's entry in `Hir.groups` (RX-224): its name, as an offset and a length in
++// `Hir.names`. `groups[k]` is group `k`; group 0 is the whole match, which has no name.
++#[derive(Copy)]
++pub struct:GroupInfo = {
++    int64:off;         // the name's first byte in `Hir.names`
++    int64:len;         // its length; 0 when the group has no name
++};
++
++// MOVE-ONLY, because it holds a `Vec` and a `Bytes` (`SAFETY.md` S-23b, RX-161): transfer
++// it with `move(...)`, lend it by value to a reader, hand it by pointer to anything that
++// changes it.
++pub struct:Hir = {
++    hidden Vec<HirNode>:nodes;       // the arena
++    hidden Vec<ClassRange>:ranges;   // every class's ranges, contiguous per class
++    hidden Bytes:names;              // the groups' names, one after another
++    hidden Vec<GroupInfo>:groups;    // one entry per group, group 0 first
++    sealed int64:root;               // the root node, HIR_NONE until a builder sets it
++};
++
++// obligation: never fails ensures result.root == HIR_NONE && hir_len(result) == 0i64 && hir_group_count(result) == 1i64
++//
++// An empty arena, and group 0's entry: the whole match is a group, numbered 0, with no name
++// (`COMPILE.md` C-16), so a group the pattern opens is numbered from 1, as Y-6 numbers it.
++pub func:hir_init = Hir(int64:cap) never fails {
++    Hir:h = Hir{ nodes: raw vec_init::<HirNode>(cap), ranges: raw vec_init::<ClassRange>(cap),
++                 names: raw bytes_init(cap), groups: raw vec_init::<GroupInfo>(cap), root: HIR_NONE };
++    drop vec_push(@h.groups, GroupInfo{ off: 0i64, len: 0i64 });
++    pass h;
++};
++
++// obligation: never fails ensures result == h.nodes.count
++pub func:hir_len = int64(Hir:h) never fails {
++    pass h.nodes.count;
++};
++
++// obligation: never fails ensures hir_len(h) == old(hir_len(h)) + 1i64 && result == hir_len(h) - 1i64
++//
++// Appends a node and answers its index.
++pub func:hir_push = int64(Hir->:h, HirNode:n) never fails {
++    drop vec_push(@h.nodes, n);
++    pass h.nodes.count - 1i64;
++};
++
++// obligation: never fails requires i >= 0i64 && i < hir_len(h)
++pub func:hir_get = HirNode(Hir:h, int64:i) never fails {
++    pass raw vec_get(h.nodes, i);
++};
++
++// obligation: never fails requires i >= 0i64 && i < hir_len(h)
++pub func:hir_set = NIL(Hir->:h, int64:i, HirNode:n) never fails {
++    drop vec_set(@h.nodes, i, n);
++    pass NIL;
++};
++
++// obligation: never fails requires i >= 0i64 && i < hir_len(h)
++pub func:hir_set_root = NIL(Hir->:h, int64:i) never fails {
++    if (i < 0i64)           { drop vec_oob(i); }
++    if (i >= h.nodes.count) { drop vec_oob(i); }
++    h.root = i;
++    pass NIL;
++};
++
++// obligation: never fails ensures result == h.ranges.count
++pub func:hir_range_count = int64(Hir:h) never fails {
++    pass h.ranges.count;
++};
++
++// obligation: never fails ensures hir_range_count(h) == old(hir_range_count(h)) + 1i64 && result == hir_range_count(h) - 1i64
++//
++// Appends a class range and answers its index. A `Class` node names its ranges by the first
++// one's index and how many, so a builder pushes a class's ranges one after another.
++pub func:hir_push_range = int64(Hir->:h, ClassRange:r) never fails {
++    drop vec_push(@h.ranges, r);
++    pass h.ranges.count - 1i64;
++};
++
++// obligation: never fails requires i >= 0i64 && i < hir_range_count(h)
++pub func:hir_range = ClassRange(Hir:h, int64:i) never fails {
++    pass raw vec_get(h.ranges, i);
++};
++
++// obligation: never fails ensures result == h.groups.count
++//
++// How many groups, group 0 among them: one more than the pattern's capturing groups.
++pub func:hir_group_count = int64(Hir:h) never fails {
++    pass h.groups.count;
++};
++
++// obligation: never fails ensures hir_group_count(h) == old(hir_group_count(h)) + 1i64 && result == hir_group_count(h) - 1i64
++//
++// The next group, its name copied into `Hir.names` -- an empty `name` for a group that has
++// none -- answering its number.
++pub func:hir_add_group = int64(Hir->:h, uint8[]:name) never fails {
++    int64:off = raw bytes_len(@h.names);
++    drop bytes_extend(@h.names, name);
++    drop vec_push(@h.groups, GroupInfo{ off: off, len: name.len });
++    pass h.groups.count - 1i64;
++};
++
++// obligation: never fails requires k >= 0i64 && k < hir_group_count(h)
++pub func:hir_group = GroupInfo(Hir:h, int64:k) never fails {
++    pass raw vec_get(h.groups, k);
++};
++
++// obligation: never fails requires k >= 0i64 && k < hir_group_count(h)
++//
++// Appends group `k`'s name to `out`: nothing for a group with none. The bytes are copied --
++// a view of `Hir.names` could not be handed back (D-004).
++pub func:hir_put_name = NIL(Hir->:h, int64:k, Bytes->:out) never fails {
++    GroupInfo:g = raw vec_get(h.groups, k);
++    int64:i = 0i64;
++    while (i < g.len) decreases g.len - i {
++        drop bytes_push(out, raw bytes_get(@h.names, g.off + i));
++        i = i + 1i64;
++    }
++    pass NIL;
++};
++
++// obligation: never fails ensures h.root == HIR_NONE
++//
++// Frees the arena's blocks. A node, a range and a group own nothing, so each block is its
++// whole obligation, and a unit that frees and exits 0 proves it (D-151: a leaked `wild`
++// block traps at exit); `names` is managed and drops with the `Hir`.
++pub func:hir_free = NIL(Hir->:h) never fails {
++    drop vec_free(@h.nodes);
++    drop vec_free(@h.ranges);
++    drop vec_free(@h.groups);
++    h.root = HIR_NONE;
++    pass NIL;
++};
+diff --git a/tests/rejection/README.md b/tests/rejection/README.md
+index f8e63ad968ad917c0dfbdd3a448048be4b8de8f8..73226d4e68bb92ff1320a81516dc3f6ab0ba754c 100644
+--- a/tests/rejection/README.md
++++ b/tests/rejection/README.md
+@@ -172,13 +172,21 @@ with the one qualifier it tests deleted (`meta/roadmap/done/0.1/0.1.0.md`'s cont
+   compiler adds at a generic call — gone at its next landing — cannot join its
+   code set.
+ 
++## The HIR's one — cycle 0.2.0
++
++- **`hir_nodes_read.npk`** — a read of `Hir.nodes`: `NITPICK-TYPE-080`. So every
++  access to the arena goes through `hir_get`, `hir_set` and `hir_push`, and the
++  accessor pair underneath them is the only bounds check (RX-223). It reads
++  `.count`, as `ast_nodes_read.npk` does and for its reason, and it compiles with
++  `hidden` replaced by `sealed` on `nodes` (`meta/roadmap/0.2/0.2.0.md`'s control).
++
+ ## Why they are the standing instance of rule B-7
+ 
+-All twenty-four import `src/` by a **relative** path — the two `failsafe_*` fixtures
+-`../../src/lib.npk`, nineteen the `../../src/core/` modules they test, and three
+-`../../src/syntax/syntax.npk` (*"all seven" went stale when the fourth triage added
+-`bytes_copy.npk`; corrected at 0.0.4d; "fourteen" and "twelve" at 0.0.4e;
+-"twenty-one" at 0.1.0*) —
++All twenty-five import `src/` by a **relative** path — the two `failsafe_*` fixtures
++`../../src/lib.npk`, nineteen the `../../src/core/` modules they test, three
++`../../src/syntax/syntax.npk` and one `../../src/hir/hir.npk` (*"all seven" went stale
++when the fourth triage added `bytes_copy.npk`; corrected at 0.0.4d; "fourteen" and
++"twelve" at 0.0.4e; "twenty-one" at 0.1.0; "twenty-four" at 0.2.0*) —
+ because every import here is relative until O-G3 closes (B-15). If any path is
+ typo'd or the file moves, `npkc` exits **1** with `NITPICK-RESOLVE-005` — a genuine refusal, and
+ these tests want a refusal. Under a *subset* rule they would pass, having
+diff --git a/tests/rejection/hir_nodes_read.npk b/tests/rejection/hir_nodes_read.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..7a2a1272e019135a7dc249e2b77f4e617943c605
+--- /dev/null
++++ b/tests/rejection/hir_nodes_read.npk
+@@ -0,0 +1,45 @@
++// expect-error: NITPICK-TYPE-080
++// expect-error-at: 23:16
++//
++// A CONSUMER CANNOT REACH THE HIR'S `Vec`. Cycle 0.2.0, RX-223.
++//
++// WHAT IT PINS. `Hir.nodes` is `hidden` (the compiler's D-314): outside
++// `src/hir/repr.npk` even a READ of it is NITPICK-TYPE-080. So every access to the
++// arena goes through `hir_get`, `hir_set` and `hir_push`, and the accessor pair
++// underneath them is the only bounds check (`SAFETY.md` S-23). The AST's twin is
++// `ast_nodes_read.npk`, and it reads `.count` for the reason that file gives: a
++// generic call here would add the compiler's recovery to the code set.
++//
++// A TEST OF THE HIDING, NOT OF THIS FILE: with `hidden` replaced by `sealed` on
++// `nodes` it compiles (`meta/roadmap/0.2/0.2.0.md` §1).
++mod:hir_nodes_read;
++
++use "../../src/hir/hir.npk".*;
++
++func:main = int32(cstring[]:_~argv) {
++    Hir:h = raw hir_init(4i64);
++    discard(raw hir_push(@h, HirNode{ kind: HirKind.Empty, flags: 0u32, a: 0i64, b: 0i64, c: 0i64,
++                                      next: HIR_NONE }));
++    int64:n = h.nodes.count;
++    drop hir_free(@h);
++    discard(n);
++    exit 0i32;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/hir_oob_get.npk b/tests/unit/hir_oob_get.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..16ac187f30ea752daf550588508c2dc03355ec2e
+--- /dev/null
++++ b/tests/unit/hir_oob_get.npk
+@@ -0,0 +1,40 @@
++// expect-exit: 94
++//
++// `hir_get` PAST THE LAST NODE STOPS. Cycle 0.2.0, RX-223.
++//
++// `hir_get` is `vec_get` underneath -- the accessor pair is the only bounds check
++// this library has, because `Vec<T>.items` is a bare `wild T->` and D-070 guards
++// no bare pointer (`SAFETY.md` S-23). This reads index 1 of a one-node arena and
++// must trap (94, `OutOfBounds`) rather than return a heap word: a wrapper that
++// clamped, or read `.items` itself, would pass the in-range unit and fail here.
++mod:hir_oob_get;
++
++use "../../src/hir/hir.npk".*;
++
++func:main = int32(cstring[]:_~argv) {
++    Hir:h = raw hir_init(4i64);
++    discard(raw hir_push(@h, HirNode{ kind: HirKind.Empty, flags: 0u32, a: 0i64, b: 0i64, c: 0i64,
++                                      next: HIR_NONE }));
++    HirNode:g = raw hir_get(h, 1i64);
++    drop hir_free(@h);
++    if (g.a != 0i64) { exit 10i32; }
++    exit 0i32;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/hir_oob_set_root.npk b/tests/unit/hir_oob_set_root.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..03107e75ce237068c38bafb6c6d9f956834c6c49
+--- /dev/null
++++ b/tests/unit/hir_oob_set_root.npk
+@@ -0,0 +1,37 @@
++// expect-exit: 94
++//
++// `hir_set_root` AT AN INDEX NO NODE HAS STOPS. Cycle 0.2.0, RX-223.
++//
++// The root is `sealed` and set only here, so the check here is the whole of the
++// guarantee that `root` names a node or `HIR_NONE`. This sets root 1 in a
++// one-node arena and must trap (94, `OutOfBounds`).
++mod:hir_oob_set_root;
++
++use "../../src/hir/hir.npk".*;
++
++func:main = int32(cstring[]:_~argv) {
++    Hir:h = raw hir_init(4i64);
++    discard(raw hir_push(@h, HirNode{ kind: HirKind.Empty, flags: 0u32, a: 0i64, b: 0i64, c: 0i64,
++                                      next: HIR_NONE }));
++    drop hir_set_root(@h, 1i64);
++    drop hir_free(@h);
++    exit 0i32;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/hir_size.npk b/tests/unit/hir_size.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..e777500e5a07f285c4a59b82e715158094c4c937
+--- /dev/null
++++ b/tests/unit/hir_size.npk
+@@ -0,0 +1,36 @@
++// expect-exit: 40
++//
++// `#size_of<HirNode>()` IS 40, AND THIS PROGRAM'S EXIT CODE IS THE MEASUREMENT.
++// Cycle 0.2.0, RX-223; `HIR.md` H-2.
++//
++// Measured, never derived from field widths (RX-135): the exit code is the size, so the
++// number cannot be transcribed wrongly. Two four-byte fields first and together, then four
++// eight-byte ones, so nothing pads. `HIR.md` H-2's drawing -- a kind, three `int32`s and a
++// `uint32` -- measures 20 at `5fbaf4a`, and it is not this node: it has no room for a
++// `Repeat`'s sibling, and its operands would be narrowed at every write (`repr.npk`'s
++// header). A type's size, not an emission's: nothing here reads the IR.
++mod:hir_size;
++
++use "../../src/hir/hir.npk".*;
++
++func:main = int32(cstring[]:_~argv) {
++    exit (#size_of<HirNode>() =>! int32);
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/hir_unit.npk b/tests/unit/hir_unit.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..1aa0d232f4c308eb66845bce519e5405d435c63c
+--- /dev/null
++++ b/tests/unit/hir_unit.npk
+@@ -0,0 +1,179 @@
++// expect-exit: 0
++//
++// THE HIR ARENA: A HUNDRED NODES IN, EVERY FIELD OUT, THROUGH THE LAYER ENTRY -- ITS
++// RANGES, ITS GROUPS AND THEIR NAMES -- AND FREED, SO A LEAKED `wild` BLOCK TRAPS.
++// Cycle 0.2.0, RX-223 and RX-224; `HIR.md` H-2 … H-4.
++//
++// WHAT IT PINS. `ordinal` is an EXHAUSTIVE `pick` over `HirKind`, no `(*)`, one arm per
++// kind in H-4's order: a kind dropped, added or moved is a red run. A hundred nodes go in
++// from capacity 1, so the arena grows under them, each kind in turn and every field
++// distinct from its neighbours' (12: `hir_push` answers the new index); each comes back
++// through `hir_get` field for field (20 to 25). `hir_set` rewrites one node and leaves its
++// neighbour alone (30, 31); `hir_set_root` sets the sealed root (32); `hir_free` resets it
++// (33). Three ranges in and out (40 to 43). A fresh arena holds group 0, the whole match,
++// with no name (50, 51); three groups added answer 1, 2 and 3 (52) and hold their names'
++// places in `Hir.names` (53 to 55), and `hir_put_name` copies each name out, nothing for
++// the unnamed one (56 to 58). The constants are H-2's values (60 to 68), and a `GroupInfo` is 16
++// bytes (69). The program exits
++// 0 only after `hir_free`, and D-151 traps a `wild` block still live at exit -- so a
++// `hir_free` that freed nothing, or a missing one, is red (96).
++mod:hir_unit;
++
++use "../../src/core/core.npk".*;
++use "../../src/hir/hir.npk".*;
++
++func:ordinal = int64(HirKind:k) never fails {
++    int64:n = -1i64;
++    pick (k) {
++        (HirKind.Empty) { n = 0i64; },
++        (HirKind.Literal) { n = 1i64; },
++        (HirKind.Class) { n = 2i64; },
++        (HirKind.Concat) { n = 3i64; },
++        (HirKind.Alternate) { n = 4i64; },
++        (HirKind.Repeat) { n = 5i64; },
++        (HirKind.Group) { n = 6i64; },
++        (HirKind.Anchor) { n = 7i64; },
++        (HirKind.WordBoundary) { n = 8i64; }
++    }
++    pass n;
++};
++
++// Whether `b` holds exactly the bytes of `want`.
++func:same = bool(Bytes->:b, string:want) never fails {
++    uint8[]:w = string_bytes(want);
++    if ((raw bytes_len(b)) != w.len) { pass false; }
++    int64:i = 0i64;
++    while (i < w.len) decreases w.len - i {
++        if ((raw bytes_get(b, i)) != w[i]) { pass false; }
++        i = i + 1i64;
++    }
++    pass true;
++};
++
++func:nodes = int32() never fails {
++    Hir:h = raw hir_init(1i64);
++    if ((raw hir_len(h)) != 0i64)   { pass 10i32; }
++    if (h.root != HIR_NONE)         { pass 11i32; }
++    int64:i = 0i64;
++    int64:kk = 0i64;
++    while (i < 100i64) decreases 100i64 - i {
++        HirNode:n = HirNode{ kind: (kk =>! int32) =>! HirKind, flags: (i =>! uint32) + 7u32,
++                             a: i * 7i64, b: i * 11i64, c: 0i64 - i, next: i - 1i64 };
++        int64:at = raw hir_push(@h, n);
++        if (at != i) { pass 12i32; }
++        i = i + 1i64;
++        kk = kk + 1i64;
++        if (kk == 9i64) { kk = 0i64; }
++    }
++    if ((raw hir_len(h)) != 100i64) { pass 13i32; }
++    i = 0i64;
++    kk = 0i64;
++    while (i < 100i64) decreases 100i64 - i {
++        HirNode:g = raw hir_get(h, i);
++        if ((raw ordinal(g.kind)) != kk)         { pass 20i32; }
++        if (g.flags != (i =>! uint32) + 7u32)    { pass 21i32; }
++        if (g.a != i * 7i64)                     { pass 22i32; }
++        if (g.b != i * 11i64)                    { pass 23i32; }
++        if (g.c != 0i64 - i)                     { pass 24i32; }
++        if (g.next != i - 1i64)                  { pass 25i32; }
++        i = i + 1i64;
++        kk = kk + 1i64;
++        if (kk == 9i64) { kk = 0i64; }
++    }
++    HirNode:m = raw hir_get(h, 50i64);
++    m.next = 99i64;
++    drop hir_set(@h, 50i64, m);
++    HirNode:m2 = raw hir_get(h, 50i64);
++    if (m2.next != 99i64)                        { pass 30i32; }
++    HirNode:m3 = raw hir_get(h, 51i64);
++    if (m3.next != 50i64)                        { pass 31i32; }
++    drop hir_set_root(@h, 99i64);
++    if (h.root != 99i64)                         { pass 32i32; }
++    drop hir_free(@h);
++    if (h.root != HIR_NONE)                      { pass 33i32; }
++    pass 0i32;
++};
++
++func:ranges = int32() never fails {
++    Hir:h = raw hir_init(1i64);
++    if ((raw hir_range_count(h)) != 0i64)        { pass 40i32; }
++    int64:r0 = raw hir_push_range(@h, ClassRange{ lo: 97u32, hi: 122u32 });
++    int64:r1 = raw hir_push_range(@h, ClassRange{ lo: 65u32, hi: 90u32 });
++    int64:r2 = raw hir_push_range(@h, ClassRange{ lo: 1114111u32, hi: 1114111u32 });
++    if ((r0 != 0i64) || (r1 != 1i64) || (r2 != 2i64)) { pass 41i32; }
++    ClassRange:g = raw hir_range(h, 1i64);
++    if ((g.lo != 65u32) || (g.hi != 90u32))      { pass 42i32; }
++    ClassRange:g2 = raw hir_range(h, 2i64);
++    if ((g2.lo != 1114111u32) || ((raw hir_range_count(h)) != 3i64)) { pass 43i32; }
++    drop hir_free(@h);
++    pass 0i32;
++};
++
++func:groups = int32() never fails {
++    Hir:h = raw hir_init(4i64);
++    if ((raw hir_group_count(h)) != 1i64)        { pass 50i32; }
++    GroupInfo:z = raw hir_group(h, 0i64);
++    if (z.len != 0i64)                           { pass 51i32; }
++    int64:k1 = raw hir_add_group(@h, string_bytes("year"));
++    int64:k2 = raw hir_add_group(@h, string_bytes(""));
++    int64:k3 = raw hir_add_group(@h, string_bytes("x_9"));
++    if ((k1 != 1i64) || (k2 != 2i64) || (k3 != 3i64) || ((raw hir_group_count(h)) != 4i64)) { pass 52i32; }
++    GroupInfo:g1 = raw hir_group(h, 1i64);
++    if ((g1.off != 0i64) || (g1.len != 4i64))    { pass 53i32; }
++    GroupInfo:g2 = raw hir_group(h, 2i64);
++    if (g2.len != 0i64)                          { pass 54i32; }
++    GroupInfo:g3 = raw hir_group(h, 3i64);
++    if ((g3.off != 4i64) || (g3.len != 3i64))    { pass 55i32; }
++    Bytes:b = raw bytes_init(8i64);
++    drop hir_put_name(@h, 1i64, @b);
++    if (!(raw same(@b, "year")))                 { pass 56i32; }
++    drop bytes_clear(@b);
++    drop hir_put_name(@h, 2i64, @b);
++    if ((raw bytes_len(@b)) != 0i64)             { pass 57i32; }
++    drop hir_put_name(@h, 3i64, @b);
++    if (!(raw same(@b, "x_9")))                  { pass 58i32; }
++    drop hir_free(@h);
++    pass 0i32;
++};
++
++func:constants = int32() never fails {
++    if (HIR_NONE != -1i64)              { pass 60i32; }
++    if (HIR_FLAG_LAZY != 1u32)          { pass 61i32; }
++    if (HIR_FLAG_BYTE != 2u32)          { pass 62i32; }
++    if (HIR_TEXT_START != 0i64)         { pass 63i32; }
++    if (HIR_TEXT_END != 1i64)           { pass 64i32; }
++    if (HIR_LINE_START != 2i64)         { pass 65i32; }
++    if (HIR_LINE_END != 3i64)           { pass 66i32; }
++    if (HIR_WORD != 0i64)               { pass 67i32; }
++    if (HIR_NOT_WORD != 1i64)           { pass 68i32; }
++    if ((#size_of<GroupInfo>()) != 16i64) { pass 69i32; }
++    pass 0i32;
++};
++
++func:main = int32(cstring[]:_~argv) {
++    int32:r = raw nodes();
++    if (r != 0i32) { exit r; }
++    r = raw ranges();
++    if (r != 0i32) { exit r; }
++    r = raw groups();
++    if (r != 0i32) { exit r; }
++    exit raw constants();
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};

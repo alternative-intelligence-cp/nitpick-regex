@@ -1,0 +1,26 @@
+diff --git a/meta/roadmap/ROADMAP.md b/meta/roadmap/ROADMAP.md
+index 220523d7c732d1068d1c8af7b17bba85bb69026a..2aabca2d20d21504aeb4b4691b3b3e73d13a6f5b 100644
+--- a/meta/roadmap/ROADMAP.md
++++ b/meta/roadmap/ROADMAP.md
+@@ -226,6 +226,8 @@ Then the harness, its self-check, the tree checks, and `src/core/` —
+ `src/syntax/`: the grammar in `specs/SYNTAX.md` §1, an explicit stack bounded
+ by `NREGEX_NEST_DEPTH`, byte offsets on every error, and every
+ `PatternErrorKind` in §9 provoked by a test.
++*(@@RUN_DATE@@, cycle 0.2.0 — RX-219: or listed in `SYNTAX.md` Y-25's table with the cycle that will provoke it, as the
++Gate's note below says — four were at the cycle's close, none the parser's to raise.)*
+ 
+ **Gate:** every kind in §9 has a test that produces it, and
+ `check_error_kinds_tested` is green — a kind nothing can produce is a promise
+diff --git a/meta/roadmap/done/0.1/0.1.6.md b/meta/roadmap/done/0.1/0.1.6.md
+index 33e98a41c4c35add220fe0058c60643b507a7961..a36f2df16223c3c2a8c8537a55df8b7cf7f76439 100644
+--- a/meta/roadmap/done/0.1/0.1.6.md
++++ b/meta/roadmap/done/0.1/0.1.6.md
+@@ -480,6 +480,8 @@ against every block below, and none differed. Two items for information: `ROADMA
+ block 4b, and is left as written — the dispatch says to amend it only through the plan's patches, and none touches it;
+ and the README's price paragraph, whose rewording is the author's, is untouched.
+ *(@@RUN_DATE@@, cycle 0.2.0: reworded since, in the author's words — the workbench's question 25 (a) — and its note gone.)*
++*(@@RUN_DATE@@, cycle 0.2.0: and the topic sentence carries its own RX-219 note since — that subcycle's step 3, by its plan's
++patch.)*
+ 
+ **How every block ran: through the comparator**, one Bash call per block, in order — `python3 -B "$T/blocks.py" run
+ "$REPO" <id>`, then `compare`, each a fresh `bash -c` holding only `REPO=`, whose `grep` is GNU `grep` 3.11 at

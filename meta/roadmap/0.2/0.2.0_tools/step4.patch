@@ -1,0 +1,222 @@
+diff --git a/.gitignore b/.gitignore
+index a94ec4ee4cf047ae52a4c74aaf5c2818b4f6a83f..ce2ce1a5c931d2f487c4e6c7189dbb69a536183b 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -60,7 +60,10 @@ meta/research/corpora/*/
+ #                         compiler, never a Python generator and never a
+ #                         network fetch. The generator in tools/ regenerates
+ #                         them and the harness checks the committed tables
+-#                         match what it would emit.
++#                         match what it would emit. (Two files there are
++#                         written by hand since cycle 0.2.0, RX-222: the
++#                         tables' range type, class_range.npk, and the
++#                         layer's entry, unicode.npk.)
+ #   tests/fixtures/     — committed pattern/haystack/expectation triples,
+ #                         including everything the fuzzer ever found. They are
+ #                         the regression corpus and must be byte-stable.
+diff --git a/README.md b/README.md
+index 8039c91d97a539920df6ab6d7e3d054c9b0581e1..95d6087319d305c8f84db803cfba117290704190 100644
+--- a/README.md
++++ b/README.md
+@@ -109,7 +109,7 @@ src/          # THE LIBRARY — Nitpick source only
+   core/       #   storage primitives, bitsets, named limits
+   syntax/     #   the pattern parser
+   hir/        #   desugaring, normalisation, literal extraction
+-  unicode/    #   GENERATED property and case-folding tables
++  unicode/    #   GENERATED property and case-folding tables, and their range type
+   compile/    #   HIR -> NFA program, UTF-8 automata, alphabet compression
+   engine/     #   Pike VM, lazy DFA, prefilters, the meta-engine
+   api/        #   the public surface
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 58b81a397321cf239955184ae6cf6e82e8eadd94..554ec1b33258a505820b02e1adbd311941bb861c 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -5724,3 +5724,31 @@ structured fuzzer is cycle 0.12.0's, where it belongs; **`regex_escape`'s round
+ `regex_escape.npk` holds every ASCII byte in five places and the fourteen names in two, and the auditor's exhaustive
+ 41 384 texts found the one class it misread, which it now holds; **`(?<` moved to byte 2, so no offset is the
+ pattern's length** — the end is where the name was due, and Y-29 says so.
++
++## The arena — cycle 0.2.0
++
++### RX-222 — `ClassRange` is `unicode`'s, declared now: U-4's range type, before its tables, and re-exported by `hir` for the oracle
++
++**@@RUN_DATE@@, cycle 0.2.0 (the plan's PD-66), at compiler `5fbaf4a`** — `UNICODE.md` U-4, `HIR.md` H-2, `BUILD.md`
++B-11, B-16 and B-17. U-4 declares the one representation a class and a generated table share — *"the same shape a
++class uses, so a property lookup and a class test are the same code"* — and H-2's `Hir.ranges` holds it. A HIR's
++classes need the type at this subcycle; cycle 0.3.0's tables are generated later. And `hir` sits to the left of
++`unicode` in B-16's diagram, so a type declared in `hir` could not be named by the tables, while the oracle may import
++`core` and `hir` and nothing else (B-17) and reads every class's ranges.
++
++**The decision.** `src/unicode/class_range.npk`, written by hand, the one module of the layer that is:
++`#[derive(Copy)] pub struct:ClassRange = { uint32:lo; uint32:hi; }`, both ends inclusive. A class's ranges are of
++codepoints, `0 … 0x10FFFF`, or under `(?-u)` of bytes, `0 … 255`, and the node that holds them says which, never the
++range. `src/unicode/unicode.npk` becomes the layer's entry, one `pub use` per name (B-15a), and re-exports it;
++`src/hir/hir.npk` becomes `hir`'s entry and re-exports it again, for the oracle. U-4 dated; the layer's README and the
++two placeholders' headers rewritten. U-1 and U-4 dated, and with them the `.gitignore`'s note, the 0.3 README's
++emitted-shape item and the public README's layout line, since two files of `src/unicode/` are now not generated.
++
++**Measured at `5fbaf4a`.** `#size_of<ClassRange>()` is 8. The three files compile as roots, and a program importing
++any one of them owes the language's six arms and nothing of this library's. The full run is `261/261`, the new file
++swept.
++
++*Alternatives declined:* **declared in `hir`** — the tables could not name it, and cycle 0.3.0 would move it and every
++import with it; **declared in `core`** — `core` is the storage primitives (B-11), and U-4 makes this the tables' type;
++**left to cycle 0.3.0** — this subcycle's classes hold it; **a second type for a range of bytes** — one range type is
++U-4's point; **the oracle importing `unicode`** — B-17 forbids it, and the re-export costs one line.
+diff --git a/meta/roadmap/0.3/README.md b/meta/roadmap/0.3/README.md
+index 6e2278ee19936d8782667a8f346ab608dd8b947f..3c42cc7bbd128cd581d1878a631575ea8e52e567 100644
+--- a/meta/roadmap/0.3/README.md
++++ b/meta/roadmap/0.3/README.md
+@@ -27,7 +27,7 @@ design; recorded when chosen).
+ - [ ] Q-1 answered: the UCD version pinned, recorded in `src/unicode/version.npk` and in `meta/DECISIONS.md` beside RX-021
+ - [ ] reads `DerivedGeneralCategory.txt`, `Scripts.txt`, `ScriptExtensions.txt`, `DerivedCoreProperties.txt`, `PropList.txt`, `CaseFolding.txt`, `PropertyAliases.txt`, `PropertyValueAliases.txt` *(2026-10-01 — cycle 0.1.4, RX-207: and holds the parser's twenty-one white-space codepoints past ASCII, named in `parse.npk` for `x` (`SYNTAX.md` Y-42), to the White_Space and Pattern_White_Space it generates)*
+ - [ ] the UCD files themselves **gitignored**; the generated tables **committed**
+-- [ ] the emitted shape is `ClassRange { uint32:lo; uint32:hi; }` arrays, sorted and disjoint (U-4)
++- [ ] the emitted shape is `ClassRange { uint32:lo; uint32:hi; }` arrays, sorted and disjoint (U-4) *(@@RUN_DATE@@, cycle 0.2.0 — RX-222: `ClassRange` is declared already, by hand, in `src/unicode/class_range.npk`, and `unicode.npk` is the layer's entry; the tables import the type, the entry re-exports them, and `check_tables_regenerate` reads the generated files, not those two)*
+ - [ ] every generated file carries the Unicode version and the generator's name in its header
+ - [ ] `check_tables_regenerate` live and **seen to fail** against a hand-edited table
+ - [ ] `check_table_invariants` live: sorted, disjoint, `lo <= hi`, every range within `U+10FFFF`, and **no range overlapping the surrogates** (C-3)
+diff --git a/meta/specs/UNICODE.md b/meta/specs/UNICODE.md
+index 2d54d55a64af07341dd7077627efe61b410cadc7..fbc114b153ae29b234220350c12b2451dbac1997 100644
+--- a/meta/specs/UNICODE.md
++++ b/meta/specs/UNICODE.md
+@@ -10,6 +10,8 @@ Properties, scripts, case folding, and where the tables come from.
+ as Nitpick source.** `tools/gen_unicode.py` reads the Unicode Character
+ Database and writes `src/unicode/*.npk`. A build needs the compiler and nothing
+ else: no Python, no network, no `/usr/share/unicode`.
++*(@@RUN_DATE@@, cycle 0.2.0 — RX-222: the tables are; two files beside them are written by hand — `class_range.npk`, U-4's
++type, and `unicode.npk`, the layer's entry — and U-2's comparison reads the generated files, not those two.)*
+ 
+ **Rule U-2 — the generator is checked, not trusted.** The harness re-runs it
+ and requires the committed tables to be **byte-identical** to what it would
+@@ -34,6 +36,10 @@ shape a class uses, so a property lookup and a class test are the same code:
+ ```nitpick
+ pub struct:ClassRange = { uint32:lo; uint32:hi; };   // inclusive, sorted, disjoint
+ ```
++*(@@RUN_DATE@@, cycle 0.2.0 — RX-222: declared at cycle 0.2.0, by hand, in `src/unicode/class_range.npk` —
++`unicode.npk`, the layer's entry, re-exporting it — and re-exported again by `src/hir/hir.npk` for the oracle
++(`BUILD.md` B-17): a HIR's classes hold it before any table exists, and `hir` sits to the left of `unicode` (B-16).
++Under `(?-u)` the same type holds a class of bytes, `0 … 255`, and the node says which, never the range.)*
+ 
+ Not a trie, and deliberately: a binary search over a sorted disjoint range
+ array has one invariant (`lo <= hi`, each `lo` above the previous `hi`), that
+diff --git a/src/hir/hir.npk b/src/hir/hir.npk
+index 91da333add8410d46b937941247b1b3f1d3cea7e..d0e1ddee8ae50558262c38d54ec7d96583c0bfc2 100644
+--- a/src/hir/hir.npk
++++ b/src/hir/hir.npk
+@@ -1,17 +1,22 @@
+-// `src/hir/` — the high-level intermediate. PLACEHOLDER: nothing yet.
++// `src/hir/hir.npk` — THE HIGH-LEVEL INTERMEDIATE'S LAYER ENTRY. A module above `hir`
++// writes one import, this file, and reaches what the layer offers.
+ //
+-// FILLED BY cycle 0.2, governed by `meta/specs/HIR.md`. Desugaring and
+-// normalisation, flattened into a POD arena: a node declares no owning field,
+-// which is why `HIR.md` H-2 keeps its operands as offsets into a `Bytes` rather
+-// than as owned strings. That is H-2's design, and a `Vec` of nodes MUST keep it
+-// (`SAFETY.md` S-23a, RX-155) -- the language would not: an owning element is
+-// accepted in an array or a `Vec`, and `vec_get` then MOVES it out.
+-// *(2026-09-28, cycle 0.1.1b -- RX-188: for a `Vec` the language does now -- `Vec<T: Copy>`
+-// refuses an owning element at the type, as `vec_get` has since cycle 0.0.4e -- so a
+-// node type derives `Copy`. An array still accepts one.)*
++// FILLED BY cycle 0.2, governed by `meta/specs/HIR.md`. Desugaring and normalisation,
++// flattened into a POD arena: a node declares no owning field, which is why `HIR.md` H-2
++// keeps a group's name as an offset into a `Bytes` rather than as an owned string. That is
++// H-2's design, and a `Vec` of nodes MUST keep it (`SAFETY.md` S-23a, RX-155) -- and since
++// `Vec<T: Copy>` (RX-188) the compiler keeps it too, at the type.
+ //
+-// LAYERING (`BUILD.md` §6, rule B-16). May import: `syntax`, `unicode`,
+-// `core`.
++// SINCE CYCLE 0.2.0 IT RE-EXPORTS ONE NAME: `unicode`'s `ClassRange` (RX-222), the type a
++// class's ranges are, for the oracle, which reads every class's ranges and may import `core`
++// and `hir` and nothing else (B-17). The arena is not here yet.
+ //
+-// See `src/core/core.npk` for why a placeholder exists at all (P-6).
++// EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1 and 3).
++//
++// LAYERING (`BUILD.md` §6, rule B-16). May import: `syntax`, `unicode`, `core`. A program
++// importing this file owes the language's six arms and nothing of this library's.
+ mod:hir;
++
++// ---- a class's ranges, `unicode`'s type (RX-222) -- re-exported, because the oracle may
++// import `core` and `hir` and nothing else (B-17), and it reads every class's ranges -------
++pub use "../unicode/unicode.npk".ClassRange;
+diff --git a/src/unicode/README.md b/src/unicode/README.md
+index 721ec9933495706812261f0d3426ed1608ac272e..a975dab82d228b72bc82d5d9168de1fce995abcd 100644
+--- a/src/unicode/README.md
++++ b/src/unicode/README.md
+@@ -4,3 +4,8 @@ Property, script, class and simple-case-folding tables, **generated** from a
+ pinned UCD by `tools/gen_unicode.py` and committed as source, so a build needs
+ the compiler and nothing else. Governed by `meta/specs/UNICODE.md`. Built in
+ cycle 0.3.
++
++One module is written by hand, before the tables: `class_range.npk`,
++`UNICODE.md` U-4's `ClassRange` — one range of codepoints, or of bytes — which
++a HIR's classes hold (`HIR.md` H-2) and every table will (cycle 0.2.0).
++`unicode.npk` is the layer's entry and re-exports it.
+diff --git a/src/unicode/class_range.npk b/src/unicode/class_range.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..5dbabca24c2591f4aeb5a56ba7e53530dcf2ee33
+--- /dev/null
++++ b/src/unicode/class_range.npk
+@@ -0,0 +1,28 @@
++// `src/unicode/class_range.npk` — ONE RANGE OF CODEPOINTS, OR OF BYTES. Cycle 0.2.0, RX-222;
++// `meta/specs/UNICODE.md` U-4.
++//
++// U-4'S TYPE, DECLARED AT ITS LAYER BEFORE ITS TABLES. A class is a list of these
++// (`HIR.md` H-2's `Hir.ranges`), and so is every table cycle 0.3 generates here --
++// "the same shape a class uses, so a property lookup and a class test are the same
++// code" (U-4). `hir` sits to the left of `unicode` in `BUILD.md` B-16's diagram, so a
++// type both use is declared HERE: a `ClassRange` declared in `src/hir/` could not be
++// named by the tables, which may not import `hir`. This is the one module of the layer
++// that is written by hand; the tables beside it from cycle 0.3.0 are generated.
++//
++// INCLUSIVE AT BOTH ENDS: `lo` and `hi` are the first and the last member. A class's
++// list is sorted and disjoint once cycle 0.2.3 normalises it (H-13); a range read from
++// a HIR dump only has `lo <= hi`. Codepoints are `0 … 0x10FFFF`, surrogates excluded;
++// under `(?-u)` a class is over bytes, `0 … 255`, and its node says so (H-2's
++// `HIR_FLAG_BYTE`), not the range.
++//
++// It owns nothing, so a `Vec` holds it, and it derives `Copy`, which every `Vec`
++// element must (`Vec<T: Copy>`, RX-188).
++//
++// LAYERING (`BUILD.md` §6, B-16). Imports nothing.
++mod:class_range;
++
++#[derive(Copy)]
++pub struct:ClassRange = {
++    uint32:lo;      // the first member
++    uint32:hi;      // the last member, never below `lo`
++};
+diff --git a/src/unicode/unicode.npk b/src/unicode/unicode.npk
+index d94d697ed7154eacf7bfa3c478be4004351597f7..faba06034fee0b117d1b7896c453d8e45c04e41f 100644
+--- a/src/unicode/unicode.npk
++++ b/src/unicode/unicode.npk
+@@ -1,11 +1,21 @@
+-// `src/unicode/` — the generated Unicode tables. PLACEHOLDER: nothing yet.
++// `src/unicode/unicode.npk` — THE UNICODE LAYER'S ENTRY: U-4'S RANGE TYPE NOW, THE TABLES AT
++// CYCLE 0.3.
+ //
+-// FILLED BY cycle 0.3, governed by `meta/specs/UNICODE.md`. Everything here is
+-// GENERATED from a pinned UCD by `tools/gen_unicode.py` and committed as
+-// Nitpick source, so a build needs the compiler and nothing else — no Python,
+-// no network. The `.gitignore`'s "NOT ignored, deliberately" block says so.
++// FILLED BY cycle 0.3, governed by `meta/specs/UNICODE.md`. The tables are GENERATED from a
++// pinned UCD by `tools/gen_unicode.py` and committed as Nitpick source, so a build needs the
++// compiler and nothing else — no Python, no network. The `.gitignore`'s "NOT ignored,
++// deliberately" block says so.
+ //
+-// LAYERING (`BUILD.md` §6, rule B-16). May import: `core`. Nothing else.
++// SINCE CYCLE 0.2.0 THE LAYER HOLDS ONE MODULE WRITTEN BY HAND: `class_range.npk`, U-4's
++// `ClassRange`, which `hir`'s classes hold and the tables will (RX-222). It is declared here
++// because `hir` sits to the left of `unicode` in B-16's diagram: a type declared in `hir`
++// could not be named by the tables.
+ //
+-// See `src/core/core.npk` for why a placeholder exists at all (P-6).
++// EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1 and 3).
++//
++// LAYERING (`BUILD.md` §6, rule B-16). May import: `core`. Nothing else. A program
++// importing this file owes the language's six arms and nothing of this library's.
+ mod:unicode;
++
++// ---- U-4's range: one class's members, one table's rows (RX-222) ---------------------
++pub use "./class_range.npk".ClassRange;

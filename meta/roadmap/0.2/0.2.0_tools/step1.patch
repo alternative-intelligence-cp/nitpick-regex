@@ -1,0 +1,96 @@
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+index 211d16379607bda72f649537900709696b2d1b4d..96fbd3b8713761a61fc542d3fee16632095792b9 100644
+--- a/CONTRIBUTING.md
++++ b/CONTRIBUTING.md
+@@ -36,6 +36,11 @@ never for concluding; nothing is committed on the strength of a filtered run.
+    backtracking possible, and the linear-time guarantee is the reason this
+    library exists. A patch adding either is a patch that removes the
+    guarantee.
++   *(@@RUN_DATE@@, cycle 0.2.0 — RX-218: of lookaround the second sentence is not
++   true. Finite automata can match it in linear time, by algorithms published
++   in 2024; `nregex` refuses it because its automata read none of it and a
++   search allocates nothing, as `README.md`'s price paragraph says, in the
++   author's words.)*
+ 
+ 2. **Every public `error:` this library declares becomes a mandatory `pick` arm
+    in every consuming program's `failsafe`.** The language enforces it and
+diff --git a/README.md b/README.md
+index 7478cf78c65bfc0d7d42f4daa9e0d5a747f1508d..8039c91d97a539920df6ab6d7e3d054c9b0581e1 100644
+--- a/README.md
++++ b/README.md
+@@ -54,14 +54,13 @@ the product of the pattern size and the haystack size and cannot be otherwise.
+ This is the choice RE2 and Rust's `regex` made, for the same reason.
+ 
+ **The price is stated plainly and is not softened: there are no backreferences
+-and no lookaround.** Neither describes a regular language, and both are exactly
+-what makes backtracking unavoidable. A pattern needing them is refused at
+-compile time, by name, with the position — never accepted and then slow.
+-*(2026-10-08 — of lookaround the second sentence is not true: finite automata
+-can match lookahead and lookbehind, and in linear time, by algorithms published
+-in 2024. `nregex` refuses lookaround because its automata read none of it and a
+-search allocates nothing; [`meta/specs/SAFETY.md`](meta/specs/SAFETY.md) S-2's
+-note says what each algorithm asks, and RX-218 records it.)*
++and no lookaround.** Backreferences describe no regular language, and they are
++what makes backtracking unavoidable. Lookaround is different: finite automata
++can match it in linear time, by algorithms published in 2024, but `nregex`'s
++automata read none of it and a search allocates nothing, so it is refused as
++well ([`meta/specs/SAFETY.md`](meta/specs/SAFETY.md) S-2, RX-218). A pattern
++needing either is refused at compile time, by name, with the position — never
++accepted and then slow.
+ 
+ ## What follows from it
+ 
+diff --git a/meta/roadmap/done/0.1/0.1.6.md b/meta/roadmap/done/0.1/0.1.6.md
+index 0678aada9cf2bab627b64b78cd6cc881fba4f881..33e98a41c4c35add220fe0058c60643b507a7961 100644
+--- a/meta/roadmap/done/0.1/0.1.6.md
++++ b/meta/roadmap/done/0.1/0.1.6.md
+@@ -479,6 +479,7 @@ against every block below, and none differed. Two items for information: `ROADMA
+ (*"every `PatternErrorKind` in §9 provoked by a test"*, a dated RX-219 note under its Gate) was saved by no pattern of
+ block 4b, and is left as written — the dispatch says to amend it only through the plan's patches, and none touches it;
+ and the README's price paragraph, whose rewording is the author's, is untouched.
++*(@@RUN_DATE@@, cycle 0.2.0: reworded since, in the author's words — the workbench's question 25 (a) — and its note gone.)*
+ 
+ **How every block ran: through the comparator**, one Bash call per block, in order — `python3 -B "$T/blocks.py" run
+ "$REPO" <id>`, then `compare`, each a fresh `bash -c` holding only `REPO=`, whose `grep` is GNU `grep` 3.11 at
+diff --git a/meta/roadmap/done/0.1/0.1.6a.md b/meta/roadmap/done/0.1/0.1.6a.md
+index 3a6b5f3b704bb5c616e40a6b9817ea29eebbadcc..b4038b6c21a6b460a2b8a7876cd0ef3751a7971f 100644
+--- a/meta/roadmap/done/0.1/0.1.6a.md
++++ b/meta/roadmap/done/0.1/0.1.6a.md
+@@ -990,6 +990,8 @@ C, `ascii` as its ASCII property"*. The close's plan repeats the old words in it
+ **Step 5's patch, three hunks, after step 8's sweep** — the omissions below, each a dated note: `README.md`'s price
+ paragraph, `COMPAT.md` §4's first sentence and RX-003's reasoning. They were written into a scratch tree by an edit
+ script, never by hand into this one, and step 5's patch re-cut from it.
++*(@@RUN_DATE@@, cycle 0.2.0: the README's note is gone — the price paragraph says it in the author's words, his answer to the
++workbench's question 25 (a).)*
+ 
+ **How the amended chain was checked.** In a scratch clone at `45228e3` the seven patches were applied RAW — `@@DATE@@`
+ unsubstituted — each re-cut with `git diff --cached --full-index` and compared with the tools' copy: steps 1 … 5
+@@ -1076,6 +1078,8 @@ PD-62, *"not regular"*, *"not a regular"*, *"regular language"*, lookaround with
+ 
+ - `README.md` 56–57, the price paragraph: *"Neither describes a regular language, and both are exactly what makes
+   backtracking unavoidable"* — true of backreferences, not of lookaround;
++  *(@@RUN_DATE@@, cycle 0.2.0: the paragraph says it in the author's words now, his answer to the workbench's question 25
++  (a), and its note is gone.)*
+ - `COMPAT.md` 109–110, §4: *"A pattern needing backreferences or lookaround is not a regular expression, and no amount
+   of engine work makes it one in linear time"* — the same;
+ - `DECISIONS.md` RX-003: *"None of them describes a regular language; each is exactly what makes backtracking
+@@ -1227,3 +1231,6 @@ for-the-author:
+ compiler-defect: none
+ tokens-and-time: unknown tokens; about 55 min of wall clock from block 0a to this commit (0a 04:40-04:43, title 04:43, steps 1-7 04:44-05:10, sweep 05:10, second sweeps and re-cut 05:10-05:18, push 05:19, CI 05:19-05:22, the record 05:22-05:35); nine full local runs, one at a time, 147.3-152.7 s each; CI about 3 min; one document fetched in two reads (UTS #18)
+ ```
++
++*(@@RUN_DATE@@, cycle 0.2.0: the author answered the REPORT's second for-the-author line — the workbench's question 25 (a)
++— by rewording the price paragraph itself: it says in his words what the note said, and the note is gone.)*
+diff --git a/meta/roadmap/done/0.1/README.md b/meta/roadmap/done/0.1/README.md
+index 74d1702f4f5d94f34177dcdafc20a04d539d510b..b3ca90c929ead8b3c4d4c8375323a32faa92cb6d 100644
+--- a/meta/roadmap/done/0.1/README.md
++++ b/meta/roadmap/done/0.1/README.md
+@@ -179,6 +179,8 @@ fixed, twenty-two findings; [`0.1.6.md`](0.1.6.md) §2 triages every one.)*
+ - [x] `NestTooDeep` says what is open around the `(` or `[` it refuses, true of `(?i)` at the bound too (K7) — PD-60 — **RX-216, `f3c5637`**: *"nesting too deep at byte 250: groups and classes are open 250 deep around the `(` or `[` here, as deep as they may nest (NREGEX_NEST_DEPTH), so nregex refuses it before reading what it begins. …"*, held by `pattern_error_text` 23 (251 groups), 35 (251 classes) and 83 (`(?i)` inside 250 groups, its kind and byte); against the text before it 23, and the mutants `nest-would-nest` and `nest-plus-one` 23, both legs; Y-35 decides at the `(` as RX-193 chose; `258/258`
+ - [x] question 23 recorded as the worker's reading the author accepted, and every in-class list names `\g` and `\K` (C6, K1; the verifier's second and third findings) — PD-61 — **RX-217, `8d8a329`**: no pattern moves — `[\K]` is `UnknownEscape` at byte 1, two bytes, detail 75, and `[\g]` with 103 (`parse_declined` 63 and 57); RX-210 marked; Y-44's note, the two units' headers and the 0.1.5 box above dated; `SYNTAX.md` §9's in-class row, `COMPAT.md` §3's row and the comment over `class_escape` name `\g` and `\K`; `258/258`
+ - [x] `SAFETY.md` S-2's lookaround row dated to what is true, and O-R1's record (C8; the author's answer to the workbench's question 20 (d)) — PD-62 — **RX-218, `1b6cce5`**: a dated note under S-2's table — what each 2024 algorithm asks, a captureless lookbehind needing no extra space, and the refusal standing on RX-003 and S-6 — the class named whole, `\K` with it; O-R1's record; and, in the record commit, the same false reason dated where the worker's second sweep found it — `README.md`'s price paragraph, `COMPAT.md` §4's first sentence and RX-003's reasoning, step 5's patch amended (`0.1.6a.md`'s record); `258/258`
++  *(@@RUN_DATE@@, cycle 0.2.0: the README's note is gone — the price paragraph says it in the author's words, his answer to
++  the workbench's question 25 (a).)*
+ - [x] the records: `ast.npk`'s `Copy` comment (C7); the POSIX classes' sets to cycle 0.3.2 (D1); two markers (S2); RX-211's tense (S4); §9's rows and Y-40's, Y-28's and this README's sentences (K2 … K5) — **`cd3fceb`**: `ast.npk`'s comment dated to D-327's structural kinds and RX-190 (C7); a note on Y-43 and cycle 0.3's item for 0.3.2, the rule before the code (D1); RX-174's and RX-184's markers (S2); a note under RX-211's (S4); §9's `UnclosedGroup` and `InvalidPatternEncoding` rows (K2, K5); Y-40's and the 0.1.4 box's `\u{41}` (K3); a note on Y-28 (K4); `ast_unit` 0 and `ast_size` 56 at both legs; `258/258`
+ 
+ ### 0.1.6b — the instruments

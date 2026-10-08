@@ -1,0 +1,18 @@
+# 0.2.0's omission sweep, block 8 -- one extended regular expression per line, each read by `sweep.py` line by line AND
+# across line breaks, case-insensitive: every statement steps 4 ... 7 make false. The close's list, narrowed where one of
+# its words is the subject of this subcycle's own code (`int32`, `Literal`, `GroupInfo`, `ClassRange`, `hir`) and would
+# save every line that names it rather than every line that says something about it, with what the rehearsal added.
+placeholder
+nothing yet|no matching happens|nothing builds|not here yet
+unmeasured|measure it when
+int32.{0,30}(index|operand)|(index|operand).{0,30}int32|indexed by .int32
+three operands|first child, class index
+left to shape|two left|two types|not yet shaped|named and not|will at cycle 0\.2
+expanded under
+\b(260|261|272)\b
+twenty-four|\b24\b.{0,20}refusal
+src/(hir|unicode)/.{0,60}(placeholder|nothing|generated)|generated property
+ClassRange.{0,80}(generat|cycle 0\.3)|(generat|cycle 0\.3).{0,80}ClassRange
+HirNode.{0,60}(\b24\b|int32|unmeasured|does not exist)
+GroupInfo.{0,60}(left|not yet|will\b)|(left|not yet|will\b).{0,60}GroupInfo
+twice the arena|bounded by twice|walk.{0,40}(bound|twice)
