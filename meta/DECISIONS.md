@@ -5435,6 +5435,9 @@ block's sentence left to cycle 0.3.1 with its trigger** — the checklist holds 
 sentences together.
 
 ### RX-213 — a `{` after `\b` or `\B` that holds no number is `BadRepeatBounds` with detail 2, its sentence naming Rust's `\b{start}` and Perl's `\b{wb}`
+> **SUPERSEDED IN PART by RX-215 (2026-10-08)** — *"no digit follows it"*: detail 2 when an ASCII letter follows the `{`,
+> since `\b{,3}` and `\b{ 3}` hold a number and the sentence said they held none; and the sentence, which says the brace
+> begins with a letter, not a number. Every other part is as this decision says.
 
 **2026-10-02, cycle 0.1.5 (the plan's PD-57), at compiler `5fbaf4a`** — `SYNTAX.md` Y-32; per
 `meta/research/refusal-syntax-reference-engines.md`, as of 2026-10-01; cycle 0.1.4's hand-on, *"`\b{start}` Rust's
@@ -5492,3 +5495,32 @@ caveat, as the audit put it; **every ASCII byte that is neither a letter nor a d
 alternative, declined for `<` and `>`, which a `\` makes refused (RX-205); **`[:` read as a nested class after a nested
 `[`, as Rust reads `[[:alpah:]]`** — a change to Y-38 for every pattern, when only the escaped text went wrong;
 **`regex_escape` refusing a text that begins with `:`** — it never fails (`API.md` §1), and the text is not wrong.
+
+### RX-215 — a `{` after `\b` or `\B` gives detail 2 only when an ASCII letter follows it, and the sentence says the brace begins with a letter, not a number
+
+**2026-10-08, cycle 0.1.6a (the plan's PD-59), at compiler `5fbaf4a`** — `SYNTAX.md` Y-32 and §9; the cycle audit's C3.
+RX-213 gave detail 2 when *"no digit follows"* the `{`, where its title and Y-32's note said the brace *"holds no
+number"*: so `\b{,3}`, `\b{ 3}` and `\B{,2}` were each `BadRepeatBounds` with detail 2, and the sentence said *"and this
+one holds no number"* of a brace holding `3` — the right byte with the wrong reason, the shape RX-203 corrected for a NUL
+in a group name. Measured on 2026-10-08 (`meta/research/refusal-syntax-reference-engines.md`, its addendum):
+regex-syntax 0.8.11 reads `\b{` and a letter or `-` as the start of a word boundary's name and anything else as a
+repetition — its `maybe_parse_special_word_boundary`: *"if the first non-whitespace character isn't in [-A-Za-z] (i.e.,
+this can't be a special word boundary), then we bail and let the counted repetition parser deal with this"* — so
+`\b{,3}` is its repetition's error and `\b{x3}` its word boundary's; and Perl 5.38.2 reads every `\b{…}` as a boundary,
+refusing `\b{,3}` as *"',3' is an unknown bound type"*. Every name either engine reads begins with a letter.
+
+**The decision.** Detail 2 when the atom before the `{` is `\b` or `\B` and an ASCII letter follows the `{` — one byte
+of lookahead, the cursor's own (RX-173). Any other byte there, and the end of the pattern, is detail 0, as after any
+atom. The sentence says the brace *"begins with a letter, not a number"*, where it said it *"holds no number"*, so it
+is true of `\b{x3}` too. `tests/unit/parse_refusals.npk` cases 76–79 hold `\b{,3}`, `\b{ 3}`, `\B{,2}` and `\b{` at the
+end, each detail 0, and `pattern_error_text.npk` case 81 the sentence.
+
+**Measured at `5fbaf4a`.** Both units pass at −O0 and through `opt -O2`, and against the parser and the text before
+this decision exit 76 and 81. With the letter test dropped `parse_refusals` exits 76, and with it made after any atom,
+25 (`a{x}`).
+
+*Alternatives declined:* **the detail kept and the sentence reworded, "is not followed by a number"** — the audit's other
+way, which keeps a detail naming Rust's and Perl's word boundaries for a brace that begins like a bound, and Rust reads
+it as one; **a letter or `-`, as Rust tests** — no name either engine reads begins with `-`, and `\b{-1}` reads better as
+a bound gone wrong; **every brace a digit does not begin, as Perl reads every `\b{…}` as a boundary** — RX-213's rule,
+whose sentence was false for `\b{,3}`.

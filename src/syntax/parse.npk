@@ -749,9 +749,11 @@ func:quantify = PatternError?(Ast->:out, Parser->:p, int64:at, int32:b) never fa
     else if (b == CH_LBRACE) {
         if (!(raw is_digit(raw cursor_peek(@p.c)))) {
             // after `\b` or `\B`, detail 2: Rust's `regex` reads `\b{start}` as a word assertion and
-            // Perl `\b{wb}` and `\B{wb}` as Unicode boundaries, and the sentence names both (RX-213)
+            // Perl `\b{wb}` and `\B{wb}` as Unicode boundaries, and the sentence names both (RX-213) --
+            // when a letter follows the `{`, as each name they read begins with one; a comma, a space or
+            // nothing there is a bound gone wrong, as after any atom (2026-10-08, cycle 0.1.6a -- RX-215)
             uint32:why = 0u32;
-            if (target.kind == AstKind.WordBoundary) { why = 2u32; }
+            if ((target.kind == AstKind.WordBoundary) && (raw is_letter(raw cursor_peek(@p.c)))) { why = 2u32; }
             pass raw pattern_error(PatternErrorKind.BadRepeatBounds, at, p.c.pos - at, why);
         }
         int64:min_at = p.c.pos;

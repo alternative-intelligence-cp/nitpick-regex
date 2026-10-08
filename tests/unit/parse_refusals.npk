@@ -24,6 +24,9 @@
 // *(2026-10-02, cycle 0.1.5 -- RX-213: a `{` after `\b` or `\B` that holds no number is
 // `BadRepeatBounds` with detail 2, its sentence naming Rust's `\b{start}` and Perl's `\b{wb}`
 // (72-75).)*
+// *(2026-10-08, cycle 0.1.6a -- RX-215: detail 2 only when an ASCII letter follows the `{`, as every name Rust
+// and Perl read there begins with one; a `{` after `\b` or `\B` that holds a comma, a space or nothing first is
+// detail 0, as after any atom (76-79).)*
 mod:parse_refusals;
 
 use "../../src/core/core.npk".*;
@@ -124,6 +127,11 @@ func:run = int32() never fails {
     if (!(raw refused("a\\b{end}", PatternErrorKind.BadRepeatBounds, 3i64, 1i64, 2u32)))    { pass 73i32; }
     if (!(raw refused("\\B{wb}", PatternErrorKind.BadRepeatBounds, 2i64, 1i64, 2u32)))      { pass 74i32; }
     if (!(raw refused("\\b{2,x}", PatternErrorKind.BadRepeatBounds, 2i64, 3i64, 0u32)))     { pass 75i32; }
+    // a `{` after a word boundary that a letter does not follow is a bound gone wrong, as after any atom (RX-215)
+    if (!(raw refused("\\b{,3}", PatternErrorKind.BadRepeatBounds, 2i64, 1i64, 0u32)))      { pass 76i32; }
+    if (!(raw refused("\\b{ 3}", PatternErrorKind.BadRepeatBounds, 2i64, 1i64, 0u32)))      { pass 77i32; }
+    if (!(raw refused("\\B{,2}", PatternErrorKind.BadRepeatBounds, 2i64, 1i64, 0u32)))      { pass 78i32; }
+    if (!(raw refused("\\b{", PatternErrorKind.BadRepeatBounds, 2i64, 1i64, 0u32)))         { pass 79i32; }
     pass 0i32;
 };
 
