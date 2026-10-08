@@ -32,8 +32,10 @@ makes the guarantee below possible.
 > `[` — and `:` is escaped now; and a fuzz pass of 120 000 seeded patterns holds the parser
 > to its offsets on every run. Cycle 0.2.0 laid the HIR's arena in `src/hir/` — nine kinds of
 > node that own nothing, read and written through accessors that check every index — and
-> wrote a HIR as one line of text that reads back to the same bytes. Nothing matches a
-> pattern yet.
+> wrote a HIR as one line of text that reads back to the same bytes. Cycle 0.2.1 builds the
+> HIR from a parsed pattern — quantifiers, groups, anchors, `.` and classes written as ranges,
+> every flag erased into what it means — and stops where cycle 0.3 must resolve or fold: a Perl
+> or POSIX class, a property, a class's `^` or operators, and `i`. Nothing matches a pattern yet.
 > The specification set is in [`meta/specs/`](meta/specs/) and the plan in
 > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
 > discipline the compiler used — specs first, then a cycle map, then

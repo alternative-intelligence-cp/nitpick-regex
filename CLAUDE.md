@@ -9,7 +9,10 @@ systems language at `../../nitpick`. **Status: cycle 0.1, the pattern parser, CL
 audit ACCEPTED it once C1 was fixed, and it is archived in `meta/roadmap/done/0.1/`; cycle 0.2, the HIR, is OPEN, and
 its 0.2.0, the arena, is done — `src/hir/` holds the HIR as a flat arena of nine kinds of node that own nothing,
 built and read through accessors that check every index, and as one line of text read back byte for byte, and
-`src/unicode/` holds `ClassRange` (RX-222 … RX-225, `meta/roadmap/0.2/0.2.0.md`); 0.2.1, the desugaring, is next.
+`src/unicode/` holds `ClassRange` (RX-222 … RX-225, `meta/roadmap/0.2/0.2.0.md`); and its 0.2.1, the desugaring, is
+done — `hir_build` builds a HIR from a pattern's AST, `HIR.md` H-5's table and nothing else, every flag erased into what
+it means, and stops where cycle 0.3.4 must fill one of its two hooks or widen its `leaf`, the two tests of what it will
+build pending until then (RX-226 … RX-229, `meta/roadmap/0.2/0.2.1.md`); 0.2.2, the repetition product, is next.
 Cycle 0.1's 0.1.0, 0.1.0b, 0.1.1, 0.1.1b, 0.1.2, 0.1.3, 0.1.4, 0.1.5, 0.1.6a, 0.1.6b and 0.1.6 are done** — the pieces the parser is written
 in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/done/0.1/0.1.0.md`); the adoption of
 compiler `5fbaf4a` (RX-176 … RX-180, `0.1.0b.md`); and the core grammar —
@@ -95,15 +98,19 @@ unit programs more, `parse_declined` and `regex_escape`; nothing is refused prov
 a fuzz pass**, `parse_fuzz`, holds it to its offsets over 120 000 seeded patterns a run. **Since 0.2.0 `src/hir/`
 holds the arena** (`HIR.md` H-2 … H-4a, H-15) — `repr.npk`, nine kinds of 40-byte node that own nothing behind
 accessors, and `dump.npk`, the HIR as one line of text and back — with nine unit programs and one refusal of its own,
-and `src/unicode/` holds `ClassRange`, written by hand, which a class's ranges are. **No matching
+and `src/unicode/` holds `ClassRange`, written by hand, which a class's ranges are — **and since 0.2.1 the desugaring**,
+`build.npk` (`HIR.md` H-16), with six unit programs more, two of them pending until cycle 0.3.4. **No matching
 happens yet**: `src/compile/`, `src/engine/` and `src/api/` are still one
 placeholder module each. A full green run at compiler `5fbaf4a` is
-**283 units** (after cycle 0.2.0; 260 after cycle 0.1.6b; 258 after cycle 0.1.6a, as after cycle 0.1.5; 254 after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus ten tree checks (nine until cycle 0.1.6b's `check_error_kinds_tested`, eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
+**294 units** (after cycle 0.2.1, two pending units outside them; 283 after cycle 0.2.0; 260 after cycle 0.1.6b; 258 after cycle 0.1.6a, as after cycle 0.1.5; 254 after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus ten tree checks (nine until cycle 0.1.6b's `check_error_kinds_tested`, eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
 summary rather than from here. **Nothing is PENDING any more**:
 `tests/unit/bytes_copy_string_empty.npk` was committed red under
 `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
 `c3bdae2` it started passing, the harness reddened the run, and the marker was
-deleted (cycle 0.0.4b).
+deleted (cycle 0.0.4b). *(2026-10-08, cycle 0.2.1 — RX-226, RX-229: two units are pending
+again, each on a subcycle of this library rather than a compiler —
+`tests/unit/hir_build_classes.npk` and `hir_build_fold.npk`, until cycle 0.3.4 fills the
+HIR build's hooks and widens its `leaf` — and the runner prints both, outside its count.)*
 **This file said 98 and six in one paragraph and *four* tree checks 220 lines
 lower**, and the cycle 0.0 audit found it (N-2) in the document every session is
 told to read first. Two sections of one file disagreeing is the shape this
@@ -484,8 +491,9 @@ the one stated at the top of this file), and
 — the one that matters — **runs the self-check FIRST** (`TESTING.md` V-21): every live
 case feeds it a wrong expectation and requires a red, and the pending ones print as
 PENDING on stages that do not exist until 0.3, 0.5 and 0.8 — the runner prints how
-many of each, from `harness/selfcheck.py`'s own list. Three of its cases are the
-`pending-until:` marker's reds, because a marker takes a unit out of the denominator
+many of each, from `harness/selfcheck.py`'s own list. Four of its cases are the
+`pending-until:` marker's reds — three until cycle 0.2.1's case 34, a subcycle's label
+(RX-226) — because a marker takes a unit out of the denominator
 and must name the exit it excuses and a line in `harness/baseline/PENDING.txt`
 (RX-154). `harness/README.md` states the boundary. `TMPDIR` may sit anywhere, this
 repository's `.internal/` included: the `repro` step's two copies each carry the manifest

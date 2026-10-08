@@ -20,7 +20,8 @@ RX-015, RX-031. Settled. **No open questions.**
   nothing, every operand an `int64`, a node naming another by index; a class's items unresolved — a Perl class, a
   property, a POSIX class by name — for cycle 0.3 to resolve, so 0.2.1's desugaring carries them as they come. The parser
   builds the arena bottom-up on an explicit stack, and `check_no_recursion` reads `src/hir/` as it reads `src/syntax/`
-  (`SAFETY.md` S-19).
+  (`SAFETY.md` S-19). *(2026-10-08, cycle 0.2.1 — RX-228: "carries them as they come" is read as the build stopping at
+  each, answering the node, until cycle 0.3.4 fills the hook that resolves it, and widens `leaf` for a bare one.)*
 - **`RepeatProductTooLarge` is a row of `SYNTAX.md` Y-25's table naming 0.2.2**: the test that provokes it strikes the
   row in its own commit, or `check_error_kinds_tested` fails the run (RX-219).
 - **Every refusal's offset lies inside the pattern** (Y-10's note, RX-221), and the HIR's refusals keep it;
@@ -55,23 +56,23 @@ RX-015, RX-031. Settled. **No open questions.**
 - [ ] `(?i:…)` folds its classes at construction — the folding itself is 0.3's, so 0.2 leaves a hook and 0.3 fills it, with a test that fails until then
 
 ### 0.2.2 — the repetition product
-- [ ] the product multiplied on the way down, in `uint64`, narrowed only where proven (RX-015)
+- [ ] the product multiplied on the way down, in `uint64`, narrowed only where proven (RX-015) *(2026-10-08, cycle 0.2.1 — RX-228: `hir_build`'s walk enters a `Repeat` before its node and leaves it after, so a factor is known on the way down; the build answers an AST index, HIR_NONE when built, and the answer this subcycle's refusal needs is its to shape — `0.2.1.md` §7)*
 - [ ] `NREGEX_REPEAT_MAX` on a single bound; `NREGEX_REPEAT_PRODUCT` on the nest *(2026-09-27, cycle 0.1.1: the single
   bound is the parser's since then — `RepeatTooLarge` at the number, RX-184 — so this subcycle's is the product)*
 - [ ] `((a{1000}){1000}){1000}` refused **at the third `{1000}`**, with that offset — asserted, because refusing at the end is a different and worse behaviour *(2026-10-08 — cycle 0.1.6b, RX-219: as `RepeatProductTooLarge`, which `SYNTAX.md` Y-25's table lists for this subcycle; the test that provokes it strikes the row)* *(2026-10-08, cycle 0.2.0 — RX-223: a HIR node holds no position, so the offset is the AST node's being read when the product crosses the bound)*
 - [ ] a test that the refusal happens before any large allocation, by bounding the process's peak memory
 
 ### 0.2.3 — normalisation
-- [ ] concatenations flattened; adjacent literals merged into runs
+- [ ] concatenations flattened; adjacent literals merged into runs *(2026-10-08, cycle 0.2.1 — RX-228: the build leaves `a(?:bc)` a `Concat` in a `Concat` and a class's ranges in the order written, and an ASCII literal under `(?-u)` is `(literal byte 97)` where `a` is `(literal 97)`: whether those two are one HIR is this subcycle's — `0.2.1.md` §7)*
 - [ ] alternations flattened and **not reordered** (order is semantic under RX-013)
 - [ ] empty concatenations to `Empty`; single-codepoint classes to `Literal`
 - [ ] class ranges sorted, adjacent and overlapping ranges merged
 - [ ] **the gate**: a generated corpus of pattern pairs that are structurally equal but textually different produces byte-identical dumps
-- [ ] a test asserting no normalisation changes which strings match, by running the oracle over both forms — **pending until 0.5**, and written now as a pending case
+- [ ] a test asserting no normalisation changes which strings match, by running the oracle over both forms — **pending until 0.5**, and written now as a pending case *(2026-10-08, cycle 0.2.1 — RX-226: a unit can be pending on a subcycle of this library now, `// pending-until: 0.5.N exit E`, with its line in `harness/baseline/PENDING.txt`)*
 
 ### 0.2.4 — computed properties
 - [ ] `CAN_MATCH_EMPTY`, `IS_ANCHORED_START`, `IS_ANCHORED_END`, `IS_ALTERNATION_LITERAL`
-- [ ] computed in **one** bottom-up pass and cached (H-10)
+- [ ] computed in **one** bottom-up pass and cached (H-10) *(2026-10-08, cycle 0.2.1 — RX-227: the dump stops on a bit H-4a does not give a node's kind, so each bit this subcycle adds is refused there until it says how the dump shows it)*
 - [ ] the query computes-or-returns; no caller remembers to compute first — D-227's precedent, and the compiler found four defects in that neighbourhood, none by a test of the thing that broke
 - [ ] each flag asserted against a hand-computed reference over fifty patterns
 
@@ -83,7 +84,7 @@ RX-015, RX-031. Settled. **No open questions.**
 - [ ] a property test: for every corpus pattern and haystack, every position the real matcher finds is a position the first-byte set admits — **pending until 0.5**
 
 ### 0.2.6 — close
-- [ ] `check_hir_kinds_total` live: every `HirKind` produced by the parser, consumed by the compiler (pending until 0.6) and handled by the oracle (pending until 0.5)
+- [ ] `check_hir_kinds_total` live: every `HirKind` produced by the parser, consumed by the compiler (pending until 0.6) and handled by the oracle (pending until 0.5) *(2026-10-08, cycle 0.2.1 — RX-228: "produced by the parser" is `hir_build`'s now, and it produces all nine, each in `tests/unit/hir_build.npk`)*
 - [ ] findings written; `0.3.0.md` written; archived
 
 ## Gate

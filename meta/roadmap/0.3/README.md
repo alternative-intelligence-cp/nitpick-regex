@@ -42,7 +42,7 @@ design; recorded when chosen).
 ### 0.3.2 — Perl and POSIX classes
 - [ ] `\d`, `\w`, `\s` and their complements, per `UNICODE.md` §3's table, in both Unicode and byte mode
 - [ ] **`\w` is `[\p{Alphabetic}\p{M}\p{Nd}\p{Pc}\p{Join_Control}]`** (U-10) — a test asserts a Devanagari word and an emoji ZWJ sequence are matched by `\w+` without splitting
-- [ ] complements taken **within the relevant universe** — all codepoints in Unicode mode, all 256 bytes in byte mode — with a test showing `\W` differs between the two
+- [ ] complements taken **within the relevant universe** — all codepoints in Unicode mode, all 256 bytes in byte mode — with a test showing `\W` differs between the two *(2026-10-08, cycle 0.2.1: `UNICODE.md` U-9's example of it, *"`\W` in Unicode mode includes `U+00E9`"*, reads backwards — U+00E9 is a letter, so `\w` holds it in Unicode mode and `\W` does not, while in byte mode `\W` holds its first byte, 0xC3; read U-9 against the pinned UCD here and amend it — `../0.2/0.2.1.md` §7)*
 - [ ] the fourteen POSIX bracket classes, inside a class only
 - [ ] *(2026-10-08 — cycle 0.1.6a, the cycle 0.1 audit's D1)* **a rule in `UNICODE.md` §3 giving each of the fourteen POSIX classes its set in Unicode mode and in byte mode, decided before the code** — `SYNTAX.md` Y-43 cites U-9 for their ASCII meanings, and U-9 pins `\d`, `\w` and `\s` alone; Rust's `regex` reads every POSIX class as ASCII in either mode, and UTS #18 gives each a Unicode set — thirteen in its Annex C, `ascii` as its ASCII property — so which this library takes is a decision with a research item
 
