@@ -1,5 +1,5 @@
 diff --git a/CLAUDE.md b/CLAUDE.md
-index 87340bb6213a37c49bccb20b9a1ee9c13ea032f6..2a75c7a3da9c10885160e1cf03548d3b01106cfc 100644
+index 87340bb6213a37c49bccb20b9a1ee9c13ea032f6..afce01d05edf9e949b223ebb6fa7fd3f40b424cd 100644
 --- a/CLAUDE.md
 +++ b/CLAUDE.md
 @@ -6,8 +6,11 @@ Guidance for Claude Code sessions working in this repository.
@@ -44,7 +44,7 @@ index 87340bb6213a37c49bccb20b9a1ee9c13ea032f6..2a75c7a3da9c10885160e1cf03548d3b
 +a fuzz pass**, `parse_fuzz`, holds it to its offsets over 120 000 seeded patterns a run. **Since 0.2.0 `src/hir/`
 +holds the arena** (`HIR.md` H-2 … H-4a, H-15) — `repr.npk`, nine kinds of 40-byte node that own nothing behind
 +accessors, and `dump.npk`, the HIR as one line of text and back — with nine unit programs and one refusal of its own,
-+and `src/unicode/` holds one module written by hand, `ClassRange`, which a class's ranges are. **No matching
++and `src/unicode/` holds `ClassRange`, written by hand, which a class's ranges are. **No matching
 +happens yet**: `src/compile/`, `src/engine/` and `src/api/` are still one
  placeholder module each. A full green run at compiler `5fbaf4a` is
 -**260 units** (after cycle 0.1.6b; 258 after cycle 0.1.6a, as after cycle 0.1.5; 254 after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus ten tree checks (nine until cycle 0.1.6b's `check_error_kinds_tested`, eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's

@@ -28,7 +28,7 @@ index 8039c91d97a539920df6ab6d7e3d054c9b0581e1..95d6087319d305c8f84db803cfba1172
    engine/     #   Pike VM, lazy DFA, prefilters, the meta-engine
    api/        #   the public surface
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index 58b81a397321cf239955184ae6cf6e82e8eadd94..554ec1b33258a505820b02e1adbd311941bb861c 100644
+index 58b81a397321cf239955184ae6cf6e82e8eadd94..82f11dd35399da3e792668cae9c0c3cfe99c1fba 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
 @@ -5724,3 +5724,31 @@ structured fuzzer is cycle 0.12.0's, where it belongs; **`regex_escape`'s round
@@ -47,7 +47,7 @@ index 58b81a397321cf239955184ae6cf6e82e8eadd94..554ec1b33258a505820b02e1adbd3119
 +`unicode` in B-16's diagram, so a type declared in `hir` could not be named by the tables, while the oracle may import
 +`core` and `hir` and nothing else (B-17) and reads every class's ranges.
 +
-+**The decision.** `src/unicode/class_range.npk`, written by hand, the one module of the layer that is:
++**The decision.** `src/unicode/class_range.npk`, written by hand:
 +`#[derive(Copy)] pub struct:ClassRange = { uint32:lo; uint32:hi; }`, both ends inclusive. A class's ranges are of
 +codepoints, `0 … 0x10FFFF`, or under `(?-u)` of bytes, `0 … 255`, and the node that holds them says which, never the
 +range. `src/unicode/unicode.npk` becomes the layer's entry, one `pub use` per name (B-15a), and re-exports it;
@@ -141,7 +141,7 @@ index 91da333add8410d46b937941247b1b3f1d3cea7e..d0e1ddee8ae50558262c38d54ec7d965
 +// import `core` and `hir` and nothing else (B-17), and it reads every class's ranges -------
 +pub use "../unicode/unicode.npk".ClassRange;
 diff --git a/src/unicode/README.md b/src/unicode/README.md
-index 721ec9933495706812261f0d3426ed1608ac272e..a975dab82d228b72bc82d5d9168de1fce995abcd 100644
+index 721ec9933495706812261f0d3426ed1608ac272e..59a57d5fad6f048bf10a50b9f42dfcdd2b1c0729 100644
 --- a/src/unicode/README.md
 +++ b/src/unicode/README.md
 @@ -4,3 +4,8 @@ Property, script, class and simple-case-folding tables, **generated** from a
@@ -149,13 +149,13 @@ index 721ec9933495706812261f0d3426ed1608ac272e..a975dab82d228b72bc82d5d9168de1fc
  the compiler and nothing else. Governed by `meta/specs/UNICODE.md`. Built in
  cycle 0.3.
 +
-+One module is written by hand, before the tables: `class_range.npk`,
++Two modules are written by hand, before the tables: `class_range.npk`,
 +`UNICODE.md` U-4's `ClassRange` — one range of codepoints, or of bytes — which
-+a HIR's classes hold (`HIR.md` H-2) and every table will (cycle 0.2.0).
-+`unicode.npk` is the layer's entry and re-exports it.
++a HIR's classes hold (`HIR.md` H-2) and every table will (cycle 0.2.0); and
++`unicode.npk`, the layer's entry, which re-exports it.
 diff --git a/src/unicode/class_range.npk b/src/unicode/class_range.npk
 new file mode 100644
-index 0000000000000000000000000000000000000000..5dbabca24c2591f4aeb5a56ba7e53530dcf2ee33
+index 0000000000000000000000000000000000000000..13cc4fd5a1a3b0629773d7fc3c39780a92623b87
 --- /dev/null
 +++ b/src/unicode/class_range.npk
 @@ -0,0 +1,28 @@
@@ -167,13 +167,13 @@ index 0000000000000000000000000000000000000000..5dbabca24c2591f4aeb5a56ba7e53530
 +// "the same shape a class uses, so a property lookup and a class test are the same
 +// code" (U-4). `hir` sits to the left of `unicode` in `BUILD.md` B-16's diagram, so a
 +// type both use is declared HERE: a `ClassRange` declared in `src/hir/` could not be
-+// named by the tables, which may not import `hir`. This is the one module of the layer
-+// that is written by hand; the tables beside it from cycle 0.3.0 are generated.
++// named by the tables, which may not import `hir`. Like the layer's entry, `unicode.npk`,
++// it is written by hand; the tables beside it from cycle 0.3.0 are generated.
 +//
 +// INCLUSIVE AT BOTH ENDS: `lo` and `hi` are the first and the last member. A class's
 +// list is sorted and disjoint once cycle 0.2.3 normalises it (H-13); a range read from
 +// a HIR dump only has `lo <= hi`. Codepoints are `0 … 0x10FFFF`, surrogates excluded;
-+// under `(?-u)` a class is over bytes, `0 … 255`, and its node says so (H-2's
++// under `(?-u)` a class is over bytes, `0 … 255`, and its node says so (H-4a's
 +// `HIR_FLAG_BYTE`), not the range.
 +//
 +// It owns nothing, so a `Vec` holds it, and it derives `Copy`, which every `Vec`
@@ -188,7 +188,7 @@ index 0000000000000000000000000000000000000000..5dbabca24c2591f4aeb5a56ba7e53530
 +    uint32:hi;      // the last member, never below `lo`
 +};
 diff --git a/src/unicode/unicode.npk b/src/unicode/unicode.npk
-index d94d697ed7154eacf7bfa3c478be4004351597f7..faba06034fee0b117d1b7896c453d8e45c04e41f 100644
+index d94d697ed7154eacf7bfa3c478be4004351597f7..dd0dd776f3406c93e8f40b5924a1017637e89bb8 100644
 --- a/src/unicode/unicode.npk
 +++ b/src/unicode/unicode.npk
 @@ -1,11 +1,21 @@
@@ -206,7 +206,7 @@ index d94d697ed7154eacf7bfa3c478be4004351597f7..faba06034fee0b117d1b7896c453d8e4
 +// deliberately" block says so.
  //
 -// LAYERING (`BUILD.md` §6, rule B-16). May import: `core`. Nothing else.
-+// SINCE CYCLE 0.2.0 THE LAYER HOLDS ONE MODULE WRITTEN BY HAND: `class_range.npk`, U-4's
++// SINCE CYCLE 0.2.0 THE LAYER HOLDS A SECOND MODULE WRITTEN BY HAND: `class_range.npk`, U-4's
 +// `ClassRange`, which `hir`'s classes hold and the tables will (RX-222). It is declared here
 +// because `hir` sits to the left of `unicode` in B-16's diagram: a type declared in `hir`
 +// could not be named by the tables.

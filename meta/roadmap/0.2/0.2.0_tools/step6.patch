@@ -1,5 +1,5 @@
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index 31198155d76d2b96f86fb2dc30abf3caa012a908..66cf6666152c39a55f67aa131f54c7016286a40d 100644
+index d8eaa690ddacc44d8a31c8019a07b108a9486144..286cc082240b0ed5a8b29d262ae643be5decb28d 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
 @@ -5822,3 +5822,45 @@ variant is `Literal`, in one module, compiles and runs at both legs, so the name
@@ -107,7 +107,7 @@ index cb3c22d3d173b93052d28f00283d8d6b6b5c93ff..9b37de72488245e72b40374123b186af
  
  ## 7. Open items
 diff --git a/src/hir/README.md b/src/hir/README.md
-index 87517d6d3c97320e74ff14d7de2564d6f17a8165..4b9f2a3c9245e8a64bd40a47761a8eddd1f11ce3 100644
+index 87517d6d3c97320e74ff14d7de2564d6f17a8165..64241cc608d2457d781b8610983a41da6e257859 100644
 --- a/src/hir/README.md
 +++ b/src/hir/README.md
 @@ -1,6 +1,18 @@
@@ -124,9 +124,9 @@ index 87517d6d3c97320e74ff14d7de2564d6f17a8165..4b9f2a3c9245e8a64bd40a47761a8edd
 +
 +A repetition stays one `Repeat` node here, its bounds as written (`HIR.md`
 +H-7): `a{500}` becomes 500 instructions in `compile/`, never in the HIR, so a
-+HIR is proportional to its pattern. *(Until cycle 0.2.0 this file said
-+"repetitions expanded under a bound", which is `compile/`'s, not this
-+layer's.)*
++HIR is proportional to its pattern. *(Until @@RUN_DATE@@, cycle 0.2.0, this
++file said "repetitions expanded under a bound", which is `compile/`'s, not
++this layer's.)*
 +
 +| File | Holds | Since |
 +|---|---|---|
@@ -1125,7 +1125,7 @@ index 0000000000000000000000000000000000000000..44670867621748b5b082e207bd67b7ad
 +};
 diff --git a/tests/unit/hir_dump_shared.npk b/tests/unit/hir_dump_shared.npk
 new file mode 100644
-index 0000000000000000000000000000000000000000..410dbbe2b7267de4a92462806229901fdac65c3e
+index 0000000000000000000000000000000000000000..2482204c2e385b6a24644590b466d7cb86f3a07d
 --- /dev/null
 +++ b/tests/unit/hir_dump_shared.npk
 @@ -0,0 +1,48 @@
@@ -1137,7 +1137,7 @@ index 0000000000000000000000000000000000000000..410dbbe2b7267de4a92462806229901f
 +// node once -- so a node entered twice runs it out of steps when every node hangs from the
 +// root. Here a `Repeat`'s child is also the last member of the `Concat` that holds the
 +// `Repeat`, its `next` HIR_NONE, so no other check sees it: the walk would write the literal
-+// twice, and the text would read back as two nodes. It traps `DecreasesViolated` (108)
++// twice, and the text would read back as four nodes. It traps `DecreasesViolated` (108)
 +// instead. Beside a node nothing reaches the bound has room, and a shared node is written
 +// once for each parent -- a builder builds a tree (H-15).
 +mod:hir_dump_shared;

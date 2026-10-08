@@ -1,5 +1,5 @@
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index 554ec1b33258a505820b02e1adbd311941bb861c..31198155d76d2b96f86fb2dc30abf3caa012a908 100644
+index 82f11dd35399da3e792668cae9c0c3cfe99c1fba..d8eaa690ddacc44d8a31c8019a07b108a9486144 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
 @@ -5752,3 +5752,73 @@ swept.
@@ -261,7 +261,7 @@ index d0e1ddee8ae50558262c38d54ec7d96583c0bfc2..a2dd4b7c6ba7ef52374f2df8318c30ec
 +pub use "./repr.npk".hir_free;
 diff --git a/src/hir/repr.npk b/src/hir/repr.npk
 new file mode 100644
-index 0000000000000000000000000000000000000000..d3e28e7809f6939c8bf650faff99972e6f8f3922
+index 0000000000000000000000000000000000000000..999a0dbf27872161ef698f5ade48f61f774a661d
 --- /dev/null
 +++ b/src/hir/repr.npk
 @@ -0,0 +1,217 @@
@@ -327,7 +327,7 @@ index 0000000000000000000000000000000000000000..d3e28e7809f6939c8bf650faff99972e
 +pub fixed int64:HIR_WORD = 0i64;         // `\b`
 +pub fixed int64:HIR_NOT_WORD = 1i64;     // `\B`
 +
-+// `HIR.md` H-4's closed list, in its order; what each kind's operands hold is H-2's table
++// `HIR.md` H-4's closed list, in its order; what each kind's operands hold is H-4a's table
 +// (RX-223). `tests/unit/hir_unit.npk` holds this list to the order with an exhaustive `pick`.
 +#[derive(Copy)]
 +pub enum:HirKind = {
@@ -697,7 +697,7 @@ index 0000000000000000000000000000000000000000..e777500e5a07f285c4a59b82e7151580
 +};
 diff --git a/tests/unit/hir_unit.npk b/tests/unit/hir_unit.npk
 new file mode 100644
-index 0000000000000000000000000000000000000000..1aa0d232f4c308eb66845bce519e5405d435c63c
+index 0000000000000000000000000000000000000000..b26cd403bdd5cf162fad1a1e2e3eff2f85d51b2b
 --- /dev/null
 +++ b/tests/unit/hir_unit.npk
 @@ -0,0 +1,179 @@
@@ -716,8 +716,8 @@ index 0000000000000000000000000000000000000000..1aa0d232f4c308eb66845bce519e5405
 +// (33). Three ranges in and out (40 to 43). A fresh arena holds group 0, the whole match,
 +// with no name (50, 51); three groups added answer 1, 2 and 3 (52) and hold their names'
 +// places in `Hir.names` (53 to 55), and `hir_put_name` copies each name out, nothing for
-+// the unnamed one (56 to 58). The constants are H-2's values (60 to 68), and a `GroupInfo` is 16
-+// bytes (69). The program exits
++// the unnamed one (56 to 58). The constants are RX-223's values (60 to 68), and a `GroupInfo`
++// is 16 bytes (69). The program exits
 +// 0 only after `hir_free`, and D-151 traps a `wild` block still live at exit -- so a
 +// `hir_free` that freed nothing, or a missing one, is red (96).
 +mod:hir_unit;

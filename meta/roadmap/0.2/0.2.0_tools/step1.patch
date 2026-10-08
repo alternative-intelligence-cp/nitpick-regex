@@ -1,12 +1,12 @@
 diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
-index 211d16379607bda72f649537900709696b2d1b4d..96fbd3b8713761a61fc542d3fee16632095792b9 100644
+index 211d16379607bda72f649537900709696b2d1b4d..4af8c31d517e9609a766de0f9e5026ce5d475df8 100644
 --- a/CONTRIBUTING.md
 +++ b/CONTRIBUTING.md
 @@ -36,6 +36,11 @@ never for concluding; nothing is committed on the strength of a filtered run.
     backtracking possible, and the linear-time guarantee is the reason this
     library exists. A patch adding either is a patch that removes the
     guarantee.
-+   *(@@RUN_DATE@@, cycle 0.2.0 — RX-218: of lookaround the second sentence is not
++   *(@@RUN_DATE@@, cycle 0.2.0 — RX-218: of lookaround the third sentence is not
 +   true. Finite automata can match it in linear time, by algorithms published
 +   in 2024; `nregex` refuses it because its automata read none of it and a
 +   search allocates nothing, as `README.md`'s price paragraph says, in the
