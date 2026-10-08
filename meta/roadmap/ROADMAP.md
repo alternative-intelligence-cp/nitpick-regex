@@ -226,6 +226,8 @@ Then the harness, its self-check, the tree checks, and `src/core/` —
 `src/syntax/`: the grammar in `specs/SYNTAX.md` §1, an explicit stack bounded
 by `NREGEX_NEST_DEPTH`, byte offsets on every error, and every
 `PatternErrorKind` in §9 provoked by a test.
+*(2026-10-08, cycle 0.2.0 — RX-219: or listed in `SYNTAX.md` Y-25's table with the cycle that will provoke it, as the
+Gate's note below says — four were at the cycle's close, none the parser's to raise.)*
 
 **Gate:** every kind in §9 has a test that produces it, and
 `check_error_kinds_tested` is green — a kind nothing can produce is a promise
