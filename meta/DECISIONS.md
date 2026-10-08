@@ -5752,3 +5752,73 @@ swept.
 import with it; **declared in `core`** — `core` is the storage primitives (B-11), and U-4 makes this the tables' type;
 **left to cycle 0.3.0** — this subcycle's classes hold it; **a second type for a range of bytes** — one range type is
 U-4's point; **the oracle importing `unicode`** — B-17 forbids it, and the re-export costs one line.
+
+### RX-223 — the arena: H-4's nine kinds, a 40-byte node of `int64` operands and a sibling with no position, the byte forms a bit, and `Hir` behind its accessors
+
+**2026-10-08, cycle 0.2.0 (the plan's PD-67), at compiler `5fbaf4a`** — `HIR.md` H-2 … H-4, H-6, H-7 and H-13;
+`SYNTAX.md` Y-13 and Y-26, and RX-174; `UNICODE.md` U-19; `SAFETY.md` S-19, S-23 and S-23a. H-2 draws a node of three
+`int32` operands — *"first child, class index, group number"*, *"second child, repetition minimum"*, *"sibling,
+repetition maximum"* — and a flags word. For this arena two things are wrong with it. Every value a HIR stores comes
+from an `int64` — an AST operand, a `Vec`'s count — and the language has no checked narrowing, so an `int32` field is
+an unchecked `=>!` at every write, which is why the AST's operands are `int64` (Y-26, RX-174). And three operands
+cannot hold a `Repeat`'s child, minimum and maximum and the sibling it needs as a member of a `Concat`. H-4 says a
+`Literal` is one codepoint, while `(?-u)` makes a literal a byte, a class a class of bytes and `\b` ASCII's (Y-13), the
+two modes mix in one pattern (U-19), and H-6 erases every flag. H-13 makes structurally equal patterns literally
+equal, so a node can hold no position.
+
+**The decision.** `src/hir/repr.npk`: `HirKind`, H-4's nine in its order, deriving `Copy`; `HirNode` `{ HirKind:kind;
+uint32:flags; int64:a; int64:b; int64:c; int64:next; }`, deriving `Copy` — `int64` operands and a `next`, as the
+AST's, and no position; `HIR_NONE`, −1, the index that names no node; two bits, `HIR_FLAG_LAZY` 1 on a `Repeat` and
+`HIR_FLAG_BYTE` 2 on a `Literal` that is a byte, a `Class` of bytes and a `WordBoundary` over ASCII — `u` erased into
+what a node matches; an `Anchor`'s four values, `HIR_TEXT_START`, `HIR_TEXT_END`, `HIR_LINE_START` and `HIR_LINE_END`,
+0 … 3, `m` erased; and a `WordBoundary`'s two, `HIR_WORD` 0 and `HIR_NOT_WORD` 1. **A new rule, `HIR.md` H-4a**, says
+what each kind's operands hold. `Hir` holds its arena, its ranges, its names and its groups `hidden` and its root
+`sealed`, and is built and read through `hir_init`, `hir_len`, `hir_push`, `hir_get`, `hir_set`, `hir_set_root`,
+`hir_range_count`, `hir_push_range` and `hir_range`, and freed by `hir_free` — `vec_get`, `vec_set` and `vec_push`
+underneath, the only bounds check (S-23). `src/hir/hir.npk` re-exports each name, one `pub use` per line. Units
+`hir_size`, `hir_unit`, `hir_oob_get` and `hir_oob_set_root`, and the refusal `tests/rejection/hir_nodes_read.npk`.
+H-2 and H-4 dated; `BUILD.md` §7 gains `arena`; the cycle README's third 0.2.0 box restated.
+
+**Measured at `5fbaf4a`.** `#size_of<HirNode>()` is **40** at both legs — `tests/unit/hir_size.npk` exits with it —
+where H-2's drawing measures 20; `HirKind` is 4 and `Hir` 112. `hir_unit` exits 0, and `hir_oob_get` and
+`hir_oob_set_root` 94, `OutOfBounds`, at both legs. The refusal is `NITPICK-TYPE-080` at 23:16, and the file compiles
+with `hidden` replaced by `sealed` on `nodes`. `mod:arena;` is `NITPICK-PARSE-001` — `arena` is a keyword — so the
+module is `repr.npk`, after H-2's section. A program importing `hir.npk` owes `core`'s eleven arms. The full run is
+`272/272`.
+
+*Alternatives declined:* **H-2 as drawn** — 20 bytes, an unchecked narrowing at every write, and no sibling for a
+`Repeat`; **`int32` operands with a `next`** — 24 bytes and the same narrowing, for a structure proportional to its
+pattern (H-7) whose 40 bytes are paid once per pattern, at compile time; **children in a second `Vec` of indexes** —
+an indirection the AST does not have and nothing here needs; **a position on the node** — `ab` and `(?:a)b` would be
+two HIRs (H-13), and a refusal made while a HIR is built takes its offset from the AST node being read; **three more
+kinds for the byte forms** — H-4 closes the list at nine, and a byte is still a literal; **the pattern's flags on the
+node** — H-6.
+
+### RX-224 — `GroupInfo` shaped, a name's offset and length in `Hir.names`, group 0 the whole match; `Literal` left to cycle 0.2.5
+
+**2026-10-08, cycle 0.2.0 (the plan's PD-68), at compiler `5fbaf4a`** — `HIR.md` H-2 and H-11, `COMPILE.md` C-16,
+`SYNTAX.md` Y-6, and `SAFETY.md` S-23a's RX-182 note, *"Two types are left to shape, `Literal` and `GroupInfo`, at cycle
+0.2"*, which the cycle README's second 0.2.0 box asks for. `GroupInfo` is needed now, and a group's name must outlive
+its pattern: a HIR read from its dump has none. `Literal` is what H-11's extraction produces, in three roles — a
+required prefix, a first-byte set, an inner literal — and whether an entry is a whole match or a prefix is that
+analysis's to know, at cycle 0.2.5.
+
+**The decision.** `#[derive(Copy)] pub struct:GroupInfo = { int64:off; int64:len; }` — a name's offset and length in
+`Hir.names`, a length of 0 for a group with no name. `Hir.groups[k]` is group `k`: `hir_init` pushes group 0, the
+whole match, with no name, as C-16 counts slots, so a pattern's groups are numbered from 1 as Y-6 numbers them and the
+number is the index. `hir_add_group(Hir->, uint8[]:name) -> int64` copies the name into `Hir.names` and answers the
+number; `hir_group` and `hir_group_count` read the table, and `hir_put_name` copies a name out — a view of `Hir.names`
+could not be handed back (D-004). `Hir` holds no `literals` until cycle 0.2.5, which shapes `Literal` with the
+extraction that fills it. H-2 and S-23a dated, `src/core/vec.npk`'s two comments dated, the cycle README's second 0.2.0
+box restated and 0.2.5's checklist given `Literal`.
+
+**Measured at `5fbaf4a`.** `#size_of<GroupInfo>()` is 16 (`hir_unit` case 69). A fresh `Hir` holds group 0 with no
+name; three groups added answer 1, 2 and 3 and hold their names' places in `Hir.names`, and `hir_put_name` copies each
+name out, nothing for the unnamed one (`hir_unit` 50 … 58). A struct named `Literal` declared beside an enum whose
+variant is `Literal`, in one module, compiles and runs at both legs, so the name stays free for cycle 0.2.5.
+`check_vec_elements_own_nothing` clears `Vec<GroupInfo>`.
+
+*Alternatives declined:* **names as offsets into the pattern**, as the AST holds them (RX-182) — a HIR read from its
+text has no pattern; **an owning `string` per group** — S-23a, and `Vec<T: Copy>` refuses one at the type; **`groups`
+without group 0** — `k − 1` wherever a number is an index; **`Literal` shaped now, an offset and a length into a second
+`Bytes`** — an empty `Vec` and a `Bytes` in every HIR for five subcycles, and a guess at 0.2.5's design.

@@ -7,16 +7,45 @@
 // H-2's design, and a `Vec` of nodes MUST keep it (`SAFETY.md` S-23a, RX-155) -- and since
 // `Vec<T: Copy>` (RX-188) the compiler keeps it too, at the type.
 //
-// SINCE CYCLE 0.2.0 IT RE-EXPORTS ONE NAME: `unicode`'s `ClassRange` (RX-222), the type a
-// class's ranges are, for the oracle, which reads every class's ranges and may import `core`
-// and `hir` and nothing else (B-17). The arena is not here yet.
+// SINCE CYCLE 0.2.0 THE LAYER HOLDS THE ARENA: `repr.npk`, the nine kinds and the arena
+// (RX-223, RX-224), with `ClassRange` from `unicode` (RX-222). Nothing builds a HIR from a
+// pattern yet; cycle 0.2.1's desugaring does.
 //
 // EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1 and 3).
 //
 // LAYERING (`BUILD.md` §6, rule B-16). May import: `syntax`, `unicode`, `core`. A program
-// importing this file owes the language's six arms and nothing of this library's.
+// importing this file owes `core`'s eleven arms.
 mod:hir;
 
 // ---- a class's ranges, `unicode`'s type (RX-222) -- re-exported, because the oracle may
 // import `core` and `hir` and nothing else (B-17), and it reads every class's ranges -------
 pub use "../unicode/unicode.npk".ClassRange;
+
+// ---- the arena (RX-223, RX-224) ---------------------------------------------------------
+pub use "./repr.npk".HIR_NONE;
+pub use "./repr.npk".HIR_FLAG_LAZY;
+pub use "./repr.npk".HIR_FLAG_BYTE;
+pub use "./repr.npk".HIR_TEXT_START;
+pub use "./repr.npk".HIR_TEXT_END;
+pub use "./repr.npk".HIR_LINE_START;
+pub use "./repr.npk".HIR_LINE_END;
+pub use "./repr.npk".HIR_WORD;
+pub use "./repr.npk".HIR_NOT_WORD;
+pub use "./repr.npk".HirKind;
+pub use "./repr.npk".HirNode;
+pub use "./repr.npk".GroupInfo;
+pub use "./repr.npk".Hir;
+pub use "./repr.npk".hir_init;
+pub use "./repr.npk".hir_len;
+pub use "./repr.npk".hir_push;
+pub use "./repr.npk".hir_get;
+pub use "./repr.npk".hir_set;
+pub use "./repr.npk".hir_set_root;
+pub use "./repr.npk".hir_range_count;
+pub use "./repr.npk".hir_push_range;
+pub use "./repr.npk".hir_range;
+pub use "./repr.npk".hir_group_count;
+pub use "./repr.npk".hir_add_group;
+pub use "./repr.npk".hir_group;
+pub use "./repr.npk".hir_put_name;
+pub use "./repr.npk".hir_free;

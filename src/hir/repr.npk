@@ -1,0 +1,217 @@
+// `src/hir/repr.npk` — THE HIR: A FLAT ARENA OF NINE KINDS OF NODE THAT OWN NOTHING.
+// Cycle 0.2.0, RX-223 and RX-224; `meta/specs/HIR.md` rules H-2 … H-4.
+//
+// THE AST'S SHAPE, FOR THE AST'S REASON (`SYNTAX.md` Y-26, RX-174). The tree is a
+// `Vec<HirNode>`, and a node names another by INDEX, never by pointer: a `Vec`
+// reallocates as it grows and every pointer into it would dangle, while an index survives
+// (H-3). A node owns nothing -- no `string`, no `Vec`, no pointer -- which is what lets a
+// `Vec` hold it (`SAFETY.md` S-23a; `check_vec_elements_own_nothing` clears it by reading
+// this file) and what lets `vec_get` hand it back by value (it derives `Copy`). A group's
+// name is not a node's: it is copied once into `Hir.names`, and `GroupInfo` holds its
+// offset and length there, so a HIR outlives the pattern it was built from.
+//
+// EVERY OPERAND IS `int64`, AND EVERY NODE HAS A `next` (RX-223). `HIR.md` H-2 drew three
+// `int32` operands. Two things are wrong with that for this arena: the values come from
+// `int64`s -- the AST's operands, a `Vec`'s count -- and the language has no checked
+// narrowing (`=>!` truncates in silence), so an `int32` field needs a hand-written range
+// check at every write; and three operands cannot hold a `Repeat`'s child, minimum and
+// maximum AND the sibling a list needs. So the AST's answer is the HIR's too: `int64`
+// operands and a `next`. FORTY BYTES, MEASURED -- `tests/unit/hir_size.npk` exits with
+// `#size_of<HirNode>()` -- where H-2's drawing measures 20; a HIR is proportional to its
+// pattern (H-7), so that is paid once per pattern, at compile time.
+//
+// NO POSITION. Unlike the AST, a node holds no offset into the pattern: structurally equal
+// patterns must give literally equal HIRs (H-13), and an offset would tell `ab` from
+// `(?:a)b`. A refusal made while the HIR is built takes its offset from the AST node it
+// is building from (cycle 0.2.2's `RepeatProductTooLarge`).
+//
+// THE ARENA IS THE COMPILER'S TO GUARD. Every field of `Hir` but `root` is `hidden` (the
+// compiler's D-314): outside this file it cannot be read (NITPICK-TYPE-080,
+// `tests/rejection/hir_nodes_read.npk`), so every access goes through the functions below
+// -- `vec_get`, `vec_set`, `vec_push`, `bytes_get` underneath, the only bounds check this
+// library has (S-23). `root` is `sealed`: read anywhere, set only by `hir_set_root`.
+//
+// LAYERING (`BUILD.md` §6, B-16). Imports `core`, whose eleven arms a program importing
+// this file owes, and `unicode` for `ClassRange` (RX-222), which adds none.
+mod:repr;
+
+use "../core/core.npk".*;
+use "../unicode/unicode.npk".*;
+
+// The index that names no node: an absent sibling, an unbounded repetition's maximum, and
+// the root of a `Hir` that nothing has been built into.
+pub fixed int64:HIR_NONE = -1i64;
+
+// The flag bits (RX-223). Each belongs to its kinds, as the AST's per-kind bits do (Y-26);
+// cycle 0.2.4's computed properties (H-9) take bits above them. NO PATTERN FLAG SURVIVES
+// HERE (H-6): `m` is an `Anchor`'s value, `s` a `.`'s class, `i` folded ranges, `x` the
+// parser's -- and `u` is `HIR_FLAG_BYTE`, which says what a node MATCHES, a byte rather than
+// a codepoint, never how to read anything at run time.
+pub fixed uint32:HIR_FLAG_LAZY = 1u32;   // a `Repeat` that prefers fewer iterations
+pub fixed uint32:HIR_FLAG_BYTE = 2u32;   // a `Literal` that is a byte, a `Class` of bytes, a `WordBoundary` over ASCII
+
+// An `Anchor`'s `a` (`SYNTAX.md` §6, `m` erased).
+pub fixed int64:HIR_TEXT_START = 0i64;   // the haystack's start: `^`, `\A`
+pub fixed int64:HIR_TEXT_END = 1i64;     // the haystack's end: `$`, `\z`
+pub fixed int64:HIR_LINE_START = 2i64;   // the haystack's start and after every `\n`: `^` under `m`
+pub fixed int64:HIR_LINE_END = 3i64;     // the haystack's end and before every `\n`: `$` under `m`
+
+// A `WordBoundary`'s `a` (`UNICODE.md` §5); under `HIR_FLAG_BYTE` a word character is ASCII's.
+pub fixed int64:HIR_WORD = 0i64;         // `\b`
+pub fixed int64:HIR_NOT_WORD = 1i64;     // `\B`
+
+// `HIR.md` H-4's closed list, in its order; what each kind's operands hold is H-4a's table
+// (RX-223). `tests/unit/hir_unit.npk` holds this list to the order with an exhaustive `pick`.
+#[derive(Copy)]
+pub enum:HirKind = {
+    Empty;
+    Literal;
+    Class;
+    Concat;
+    Alternate;
+    Repeat;
+    Group;
+    Anchor;
+    WordBoundary;
+};
+
+#[derive(Copy)]
+pub struct:HirNode = {
+    HirKind:kind;      // H-4
+    uint32:flags;      // the HIR_FLAG_ bits
+    int64:a;           // H-2's operands, by kind
+    int64:b;
+    int64:c;
+    int64:next;        // the next sibling in its parent's list, or HIR_NONE
+};
+
+// One capture group's entry in `Hir.groups` (RX-224): its name, as an offset and a length in
+// `Hir.names`. `groups[k]` is group `k`; group 0 is the whole match, which has no name.
+#[derive(Copy)]
+pub struct:GroupInfo = {
+    int64:off;         // the name's first byte in `Hir.names`
+    int64:len;         // its length; 0 when the group has no name
+};
+
+// MOVE-ONLY, because it holds a `Vec` and a `Bytes` (`SAFETY.md` S-23b, RX-161): transfer
+// it with `move(...)`, lend it by value to a reader, hand it by pointer to anything that
+// changes it.
+pub struct:Hir = {
+    hidden Vec<HirNode>:nodes;       // the arena
+    hidden Vec<ClassRange>:ranges;   // every class's ranges, contiguous per class
+    hidden Bytes:names;              // the groups' names, one after another
+    hidden Vec<GroupInfo>:groups;    // one entry per group, group 0 first
+    sealed int64:root;               // the root node, HIR_NONE until a builder sets it
+};
+
+// obligation: never fails ensures result.root == HIR_NONE && hir_len(result) == 0i64 && hir_group_count(result) == 1i64
+//
+// An empty arena, and group 0's entry: the whole match is a group, numbered 0, with no name
+// (`COMPILE.md` C-16), so a group the pattern opens is numbered from 1, as Y-6 numbers it.
+pub func:hir_init = Hir(int64:cap) never fails {
+    Hir:h = Hir{ nodes: raw vec_init::<HirNode>(cap), ranges: raw vec_init::<ClassRange>(cap),
+                 names: raw bytes_init(cap), groups: raw vec_init::<GroupInfo>(cap), root: HIR_NONE };
+    drop vec_push(@h.groups, GroupInfo{ off: 0i64, len: 0i64 });
+    pass h;
+};
+
+// obligation: never fails ensures result == h.nodes.count
+pub func:hir_len = int64(Hir:h) never fails {
+    pass h.nodes.count;
+};
+
+// obligation: never fails ensures hir_len(h) == old(hir_len(h)) + 1i64 && result == hir_len(h) - 1i64
+//
+// Appends a node and answers its index.
+pub func:hir_push = int64(Hir->:h, HirNode:n) never fails {
+    drop vec_push(@h.nodes, n);
+    pass h.nodes.count - 1i64;
+};
+
+// obligation: never fails requires i >= 0i64 && i < hir_len(h)
+pub func:hir_get = HirNode(Hir:h, int64:i) never fails {
+    pass raw vec_get(h.nodes, i);
+};
+
+// obligation: never fails requires i >= 0i64 && i < hir_len(h)
+pub func:hir_set = NIL(Hir->:h, int64:i, HirNode:n) never fails {
+    drop vec_set(@h.nodes, i, n);
+    pass NIL;
+};
+
+// obligation: never fails requires i >= 0i64 && i < hir_len(h)
+pub func:hir_set_root = NIL(Hir->:h, int64:i) never fails {
+    if (i < 0i64)           { drop vec_oob(i); }
+    if (i >= h.nodes.count) { drop vec_oob(i); }
+    h.root = i;
+    pass NIL;
+};
+
+// obligation: never fails ensures result == h.ranges.count
+pub func:hir_range_count = int64(Hir:h) never fails {
+    pass h.ranges.count;
+};
+
+// obligation: never fails ensures hir_range_count(h) == old(hir_range_count(h)) + 1i64 && result == hir_range_count(h) - 1i64
+//
+// Appends a class range and answers its index. A `Class` node names its ranges by the first
+// one's index and how many, so a builder pushes a class's ranges one after another.
+pub func:hir_push_range = int64(Hir->:h, ClassRange:r) never fails {
+    drop vec_push(@h.ranges, r);
+    pass h.ranges.count - 1i64;
+};
+
+// obligation: never fails requires i >= 0i64 && i < hir_range_count(h)
+pub func:hir_range = ClassRange(Hir:h, int64:i) never fails {
+    pass raw vec_get(h.ranges, i);
+};
+
+// obligation: never fails ensures result == h.groups.count
+//
+// How many groups, group 0 among them: one more than the pattern's capturing groups.
+pub func:hir_group_count = int64(Hir:h) never fails {
+    pass h.groups.count;
+};
+
+// obligation: never fails ensures hir_group_count(h) == old(hir_group_count(h)) + 1i64 && result == hir_group_count(h) - 1i64
+//
+// The next group, its name copied into `Hir.names` -- an empty `name` for a group that has
+// none -- answering its number.
+pub func:hir_add_group = int64(Hir->:h, uint8[]:name) never fails {
+    int64:off = raw bytes_len(@h.names);
+    drop bytes_extend(@h.names, name);
+    drop vec_push(@h.groups, GroupInfo{ off: off, len: name.len });
+    pass h.groups.count - 1i64;
+};
+
+// obligation: never fails requires k >= 0i64 && k < hir_group_count(h)
+pub func:hir_group = GroupInfo(Hir:h, int64:k) never fails {
+    pass raw vec_get(h.groups, k);
+};
+
+// obligation: never fails requires k >= 0i64 && k < hir_group_count(h)
+//
+// Appends group `k`'s name to `out`: nothing for a group with none. The bytes are copied --
+// a view of `Hir.names` could not be handed back (D-004).
+pub func:hir_put_name = NIL(Hir->:h, int64:k, Bytes->:out) never fails {
+    GroupInfo:g = raw vec_get(h.groups, k);
+    int64:i = 0i64;
+    while (i < g.len) decreases g.len - i {
+        drop bytes_push(out, raw bytes_get(@h.names, g.off + i));
+        i = i + 1i64;
+    }
+    pass NIL;
+};
+
+// obligation: never fails ensures h.root == HIR_NONE
+//
+// Frees the arena's blocks. A node, a range and a group own nothing, so each block is its
+// whole obligation, and a unit that frees and exits 0 proves it (D-151: a leaked `wild`
+// block traps at exit); `names` is managed and drops with the `Hir`.
+pub func:hir_free = NIL(Hir->:h) never fails {
+    drop vec_free(@h.nodes);
+    drop vec_free(@h.ranges);
+    drop vec_free(@h.groups);
+    h.root = HIR_NONE;
+    pass NIL;
+};

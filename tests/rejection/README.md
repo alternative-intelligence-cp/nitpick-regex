@@ -172,13 +172,21 @@ with the one qualifier it tests deleted (`meta/roadmap/done/0.1/0.1.0.md`'s cont
   compiler adds at a generic call — gone at its next landing — cannot join its
   code set.
 
+## The HIR's one — cycle 0.2.0
+
+- **`hir_nodes_read.npk`** — a read of `Hir.nodes`: `NITPICK-TYPE-080`. So every
+  access to the arena goes through `hir_get`, `hir_set` and `hir_push`, and the
+  accessor pair underneath them is the only bounds check (RX-223). It reads
+  `.count`, as `ast_nodes_read.npk` does and for its reason, and it compiles with
+  `hidden` replaced by `sealed` on `nodes` (`meta/roadmap/0.2/0.2.0.md`'s control).
+
 ## Why they are the standing instance of rule B-7
 
-All twenty-four import `src/` by a **relative** path — the two `failsafe_*` fixtures
-`../../src/lib.npk`, nineteen the `../../src/core/` modules they test, and three
-`../../src/syntax/syntax.npk` (*"all seven" went stale when the fourth triage added
-`bytes_copy.npk`; corrected at 0.0.4d; "fourteen" and "twelve" at 0.0.4e;
-"twenty-one" at 0.1.0*) —
+All twenty-five import `src/` by a **relative** path — the two `failsafe_*` fixtures
+`../../src/lib.npk`, nineteen the `../../src/core/` modules they test, three
+`../../src/syntax/syntax.npk` and one `../../src/hir/hir.npk` (*"all seven" went stale
+when the fourth triage added `bytes_copy.npk`; corrected at 0.0.4d; "fourteen" and
+"twelve" at 0.0.4e; "twenty-one" at 0.1.0; "twenty-four" at 0.2.0*) —
 because every import here is relative until O-G3 closes (B-15). If any path is
 typo'd or the file moves, `npkc` exits **1** with `NITPICK-RESOLVE-005` — a genuine refusal, and
 these tests want a refusal. Under a *subset* rule they would pass, having

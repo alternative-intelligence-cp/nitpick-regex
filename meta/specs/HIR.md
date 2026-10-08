@@ -57,6 +57,15 @@ offset and length.
 `HirNode`, `ClassRange`, `Literal`, `GroupInfo` — `#[derive(Copy)]`s, with every enum it
 holds: `Vec` is `Vec<T: Copy>`, and a struct of scalars that does not say so is
 `NITPICK-TYPE-017` at its `Vec`, measured at `5fbaf4a`.)*
+*(2026-10-08, cycle 0.2.0 — RX-223, RX-224: the node `src/hir/repr.npk` declares is not the one drawn. Its operands are
+`int64`, as the AST's (`SYNTAX.md` Y-26), because each comes from an `int64` and an `int32` field would be narrowed
+unchecked at every write; and it has a fourth, `next`, the sibling a list needs, which three operands cannot hold beside
+a `Repeat`'s child, minimum and maximum — **40 bytes**, measured (`tests/unit/hir_size.npk`), where the drawing
+measures 20 at `5fbaf4a`. It holds no position, because structurally equal patterns are literally equal (H-13). H-4a
+says what each kind's operands hold. `Hir`'s fields are `hidden` but `root`, which is `sealed` and an `int64`, so every
+access goes through `repr.npk`'s accessors. `Hir` holds no `literals` until cycle 0.2.5, which shapes `Literal` with
+the extraction that fills it; `groups[k]` is group `k`, group 0 the whole match with no name (`COMPILE.md` C-16), each
+a `GroupInfo` — its name's offset and length in `names`.)*
 
 **Rule H-3 — children are found by index, never by pointer.** The language
 would allow a pointer tree, and it would be worse: a `Vec<HirNode>` reallocates
@@ -67,6 +76,29 @@ This is the same reasoning the compiler applies to `Handle<T>` (D-017).
 `Class`, `Concat`, `Alternate`, `Repeat`, `Group`, `Anchor`, `WordBoundary`.
 Nine. A tree check asserts every kind is produced by the parser, consumed by
 the compiler, and handled by the oracle.
+*(2026-10-08, cycle 0.2.0 — RX-223: a `Literal` is one codepoint, or under `(?-u)` one byte, `HIR_FLAG_BYTE` set
+(`SYNTAX.md` Y-13; the modes mix in one pattern, `UNICODE.md` U-19); a `Class` and a `WordBoundary` the same. Still
+nine kinds.)*
+
+**Rule H-4a — each kind's operands** (RX-223):
+
+| Kind | `a` | `b` | `c` | Bit |
+|---|---|---|---|---|
+| `Empty` | | | | |
+| `Literal` | its codepoint; a byte under `BYTE` | | | `HIR_FLAG_BYTE` |
+| `Class` | its first range's index in `ranges` | how many ranges | | `HIR_FLAG_BYTE`: the ranges are bytes |
+| `Concat` | the first piece | how many | | |
+| `Alternate` | the first alternative | how many | | |
+| `Repeat` | the repeated node | the minimum | the maximum; `HIR_NONE` if unbounded | `HIR_FLAG_LAZY` |
+| `Group` | the body | its group number, from 1 | | |
+| `Anchor` | `HIR_TEXT_START` 0, `HIR_TEXT_END` 1, `HIR_LINE_START` 2, `HIR_LINE_END` 3 | | | |
+| `WordBoundary` | `HIR_WORD` 0, `HIR_NOT_WORD` 1 | | | `HIR_FLAG_BYTE`: a word character is ASCII's |
+
+A list's members — a `Concat`'s pieces, an `Alternate`'s alternatives — are its first member and each member's `next`,
+`b` of them, in the order written; a node in no list — the root, a `Repeat`'s or a `Group`'s child — has `next`
+`HIR_NONE`. `flags` holds the two bits above, and cycle 0.2.4's computed properties (H-9) take others. No pattern flag
+survives (H-6): `m` is an `Anchor`'s value, `s` a `.`'s class, `i` folded ranges, `x` the parser's, and `u` is
+`HIR_FLAG_BYTE`, which says what a node matches.
 
 ---
 

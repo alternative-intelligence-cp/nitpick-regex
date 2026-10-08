@@ -1,0 +1,179 @@
+// expect-exit: 0
+//
+// THE HIR ARENA: A HUNDRED NODES IN, EVERY FIELD OUT, THROUGH THE LAYER ENTRY -- ITS
+// RANGES, ITS GROUPS AND THEIR NAMES -- AND FREED, SO A LEAKED `wild` BLOCK TRAPS.
+// Cycle 0.2.0, RX-223 and RX-224; `HIR.md` H-2 … H-4.
+//
+// WHAT IT PINS. `ordinal` is an EXHAUSTIVE `pick` over `HirKind`, no `(*)`, one arm per
+// kind in H-4's order: a kind dropped, added or moved is a red run. A hundred nodes go in
+// from capacity 1, so the arena grows under them, each kind in turn and every field
+// distinct from its neighbours' (12: `hir_push` answers the new index); each comes back
+// through `hir_get` field for field (20 to 25). `hir_set` rewrites one node and leaves its
+// neighbour alone (30, 31); `hir_set_root` sets the sealed root (32); `hir_free` resets it
+// (33). Three ranges in and out (40 to 43). A fresh arena holds group 0, the whole match,
+// with no name (50, 51); three groups added answer 1, 2 and 3 (52) and hold their names'
+// places in `Hir.names` (53 to 55), and `hir_put_name` copies each name out, nothing for
+// the unnamed one (56 to 58). The constants are RX-223's values (60 to 68), and a `GroupInfo`
+// is 16 bytes (69). The program exits
+// 0 only after `hir_free`, and D-151 traps a `wild` block still live at exit -- so a
+// `hir_free` that freed nothing, or a missing one, is red (96).
+mod:hir_unit;
+
+use "../../src/core/core.npk".*;
+use "../../src/hir/hir.npk".*;
+
+func:ordinal = int64(HirKind:k) never fails {
+    int64:n = -1i64;
+    pick (k) {
+        (HirKind.Empty) { n = 0i64; },
+        (HirKind.Literal) { n = 1i64; },
+        (HirKind.Class) { n = 2i64; },
+        (HirKind.Concat) { n = 3i64; },
+        (HirKind.Alternate) { n = 4i64; },
+        (HirKind.Repeat) { n = 5i64; },
+        (HirKind.Group) { n = 6i64; },
+        (HirKind.Anchor) { n = 7i64; },
+        (HirKind.WordBoundary) { n = 8i64; }
+    }
+    pass n;
+};
+
+// Whether `b` holds exactly the bytes of `want`.
+func:same = bool(Bytes->:b, string:want) never fails {
+    uint8[]:w = string_bytes(want);
+    if ((raw bytes_len(b)) != w.len) { pass false; }
+    int64:i = 0i64;
+    while (i < w.len) decreases w.len - i {
+        if ((raw bytes_get(b, i)) != w[i]) { pass false; }
+        i = i + 1i64;
+    }
+    pass true;
+};
+
+func:nodes = int32() never fails {
+    Hir:h = raw hir_init(1i64);
+    if ((raw hir_len(h)) != 0i64)   { pass 10i32; }
+    if (h.root != HIR_NONE)         { pass 11i32; }
+    int64:i = 0i64;
+    int64:kk = 0i64;
+    while (i < 100i64) decreases 100i64 - i {
+        HirNode:n = HirNode{ kind: (kk =>! int32) =>! HirKind, flags: (i =>! uint32) + 7u32,
+                             a: i * 7i64, b: i * 11i64, c: 0i64 - i, next: i - 1i64 };
+        int64:at = raw hir_push(@h, n);
+        if (at != i) { pass 12i32; }
+        i = i + 1i64;
+        kk = kk + 1i64;
+        if (kk == 9i64) { kk = 0i64; }
+    }
+    if ((raw hir_len(h)) != 100i64) { pass 13i32; }
+    i = 0i64;
+    kk = 0i64;
+    while (i < 100i64) decreases 100i64 - i {
+        HirNode:g = raw hir_get(h, i);
+        if ((raw ordinal(g.kind)) != kk)         { pass 20i32; }
+        if (g.flags != (i =>! uint32) + 7u32)    { pass 21i32; }
+        if (g.a != i * 7i64)                     { pass 22i32; }
+        if (g.b != i * 11i64)                    { pass 23i32; }
+        if (g.c != 0i64 - i)                     { pass 24i32; }
+        if (g.next != i - 1i64)                  { pass 25i32; }
+        i = i + 1i64;
+        kk = kk + 1i64;
+        if (kk == 9i64) { kk = 0i64; }
+    }
+    HirNode:m = raw hir_get(h, 50i64);
+    m.next = 99i64;
+    drop hir_set(@h, 50i64, m);
+    HirNode:m2 = raw hir_get(h, 50i64);
+    if (m2.next != 99i64)                        { pass 30i32; }
+    HirNode:m3 = raw hir_get(h, 51i64);
+    if (m3.next != 50i64)                        { pass 31i32; }
+    drop hir_set_root(@h, 99i64);
+    if (h.root != 99i64)                         { pass 32i32; }
+    drop hir_free(@h);
+    if (h.root != HIR_NONE)                      { pass 33i32; }
+    pass 0i32;
+};
+
+func:ranges = int32() never fails {
+    Hir:h = raw hir_init(1i64);
+    if ((raw hir_range_count(h)) != 0i64)        { pass 40i32; }
+    int64:r0 = raw hir_push_range(@h, ClassRange{ lo: 97u32, hi: 122u32 });
+    int64:r1 = raw hir_push_range(@h, ClassRange{ lo: 65u32, hi: 90u32 });
+    int64:r2 = raw hir_push_range(@h, ClassRange{ lo: 1114111u32, hi: 1114111u32 });
+    if ((r0 != 0i64) || (r1 != 1i64) || (r2 != 2i64)) { pass 41i32; }
+    ClassRange:g = raw hir_range(h, 1i64);
+    if ((g.lo != 65u32) || (g.hi != 90u32))      { pass 42i32; }
+    ClassRange:g2 = raw hir_range(h, 2i64);
+    if ((g2.lo != 1114111u32) || ((raw hir_range_count(h)) != 3i64)) { pass 43i32; }
+    drop hir_free(@h);
+    pass 0i32;
+};
+
+func:groups = int32() never fails {
+    Hir:h = raw hir_init(4i64);
+    if ((raw hir_group_count(h)) != 1i64)        { pass 50i32; }
+    GroupInfo:z = raw hir_group(h, 0i64);
+    if (z.len != 0i64)                           { pass 51i32; }
+    int64:k1 = raw hir_add_group(@h, string_bytes("year"));
+    int64:k2 = raw hir_add_group(@h, string_bytes(""));
+    int64:k3 = raw hir_add_group(@h, string_bytes("x_9"));
+    if ((k1 != 1i64) || (k2 != 2i64) || (k3 != 3i64) || ((raw hir_group_count(h)) != 4i64)) { pass 52i32; }
+    GroupInfo:g1 = raw hir_group(h, 1i64);
+    if ((g1.off != 0i64) || (g1.len != 4i64))    { pass 53i32; }
+    GroupInfo:g2 = raw hir_group(h, 2i64);
+    if (g2.len != 0i64)                          { pass 54i32; }
+    GroupInfo:g3 = raw hir_group(h, 3i64);
+    if ((g3.off != 4i64) || (g3.len != 3i64))    { pass 55i32; }
+    Bytes:b = raw bytes_init(8i64);
+    drop hir_put_name(@h, 1i64, @b);
+    if (!(raw same(@b, "year")))                 { pass 56i32; }
+    drop bytes_clear(@b);
+    drop hir_put_name(@h, 2i64, @b);
+    if ((raw bytes_len(@b)) != 0i64)             { pass 57i32; }
+    drop hir_put_name(@h, 3i64, @b);
+    if (!(raw same(@b, "x_9")))                  { pass 58i32; }
+    drop hir_free(@h);
+    pass 0i32;
+};
+
+func:constants = int32() never fails {
+    if (HIR_NONE != -1i64)              { pass 60i32; }
+    if (HIR_FLAG_LAZY != 1u32)          { pass 61i32; }
+    if (HIR_FLAG_BYTE != 2u32)          { pass 62i32; }
+    if (HIR_TEXT_START != 0i64)         { pass 63i32; }
+    if (HIR_TEXT_END != 1i64)           { pass 64i32; }
+    if (HIR_LINE_START != 2i64)         { pass 65i32; }
+    if (HIR_LINE_END != 3i64)           { pass 66i32; }
+    if (HIR_WORD != 0i64)               { pass 67i32; }
+    if (HIR_NOT_WORD != 1i64)           { pass 68i32; }
+    if ((#size_of<GroupInfo>()) != 16i64) { pass 69i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:r = raw nodes();
+    if (r != 0i32) { exit r; }
+    r = raw ranges();
+    if (r != 0i32) { exit r; }
+    r = raw groups();
+    if (r != 0i32) { exit r; }
+    exit raw constants();
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

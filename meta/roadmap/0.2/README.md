@@ -38,8 +38,8 @@ RX-015, RX-031. Settled. **No open questions.**
 
 ### 0.2.0 — the arena
 - [ ] `HirNode` as a POD struct with no owning field; `#size_of` asserted
-- [ ] `Literal` and `GroupInfo` shaped to own nothing — offsets into a `Bytes`, the way `Hir.names` holds group names — because a `Vec` holds a `T` that owns nothing (`SAFETY.md` S-23a, RX-155) and `check_vec_elements_own_nothing` fails the run otherwise. `HIR.md` §2 names both without fields; this cycle is where they get them — and each `#[derive(Copy)]`s, as every `Vec` element must since `Vec` is `Vec<T: Copy>` (cycle 0.1.1b, RX-188)
-- [ ] children by `int32` index, never by pointer (H-3)
+- [ ] `Literal` and `GroupInfo` shaped to own nothing — offsets into a `Bytes`, the way `Hir.names` holds group names — because a `Vec` holds a `T` that owns nothing (`SAFETY.md` S-23a, RX-155) and `check_vec_elements_own_nothing` fails the run otherwise. `HIR.md` §2 names both without fields; this cycle is where they get them — and each `#[derive(Copy)]`s, as every `Vec` element must since `Vec` is `Vec<T: Copy>` (cycle 0.1.1b, RX-188) *(2026-10-08, cycle 0.2.0 — RX-224: `GroupInfo` here, a name's offset and length in `Hir.names`; `Literal` is 0.2.5's, shaped with the extraction that fills it, and its checklist says so)*
+- [ ] children by `int32` index, never by pointer (H-3) *(2026-10-08, cycle 0.2.0 — RX-223: by `int64` index, the AST's width — an `int32` field would be narrowed unchecked at every write)*
 - [ ] names in one `Bytes`, referenced by offset and length
 - [ ] the nine kinds from H-4
 - [ ] a stable text dump and its parser, round-tripping — this is what makes a HIR a committed fixture
@@ -71,6 +71,7 @@ RX-015, RX-031. Settled. **No open questions.**
 - [ ] each flag asserted against a hand-computed reference over fifty patterns
 
 ### 0.2.5 — literal extraction
+- [ ] `Literal` shaped to own nothing, `Hir.literals` added and the dump given its section for them — moved here from 0.2.0 by RX-224, because its fields depend on the three roles H-11 names
 - [ ] required prefix, first-byte set, inner required literal
 - [ ] bounded by `NREGEX_LITERAL_LIMIT` and `NREGEX_LITERAL_BYTES`
 - [ ] **conservative**: a pattern that defeats the analysis gets an empty set, never a wrong one (H-12)

@@ -314,12 +314,16 @@
 // and so is its `GroupName`; each refers to a group's name by its place in the
 // PATTERN, as the AST does (RX-174), rather than by an offset into a `Bytes`, and
 // the check clears both. `Literal` and `GroupInfo` are the two left, at cycle 0.2.)*
+// *(2026-10-08, cycle 0.2.0 -- RX-224: `GroupInfo` is shaped, a name's offset and length in
+// `Hir.names`; `Literal` is cycle 0.2.5's, with the extraction that fills it.)*
 // *(2026-09-28, cycle 0.1.1b -- RX-188. THE COMPILER SAYS IT NOW, AT THE TYPE: `Vec` is
 // `Vec<T: Copy>`, so at an owning `T` the table above cannot be written -- every row
 // is NITPICK-TYPE-017, at the type and at the verb -- and the units that measured it
 // are retired; the table is RX-155's measurement, kept. An element type derives
 // `Copy`, as `AstNode`, `Frame` and `GroupName` do and `Literal` and `GroupInfo`
 // will.)*
+// *(2026-10-08, cycle 0.2.0 -- RX-223, RX-224: `HirNode` and `GroupInfo` do, and `ClassRange`
+// (RX-222); `Literal` will at cycle 0.2.5.)*
 //
 // LAYERING (`BUILD.md` §6, B-16). `core` imports nothing outside `core`. This
 // file imports nothing at all.

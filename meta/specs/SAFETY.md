@@ -712,6 +712,9 @@ owned — and `check_vec_elements_own_nothing` clears `Vec<Frame>` and
 are left to shape, `Literal` and `GroupInfo`, at cycle 0.2.)*
 *(2026-09-28 — RX-188: what stands between a `Vec<string>` and the verbs is the
 compiler now, at the type; and each of those two derives `Copy`.)*
+*(2026-10-08, cycle 0.2.0 — RX-224: `GroupInfo` is shaped — a group name's offset and length in `Hir.names`, two
+`int64`s, deriving `Copy` — and `check_vec_elements_own_nothing` clears `Vec<GroupInfo>`, as it clears `Vec<HirNode>`
+and `Vec<ClassRange>` (RX-223, RX-222); `Literal` is cycle 0.2.5's, shaped with the extraction that fills it.)*
 
 *A cycle that needs an owning element lifts S-23a by a decision*, and the
 compiler's own `List<T>` at `c3bdae2` is the shape it would take: removals that

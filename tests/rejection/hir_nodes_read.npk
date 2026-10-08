@@ -1,0 +1,45 @@
+// expect-error: NITPICK-TYPE-080
+// expect-error-at: 23:16
+//
+// A CONSUMER CANNOT REACH THE HIR'S `Vec`. Cycle 0.2.0, RX-223.
+//
+// WHAT IT PINS. `Hir.nodes` is `hidden` (the compiler's D-314): outside
+// `src/hir/repr.npk` even a READ of it is NITPICK-TYPE-080. So every access to the
+// arena goes through `hir_get`, `hir_set` and `hir_push`, and the accessor pair
+// underneath them is the only bounds check (`SAFETY.md` S-23). The AST's twin is
+// `ast_nodes_read.npk`, and it reads `.count` for the reason that file gives: a
+// generic call here would add the compiler's recovery to the code set.
+//
+// A TEST OF THE HIDING, NOT OF THIS FILE: with `hidden` replaced by `sealed` on
+// `nodes` it compiles (`meta/roadmap/0.2/0.2.0.md` §1).
+mod:hir_nodes_read;
+
+use "../../src/hir/hir.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Hir:h = raw hir_init(4i64);
+    discard(raw hir_push(@h, HirNode{ kind: HirKind.Empty, flags: 0u32, a: 0i64, b: 0i64, c: 0i64,
+                                      next: HIR_NONE }));
+    int64:n = h.nodes.count;
+    drop hir_free(@h);
+    discard(n);
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};
