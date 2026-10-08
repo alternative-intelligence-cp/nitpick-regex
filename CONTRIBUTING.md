@@ -36,6 +36,11 @@ never for concluding; nothing is committed on the strength of a filtered run.
    backtracking possible, and the linear-time guarantee is the reason this
    library exists. A patch adding either is a patch that removes the
    guarantee.
+   *(2026-10-08, cycle 0.2.0 — RX-218: of lookaround the third sentence is not
+   true. Finite automata can match it in linear time, by algorithms published
+   in 2024; `nregex` refuses it because its automata read none of it and a
+   search allocates nothing, as `README.md`'s price paragraph says, in the
+   author's words.)*
 
 2. **Every public `error:` this library declares becomes a mandatory `pick` arm
    in every consuming program's `failsafe`.** The language enforces it and

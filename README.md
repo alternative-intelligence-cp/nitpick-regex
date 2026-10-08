@@ -54,14 +54,13 @@ the product of the pattern size and the haystack size and cannot be otherwise.
 This is the choice RE2 and Rust's `regex` made, for the same reason.
 
 **The price is stated plainly and is not softened: there are no backreferences
-and no lookaround.** Neither describes a regular language, and both are exactly
-what makes backtracking unavoidable. A pattern needing them is refused at
-compile time, by name, with the position — never accepted and then slow.
-*(2026-10-08 — of lookaround the second sentence is not true: finite automata
-can match lookahead and lookbehind, and in linear time, by algorithms published
-in 2024. `nregex` refuses lookaround because its automata read none of it and a
-search allocates nothing; [`meta/specs/SAFETY.md`](meta/specs/SAFETY.md) S-2's
-note says what each algorithm asks, and RX-218 records it.)*
+and no lookaround.** Backreferences describe no regular language, and they are
+what makes backtracking unavoidable. Lookaround is different: finite automata
+can match it in linear time, by algorithms published in 2024, but `nregex`'s
+automata read none of it and a search allocates nothing, so it is refused as
+well ([`meta/specs/SAFETY.md`](meta/specs/SAFETY.md) S-2, RX-218). A pattern
+needing either is refused at compile time, by name, with the position — never
+accepted and then slow.
 
 ## What follows from it
 
