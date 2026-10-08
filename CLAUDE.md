@@ -6,7 +6,7 @@ Guidance for Claude Code sessions working in this repository.
 
 `nregex` — a regular-expression library for **Nitpick**, the safety-critical
 systems language at `../../nitpick`. **Status: cycle 0.1, the pattern parser, is
-open, and its 0.1.0, 0.1.0b, 0.1.1, 0.1.1b, 0.1.2, 0.1.3, 0.1.4 and 0.1.5 are done** — the pieces the parser is written
+open, and its 0.1.0, 0.1.0b, 0.1.1, 0.1.1b, 0.1.2, 0.1.3, 0.1.4, 0.1.5 and 0.1.6a are done** — the pieces the parser is written
 in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/0.1/0.1.0.md`); the adoption of
 compiler `5fbaf4a` (RX-176 … RX-180, `0.1.0b.md`); and the core grammar —
 `parse_pattern` builds the AST for literals, `.`, `^`, `$`, groups, alternation and
@@ -27,7 +27,11 @@ that names no codepoint for the end of the pattern; and `check_constants_named` 
 (RX-202 … RX-208, `0.1.4.md`); and the refusals — every escape §8 declines refused by its own kind, `\g` among them
 and `\K` as lookaround, by the author's amendment, each sentence saying what is wrong, where, and the guarantee or
 what to write, none that it is unsupported, and `regex_escape` writing a text as a pattern that matches exactly it
-(RX-209 … RX-213, `0.1.5.md`).
+(RX-209 … RX-213, `0.1.5.md`); and the cycle audit's library findings, the first of the close's three subcycles —
+`regex_escape` escaping `:`, so a text stays itself straight after a nested class's `[`, where `:alpha:` was read as
+the POSIX class with no error; a `{` after `\b` naming Rust's and Perl's boundaries only when a letter follows it;
+`NestTooDeep` saying what is open around the byte it refuses; question 23, and `SAFETY.md` S-2's lookaround row,
+recorded as what is true; and the audit's records (RX-214 … RX-218, `0.1.6a.md`).
 Cycle 0.0, foundations, CLOSED on 2026-09-26 — the sixth audit accepted it, and
 it is archived in `meta/roadmap/done/0.0/`. The
 specifications, the decisions and the roadmap are complete; `tests/probe/` holds
@@ -82,7 +86,7 @@ unit programs more, `parse_declined` and `regex_escape`; nothing is refused prov
 happens yet**: `src/hir/`,
 `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are still one
 placeholder module each. A full green run at compiler `5fbaf4a` is
-**258 units** (after cycle 0.1.5; 254 after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus nine tree checks (eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
+**258 units** (after cycle 0.1.6a, as after cycle 0.1.5; 254 after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus nine tree checks (eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
 summary rather than from here. **Nothing is PENDING any more**:
 `tests/unit/bytes_copy_string_empty.npk` was committed red under
 `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at

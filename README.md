@@ -26,7 +26,9 @@ makes the guarantee below possible.
 > `u`, scoped to their group, refusing what the engines read two ways. Cycle 0.1.5 refuses
 > what nregex declines — a backreference, lookaround, `\Q…\E` — each by its own kind, with a
 > sentence saying why and what to write instead, and `regex_escape` writes any text as a
-> pattern that matches exactly it. Nothing matches a pattern yet.
+> pattern that matches exactly it. Cycle 0.1.6 closes the cycle on its audit, which found
+> one wrong answer — an escaped text read as a POSIX class straight after a nested class's
+> `[` — and `:` is escaped now. Nothing matches a pattern yet.
 > The specification set is in [`meta/specs/`](meta/specs/) and the plan in
 > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
 > discipline the compiler used — specs first, then a cycle map, then
