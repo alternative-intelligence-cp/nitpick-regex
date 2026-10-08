@@ -1,0 +1,54 @@
+// expect-exit: 94
+//
+// A GROUP NUMBERED OUT OF THE ORDER ITS `(` IS WRITTEN STOPS THE BUILD. Cycle 0.2.1, RX-228;
+// `HIR.md` H-16, `SYNTAX.md` Y-6.
+//
+// `hir_build` adds each group to the HIR's table as the walk enters it -- the order the
+// pattern writes its `(` -- and the table's number for it must be the AST's: a HIR's group `k`
+// is `Hir.groups[k]`, its name there. The parser numbers groups so (Y-6); an AST built by hand
+// need not, and here `(a)(b)`'s groups are numbered 2 and 1. The first answers 1 where the AST
+// says 2, which would give one group the other's name, so the build traps `OutOfBounds` (94)
+// through `vec_oob`.
+mod:hir_build_misnumbered;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+use "../../src/hir/hir.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Ast:t = raw ast_init(8i64);
+    int64:a = raw ast_push(@t, AstNode{ kind: AstKind.Literal, flags: AST_FLAG_U, a: 97i64, b: 0i64, c: 0i64,
+                                        next: AST_NONE, pos: 1i64, len: 1i64 });
+    int64:b = raw ast_push(@t, AstNode{ kind: AstKind.Literal, flags: AST_FLAG_U, a: 98i64, b: 0i64, c: 0i64,
+                                        next: AST_NONE, pos: 4i64, len: 1i64 });
+    int64:g2 = raw ast_push(@t, AstNode{ kind: AstKind.Group, flags: AST_FLAG_U, a: b, b: 1i64, c: 0i64,
+                                         next: AST_NONE, pos: 3i64, len: 3i64 });
+    int64:g1 = raw ast_push(@t, AstNode{ kind: AstKind.Group, flags: AST_FLAG_U, a: a, b: 2i64, c: 0i64,
+                                         next: g2, pos: 0i64, len: 3i64 });
+    int64:cat = raw ast_push(@t, AstNode{ kind: AstKind.Concat, flags: AST_FLAG_U, a: g1, b: 2i64, c: 0i64,
+                                          next: AST_NONE, pos: 0i64, len: 6i64 });
+    drop ast_set_root(@t, cat);
+    Hir:h = raw hir_init(4i64);
+    discard(raw hir_build(string_bytes("(a)(b)"), t, @h));
+    drop hir_free(@h);
+    drop ast_free(@t);
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

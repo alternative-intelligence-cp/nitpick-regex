@@ -1,0 +1,43 @@
+// expect-exit: 108
+//
+// AN AST THAT IS NOT A TREE STOPS THE BUILD. Cycle 0.2.1, RX-228; `HIR.md` H-16.
+//
+// `hir_build` walks the AST on an explicit stack whose `decreases` measure is twice the arena:
+// a tree's walk enters and leaves each node once (`SAFETY.md` S-19). An AST the parser builds is
+// one; an AST built by hand need not be, and here a `Repeat` repeats itself, so the walk would
+// enter it for ever. The measure traps `DecreasesViolated` (108) instead.
+mod:hir_build_not_a_tree;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+use "../../src/hir/hir.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Ast:t = raw ast_init(4i64);
+    int64:r = raw ast_push(@t, AstNode{ kind: AstKind.Repeat, flags: AST_FLAG_U, a: 0i64, b: 0i64, c: AST_NONE,
+                                        next: AST_NONE, pos: 0i64, len: 2i64 });
+    drop ast_set_root(@t, r);
+    Hir:h = raw hir_init(4i64);
+    discard(raw hir_build(string_bytes("a*"), t, @h));
+    drop hir_free(@h);
+    drop ast_free(@t);
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

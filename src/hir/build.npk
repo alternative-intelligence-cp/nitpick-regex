@@ -1,0 +1,309 @@
+// `src/hir/build.npk` — THE DESUGARING: A PARSED PATTERN'S AST TO A HIR. Cycle 0.2.1, RX-228;
+// `meta/specs/HIR.md` rules H-5, H-6 and H-16.
+//
+// EVERY REWRITE IS H-5'S TABLE, AND NOTHING ELSE HAPPENS. A quantifier is a `Repeat` with its
+// bounds in the AST already (`SYNTAX.md` Y-32), so it is copied as one; `.` becomes a `Class`; a
+// group that captures nothing -- `(?:…)`, `(?flags:…)` -- becomes its body, with no `Group`
+// around it; a `Flags` node, `(?flags)`, becomes nothing, its effect already in the flags every
+// later node of its group carries (Y-41). Every other kind is the same kind. Nothing is
+// flattened, merged, sorted or reordered -- that is cycle 0.2.3's normalisation (H-13) -- and
+// nothing is expanded (H-7). H-16 is the table, kind by kind.
+//
+// NO PATTERN FLAG SURVIVES (H-6). A node's flags in force are read for what the node MEANS and
+// never copied: `m` makes `^` and `$` the lines' anchors, `s` gives `.` the `\n`, `u` cleared makes
+// a literal, a class and a word boundary a byte's -- `HIR_FLAG_BYTE`, which says what the node
+// matches -- and `x` was the parser's. `i` folds every literal, class and `.` it covers, and the
+// fold is cycle 0.3.4's: the second hook below.
+//
+// WHERE THE BUILD STOPS UNTIL 0.3.4 FILLS ITS HOOKS AND WIDENS `leaf` (H-16). A HIR holds resolved
+// ranges only (H-1, H-5), and three things need what cycle 0.3 builds: a Perl class, a POSIX
+// class or a property, which name sets the Unicode tables hold; a class's operators and its
+// negation, which are arithmetic over sorted range lists; and `i`, which folds a set through the
+// fold table. `hir_build` builds every pattern that needs none of them, and stops at the first
+// node that needs one, answering its index in the AST -- never a HIR that means something else.
+// `resolve_items` and `fold_ranges` are the hooks.
+//
+// A TREE, AND NOTHING ELSE IN THE ARENA. A node is pushed only when the node that holds it is
+// built, so a HIR this file answers HIR_NONE for has every node reachable from its root, once --
+// which is what makes the dump's bound exact for it (H-15).
+//
+// NOTHING RECURSES (`SAFETY.md` S-19). The AST is walked on a `Vec<Step>`: a node is entered, then
+// its children, then it is left and built from what they built, which waits on a second `Vec`.
+// Groups are added to the HIR's table as they are ENTERED, the order their `(` is written (Y-6).
+//
+// LAYERING (`BUILD.md` §6, B-16). Imports `core`, `unicode` for `ClassRange`, `syntax` for the AST,
+// and the layer's `repr.npk`; a program importing it owes `core`'s eleven arms.
+mod:build;
+
+use "../core/core.npk".*;
+use "../unicode/unicode.npk".*;
+use "../syntax/syntax.npk".*;
+use "./repr.npk".*;
+
+// ---- the codepoints a class is built from (H-5; `COMPILE.md` C-3) ----------------------------
+fixed int64:CP_NEWLINE = 10i64;          // `\n`, which `.` leaves out unless `s`
+fixed int64:CP_SURROGATE_LO = 55296i64;  // U+D800, the first surrogate: no codepoint a class may hold (C-3)
+fixed int64:CP_SURROGATE_HI = 57343i64;  // U+DFFF, the last
+fixed int64:CP_MAX = 1114111i64;         // U+10FFFF, the last codepoint
+fixed int64:BYTE_MAX = 255i64;           // the last byte, under `(?-u)`
+
+// An `Anchor`'s `a` in the AST, `SYNTAX.md` Y-27 -- `^` 0, `$` 1, `\A` 2, `\z` 3 -- which are not
+// the HIR's values: `\A` is 2 there and `HIR_LINE_START` is 2 here.
+fixed int64:AST_CARET = 0i64;
+fixed int64:AST_DOLLAR = 1i64;
+fixed int64:AST_END = 3i64;
+
+// ---- the walk ----------------------------------------------------------------------------------
+
+// One step of the walk: a node to enter, or one whose children are built, to build.
+#[derive(Copy)]
+struct:Step = {
+    int64:node;          // the AST node
+    int64:op;            // STEP_ONE, STEP_LIST or STEP_LEAVE
+    int64:mark;          // for STEP_LEAVE: how many built nodes were waiting before its children
+};
+
+fixed int64:STEP_ONE = 0i64;       // enter the node
+fixed int64:STEP_LIST = 1i64;      // enter the node, then the rest of the list it heads
+fixed int64:STEP_LEAVE = 2i64;     // its children are built: build it
+
+// What `leaf` answers for a node a hook could not build, or one it asks no hook of: no index,
+// and not HIR_NONE, which is a `Flags` node's -- nothing to build.
+fixed int64:STUCK = -2i64;
+
+func:hnode = HirNode(HirKind:k, uint32:flags, int64:a, int64:b, int64:c) never fails {
+    pass HirNode{ kind: k, flags: flags, a: a, b: b, c: c, next: HIR_NONE };
+};
+
+// `HIR_FLAG_BYTE` when `byte`, else no bit.
+func:byte_bit = uint32(bool:byte) never fails {
+    if (byte) { pass HIR_FLAG_BYTE; }
+    pass 0u32;
+};
+
+// Appends the range `lo` … `hi` to `out`'s ranges. In Unicode mode the surrogates are no
+// codepoints (C-3), so a range that spans them is the two pieces either side of them.
+func:push_range = NIL(Hir->:out, int64:lo, int64:hi, bool:byte) never fails {
+    if (byte) {
+        discard(raw hir_push_range(out, ClassRange{ lo: lo =>! uint32, hi: hi =>! uint32 }));
+        pass NIL;
+    }
+    if (lo < CP_SURROGATE_LO) {
+        int64:top = hi;
+        if (top >= CP_SURROGATE_LO) { top = CP_SURROGATE_LO - 1i64; }
+        discard(raw hir_push_range(out, ClassRange{ lo: lo =>! uint32, hi: top =>! uint32 }));
+    }
+    if (hi > CP_SURROGATE_HI) {
+        int64:bottom = lo;
+        if (bottom <= CP_SURROGATE_HI) { bottom = CP_SURROGATE_HI + 1i64; }
+        discard(raw hir_push_range(out, ClassRange{ lo: bottom =>! uint32, hi: hi =>! uint32 }));
+    }
+    pass NIL;
+};
+
+// ---- the hooks (H-16): what cycle 0.3.4 fills ---------------------------------------------------
+
+// HOOK 1 -- A CLASS'S ITEMS. Appends the ranges of the class at `i` to `out`, in the order the
+// pattern writes them -- a member that is one codepoint or a range, and a nested class's members
+// in its place -- and answers true; or answers false at the first item it cannot resolve, the
+// ranges before it left. Until cycle 0.3.4 that is a Perl class, a POSIX class, a property, an
+// operator or a negated nested class: each needs the tables or a sorted list. The items are
+// walked on a `Vec`, each once, so the arena's length is room to spare.
+func:resolve_items = bool(Ast:t, int64:i, Hir->:out) never fails {
+    AstNode:c = raw ast_get(t, i);
+    bool:byte = (c.flags & AST_FLAG_U) == 0u32;
+    Vec<int64>:todo = raw vec_init::<int64>(8i64);
+    if (c.a != AST_NONE) { drop vec_push(@todo, c.a); }
+    int64:budget = raw ast_len(t);
+    int64:steps = 0i64;
+    bool:ok = true;
+    while (ok && (todo.count > 0i64)) decreases budget - steps {
+        steps = steps + 1i64;
+        int64:m = raw vec_pop(@todo);
+        AstNode:x = raw ast_get(t, m);
+        if (x.next != AST_NONE) { drop vec_push(@todo, x.next); }
+        if (x.kind == AstKind.ClassRange) { drop push_range(out, x.a, x.b, byte); }
+        else if ((x.kind == AstKind.Class) && ((x.flags & AST_FLAG_NEGATED) == 0u32)) {
+            if (x.a != AST_NONE) { drop vec_push(@todo, x.a); }
+        }
+        else { ok = false; }
+    }
+    drop vec_free(@todo);
+    pass ok;
+};
+
+// HOOK 2 -- `i`. Folds the ranges from `first` to the end of `out`'s ranges -- every codepoint's
+// orbit under simple case folding added (`UNICODE.md` U-11, U-13, U-14), or a byte's under
+// `(?-u)` -- and answers true. The fold table is cycle 0.3.3's and filling this cycle 0.3.4's, so
+// until then it folds nothing and answers false, and the build stops at the node.
+func:fold_ranges = bool(Hir->:out, int64:first, bool:byte) never fails {
+    pass false;
+};
+
+// ---- leaving a node: building it from what its children built ----------------------------------
+
+// A leaf: answers the node it builds, HIR_NONE for a `Flags` node, which builds nothing, or STUCK
+// for a node a hook could not build, or one it asks no hook of until cycle 0.3.4 widens it.
+func:leaf = int64(Ast:t, int64:i, Hir->:out) never fails {
+    AstNode:n = raw ast_get(t, i);
+    bool:fold = (n.flags & AST_FLAG_I) != 0u32;
+    bool:byte = (n.flags & AST_FLAG_U) == 0u32;
+    if (n.kind == AstKind.Empty) { pass raw hir_push(out, raw hnode(HirKind.Empty, 0u32, 0i64, 0i64, 0i64)); }
+    if (n.kind == AstKind.Flags) { pass HIR_NONE; }
+    if (n.kind == AstKind.Anchor) {
+        int64:a = HIR_TEXT_START;                      // `\A`, and `^` but under `m`
+        bool:m = (n.flags & AST_FLAG_M) != 0u32;
+        if ((n.a == AST_CARET) && m) { a = HIR_LINE_START; }
+        else if (n.a == AST_DOLLAR) { a = HIR_TEXT_END; if (m) { a = HIR_LINE_END; } }
+        else if (n.a == AST_END) { a = HIR_TEXT_END; }
+        pass raw hir_push(out, raw hnode(HirKind.Anchor, 0u32, a, 0i64, 0i64));
+    }
+    if (n.kind == AstKind.WordBoundary) {
+        int64:w = HIR_WORD;
+        if (n.a != 0i64) { w = HIR_NOT_WORD; }
+        pass raw hir_push(out, raw hnode(HirKind.WordBoundary, raw byte_bit(byte), w, 0i64, 0i64));
+    }
+    if ((n.kind == AstKind.Literal) && (!fold)) {
+        pass raw hir_push(out, raw hnode(HirKind.Literal, raw byte_bit((n.flags & AST_FLAG_BYTE) != 0u32), n.a, 0i64, 0i64));
+    }
+    int64:first = raw hir_range_count(<-out);
+    bool:built = false;
+    if (n.kind == AstKind.Literal) {
+        drop push_range(out, n.a, n.a, (n.flags & AST_FLAG_BYTE) != 0u32);
+        built = raw fold_ranges(out, first, byte);
+    }
+    else if (n.kind == AstKind.Dot) {
+        int64:top = CP_MAX;
+        if (byte) { top = BYTE_MAX; }
+        if ((n.flags & AST_FLAG_S) != 0u32) { drop push_range(out, 0i64, top, byte); }
+        else {
+            drop push_range(out, 0i64, CP_NEWLINE - 1i64, byte);
+            drop push_range(out, CP_NEWLINE + 1i64, top, byte);
+        }
+        built = true;
+        if (fold) { built = raw fold_ranges(out, first, byte); }
+    }
+    else if ((n.kind == AstKind.Class) && ((n.flags & AST_FLAG_NEGATED) == 0u32)) {
+        built = raw resolve_items(t, i, out);
+        if (built && fold) { built = raw fold_ranges(out, first, byte); }
+    }
+    if (!built) { pass STUCK; }
+    int64:count = (raw hir_range_count(<-out)) - first;
+    pass raw hir_push(out, raw hnode(HirKind.Class, raw byte_bit(byte), first, count, 0i64));
+};
+
+// Takes the nodes the members of a list built, from `mark` up, off `done`, and links them in the
+// order written. A `Concat` drops what built nothing -- an erased `(?flags)` piece -- and is
+// `Empty` with no piece left and that piece with one: `SYNTAX.md` Y-33's rule, after the erasure.
+// An `Alternate` keeps every alternative, one that built nothing an `Empty`.
+func:list = int64(Hir->:out, Vec<int64>->:done, int64:mark, HirKind:k) never fails {
+    int64:first = HIR_NONE;
+    int64:count = 0i64;
+    while (done.count > mark) decreases done.count - mark {
+        int64:m = raw vec_pop(done);
+        if ((m == HIR_NONE) && (k == HirKind.Alternate)) {
+            m = raw hir_push(out, raw hnode(HirKind.Empty, 0u32, 0i64, 0i64, 0i64));
+        }
+        if (m != HIR_NONE) {
+            HirNode:x = raw hir_get(<-out, m);
+            x.next = first;
+            drop hir_set(out, m, x);
+            first = m;
+            count = count + 1i64;
+        }
+    }
+    if ((k == HirKind.Concat) && (count == 0i64)) {
+        pass raw hir_push(out, raw hnode(HirKind.Empty, 0u32, 0i64, 0i64, 0i64));
+    }
+    // One piece is the piece itself, its `next` HIR_NONE already: nothing was linked after it.
+    if ((k == HirKind.Concat) && (count == 1i64)) { pass first; }
+    pass raw hir_push(out, raw hnode(k, 0u32, first, count, 0i64));
+};
+
+// The one node a `Repeat` or a `Group` holds, off `done`, or the root; an erased `(?flags)` there
+// is `Empty`.
+func:held = int64(Hir->:out, Vec<int64>->:done) never fails {
+    int64:m = raw vec_pop(done);
+    if (m == HIR_NONE) { pass raw hir_push(out, raw hnode(HirKind.Empty, 0u32, 0i64, 0i64, 0i64)); }
+    pass m;
+};
+
+// obligation: never fails
+//
+// THE DESUGARING (H-5, H-6, H-16). Builds the HIR of the pattern `pat`, whose AST `t` is --
+// `parse_pattern`'s, the pattern kept for a group's name -- into `out`, a `Hir` fresh from
+// `hir_init`, sets its root and answers HIR_NONE; or answers the index in `t` of the first node,
+// in the order the pattern writes them, that a hook or `leaf` cannot build until cycle 0.3.4, and
+// leaves `out`'s root unset, its nodes partial, for the caller to free. Nothing for an `Ast` with
+// no root. A group's number is the AST's, and `hir_add_group` must answer it as the walk enters
+// the group, or the arena would name one group's text for another's: an `OutOfBounds` stop.
+pub func:hir_build = int64(uint8[]:pat, Ast:t, Hir->:out) never fails {
+    if (t.root == AST_NONE) { pass HIR_NONE; }
+    Vec<Step>:todo = raw vec_init::<Step>(16i64);
+    Vec<int64>:done = raw vec_init::<int64>(16i64);
+    drop vec_push(@todo, Step{ node: t.root, op: STEP_ONE, mark: 0i64 });
+    // A `decreases` measure is checked as each step begins, so `2n - 1` admits `2n` steps: a
+    // walk entering and leaving every node of the arena once, and not one more.
+    int64:budget = 2i64 * (raw ast_len(t)) - 1i64;
+    int64:steps = 0i64;
+    int64:stuck = HIR_NONE;
+    while ((stuck == HIR_NONE) && (todo.count > 0i64)) decreases budget - steps {
+        steps = steps + 1i64;
+        Step:s = raw vec_pop(@todo);
+        AstNode:n = raw ast_get(t, s.node);
+        if (s.op == STEP_LEAVE) {
+            int64:h = HIR_NONE;
+            if ((n.kind == AstKind.Concat) || (n.kind == AstKind.Alternate)) {
+                HirKind:k = HirKind.Concat;
+                if (n.kind == AstKind.Alternate) { k = HirKind.Alternate; }
+                h = raw list(out, @done, s.mark, k);
+            }
+            else if (n.kind == AstKind.Repeat) {
+                uint32:lazy = 0u32;
+                if ((n.flags & AST_FLAG_LAZY) != 0u32) { lazy = HIR_FLAG_LAZY; }
+                // The maximum as written; an unbounded one is AST_NONE there and HIR_NONE here, both -1.
+                int64:r = raw held(out, @done);
+                h = raw hir_push(out, raw hnode(HirKind.Repeat, lazy, r, n.b, n.c));
+            }
+            else if (n.kind == AstKind.Group) {
+                h = raw held(out, @done);
+                if (n.b > 0i64) { h = raw hir_push(out, raw hnode(HirKind.Group, 0u32, h, n.b, 0i64)); }
+            }
+            else {
+                h = raw leaf(t, s.node, out);
+                if (h == STUCK) { stuck = s.node; }
+            }
+            if (stuck == HIR_NONE) { drop vec_push(@done, h); }
+        }
+        else {
+            if (s.op == STEP_LIST) {
+                if (n.next != AST_NONE) { drop vec_push(@todo, Step{ node: n.next, op: STEP_LIST, mark: 0i64 }); }
+            }
+            drop vec_push(@todo, Step{ node: s.node, op: STEP_LEAVE, mark: done.count });
+            if ((n.kind == AstKind.Concat) || (n.kind == AstKind.Alternate)) {
+                if (n.a != AST_NONE) { drop vec_push(@todo, Step{ node: n.a, op: STEP_LIST, mark: 0i64 }); }
+            }
+            else if (n.kind == AstKind.Repeat) {
+                drop vec_push(@todo, Step{ node: n.a, op: STEP_ONE, mark: 0i64 });
+            }
+            else if (n.kind == AstKind.Group) {
+                if (n.b > 0i64) {
+                    // A name starts after `(?<` (Y-27); an unnamed group's is `pat[0...0]`, which every
+                    // pattern holds, where `n.pos + 3` may lie past the pattern's end.
+                    int64:at = 0i64;
+                    if (n.c > 0i64) { at = n.pos + 3i64; }
+                    int64:k = raw hir_add_group(out, pat[at...at + n.c]);
+                    if (k != n.b) { drop vec_oob(k); }
+                }
+                drop vec_push(@todo, Step{ node: n.a, op: STEP_ONE, mark: 0i64 });
+            }
+        }
+    }
+    if (stuck == HIR_NONE) {
+        int64:root = raw held(out, @done);
+        drop hir_set_root(out, root);
+    }
+    drop vec_free(@todo);
+    drop vec_free(@done);
+    pass stuck;
+};

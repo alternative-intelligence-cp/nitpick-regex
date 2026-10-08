@@ -1,0 +1,480 @@
+// expect-exit: 0
+//
+// THE DESUGARING: EVERY ROW OF H-5'S TABLE, EVERY KIND OF AST NODE, EVERY FLAG ERASED, AND THE
+// NODES THE BUILD STOPS AT UNTIL CYCLE 0.3.4. Cycle 0.2.1, RX-228; `HIR.md` H-5, H-6 and H-16.
+//
+// WHAT IT PINS. Each case parses a pattern through `syntax.npk`, builds it through `hir.npk`'s
+// `hir_build` and holds the HIR to a text. `built` asks four things of every HIR the build answers
+// HIR_NONE for: its dump is the text, byte for byte -- and since RX-227 a dump that completes
+// shows every bit its nodes hold, so the text is a test of H-6 too; every lower-case word in it is
+// one H-15 writes (`words_ok`, the grep the cycle README asks for); its arena holds the tree and
+// nothing else, every node reached from the root once (`is_tree`, H-16); and the text reads back
+// and writes the same (H-15). `stops` asks a build that stops at a hook or in `leaf` until cycle
+// 0.3.4 to answer the node at the byte named and to leave the root unset.
+//
+// THE CASES. 1 … 9 are H-5's six quantifier rows, their lazy forms, their bounds' edges and what
+// a quantifier may wrap; 10 … 14 the `.` row; 15 … 19 the `(?:…)` row; 20 … 23 the class row and
+// 24 … 27 the `(?i:…)` row, each STOPPING, the root unset -- what they will build is cycle 0.3.4's. 30 …
+// 34 and 40 … 49 are the kinds H-5 maps to themselves: `Empty`, `Literal`, `Concat`, `Alternate`,
+// `Group` and the group table, `Anchor` under `m` and not, `WordBoundary` under `u` and not. 50 …
+// 58 are classes built from their members and C-3's surrogates; 60 … 69 flags erased -- eight pairs
+// of patterns, a flag against none or against its other scope, built to one text, and every place
+// a `(?flags)` node may stand; 70 … 73 where the build stops; 80 … 83 an `Ast` with no root and the
+// largest patterns: 250 groups deep, 250 wrappers erased, 65 536 literals. A case that differs
+// exits with its number; the program exits 0 only after every `hir_free` and `ast_free`, and
+// D-151 traps a `wild` block still live at exit (96).
+//
+// A HELPER HERE RECURSES NOT: `check_no_recursion` reads `src/` and not `tests/` (RX-192), but
+// the walks below are a 65 536-node arena's, so they are explicit loops anyway.
+mod:hir_build;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+use "../../src/hir/hir.npk".*;
+
+// Whether `b` holds exactly the bytes of `want`.
+func:same = bool(Bytes->:b, uint8[]:want) never fails {
+    if ((raw bytes_len(b)) != want.len) { pass false; }
+    int64:i = 0i64;
+    while (i < want.len) decreases want.len - i {
+        if ((raw bytes_get(b, i)) != want[i]) { pass false; }
+        i = i + 1i64;
+    }
+    pass true;
+};
+
+// Whether the `n` bytes of `b` at `s` are the word `w`.
+func:word_at = bool(Bytes->:b, int64:s, int64:n, string:w) never fails {
+    uint8[]:wb = string_bytes(w);
+    if (n != wb.len) { pass false; }
+    int64:k = 0i64;
+    while (k < n) decreases n - k {
+        if ((raw bytes_get(b, s + k)) != wb[k]) { pass false; }
+        k = k + 1i64;
+    }
+    pass true;
+};
+
+// Whether the token of `b` from `s` for `n` bytes is a word H-15 writes: a kind's name, a word,
+// or an anchor's.
+func:known = bool(Bytes->:b, int64:s, int64:n) never fails {
+    if ((raw word_at(b, s, n, "empty")) || (raw word_at(b, s, n, "literal"))) { pass true; }
+    if ((raw word_at(b, s, n, "class")) || (raw word_at(b, s, n, "concat"))) { pass true; }
+    if ((raw word_at(b, s, n, "alternate")) || (raw word_at(b, s, n, "repeat"))) { pass true; }
+    if ((raw word_at(b, s, n, "group")) || (raw word_at(b, s, n, "anchor"))) { pass true; }
+    if ((raw word_at(b, s, n, "wordboundary")) || (raw word_at(b, s, n, "byte"))) { pass true; }
+    if ((raw word_at(b, s, n, "lazy")) || (raw word_at(b, s, n, "not"))) { pass true; }
+    if ((raw word_at(b, s, n, "text-start")) || (raw word_at(b, s, n, "text-end"))) { pass true; }
+    pass (raw word_at(b, s, n, "line-start")) || (raw word_at(b, s, n, "line-end"));
+};
+
+// Whether the token is a number H-15 writes: digits, two runs of digits joined by `-` (a range),
+// or `-` alone (an unbounded maximum).
+func:numeral = bool(Bytes->:b, int64:s, int64:n) never fails {
+    int64:k = 0i64;
+    int64:dashes = 0i64;
+    while (k < n) decreases n - k {
+        uint8:c = raw bytes_get(b, s + k);
+        if (c == 45u8) { dashes = dashes + 1i64; }
+        else if ((c < 48u8) || (c > 57u8)) { pass false; }
+        k = k + 1i64;
+    }
+    pass dashes <= 1i64;
+};
+
+// THE GREP FOR FLAG RESIDUE (the cycle README's second 0.2.1 box): every token of the dump --
+// the bytes between two spaces or parentheses -- is a word H-15 writes, a number, or the name a
+// group carries after its number; anything else, a flag's letter among them, fails.
+func:words_ok = bool(Bytes->:b) never fails {
+    int64:n = raw bytes_len(b);
+    int64:i = 0i64;
+    int64:state = 0i64;      // 1: `group` read; 2: and its number, so a name may come
+    while (i < n) decreases n - i {
+        uint8:c = raw bytes_get(b, i);
+        if ((c == 32u8) || (c == 40u8) || (c == 41u8)) {
+            if (c != 32u8) { state = 0i64; }
+            i = i + 1i64;
+        }
+        else {
+            int64:s = i;
+            bool:more = true;
+            while (more && (i < n)) decreases n - i {
+                uint8:d = raw bytes_get(b, i);
+                if ((d == 32u8) || (d == 40u8) || (d == 41u8)) { more = false; }
+                else { i = i + 1i64; }
+            }
+            if (raw numeral(b, s, i - s)) {
+                if (state == 1i64) { state = 2i64; } else { state = 0i64; }
+            }
+            else if (state == 2i64) { state = 0i64; }
+            else if (raw known(b, s, i - s)) {
+                if (raw word_at(b, s, i - s, "group")) { state = 1i64; } else { state = 0i64; }
+            }
+            else { pass false; }
+        }
+    }
+    pass true;
+};
+
+// Whether the arena holds the tree under the root and nothing else: every node reached from the
+// root once, and every node reached (H-16). A node reached twice ends the walk.
+func:is_tree = bool(Hir->:h) never fails {
+    int64:n = raw hir_len(<-h);
+    if (h.root == HIR_NONE) { pass n == 0i64; }
+    Bytes:seen = raw bytes_init(n + 1i64);
+    int64:i = 0i64;
+    while (i < n) decreases n - i {
+        drop bytes_push(@seen, 0u8);
+        i = i + 1i64;
+    }
+    Vec<int64>:todo = raw vec_init::<int64>(16i64);
+    drop vec_push(@todo, h.root);
+    int64:reached = 0i64;
+    int64:pops = 0i64;
+    bool:ok = true;
+    while (ok && (todo.count > 0i64)) decreases n + 1i64 - pops {
+        pops = pops + 1i64;
+        int64:m = raw vec_pop(@todo);
+        if ((raw bytes_get(@seen, m)) != 0u8) { ok = false; }
+        else {
+            drop bytes_set(@seen, m, 1u8);
+            reached = reached + 1i64;
+            HirNode:x = raw hir_get(<-h, m);
+            if ((x.kind == HirKind.Concat) || (x.kind == HirKind.Alternate)) {
+                int64:c = x.a;
+                int64:k = 0i64;
+                while ((c != HIR_NONE) && (k <= x.b)) decreases x.b + 1i64 - k {
+                    drop vec_push(@todo, c);
+                    HirNode:y = raw hir_get(<-h, c);
+                    c = y.next;
+                    k = k + 1i64;
+                }
+            }
+            else if ((x.kind == HirKind.Repeat) || (x.kind == HirKind.Group)) {
+                drop vec_push(@todo, x.a);
+            }
+        }
+    }
+    drop vec_free(@todo);
+    pass ok && (reached == n);
+};
+
+// `pattern` parses and builds, and its HIR is `want`: the dump byte for byte, every word H-15's,
+// the arena the tree and nothing else, and the text read back and written the same.
+func:built_bytes = bool(uint8[]:pat, uint8[]:want) never fails {
+    Ast:t = raw ast_init(8i64);
+    PatternError?:e = raw parse_pattern(pat, @t);
+    bool:ok = e == NIL;
+    if (ok) {
+        Hir:h = raw hir_init(8i64);
+        int64:r = raw hir_build(pat, t, @h);
+        ok = (r == HIR_NONE) && (h.root != HIR_NONE);
+        if (ok) {
+            Bytes:b = raw bytes_init(64i64);
+            drop hir_dump(@h, @b);
+            ok = (raw same(@b, want)) && (raw words_ok(@b)) && (raw is_tree(@h));
+            Hir:h2 = raw hir_init(8i64);
+            ok = ok && ((raw hir_read(want, @h2)) == HIR_NONE);
+            Bytes:b2 = raw bytes_init(64i64);
+            drop hir_dump(@h2, @b2);
+            ok = ok && (raw same(@b2, want));
+            drop hir_free(@h2);
+        }
+        drop hir_free(@h);
+    }
+    drop ast_free(@t);
+    pass ok;
+};
+
+func:built = bool(string:pattern, string:want) never fails {
+    pass raw built_bytes(string_bytes(pattern), string_bytes(want));
+};
+
+// `a` and `b` parse and build to one HIR: the flag one of them writes leaves nothing the other
+// does not (H-6).
+func:one_hir = bool(string:a, string:b, string:want) never fails {
+    pass (raw built(a, want)) && (raw built(b, want));
+};
+
+// `pattern` parses, and its build stops at the node whose first byte is `at`, the root unset.
+func:stops = bool(string:pattern, int64:at) never fails {
+    uint8[]:pat = string_bytes(pattern);
+    Ast:t = raw ast_init(8i64);
+    PatternError?:e = raw parse_pattern(pat, @t);
+    bool:ok = e == NIL;
+    if (ok) {
+        Hir:h = raw hir_init(8i64);
+        int64:r = raw hir_build(pat, t, @h);
+        ok = (r != HIR_NONE) && (h.root == HIR_NONE);
+        if (ok) {
+            AstNode:n = raw ast_get(t, r);
+            ok = n.pos == at;
+        }
+        drop hir_free(@h);
+    }
+    drop ast_free(@t);
+    pass ok;
+};
+
+// H-5's table, row by row.
+func:rows = int32() never fails {
+    // `a?`, `a*`, `a+`, `a{n}`, `a{n,}`, `a{n,m}`: a `Repeat`, its bounds as written
+    if (!(raw built("a?", "(repeat 0 1 (literal 97))")))                   { pass 1i32; }
+    if (!(raw built("a*", "(repeat 0 - (literal 97))")))                   { pass 2i32; }
+    if (!(raw built("a+", "(repeat 1 - (literal 97))")))                   { pass 3i32; }
+    if (!(raw built("a{3}", "(repeat 3 3 (literal 97))")))                 { pass 4i32; }
+    if (!(raw built("a{3,}", "(repeat 3 - (literal 97))")))                { pass 5i32; }
+    if (!(raw built("a{2,5}", "(repeat 2 5 (literal 97))")))               { pass 6i32; }
+    // each lazy, `HIR_FLAG_LAZY`
+    if ((!(raw built("a??", "(repeat lazy 0 1 (literal 97))"))) || (!(raw built("a*?", "(repeat lazy 0 - (literal 97))")))
+        || (!(raw built("a+?", "(repeat lazy 1 - (literal 97))"))) || (!(raw built("a{3}?", "(repeat lazy 3 3 (literal 97))")))
+        || (!(raw built("a{3,}?", "(repeat lazy 3 - (literal 97))"))) || (!(raw built("a{2,5}?", "(repeat lazy 2 5 (literal 97))")))) { pass 7i32; }
+    // the bounds' edges -- none, and NREGEX_REPEAT_MAX -- and not expanded (H-7)
+    if ((!(raw built("a{0}", "(repeat 0 0 (literal 97))"))) || (!(raw built("a{0,0}", "(repeat 0 0 (literal 97))")))
+        || (!(raw built("a{1000}", "(repeat 1000 1000 (literal 97))"))) || (!(raw built("a{0,1000}", "(repeat 0 1000 (literal 97))")))) { pass 8i32; }
+    // what a quantifier wraps: a group, a class, an anchor (Y-22), a repetition in a group
+    if ((!(raw built("(?:ab)*", "(repeat 0 - (concat (literal 97) (literal 98)))")))
+        || (!(raw built("(a)+", "(repeat 1 - (group 1 (literal 97)))")))
+        || (!(raw built("[a]?", "(repeat 0 1 (class 97-97))")))
+        || (!(raw built("^*", "(repeat 0 - (anchor text-start))")))
+        || (!(raw built("(a*)*?", "(repeat lazy 0 - (group 1 (repeat 0 - (literal 97))))")))) { pass 9i32; }
+
+    // `.`: every codepoint but `\n`, less the surrogates (C-3); every one under `s`; bytes under `(?-u)`
+    if (!(raw built(".", "(class 0-9 11-55295 57344-1114111)")))           { pass 10i32; }
+    if (!(raw built("(?s).", "(class 0-55295 57344-1114111)")))            { pass 11i32; }
+    if (!(raw built("(?-u).", "(class byte 0-9 11-255)")))                 { pass 12i32; }
+    if (!(raw built("(?s-u).", "(class byte 0-255)")))                     { pass 13i32; }
+    if (!(raw built("a(?-u:.)(?s:.)", "(concat (literal 97) (class byte 0-9 11-255) (class 0-55295 57344-1114111))"))) { pass 14i32; }
+
+    // `(?:…)`: the inner node, with no `Group` wrapper
+    if (!(raw built("(?:a)", "(literal 97)")))                             { pass 15i32; }
+    if ((!(raw built("(?:ab)", "(concat (literal 97) (literal 98))"))) || (!(raw built("(?:a|b)", "(alternate (literal 97) (literal 98))")))) { pass 16i32; }
+    if ((!(raw built("(?:)", "(empty)"))) || (!(raw built("(?:(?:(?:a)))", "(literal 97)")))) { pass 17i32; }
+    if (!(raw built("(?:a)(?:b)c", "(concat (literal 97) (literal 98) (literal 99))"))) { pass 18i32; }
+    // a group of flags captures nothing either
+    if ((!(raw built("(?s:a)", "(literal 97)"))) || (!(raw built("(?m:^)", "(anchor line-start)")))
+        || (!(raw built("(?i:(?-i:a))", "(literal 97)")))) { pass 19i32; }
+
+    // `\d`, `\w`, `\s`, POSIX, `\p{…}`: resolved by cycle 0.3.4, so the build stops at each
+    if ((!(raw stops("\\d", 0i64))) || (!(raw stops("\\D", 0i64))) || (!(raw stops("\\w", 0i64)))
+        || (!(raw stops("\\W", 0i64))) || (!(raw stops("\\s", 0i64))) || (!(raw stops("\\S", 0i64)))) { pass 20i32; }
+    if ((!(raw stops("\\pL", 0i64))) || (!(raw stops("\\p{Greek}", 0i64))) || (!(raw stops("\\PN", 0i64)))) { pass 21i32; }
+    if ((!(raw stops("[[:alpha:]]", 0i64))) || (!(raw stops("[[:^digit:]x]", 0i64)))) { pass 22i32; }
+    if ((!(raw stops("[\\d]", 0i64))) || (!(raw stops("[a\\pL]", 0i64))) || (!(raw stops("(?-u)\\d", 5i64)))) { pass 23i32; }
+
+    // `(?i:…)`: folding is cycle 0.3.4's, so the build stops at every literal, class and `.` it covers
+    if ((!(raw stops("(?i)a", 4i64))) || (!(raw stops("(?i:a)", 4i64)))) { pass 24i32; }
+    if ((!(raw stops("(?i)[a-z]", 4i64))) || (!(raw stops("(?i).", 4i64))) || (!(raw stops("(?i)1", 4i64)))) { pass 25i32; }
+    if ((!(raw stops("a(?i)b", 5i64))) || (!(raw stops("(?i-u)k", 6i64)))) { pass 26i32; }
+    // and builds what it does not fold
+    if ((!(raw built("(?i)^$", "(concat (anchor text-start) (anchor text-end))")))
+        || (!(raw built("(?i)\\b(?:)()", "(concat (wordboundary) (empty) (group 1 (empty)))")))) { pass 27i32; }
+    pass 0i32;
+};
+
+// The kinds H-5 maps to themselves.
+func:kinds = int32() never fails {
+    // `Empty`: the empty pattern, an empty alternative, an empty group
+    if ((!(raw built("", "(empty)"))) || (!(raw built("a|", "(alternate (literal 97) (empty))")))
+        || (!(raw built("|", "(alternate (empty) (empty))"))) || (!(raw built("()", "(group 1 (empty))")))) { pass 30i32; }
+    // `Literal`: a codepoint, written as itself or by an escape
+    if ((!(raw built("a", "(literal 97)"))) || (!(raw built("é", "(literal 233)")))
+        || (!(raw built("\\x{1F600}", "(literal 128512)"))) || (!(raw built("\\n", "(literal 10)")))
+        || (!(raw built("\\x00", "(literal 0)"))) || (!(raw built("\\U0010FFFF", "(literal 1114111)")))) { pass 31i32; }
+    // and a byte under `(?-u)`, `HIR_FLAG_BYTE`, beside a codepoint
+    if ((!(raw built("(?-u)\\xFF", "(literal byte 255)"))) || (!(raw built("(?-u)a", "(literal byte 97)")))
+        || (!(raw built("(?-u:\\xE9)é", "(concat (literal byte 233) (literal 233))")))) { pass 32i32; }
+    // `Concat`, in order, and not flattened (H-13 is cycle 0.2.3's)
+    if ((!(raw built("abc", "(concat (literal 97) (literal 98) (literal 99))")))
+        || (!(raw built("a(?:bc)", "(concat (literal 97) (concat (literal 98) (literal 99)))")))) { pass 33i32; }
+    // `Alternate`, in order, and not reordered (H-14)
+    if ((!(raw built("b|a|c", "(alternate (literal 98) (literal 97) (literal 99))")))
+        || (!(raw built("a|(?:b|c)", "(alternate (literal 97) (alternate (literal 98) (literal 99)))")))) { pass 34i32; }
+
+    // `Group`: numbered by its `(` (Y-6), from 1
+    if ((!(raw built("(a)(b)", "(concat (group 1 (literal 97)) (group 2 (literal 98)))")))
+        || (!(raw built("((a))", "(group 1 (group 2 (literal 97)))")))
+        || (!(raw built("(a(b)(c))d(e)", "(concat (group 1 (concat (literal 97) (group 2 (literal 98)) (group 3 (literal 99)))) (literal 100) (group 4 (literal 101)))")))) { pass 40i32; }
+    // a name, copied into the HIR
+    if ((!(raw built("(?<year>a)", "(group 1 year (literal 97))"))) || (!(raw built("(?<n>)", "(group 1 n (empty))")))) { pass 41i32; }
+    // the group table: group 0 the whole match, then the pattern's in number order, their names
+    uint8[]:gp = string_bytes("(?<year>a)(b)(?<m_1>c)");
+    Ast:gt = raw ast_init(8i64);
+    if ((raw parse_pattern(gp, @gt)) != NIL) { pass 42i32; }
+    Hir:gh = raw hir_init(8i64);
+    if ((raw hir_build(gp, gt, @gh)) != HIR_NONE) { pass 43i32; }
+    Bytes:n1 = raw bytes_init(8i64);
+    Bytes:n2 = raw bytes_init(8i64);
+    Bytes:n3 = raw bytes_init(8i64);
+    drop hir_put_name(@gh, 1i64, @n1);
+    drop hir_put_name(@gh, 2i64, @n2);
+    drop hir_put_name(@gh, 3i64, @n3);
+    if (((raw hir_group_count(gh)) != 4i64) || (!(raw same(@n1, string_bytes("year"))))
+        || ((raw bytes_len(@n2)) != 0i64) || (!(raw same(@n3, string_bytes("m_1"))))) { pass 44i32; }
+    drop hir_free(@gh);
+    drop ast_free(@gt);
+
+    // `Anchor`: `^` and `$` the text's ends, or under `m` the lines'; `\A` and `\z` the text's always
+    if (!(raw built("^$\\A\\z", "(concat (anchor text-start) (anchor text-end) (anchor text-start) (anchor text-end))"))) { pass 45i32; }
+    if (!(raw built("(?m)^$\\A\\z", "(concat (anchor line-start) (anchor line-end) (anchor text-start) (anchor text-end))"))) { pass 46i32; }
+    if (!(raw built("(?m:^)$", "(concat (anchor line-start) (anchor text-end))")))  { pass 47i32; }
+    // `WordBoundary`: `\b` and `\B`, and over ASCII under `(?-u)`, `HIR_FLAG_BYTE`
+    if (!(raw built("\\b\\B", "(concat (wordboundary) (wordboundary not))")))        { pass 48i32; }
+    if (!(raw built("(?-u:\\b\\B)\\b", "(concat (concat (wordboundary byte) (wordboundary byte not)) (wordboundary))"))) { pass 49i32; }
+    pass 0i32;
+};
+
+// Classes built from their members, and the surrogates (C-3).
+func:classes = int32() never fails {
+    if ((!(raw built("[a]", "(class 97-97)"))) || (!(raw built("[a-z]", "(class 97-122)")))) { pass 50i32; }
+    // in the order written: sorting and merging are cycle 0.2.3's (H-13)
+    if ((!(raw built("[ba]", "(class 98-98 97-97)"))) || (!(raw built("[a-z0-9_a]", "(class 97-122 48-57 95-95 97-97)")))) { pass 51i32; }
+    // `]` and `-` where they are members (Y-36)
+    if ((!(raw built("[]a]", "(class 93-93 97-97)"))) || (!(raw built("[a-]", "(class 97-97 45-45)")))) { pass 52i32; }
+    // a nested class's members in its place
+    if ((!(raw built("[a[b-c]d]", "(class 97-97 98-99 100-100)"))) || (!(raw built("[[[a]]]", "(class 97-97)")))) { pass 53i32; }
+    // a class of bytes under `(?-u)`, `HIR_FLAG_BYTE`
+    if ((!(raw built("(?-u)[a-z]", "(class byte 97-122)"))) || (!(raw built("(?-u)[\\x80-\\xFF]", "(class byte 128-255)")))) { pass 54i32; }
+    // a range that spans the surrogates is the two pieces either side of them (C-3) ...
+    if (!(raw built("[\\x{D000}-\\x{E000}]", "(class 53248-55295 57344-57344)")))      { pass 55i32; }
+    if (!(raw built("[\\x{0}-\\x{10FFFF}]", "(class 0-55295 57344-1114111)")))        { pass 56i32; }
+    // ... each piece at the gap's edge, and a range that ends at an edge untouched
+    if ((!(raw built("[\\x{D7FF}-\\x{E000}]", "(class 55295-55295 57344-57344)")))
+        || (!(raw built("[a-\\x{D7FF}\\x{E000}-\\x{E001}]", "(class 97-55295 57344-57345)")))) { pass 57i32; }
+    // and none in byte mode, which has no surrogates
+    if (!(raw built("(?-u)[\\x00-\\xFF]", "(class byte 0-255)")))                     { pass 58i32; }
+    pass 0i32;
+};
+
+// Flags erased (H-6): a pattern with a flag and one without it, or with its other scope, one HIR;
+// and every place a `(?flags)` node stands, which builds nothing.
+func:flags = int32() never fails {
+    if (!(raw one_hir("(?s).", "[\\x{0}-\\x{10FFFF}]", "(class 0-55295 57344-1114111)")))           { pass 60i32; }
+    if (!(raw one_hir(".", "[\\x{0}-\\x{9}\\x{B}-\\x{10FFFF}]", "(class 0-9 11-55295 57344-1114111)"))) { pass 61i32; }
+    if (!(raw one_hir("(?-u).", "(?-u)[\\x00-\\x09\\x0B-\\xFF]", "(class byte 0-9 11-255)")))       { pass 62i32; }
+    if ((!(raw one_hir("(?x) a b # c", "ab", "(concat (literal 97) (literal 98))")))
+        || (!(raw one_hir("(?s)a(?m)b(?u)c", "abc", "(concat (literal 97) (literal 98) (literal 99))")))) { pass 63i32; }
+    if ((!(raw one_hir("(?i)^", "^", "(anchor text-start)"))) || (!(raw one_hir("(?m)^", "(?m:^)", "(anchor line-start)")))
+        || (!(raw one_hir("(?-u)\\b", "(?-u:\\b)", "(wordboundary byte)")))) { pass 64i32; }
+    // `(?flags)` alone, first, last, between, as an alternative and as a group's body
+    if ((!(raw built("(?i)", "(empty)"))) || (!(raw built("(?-u)", "(empty)"))) || (!(raw built("(?i)(?m)(?s)(?x)", "(empty)")))) { pass 65i32; }
+    if ((!(raw built("a(?i)", "(literal 97)"))) || (!(raw built("(?m)a", "(literal 97)")))
+        || (!(raw built("a(?x)b", "(concat (literal 97) (literal 98))")))) { pass 66i32; }
+    if ((!(raw built("a|(?i)", "(alternate (literal 97) (empty))"))) || (!(raw built("(?i)|(?m)", "(alternate (empty) (empty))")))) { pass 67i32; }
+    if ((!(raw built("((?i))", "(group 1 (empty))"))) || (!(raw built("(?:(?i))", "(empty)")))
+        || (!(raw built("(?i)(?m)$", "(anchor line-end)")))) { pass 68i32; }
+    // `u` turned back on: a codepoint again
+    if (!(raw built("(?-u)(?u)a(?-u)b", "(concat (literal 97) (literal byte 98))")))   { pass 69i32; }
+    pass 0i32;
+};
+
+// Where the build stops until cycle 0.3.4: the first node, in the order the pattern writes them.
+func:stopping = int32() never fails {
+    // a class's negation and its operators are arithmetic over sorted lists (0.3.4's)
+    if ((!(raw stops("[^a]", 0i64))) || (!(raw stops("[a&&b]", 0i64))) || (!(raw stops("[a--b]", 0i64)))
+        || (!(raw stops("[a~~b]", 0i64)))) { pass 70i32; }
+    // a nested class negated, or holding a property, stops its outermost class
+    if ((!(raw stops("[a[^b]]", 0i64))) || (!(raw stops("x[a[\\pL]]", 1i64)))) { pass 71i32; }
+    // the first node it meets
+    if ((!(raw stops("a\\d\\pL", 1i64))) || (!(raw stops("(?i)a\\d", 4i64))) || (!(raw stops("\\pL|\\d", 0i64)))) { pass 72i32; }
+    // inside a group, a repetition, an alternative
+    if ((!(raw stops("(a)(\\d)", 4i64))) || (!(raw stops("x\\w*", 1i64))) || (!(raw stops("a|[^b]", 2i64)))) { pass 73i32; }
+    pass 0i32;
+};
+
+// An `Ast` with no root, and the largest patterns.
+func:edges = int32() never fails {
+    Ast:t = raw ast_init(1i64);
+    Hir:h = raw hir_init(1i64);
+    if (((raw hir_build(string_bytes(""), t, @h)) != HIR_NONE) || (h.root != HIR_NONE)
+        || ((raw hir_len(h)) != 0i64) || ((raw hir_group_count(h)) != 1i64)) { pass 80i32; }
+    drop hir_free(@h);
+    drop ast_free(@t);
+
+    // 250 groups deep, NREGEX_NEST_DEPTH, each numbered by its `(`
+    Bytes:p = raw bytes_init(16i64);
+    Bytes:w = raw bytes_init(16i64);
+    int64:i = 0i64;
+    while (i < 250i64) decreases 250i64 - i {
+        drop bytes_push(@p, 40u8);
+        drop bytes_extend_str(@w, "(group ");
+        drop bytes_put_uint(@w, (i + 1i64) =>! uint64);
+        drop bytes_push(@w, 32u8);
+        i = i + 1i64;
+    }
+    drop bytes_push(@p, 97u8);
+    drop bytes_extend_str(@w, "(literal 97)");
+    i = 0i64;
+    while (i < 250i64) decreases 250i64 - i {
+        drop bytes_push(@p, 41u8);
+        drop bytes_push(@w, 41u8);
+        i = i + 1i64;
+    }
+    string:ps = raw bytes_copy_string(@p);
+    string:ws = raw bytes_copy_string(@w);
+    if (!(raw built(ps, ws))) { pass 81i32; }
+
+    // 250 wrappers that capture nothing, erased to the one literal they hold
+    drop bytes_clear(@p);
+    i = 0i64;
+    while (i < 250i64) decreases 250i64 - i {
+        drop bytes_extend_str(@p, "(?:");
+        i = i + 1i64;
+    }
+    drop bytes_push(@p, 97u8);
+    i = 0i64;
+    while (i < 250i64) decreases 250i64 - i {
+        drop bytes_push(@p, 41u8);
+        i = i + 1i64;
+    }
+    string:qs = raw bytes_copy_string(@p);
+    if (!(raw built(qs, "(literal 97)"))) { pass 82i32; }
+
+    // the longest pattern, NREGEX_PATTERN_BYTES: 65 536 literals in one `Concat`
+    drop bytes_clear(@p);
+    drop bytes_clear(@w);
+    drop bytes_extend_str(@w, "(concat");
+    i = 0i64;
+    while (i < NREGEX_PATTERN_BYTES) decreases NREGEX_PATTERN_BYTES - i {
+        drop bytes_push(@p, 97u8);
+        drop bytes_extend_str(@w, " (literal 97)");
+        i = i + 1i64;
+    }
+    drop bytes_push(@w, 41u8);
+    string:ls = raw bytes_copy_string(@p);
+    string:lw = raw bytes_copy_string(@w);
+    if (!(raw built(ls, lw))) { pass 83i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:r = raw rows();
+    if (r != 0i32) { exit r; }
+    r = raw kinds();
+    if (r != 0i32) { exit r; }
+    r = raw classes();
+    if (r != 0i32) { exit r; }
+    r = raw flags();
+    if (r != 0i32) { exit r; }
+    r = raw stopping();
+    if (r != 0i32) { exit r; }
+    exit raw edges();
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

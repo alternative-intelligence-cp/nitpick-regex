@@ -16,3 +16,4 @@ this layer's.)*
 | `hir.npk` | the layer's entry: one `pub use` per name it offers | 0.2.0 |
 | `repr.npk` | the arena — `HirKind`, `HirNode`, `GroupInfo`, `Hir` — and its accessors (H-2 … H-4a) | 0.2.0 |
 | `dump.npk` | the HIR as one line of text, and back (H-15) | 0.2.0 |
+| `build.npk` | the desugaring: a pattern's AST to a HIR, and the two hooks cycle 0.3.4 fills (H-5, H-6, H-16) | 0.2.1 |

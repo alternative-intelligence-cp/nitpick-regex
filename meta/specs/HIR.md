@@ -119,6 +119,10 @@ survives (H-6): `m` is an `Anchor`'s value, `s` a `.`'s class, `i` folded ranges
 | `(?:…)` | the inner node, with no `Group` wrapper |
 | `(?i:…)` | the inner tree, with folding **already applied to its classes** |
 
+*(2026-10-08, cycle 0.2.1 — RX-228: H-16 says how each kind of AST node meets this table. The quantifiers are a `Repeat`
+in the AST already (`SYNTAX.md` Y-32); `\d`, `\w`, `\s`, POSIX, `\p{…}` and `(?i:…)` are where the build stops until
+cycle 0.3.4 fills its two hooks and widens its `leaf`.)*
+
 **Rule H-6 — flags are erased.** Nothing downstream of the HIR knows what `i`,
 `s`, `m`, `u` or `x` meant. Case-insensitivity is folded ranges;
 multi-line is a different `Anchor` kind; `s` is a different `.` class; `x` is
@@ -135,6 +139,39 @@ expansion. This keeps HIR fixtures small and keeps `NREGEX_REPEAT_PRODUCT`
 **Rule H-8 — the repetition product is checked as the HIR is built**, by
 multiplying the enclosing factors on the way down. `((a{1000}){1000}){1000}` is
 refused at the third `{1000}`, before a billion instructions are requested.
+
+**Rule H-16 — the build** (RX-228). `hir_build(uint8[]:pat, Ast:t, Hir->:out) -> int64` builds the HIR of a pattern
+from its AST (`SYNTAX.md` Y-26, Y-27) into a `Hir` fresh from `hir_init`, each kind of AST node as this table says and
+nothing else (H-5) — nothing flattened, merged, sorted or reordered, which is cycle 0.2.3's (H-13), and nothing
+expanded (H-7):
+
+| AST node | HIR |
+|---|---|
+| `Empty` | `Empty` |
+| `Literal` | `Literal`: its codepoint, or under `AST_FLAG_BYTE` its byte with `HIR_FLAG_BYTE` |
+| `Dot` | `Class`: every codepoint but `\n`, every one under `s` — the surrogates left out (`COMPILE.md` C-3) — or under `(?-u)` every byte but `\n`, every one under `s`, with `HIR_FLAG_BYTE` |
+| `Concat` | `Concat` of its pieces in order, a `Flags` piece left out — `Empty` when no piece is left, the piece itself when one is (`SYNTAX.md` Y-33's rule, after the erasure) |
+| `Alternate` | `Alternate` of its alternatives in order, a `Flags` alternative an `Empty` |
+| `Repeat` | `Repeat`: its node, its minimum and its maximum as written, `HIR_FLAG_LAZY` when lazy |
+| `Group` that captures | `Group`: its body, its number, its name copied into `Hir.names` |
+| `Group` that captures nothing — `(?:…)`, `(?flags:…)` | its body; a `Flags` body an `Empty` |
+| `Flags` — `(?flags)` | nothing: its effect is in the flags of the nodes after it (Y-41) |
+| `Anchor` | `^` `HIR_TEXT_START`, under `m` `HIR_LINE_START`; `$` `HIR_TEXT_END`, under `m` `HIR_LINE_END`; `\A` `HIR_TEXT_START` and `\z` `HIR_TEXT_END` always |
+| `WordBoundary` | `WordBoundary`, `HIR_NOT_WORD` for `\B`; under `(?-u)` `HIR_FLAG_BYTE` |
+| `Class` | `Class` of its members' ranges in the order written, a nested class's in its place, each less the surrogates in Unicode mode (C-3); under `(?-u)` `HIR_FLAG_BYTE` |
+
+A node's flags in force are read for what it means and never copied (H-6). **The build stops** at the first node, in
+the order the pattern writes them, whose meaning needs what cycle 0.3.4 builds, and answers its index in the AST with
+`out`'s root unset — never a HIR that means something else: a `PerlClass` or a `UnicodeClass`; a `Class` that is
+negated or holds a `PerlClass`, a `PosixClass`, a `UnicodeClass`, a `ClassOp` or a negated class, at the outermost
+`Class`; and under `i` a `Literal`, a `Class` or a `Dot`, which `i` folds (`UNICODE.md` U-11, U-13). Its two hooks,
+`resolve_items` and `fold_ranges` in `src/hir/build.npk`, are where cycle 0.3.4 resolves and folds. Otherwise it answers
+`HIR_NONE` with the root set, and **the arena holds the tree and nothing else**: a node is pushed when the node holding
+it is built, so every node is reached from the root once, and H-15's bound is exact for every HIR the build answers
+`HIR_NONE` for. Groups are added to `Hir.groups` as the walk enters them, the order their `(` is written (Y-6), and
+each must be the AST's number or the build stops `OutOfBounds`; an AST that is not a tree stops it
+`DecreasesViolated`. The walk is an explicit stack bounded by twice the arena (`SAFETY.md` S-19).
+`tests/unit/hir_build.npk` holds every row, and two units more each trap.
 
 ---
 
@@ -229,6 +266,8 @@ Bit column, `byte` on a `literal`, a `class` and a `wordboundary`, `lazy` on a `
 completes shows every bit its nodes hold and a dump compared with its expected text is a test of H-6. Five units trap
 now: `hir_dump_stray_bit.npk` is the fifth. A bit cycle 0.2.4 adds (H-9) is one this check refuses until that cycle
 says how the dump shows it.)*
+*(2026-10-08, cycle 0.2.1 — RX-228: and `hir_build` builds one — every node it pushes is reached from the root once
+(H-16) — so the walk's bound is exact for every HIR it answers `HIR_NONE` for.)*
 
 ---
 

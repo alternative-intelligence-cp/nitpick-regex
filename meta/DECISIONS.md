@@ -5926,3 +5926,54 @@ text does not have, and a canonical form that changes when cycle 0.2.4 adds its 
 `hir_push`** — they store what a builder hands them, as the arena stores a wrong count, and the writer is where RX-225
 put the arena's other checks; **leaving it** — the cycle README's grep would read a text that cannot show what it
 looks for.
+
+### RX-228 — the desugaring, a new rule H-16: `hir_build` builds every kind of AST node as H-5 says and nothing else, erases every flag, holds C-3, builds a tree, and stops where cycle 0.3.4 fills its two hooks
+
+**2026-10-08, cycle 0.2.1 (the plan's PD-72), at compiler `5fbaf4a`** — `HIR.md` H-1, H-5 … H-8 and H-15, `SYNTAX.md` Y-6,
+Y-26, Y-27, Y-33 and Y-41, `COMPILE.md` C-3, `SAFETY.md` S-19, and the cycle README's 0.2.1 row, *"`HIR.md` §3's
+table, exactly and nothing else"*. H-5 lists the rewrites and says nothing else happens, but the AST has sixteen kinds
+and the table names six spellings of one, a class row and three others: what a `Flags` node becomes, what `m` does to
+an `Anchor` and `u` to a word boundary, where C-3's surrogates go, and what the build does with a class item no table
+resolves yet, H-5 does not say. And RX-223 handed this subcycle the question of an item with no HIR form before cycle
+0.3.4, and RX-225 the question of a builder's leftover nodes.
+
+**The decision.** `src/hir/build.npk`: `hir_build(uint8[]:pat, Ast:t, Hir->:out) -> int64`, re-exported by `hir.npk`.
+**A new rule, `HIR.md` H-16**, is its table, kind by kind: a quantifier is copied as the `Repeat` the AST holds (Y-32);
+`.` is a `Class` of every codepoint but `\n`, or every one under `s`, less the surrogates, or of bytes under `(?-u)`; a
+group that captures nothing is its body; a `Flags` node builds nothing, its effect being in the flags of every node
+after it (Y-41), and a list without it is rebuilt by Y-33's rule — a `Concat` left with no piece is `Empty` and with one
+piece is that piece, and an alternative or a body that was one is `Empty`; `^` and `$` are the lines' anchors under `m`,
+`\A` and `\z` the text's always; a literal, a class and a word boundary under `(?-u)` carry `HIR_FLAG_BYTE`; a class is
+its members' ranges in the order written, a nested class's in its place, and in Unicode mode a range that spans the
+surrogates is the two pieces either side of them (C-3, which H-15 makes a builder's to hold). No AST flag is copied
+(H-6). **Where the build stops**: at the first node, in the order the pattern writes them, whose meaning needs what
+cycle 0.3.4 builds — a Perl class, a POSIX class or a property, which the Unicode tables resolve; a class's operators
+and its negation, arithmetic over the sorted lists 0.3.4 makes; and under `i` a literal, a class or `.`, which the fold
+table folds — answering that node's index in the AST, the root unset, never a HIR that means something else. The two
+hooks are named, `resolve_items` and `fold_ranges`, and cycle 0.3.4 fills them. **The tree**: a node is pushed when the
+node holding it is built, so a HIR the build answers `HIR_NONE` for has every node reached from its root once, and
+H-15's bound is exact for it — RX-225's question answered, and its *"a set of the nodes entered"* stays declined.
+Groups are added as the walk enters them, the order their `(` is written, and a number the table does not answer is an
+`OutOfBounds` stop; an AST that is not a tree, a `DecreasesViolated` stop. The walk is two explicit stacks, bounded by
+twice the arena (S-19). Units `hir_build` (0), `hir_build_not_a_tree` (108), `hir_build_misnumbered` (94); H-5 and
+H-15 dated; `src/hir/README.md`'s table and `hir.npk`'s header.
+
+**Measured at `5fbaf4a`.** `hir_build` exits 0 at both legs: every row of H-5's table, each lazy form and the bounds'
+edges; `.` in each mode; `(?:…)` erased; the class row and the `(?i:…)` row stopping at the byte named, the root unset;
+every other kind; classes in the order written and C-3's two pieces; flags erased — eight pairs of patterns, a flag
+against none or its other scope, built to one text — and a `(?flags)` node in every place it may stand; 250 groups deep, 250
+wrappers erased and 65 536 literals in one `Concat`. Every HIR it builds dumps to its text with every word H-15's, holds
+its tree and nothing else, and reads back to the same text. `hir_build_not_a_tree` exits 108 and
+`hir_build_misnumbered` 94, at both legs. Each of the plan's mutants of `build.npk` is red at its unit's exit. The full
+run is `292/292`.
+
+*Alternatives declined:* **an unresolved item carried in the HIR** — a tenth kind breaks H-4's closed list, and an empty
+class in its place matches nothing where the pattern matches something; **resolving the items that need no table now**
+— negation and the operators — arithmetic over sorted lists that cycle 0.3.4 writes once for all of them, which this
+row of the roadmap does not ask for; **a `PatternError` for an item not yet resolved** — §9's kinds are the pattern's
+mistakes, and this is the library's own unfinished work, which no refusal may blame on a pattern; **a trap at a hook** —
+it ends the program, and a test could not ask where one more build stops; **a `Flags` node as an `Empty`** — a node
+where nothing was written, a trace of the flag that the erasure test reads as one; **copying a node's AST flags** — H-6,
+and `AST_FLAG_I` is `HIR_FLAG_LAZY`'s value; **groups numbered as they are built** — a post-order walk numbers `((a))`'s
+inner group first; **a builder that answers `PatternError?` now** — the refusal cycle 0.2.2 adds decides its own answer,
+and this subcycle refuses nothing.
