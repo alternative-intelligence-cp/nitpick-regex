@@ -5864,3 +5864,37 @@ two equal; **the walk's measure `2n + 1`, as the plan was drafted** — it admit
 parents in an arena of three nodes was written twice with no stop, measured at the plan's rehearsal; **a set of the
 nodes entered** — it would stop a shared node beside nodes nothing reaches too, at an allocation per dump, and no
 builder exists yet to say whether it leaves such nodes.
+
+## The desugaring — cycle 0.2.1
+
+### RX-226 — a `pending-until:` marker's label is a compiler commit or a subcycle of this library: a test that fails until a later subcycle builds what it asserts through
+
+**2026-10-08, cycle 0.2.1 (the plan's PD-70), at compiler `5fbaf4a`** — `BUILD.md` B-5b, RX-146 as amended by RX-154 and
+RX-159, `TESTING.md` V-20, and the cycle README's two 0.2.1 boxes that ask for *"a test that fails until then"*: the
+desugaring stops where cycle 0.3.4 fills a hook, and the test that asserts what the hook will build is correct and red
+until then. B-5b's marker is the one route a red unit has out of the denominator, and it took a compiler commit alone:
+*"a unit that is correct and red, because the defect it asserts against is in the pinned compiler"*.
+
+**The decision.** The marker's label is a compiler commit — 7 to 40 lowercase hex digits — **or a subcycle of this
+library**: digits, a dot, digits, a dot, digits, and one lowercase letter at most, `0.3.4` or `0.1.6b`. It is a label
+as the commit is: checked for its shape and never resolved; its line in `harness/baseline/PENDING.txt` names it in the
+commit's column; the unit is built, run on both legs and held to the exit its marker names; it goes red the day it
+meets its expectation, and the marker and the line are deleted then. The run prints *"PENDING until cycle 0.3.4"* for
+it, where it prints *"until compiler"* for a commit; a commit holds no dot, so the two shapes never meet. Self-check
+case 34 is case 11's plant under a subcycle's label — a red the reviewed list does not name — and requires the list's
+message, which quotes the marker back, so a reader that refused the label fails it as surely as a list that passed it.
+`harness/expect.py` and `stages.py`, `PENDING.txt`'s header, both harness READMEs, B-5b and V-20 dated; CI's comment
+counts thirty-five cases.
+
+**Measured at `5fbaf4a`.** The self-check runs thirty-five cases, the thirty-one live each red as it must be, the four
+pending printed so. Case 34 fails against a reader that refuses the subcycle's label — the unit fails as unreadable, and
+the list's message, which the case asks for, never prints — and against a runner whose list check passes a dotted
+label, where case 11 passes against both. The full run is `283/283`: no unit carries a marker yet.
+
+*Alternatives declined:* **the subcycle's own pin in the commit's place**, `5fbaf4a` — a commit-shaped label that names
+the wrong thing, which B-5b says tells whoever moves the pin which fix the unit waits on; **a unit that asserts the
+hook's present answer and is rewritten when the hook is filled** — a pending obligation counted as a pass, which P-18
+and B-5b refuse: *"a pending case is not a passing case"*; **the test left out of the suites until the subcycle that
+fills the hook** — *"how a defect gets forgotten between the day it is understood and the day it could be caught"*
+(B-5b), and nothing would redden the day it passes; **a second marker** — two grammars for one route out of the
+denominator, and every check B-5b holds the marker to written twice.

@@ -9,6 +9,10 @@
 # `// pending-until: <commit> exit <N>` marker, exactly; `reason` says what the
 # unit waits on. Blank lines and `#` comments are ignored.
 #
+# *(2026-10-08, cycle 0.2.1 -- RX-226: or CORRECT AND RED because what it asserts
+# through is a later subcycle's to build, and then `commit` is that subcycle, `0.3.4`:
+# a label as the commit is, never resolved, retired by the unit's own exit.)*
+#
 # WHY A MARKER NEEDS A LINE HERE AS WELL. A pending unit is OUTSIDE the run's
 # denominator, so the marker is a way for a red to leave a green run -- and the
 # third cycle-0.0 audit (BL-6, M3) measured one comment line doing exactly that

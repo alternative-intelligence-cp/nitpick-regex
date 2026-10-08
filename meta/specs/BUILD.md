@@ -475,6 +475,14 @@ O-G3) has a row for it rather than a surprise.**
   moved it out of the denominator — `140/140`, GREEN, which defeated the
   self-check's own case 1.)*
 
+  *(2026-10-08, cycle 0.2.1 — RX-226: the label may be a SUBCYCLE of this library
+  instead, `0.3.4` — digits, two dots and digits, a letter at most — for a unit
+  that is correct and red because what it asserts through is a later subcycle's
+  to build. It is the same label nothing resolves, the same reviewed line and the
+  same exit, and the unit retires itself the same way; the run prints "until
+  cycle 0.3.4". A commit holds no dot, so the shapes never meet. Self-check case
+  34 is case 11's plant under such a label.)*
+
 **Rule B-6 — assert on codes and exit codes, never on message text.**
 
 **Rule B-7 — unexpected diagnostics fail a test as surely as missing ones**

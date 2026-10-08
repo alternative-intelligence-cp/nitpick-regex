@@ -361,6 +361,9 @@ requires it to report every one as a failure. The list is `harness/selfcheck.py`
     README does not name its kind — each failing by name, and a clean tree passing
     whose listed kind a unit builds and names in a comment (RX-219). On the
     instrument.
+34. a red hidden behind a `pending-until:` marker labelled by a SUBCYCLE of this
+    library, `0.3.4`, which the reviewed list does not name — case 11's plant
+    under the label RX-226 adds, which must be read and held to the list.
 
 *(Reconciled 2026-09-25 by the third cycle 0.0 audit's triage, RX-154. This list
 had eight bullets and `CASES` eleven entries, and they disagreed in BOTH
@@ -407,6 +410,10 @@ pending** on the day it was written.)*
 
 *(Extended 2026-10-08 by cycle 0.1.6b, RX-219: 33. It was seen to fail against each mutant of the check that the plan's
 §1.6 lists. **34 cases, 30 live, 4 pending** on the day it was written.)*
+
+*(Extended 2026-10-08 by cycle 0.2.1, RX-226: 34. It was seen to fail against a reader that
+refused the subcycle's label and against a runner whose list check passed it. **35 cases,
+31 live, 4 pending** on the day it was written.)*
 
 **Rule V-21 — the self-check runs first in every full invocation.** A harness
 that has not proven it can fail has not proven anything.

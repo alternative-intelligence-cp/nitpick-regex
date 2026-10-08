@@ -194,8 +194,18 @@ def run_binary(exe, args, stress, want, name, tail, mem_cap_mib=0):
 PENDING_LIST = "harness/baseline/PENDING.txt"
 
 
+def until(label):
+    """What a pending marker's label names, as the run prints it: a subcycle of this
+    library, which holds a dot, or a compiler commit, which cannot (RX-226)."""
+    if "." in label:
+        return f"cycle {label}"
+    return f"compiler `{label}`"
+
+
 class Pending:
-    """A unit that is CORRECT and RED because the pinned compiler is the defect.
+    """A unit that is CORRECT and RED because the pinned compiler is the defect --
+    or, since cycle 0.2.1, because a later subcycle of this library builds what it
+    asserts through (RX-226).
 
     Carried out of the stage rather than reported as a finding, so the runner can
     count it as neither a pass nor a failure -- `expect.py`'s fourth marker says
@@ -214,7 +224,7 @@ class Pending:
 
     def line(self):
         cap = f", under a {self.capped} MiB cap" if self.capped else ""
-        return (f"{self.name}: PENDING until compiler `{self.until}` -- wants exit "
+        return (f"{self.name}: PENDING until {until(self.until)} -- wants exit "
                 f"{self.want}{cap}; the marker names exit {self.named} and this tree "
                 f"gives {self.got}. NOT A PASS and not counted in the denominator.")
 
@@ -346,8 +356,8 @@ def _pending(c, legs, name, exp):
         # line. NOTE WHAT THIS IS KEYED ON: the exit, not the commit, which is a
         # label nothing here resolves (RX-154).
         return [f"{name}: {marker} IS NOW STALE -- the file met its expectation "
-                f"(exit {exp.exit_code}) against the compiler this tree is pinned "
-                f"to, on every leg. DELETE THE MARKER AND ITS LINE IN {PENDING_LIST}; "
+                f"(exit {exp.exit_code}) in this tree, against the compiler it is "
+                f"pinned to, on every leg. DELETE THE MARKER AND ITS LINE IN {PENDING_LIST}; "
                 f"the case is live and belongs in the denominator. A pending marker "
                 f"that survives the day it stops being true is the dormant rule this "
                 f"repository keeps finding."]

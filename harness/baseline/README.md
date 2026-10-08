@@ -86,5 +86,7 @@ lists a reviewer signs, and `RESIDUE.txt` set its shape. **One line per unit a
 marker the list does not name is a failure, and on a full run a line no pending
 unit matches is a failure. Without it one comment line could move a red out of
 a green run, which the third cycle 0.0 audit measured (BL-6, M3; RX-154).
+*(2026-10-08, cycle 0.2.1 — RX-226: the marker's label is a commit, or a subcycle of this
+library, `0.3.4`, for a unit pending on what a later subcycle builds.)*
 **Empty since cycle 0.0.4b**, when the one unit it would have listed started
 passing at `c3bdae2`.

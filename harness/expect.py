@@ -99,6 +99,12 @@ the run that moves it". Measured false: a marker naming a commit that does not
 exist was accepted and behaved identically, because the retirement was keyed on
 the exit alone -- which is still true, and is now the whole of the claim.
 
+*(2026-10-08, cycle 0.2.1 -- RX-226: OR A SUBCYCLE OF THIS LIBRARY, `0.3.4` -- digits, two dots
+and digits, and a letter at most -- for a unit that is correct and red because what it
+asserts through is a later subcycle's to build. The same label nothing resolves, the same
+reviewed line, the same exit; the run says "until cycle" for it where it says "until
+compiler" for a commit. A commit holds no dot, so the two shapes never meet.)*
+
 SECOND: `stress: 0`. Here the divergence is smaller and the reason is
 different, and it is worth stating exactly because the first draft of this
 comment got it wrong. `npkg` does NOT run the program zero times: `run_binary`
@@ -124,6 +130,8 @@ EXIT_MAX = 255
 SIGNAL_MIN = -64
 # A commit's SHAPE, never its existence (RX-154): see the fourth marker above.
 _COMMIT = re.compile(r"^[0-9a-f]{7,40}$")
+# Or a subcycle of this library's, `0.3.4` or `0.1.6b` -- a label too (RX-226).
+_SUBCYCLE = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+[a-z]?$")
 
 
 class Expect:
@@ -134,7 +142,7 @@ class Expect:
         self.stress = 1
         self.argv = []
         self.mem_cap_mib = 0    # 0 = uncapped. `mem-cap-mib: N` sets it.
-        self.pending_until = ""   # a compiler commit, as a LABEL: never resolved (RX-154)
+        self.pending_until = ""   # a compiler commit or a subcycle, as a LABEL: never resolved (RX-154, RX-226)
         self.pending_exit = None  # the exit the unit is pending on; any other fails it
         self.pending_line = 0
         self.no_parse_error = False
@@ -258,9 +266,11 @@ def read(text):
         if body.startswith("pending-until:"):
             toks = _split_ws(_after_colon(body))
             if (len(toks) != 3 or toks[1] != "exit"
-                    or not _COMMIT.match(toks[0]) or _int(toks[2]) is None):
+                    or not (_COMMIT.match(toks[0]) or _SUBCYCLE.match(toks[0]))
+                    or _int(toks[2]) is None):
                 return _bad(e, n, "a `pending-until:` that is not `pending-until: "
                                   "<commit> exit <N>` -- 7 to 40 lowercase hex digits, "
+                                  "or a subcycle of this library such as `0.3.4`, "
                                   "the word `exit`, and the exit the unit is pending "
                                   "on. The marker EXCUSES A RED, so it must name WHICH "
                                   "red: a marker excusing any exit is the one that "

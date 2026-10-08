@@ -35,7 +35,9 @@ and one comment line was measured moving a wrong expectation out of the count
 a marker the reviewed list does not name, a pending unit failing for another
 reason, and a marker that has outlived its reason (RX-154). Case 11 also
 requires the unit to have been OBSERVED THROUGH `opt -O2`, which a pending unit
-was not until RX-159 (the fourth audit's N-19).
+was not until RX-159 (the fourth audit's N-19). *(Since cycle 0.2.1, RX-226: and
+case 34 is case 11's plant under a SUBCYCLE's label, `0.3.4`, the shape the
+marker takes for a unit pending on a later subcycle of this library.)*
 
 AND THE MARKER WAS NOT THE ONLY ROUTE OUT, WHICH THE FOURTH AUDIT PROVED (BL-7):
 a `use` inside a SIBLING's `/* */` took a red unit out of the count through the
@@ -309,14 +311,15 @@ def _case9(d):
     return TOML % PROGRAM_ENTRY
 
 
-def _pending_program(mod, exit_code, expect_exit, marker_exit):
-    """A program carrying `pending-until:` -- the marker under test in 11-13.
+def _pending_program(mod, exit_code, expect_exit, marker_exit, label="0123abc"):
+    """A program carrying `pending-until:` -- the marker under test in 11-13 and 34.
 
     The commit is `0123abc`, which is commit-shaped and names nothing: the
     marker's commit is a LABEL the runner never resolves (RX-154), so a real
-    one would test nothing a fake one does not."""
+    one would test nothing a fake one does not. Case 34's label is a subcycle,
+    `0.3.4`, the shape RX-226 adds."""
     return (f"// expect-exit: {expect_exit}\n"
-            f"// pending-until: 0123abc exit {marker_exit}\n"
+            f"// pending-until: {label} exit {marker_exit}\n"
             f"mod:{mod};\n\n"
             f"func:main = int32(cstring[]:_~argv) {{\n"
             f"    exit {exit_code}i32;\n"
@@ -365,6 +368,20 @@ def _case13(d):
     _write(d, "harness/baseline/PENDING.txt",
            _pending_list_line("tests/case/stale_marker.npk", 92,
                               "the self-check's case 13: listed, and now passing"))
+    return TOML % PROGRAM_ENTRY
+
+
+def _case34(d):
+    """A RED HIDDEN BEHIND A PENDING MARKER LABELLED BY A SUBCYCLE, WHICH THE
+    REVIEWED LIST DOES NOT NAME -- RX-226.
+
+    Case 11's plant with the label RX-226 adds: `0.3.4`, a subcycle of this
+    library, where case 11's is a commit. The label must be READ -- an unreadable
+    marker fails as unreadable, and this case asks for the list's message, which
+    quotes the marker back -- and the list must still hold it: a new shape of
+    label must not be a new route out of the denominator."""
+    _write(d, "tests/case/hidden_cycle_red.npk",
+           _pending_program("hidden_cycle_red", 41, 42, 41, label="0.3.4"))
     return TOML % PROGRAM_ENTRY
 
 
@@ -1328,6 +1345,12 @@ CASES = [
          "RX-219: the cycle 0.1 Gate -- every kind provoked or listed with the cycle that will provoke it, held "
          "both ways; a kind nothing produces is the dormant-rule pattern the compiler's `check_codes_tested` refuses",
          _case33, ()),
+    Case(34, "a red hidden behind a pending marker labelled by a subcycle, which the reviewed list does not name",
+         "RX-226: the marker names a subcycle of this library too, for a unit pending on a later subcycle's "
+         "hook -- and a new shape of label is no new route out of the denominator: case 11's plant, read "
+         "and held to the list",
+         _case34, ["hidden_cycle_red.npk", "`pending-until: 0.3.4 exit 41` is NOT ON THE REVIEWED PENDING LIST",
+                   "41 through opt -O2"]),
 ]
 
 
