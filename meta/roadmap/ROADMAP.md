@@ -54,7 +54,7 @@ cycle 0.0.
 |---|---|---|
 | **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **DONE 2026-09-26, archived to [`done/0.0/`](done/0.0/README.md).** The sixth W-22 audit ACCEPTED the close at compiler `c970483`, after five refusals — three on 2026-09-06, two on 2026-09-25 — and two inserted subcycles, 0.0.4d (`Vec` move-only) and 0.0.4e (the re-pin that refused the loan). The close is [`done/0.0/0.0.5.md`](done/0.0/0.0.5.md) §13 | — |
 | **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **DONE 2026-10-08, archived to [`done/0.1/`](done/0.1/README.md).** Its audit ACCEPTED it once C1 was fixed — `regex_escape`'s text read as a POSIX class straight after a nested class's `[`, the one wrong answer, fixed first — and the close is [`done/0.1/0.1.6.md`](done/0.1/0.1.6.md), its §2 the audit's twenty-two findings, one row each | 0.0 |
-| **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction | 0.1 |
+| **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction — **OPEN: [`0.2.0`](0.2/0.2.0.md), the arena, done; 0.2.1, the desugaring, next** | 0.1 |
 | **0.3** | **Unicode** — generated tables, properties, scripts, simple case folding | 0.0 |
 | **0.4** | **UTF-8 automata** — codepoint ranges to byte ranges, alphabet compression | 0.3 |
 | **0.5** | **The oracle** — the naive reference matcher, and the conformance corpus | 0.2, 0.3 |
@@ -200,6 +200,9 @@ run as a program and swept as a root; decisions through RX-213.)*
 *(After cycle 0.1.6a, the same compiler: **258** units, no file added; decisions through RX-218.)*
 *(After cycle 0.1.6b, the same compiler: **260** units — `parse_fuzz`, run as a program and swept as a root; **ten**
 tree checks, `check_error_kinds_tested` the tenth; a self-check of **34** cases, 30 live; decisions through RX-221.)*
+*(After cycle 0.2.0, the same compiler: **283** units — `src/unicode/class_range.npk`, `src/hir/repr.npk` and
+`src/hir/dump.npk` swept; nine unit programs of the HIR's, each run as a program and swept as a root; one refusal,
+judged and swept; decisions through RX-225.)*
 
 **Two probes refuted their own hypothesis**, which is the cycle's best return:
 `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler

@@ -45,7 +45,7 @@ RX-015, RX-031. Settled. **No open questions.**
 - [ ] a stable text dump and its parser, round-tripping — this is what makes a HIR a committed fixture
 
 ### 0.2.1 — desugaring
-- [ ] every row of `HIR.md` §3's table, with a test each
+- [ ] every row of `HIR.md` §3's table, with a test each *(2026-10-08, cycle 0.2.0 — RX-223: the arena holds resolved ranges only (H-1, H-5), so a class's unresolved items — a Perl class, a property, a POSIX class by name — have no HIR form until cycle 0.3.4 resolves them; how the desugaring meets one, a hook 0.3.4 fills with a test that fails until then, as `(?i:…)`'s folding has, is this subcycle's to decide, and "carries them as they come" above is read against it)*
 - [ ] **flags erased** (H-6): nothing downstream knows what `i`, `s`, `m`, `u` or `x` meant. A test greps the HIR dump for any flag residue
 - [ ] `(?i:…)` folds its classes at construction — the folding itself is 0.3's, so 0.2 leaves a hook and 0.3 fills it, with a test that fails until then
 
@@ -53,7 +53,7 @@ RX-015, RX-031. Settled. **No open questions.**
 - [ ] the product multiplied on the way down, in `uint64`, narrowed only where proven (RX-015)
 - [ ] `NREGEX_REPEAT_MAX` on a single bound; `NREGEX_REPEAT_PRODUCT` on the nest *(2026-09-27, cycle 0.1.1: the single
   bound is the parser's since then — `RepeatTooLarge` at the number, RX-184 — so this subcycle's is the product)*
-- [ ] `((a{1000}){1000}){1000}` refused **at the third `{1000}`**, with that offset — asserted, because refusing at the end is a different and worse behaviour *(2026-10-08 — cycle 0.1.6b, RX-219: as `RepeatProductTooLarge`, which `SYNTAX.md` Y-25's table lists for this subcycle; the test that provokes it strikes the row)*
+- [ ] `((a{1000}){1000}){1000}` refused **at the third `{1000}`**, with that offset — asserted, because refusing at the end is a different and worse behaviour *(2026-10-08 — cycle 0.1.6b, RX-219: as `RepeatProductTooLarge`, which `SYNTAX.md` Y-25's table lists for this subcycle; the test that provokes it strikes the row)* *(2026-10-08, cycle 0.2.0 — RX-223: a HIR node holds no position, so the offset is the AST node's being read when the product crosses the bound)*
 - [ ] a test that the refusal happens before any large allocation, by bounding the process's peak memory
 
 ### 0.2.3 — normalisation

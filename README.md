@@ -8,7 +8,8 @@ makes the guarantee below possible.
 > **The guarantee, in one sentence: a search takes time linear in the length of
 > the haystack, on every pattern, on every input, always.**
 
-> **Status: cycle 0.1, the pattern parser, closed on 2026-10-08; cycle 0.2, the HIR, is next.** Cycle 0.0, the
+> **Status: cycle 0.2, the HIR, is open, and its first part, the arena, is done; cycle 0.1, the pattern parser,
+> closed on 2026-10-08.** Cycle 0.0, the
 > foundations, closed on 2026-09-26 — the language probes, the test harness and
 > the storage primitives in `src/core/` are built and audited — and cycle 0.1.0
 > laid the parser's pieces in `src/syntax/`: the closed list of pattern errors,
@@ -29,7 +30,10 @@ makes the guarantee below possible.
 > pattern that matches exactly it. Cycle 0.1.6 closes the cycle on its audit, which found
 > one wrong answer — an escaped text read as a POSIX class straight after a nested class's
 > `[` — and `:` is escaped now; and a fuzz pass of 120 000 seeded patterns holds the parser
-> to its offsets on every run. Nothing matches a pattern yet.
+> to its offsets on every run. Cycle 0.2.0 laid the HIR's arena in `src/hir/` — nine kinds of
+> node that own nothing, read and written through accessors that check every index — and
+> wrote a HIR as one line of text that reads back to the same bytes. Nothing matches a
+> pattern yet.
 > The specification set is in [`meta/specs/`](meta/specs/) and the plan in
 > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
 > discipline the compiler used — specs first, then a cycle map, then
