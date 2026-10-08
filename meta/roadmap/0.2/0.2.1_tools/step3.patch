@@ -58,7 +58,7 @@ index db770f4447f9ddc48e2ba8affe4c7b2dc486cd76..98bcffa5f44b99d14d49c6c83f95e433
 +inner group first; **a builder that answers `PatternError?` now** — the refusal cycle 0.2.2 adds decides its own answer,
 +and this subcycle refuses nothing.
 diff --git a/meta/specs/HIR.md b/meta/specs/HIR.md
-index eef4bdc7b0b8c665f53fdbf5e13c4707eb66e443..2f81269981368f0e2c33179adfe097429205cfd0 100644
+index eef4bdc7b0b8c665f53fdbf5e13c4707eb66e443..0c5ba4e0e1066b629dd6a0275750c125c52e1c4b 100644
 --- a/meta/specs/HIR.md
 +++ b/meta/specs/HIR.md
 @@ -119,6 +119,10 @@ survives (H-6): `m` is an `Anchor`'s value, `s` a `.`'s class, `i` folded ranges
@@ -67,7 +67,7 @@ index eef4bdc7b0b8c665f53fdbf5e13c4707eb66e443..2f81269981368f0e2c33179adfe09742
  
 +*(@@DATE021@@, cycle 0.2.1 — RX-228: H-16 says how each kind of AST node meets this table. The quantifiers are a `Repeat`
 +in the AST already (`SYNTAX.md` Y-32); `\d`, `\w`, `\s`, POSIX, `\p{…}` and `(?i:…)` are where the build stops until
-+cycle 0.3.4 fills its two hooks.)*
++cycle 0.3.4 fills its two hooks and widens its `leaf`.)*
 +
  **Rule H-6 — flags are erased.** Nothing downstream of the HIR knows what `i`,
  `s`, `m`, `u` or `x` meant. Case-insensitivity is folded ranges;
@@ -132,7 +132,7 @@ index b5dbeacd5ffbeadeff576af9a80e888fd0ac957b..0a76f0d6d0b07e8b9ae323e83f4d24bd
 +| `build.npk` | the desugaring: a pattern's AST to a HIR, and the two hooks cycle 0.3.4 fills (H-5, H-6, H-16) | 0.2.1 |
 diff --git a/src/hir/build.npk b/src/hir/build.npk
 new file mode 100644
-index 0000000000000000000000000000000000000000..0a695c82ea91bd979e86925f43ce8b470f9236f3
+index 0000000000000000000000000000000000000000..92a82f5cd4ba0134391c0213c50043acbeef55bf
 --- /dev/null
 +++ b/src/hir/build.npk
 @@ -0,0 +1,309 @@
@@ -153,12 +153,12 @@ index 0000000000000000000000000000000000000000..0a695c82ea91bd979e86925f43ce8b47
 +// matches -- and `x` was the parser's. `i` folds every literal, class and `.` it covers, and the
 +// fold is cycle 0.3.4's: the second hook below.
 +//
-+// WHERE THE BUILD STOPS UNTIL CYCLE 0.3.4 FILLS ITS TWO HOOKS (H-16). A HIR holds resolved ranges
-+// only (H-1, H-5), and three things need what cycle 0.3 builds: a Perl class, a POSIX class or a
-+// property, which name sets the Unicode tables hold; a class's operators and its negation, which
-+// are arithmetic over sorted range lists; and `i`, which folds a set through the fold table.
-+// `hir_build` builds every pattern that needs none of them, and stops at the first node that
-+// needs one, answering its index in the AST -- never a HIR that means something else.
++// WHERE THE BUILD STOPS UNTIL 0.3.4 FILLS ITS HOOKS AND WIDENS `leaf` (H-16). A HIR holds resolved
++// ranges only (H-1, H-5), and three things need what cycle 0.3 builds: a Perl class, a POSIX
++// class or a property, which name sets the Unicode tables hold; a class's operators and its
++// negation, which are arithmetic over sorted range lists; and `i`, which folds a set through the
++// fold table. `hir_build` builds every pattern that needs none of them, and stops at the first
++// node that needs one, answering its index in the AST -- never a HIR that means something else.
 +// `resolve_items` and `fold_ranges` are the hooks.
 +//
 +// A TREE, AND NOTHING ELSE IN THE ARENA. A node is pushed only when the node that holds it is
@@ -205,8 +205,8 @@ index 0000000000000000000000000000000000000000..0a695c82ea91bd979e86925f43ce8b47
 +fixed int64:STEP_LIST = 1i64;      // enter the node, then the rest of the list it heads
 +fixed int64:STEP_LEAVE = 2i64;     // its children are built: build it
 +
-+// What `leaf` answers for a node a hook could not build: no index, and not HIR_NONE, which is a
-+// `Flags` node's -- nothing to build.
++// What `leaf` answers for a node a hook could not build, or one it asks no hook of: no index,
++// and not HIR_NONE, which is a `Flags` node's -- nothing to build.
 +fixed int64:STUCK = -2i64;
 +
 +func:hnode = HirNode(HirKind:k, uint32:flags, int64:a, int64:b, int64:c) never fails {
@@ -281,7 +281,7 @@ index 0000000000000000000000000000000000000000..0a695c82ea91bd979e86925f43ce8b47
 +// ---- leaving a node: building it from what its children built ----------------------------------
 +
 +// A leaf: answers the node it builds, HIR_NONE for a `Flags` node, which builds nothing, or STUCK
-+// for a node a hook could not build.
++// for a node a hook could not build, or one it asks no hook of until cycle 0.3.4 widens it.
 +func:leaf = int64(Ast:t, int64:i, Hir->:out) never fails {
 +    AstNode:n = raw ast_get(t, i);
 +    bool:fold = (n.flags & AST_FLAG_I) != 0u32;
@@ -371,7 +371,7 @@ index 0000000000000000000000000000000000000000..0a695c82ea91bd979e86925f43ce8b47
 +// THE DESUGARING (H-5, H-6, H-16). Builds the HIR of the pattern `pat`, whose AST `t` is --
 +// `parse_pattern`'s, the pattern kept for a group's name -- into `out`, a `Hir` fresh from
 +// `hir_init`, sets its root and answers HIR_NONE; or answers the index in `t` of the first node,
-+// in the order the pattern writes them, that a hook above cannot build until cycle 0.3.4, and
++// in the order the pattern writes them, that a hook or `leaf` cannot build until cycle 0.3.4, and
 +// leaves `out`'s root unset, its nodes partial, for the caller to free. Nothing for an `Ast` with
 +// no root. A group's number is the AST's, and `hir_add_group` must answer it as the walk enters
 +// the group, or the arena would name one group's text for another's: an `OutOfBounds` stop.
@@ -446,7 +446,7 @@ index 0000000000000000000000000000000000000000..0a695c82ea91bd979e86925f43ce8b47
 +    pass stuck;
 +};
 diff --git a/src/hir/hir.npk b/src/hir/hir.npk
-index a51171feacf65bf4dde401fe7230db7de980dd7a..76f1f95c4fd581d2cf0d265666e70bcec5744508 100644
+index a51171feacf65bf4dde401fe7230db7de980dd7a..cbc0cc766688dfde1c7a6005248d859896799de8 100644
 --- a/src/hir/hir.npk
 +++ b/src/hir/hir.npk
 @@ -9,8 +9,9 @@
@@ -456,8 +456,8 @@ index a51171feacf65bf4dde401fe7230db7de980dd7a..76f1f95c4fd581d2cf0d265666e70bce
 -// with `ClassRange` from `unicode` (RX-222). Nothing builds a HIR from a pattern yet; cycle
 -// 0.2.1's desugaring does.
 +// with `ClassRange` from `unicode` (RX-222). SINCE CYCLE 0.2.1 `build.npk` BUILDS A HIR FROM A
-+// PATTERN'S AST, H-5's table and nothing else, and stops where cycle 0.3.4 fills its hooks
-+// (RX-228).
++// PATTERN'S AST, H-5's table and nothing else, and stops at its hooks or in `leaf` until cycle
++// 0.3.4 (RX-228).
  //
  // EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1 and 3).
  //
@@ -470,7 +470,7 @@ index a51171feacf65bf4dde401fe7230db7de980dd7a..76f1f95c4fd581d2cf0d265666e70bce
 +pub use "./build.npk".hir_build;
 diff --git a/tests/unit/hir_build.npk b/tests/unit/hir_build.npk
 new file mode 100644
-index 0000000000000000000000000000000000000000..68d263a8597c9d4c1373a2e3b6f7f70e1ed0ff28
+index 0000000000000000000000000000000000000000..3fd292d4e07251b2210001f28d3ea6449ca6a8b3
 --- /dev/null
 +++ b/tests/unit/hir_build.npk
 @@ -0,0 +1,480 @@
@@ -485,8 +485,8 @@ index 0000000000000000000000000000000000000000..68d263a8597c9d4c1373a2e3b6f7f70e
 +// shows every bit its nodes hold, so the text is a test of H-6 too; every lower-case word in it is
 +// one H-15 writes (`words_ok`, the grep the cycle README asks for); its arena holds the tree and
 +// nothing else, every node reached from the root once (`is_tree`, H-16); and the text reads back
-+// and writes the same (H-15). `stops` asks a build that stops where cycle 0.3.4 fills a hook to
-+// answer the node at the byte named and to leave the root unset.
++// and writes the same (H-15). `stops` asks a build that stops at a hook or in `leaf` until cycle
++// 0.3.4 to answer the node at the byte named and to leave the root unset.
 +//
 +// THE CASES. 1 … 9 are H-5's six quantifier rows, their lazy forms, their bounds' edges and what
 +// a quantifier may wrap; 10 … 14 the `.` row; 15 … 19 the `(?:…)` row; 20 … 23 the class row and

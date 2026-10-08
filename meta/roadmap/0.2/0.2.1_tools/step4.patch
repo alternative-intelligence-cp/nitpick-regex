@@ -14,7 +14,7 @@ index 14dec14bdf78ab98aa2ae9955fb2172f9f445298..a2b5d85539f01a85355980676fbd7408
  # unit asserting against a compiler defect (DEF-25, fixed at `fe42dba`) was
  # committed red under a `pending-until:` marker and counted as neither a pass
 diff --git a/harness/baseline/PENDING.txt b/harness/baseline/PENDING.txt
-index f8d9b17a29404c57fe335a5ed3996d139637a059..57ed52d75b16143ddc06a2b924feb79828e06c44 100644
+index f8d9b17a29404c57fe335a5ed3996d139637a059..1a9ef5ef4028b19b7d3b115134124cc9baa6a4b2 100644
 --- a/harness/baseline/PENDING.txt
 +++ b/harness/baseline/PENDING.txt
 @@ -39,3 +39,10 @@
@@ -23,10 +23,10 @@ index f8d9b17a29404c57fe335a5ed3996d139637a059..57ed52d75b16143ddc06a2b924feb798
  # added at the cycle 0.0 close's third triage, with nothing to list.
 +#
 +# *(@@DATE021@@, cycle 0.2.1 -- RX-229: two lines since, the first pending on a subcycle of
-+# this library rather than a compiler: the HIR's two hooks, which cycle 0.3.4 fills, each
-+# with the test of what it will build. Each unit exits 1 while the build stops at its hook.)*
++# this library rather than a compiler: the tests of what cycle 0.3.4 builds at the HIR's two hooks
++# and in `leaf`. Each unit exits 1 while the build stops, at its hook or in `leaf`.)*
 +
-+tests/unit/hir_build_classes.npk	0.3.4	1	H-5's class row, and a class's negation and operators: the build stops at each until cycle 0.3.4 fills `resolve_items` (RX-229)
++tests/unit/hir_build_classes.npk	0.3.4	1	H-5's class row, and a class's negation and operators: the build stops at each until cycle 0.3.4 fills `resolve_items` and widens `leaf` (RX-229)
 +tests/unit/hir_build_fold.npk	0.3.4	1	H-5's `(?i:…)` row: the build stops at each until cycle 0.3.4 fills `fold_ranges` (RX-229)
 diff --git a/harness/baseline/README.md b/harness/baseline/README.md
 index 26a9f90812deddfc88f1ec757013c647402443b4..1a95e79bc2461f3ad9aee9bfe73a9af63926ed3f 100644
@@ -87,7 +87,7 @@ index 98bcffa5f44b99d14d49c6c83f95e433c543ea06..acfe0a16aa9c98f5fb5d256ea768bcf7
 +on a class with negation** — whether the fold comes before the complement is cycle 0.3.4's to decide, and is handed to
 +it in the plan.
 diff --git a/meta/roadmap/0.3/README.md b/meta/roadmap/0.3/README.md
-index 7c8b67e5eaa4dd00e4eefaa720c6433b57ea0e9c..b4bbb85a6e0bf0462dd3c9c64dad2ae83ff83bf2 100644
+index 7c8b67e5eaa4dd00e4eefaa720c6433b57ea0e9c..567b8aa61eef31cfd8888cdb28c9a3b65a9c1d91 100644
 --- a/meta/roadmap/0.3/README.md
 +++ b/meta/roadmap/0.3/README.md
 @@ -55,13 +55,13 @@ design; recorded when chosen).
@@ -95,26 +95,26 @@ index 7c8b67e5eaa4dd00e4eefaa720c6433b57ea0e9c..b4bbb85a6e0bf0462dd3c9c64dad2ae8
  
  ### 0.3.4 — class resolution
 -- [ ] 0.1's unresolved class items resolved to `ClassRange` lists
-+- [ ] 0.1's unresolved class items resolved to `ClassRange` lists *(@@DATE021@@, cycle 0.2.1 — RX-228, RX-229: through the HIR build's first hook, `resolve_items` in `src/hir/build.npk`, where the build stops until then at a Perl class, a POSIX class, a property, a negated class and an operator; `tests/unit/hir_build_classes.npk` is pending on this subcycle, and goes red the day it builds as written, when its marker and its line in `harness/baseline/PENDING.txt` are deleted)*
++- [ ] 0.1's unresolved class items resolved to `ClassRange` lists *(@@DATE021@@, cycle 0.2.1 — RX-228, RX-229: through the HIR build's first hook, `resolve_items` in `src/hir/build.npk`, where the build stops until then at a Perl class, a POSIX class, a property, a negated class and an operator inside a class; `tests/unit/hir_build_classes.npk` is pending on this subcycle, and goes red the day it builds as written, when its marker and its line in `harness/baseline/PENDING.txt` are deleted)* *(@@DATE021@@, cycle 0.2.1 — the orchestrator's decision, from the plan verifier's finding: `leaf` in `src/hir/build.npk` stops a bare Perl class, a bare property and a negated class before any hook, so filling `resolve_items` alone leaves `tests/unit/hir_build_classes.npk` at exit 1 — this subcycle widens `leaf` too)*
  - [ ] union, intersection (`&&`), difference (`--`), symmetric difference (`~~`) over sorted range lists, with Y-17's precedence *(2026-10-01, cycle 0.1.3 — RX-196 replaces Y-17's order: the three share one precedence and apply left to right, union tighter and negation last, and cycle 0.1.3's parser builds the tree in that order — this subcycle evaluates the tree as built)*
  - [ ] negation within the correct universe
  - [ ] folding applied **at resolution**, so the engine never folds (U-13)
  - [ ] `NREGEX_CLASS_RANGES` enforced; `ClassTooLarge` *(2026-10-08 — cycle 0.1.6b, RX-219: a row of `SYNTAX.md` Y-25's table, struck by the test that provokes it)*
  - [ ] *(2026-10-08 — cycle 0.1.6b, RX-219)* open question O-Y3 decided — `EmptyClass` raised where a class resolves to nothing, or retired as `EmptyAlternate` was — and its row in `SYNTAX.md` Y-25's table struck either way
 -- [ ] 0.2's `(?i:…)` hook filled, and its pending test now green
-+- [ ] 0.2's `(?i:…)` hook filled, and its pending test now green *(@@DATE021@@, cycle 0.2.1 — RX-228, RX-229: the hook is `fold_ranges` in `src/hir/build.npk`, where the build stops until then at every literal, class and `.` under `i`; the test is `tests/unit/hir_build_fold.npk`, pending on this subcycle with exit 1, and "now green" is the run going red to say its marker is stale and the marker and its line deleted)*
++- [ ] 0.2's `(?i:…)` hook filled, and its pending test now green *(@@DATE021@@, cycle 0.2.1 — RX-228, RX-229: the hook is `fold_ranges` in `src/hir/build.npk`, where the build stops until then at every literal, class and `.` under `i` that reaches it; the test is `tests/unit/hir_build_fold.npk`, pending on this subcycle with exit 1, and "now green" is the run going red to say its marker is stale and the marker and its line deleted)*
  
  ### 0.3.5 — close
  - [ ] both table checks live and green
 diff --git a/meta/specs/HIR.md b/meta/specs/HIR.md
-index 2f81269981368f0e2c33179adfe097429205cfd0..dfe4c676cfd50c5ccb0985ee2310f64ddf2c913b 100644
+index 0c5ba4e0e1066b629dd6a0275750c125c52e1c4b..59370903b64fa3568df91cbbee6907db16cf2083 100644
 --- a/meta/specs/HIR.md
 +++ b/meta/specs/HIR.md
 @@ -172,6 +172,9 @@ it is built, so every node is reached from the root once, and H-15's bound is ex
  each must be the AST's number or the build stops `OutOfBounds`; an AST that is not a tree stops it
  `DecreasesViolated`. The walk is an explicit stack bounded by twice the arena (`SAFETY.md` S-19).
  `tests/unit/hir_build.npk` holds every row, and two units more each trap.
-+*(@@DATE021@@, cycle 0.2.1 — RX-229: and two are pending until cycle 0.3.4, on the build's stop at a hook:
++*(@@DATE021@@, cycle 0.2.1 — RX-229: and two are pending until cycle 0.3.4, on the build's stop at a hook or in `leaf`:
 +`tests/unit/hir_build_classes.npk`, the class row's HIRs and a class's negation and operators, and
 +`hir_build_fold.npk`, the `(?i:…)` row's.)*
  
@@ -135,21 +135,21 @@ index 5b514e5ed8e1852872c7535d9bdbdef4de480c5a..7deb6a5939dc289c1fc07e0b84a95e62
  **The general form: a citation of `exit 0` in a comment about a managed body is
  a defect in the comment, and it will be written again — it has now been written
 diff --git a/src/hir/build.npk b/src/hir/build.npk
-index 0a695c82ea91bd979e86925f43ce8b470f9236f3..6c76caf5dac51af72d9b0e180dbbdced0fe88b15 100644
+index 92a82f5cd4ba0134391c0213c50043acbeef55bf..21199c21313acabf75d5f08088db60bede538fc3 100644
 --- a/src/hir/build.npk
 +++ b/src/hir/build.npk
 @@ -21,7 +21,8 @@
- // are arithmetic over sorted range lists; and `i`, which folds a set through the fold table.
- // `hir_build` builds every pattern that needs none of them, and stops at the first node that
- // needs one, answering its index in the AST -- never a HIR that means something else.
+ // negation, which are arithmetic over sorted range lists; and `i`, which folds a set through the
+ // fold table. `hir_build` builds every pattern that needs none of them, and stops at the first
+ // node that needs one, answering its index in the AST -- never a HIR that means something else.
 -// `resolve_items` and `fold_ranges` are the hooks.
 +// `resolve_items` and `fold_ranges` are the hooks, and `tests/unit/hir_build_classes.npk` and
-+// `hir_build_fold.npk` are the HIRs they will build, pending until then (RX-229).
++// `hir_build_fold.npk` are the HIRs cycle 0.3.4 will build, pending until then (RX-229).
  //
  // A TREE, AND NOTHING ELSE IN THE ARENA. A node is pushed only when the node that holds it is
  // built, so a HIR this file answers HIR_NONE for has every node reachable from its root, once --
 diff --git a/tests/unit/hir_build.npk b/tests/unit/hir_build.npk
-index 68d263a8597c9d4c1373a2e3b6f7f70e1ed0ff28..76e3c205ac6ea364967fd4a680e5eb44afc3056c 100644
+index 3fd292d4e07251b2210001f28d3ea6449ca6a8b3..142593693010bc3dd183538cff97af59f29572dd 100644
 --- a/tests/unit/hir_build.npk
 +++ b/tests/unit/hir_build.npk
 @@ -14,7 +14,8 @@
@@ -164,7 +164,7 @@ index 68d263a8597c9d4c1373a2e3b6f7f70e1ed0ff28..76e3c205ac6ea364967fd4a680e5eb44
  // 58 are classes built from their members and C-3's surrogates; 60 … 69 flags erased -- eight pairs
 diff --git a/tests/unit/hir_build_classes.npk b/tests/unit/hir_build_classes.npk
 new file mode 100644
-index 0000000000000000000000000000000000000000..b93b1bff66ed11d7001bb9defaa40e7e7f7e56f8
+index 0000000000000000000000000000000000000000..e0e1ee67d304fcc41c8e6d5cc0cb4d4dd4b4bfad
 --- /dev/null
 +++ b/tests/unit/hir_build_classes.npk
 @@ -0,0 +1,156 @@
@@ -176,11 +176,11 @@ index 0000000000000000000000000000000000000000..b93b1bff66ed11d7001bb9defaa40e7e
 +// them. Cycle 0.2.1, RX-229; `HIR.md` H-5 and H-16, `UNICODE.md` U-9 and U-10.
 +//
 +// PENDING UNTIL CYCLE 0.3.4, ON EXIT 1 ALONE (`BUILD.md` B-5b, RX-226). Until that cycle fills
-+// `src/hir/build.npk`'s first hook, `resolve_items`, the build stops at every pattern here, and a
-+// build that stops exits 1 -- that and nothing else. A case whose build completes and differs
-+// exits with its number, 10 and up, which the marker does not excuse: the run is red then, not
-+// pending. The day every case builds as written here the unit exits 0, the run goes red to say
-+// the marker is stale, and the marker and its line in `harness/baseline/PENDING.txt` go.
++// `src/hir/build.npk`'s first hook, `resolve_items`, and widens its `leaf`, the build stops at
++// every pattern here, and a build that stops exits 1 -- that and nothing else. A case whose build
++// completes and differs exits with its number, 10 and up, which the marker does not excuse: the run
++// is red then, not pending. The day every case builds as written the unit exits 0, the run goes red
++// to say the marker is stale, and the marker and its line in `harness/baseline/PENDING.txt` go.
 +//
 +// WHAT IT ASKS, AND ONLY WHAT A RULE PINS. Byte mode's three classes and their complements to the
 +// byte, as U-9 writes them and H-1 sorts them (10 … 13); Unicode mode's by members a table cannot

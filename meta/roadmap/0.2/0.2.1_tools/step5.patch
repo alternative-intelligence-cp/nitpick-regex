@@ -1,5 +1,5 @@
 diff --git a/CLAUDE.md b/CLAUDE.md
-index afce01d05edf9e949b223ebb6fa7fd3f40b424cd..40484ba1be63d7c89d16ccb531756ae2e74b4921 100644
+index afce01d05edf9e949b223ebb6fa7fd3f40b424cd..02cb5f8ccef200c005d8f3d1c15ebedc2fd2d6e3 100644
 --- a/CLAUDE.md
 +++ b/CLAUDE.md
 @@ -9,7 +9,10 @@ systems language at `../../nitpick`. **Status: cycle 0.1, the pattern parser, CL
@@ -9,8 +9,8 @@ index afce01d05edf9e949b223ebb6fa7fd3f40b424cd..40484ba1be63d7c89d16ccb531756ae2
 -`src/unicode/` holds `ClassRange` (RX-222 … RX-225, `meta/roadmap/0.2/0.2.0.md`); 0.2.1, the desugaring, is next.
 +`src/unicode/` holds `ClassRange` (RX-222 … RX-225, `meta/roadmap/0.2/0.2.0.md`); and its 0.2.1, the desugaring, is
 +done — `hir_build` builds a HIR from a pattern's AST, `HIR.md` H-5's table and nothing else, every flag erased into what
-+it means, and stops at the node where cycle 0.3.4 must fill one of its two hooks, the two tests of what they will build
-+pending until then (RX-226 … RX-229, `meta/roadmap/0.2/0.2.1.md`); 0.2.2, the repetition product, is next.
++it means, and stops where cycle 0.3.4 must fill one of its two hooks or widen its `leaf`, the two tests of what it will
++build pending until then (RX-226 … RX-229, `meta/roadmap/0.2/0.2.1.md`); 0.2.2, the repetition product, is next.
  Cycle 0.1's 0.1.0, 0.1.0b, 0.1.1, 0.1.1b, 0.1.2, 0.1.3, 0.1.4, 0.1.5, 0.1.6a, 0.1.6b and 0.1.6 are done** — the pieces the parser is written
  in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/done/0.1/0.1.0.md`); the adoption of
  compiler `5fbaf4a` (RX-176 … RX-180, `0.1.0b.md`); and the core grammar —
@@ -33,7 +33,7 @@ index afce01d05edf9e949b223ebb6fa7fd3f40b424cd..40484ba1be63d7c89d16ccb531756ae2
 +deleted (cycle 0.0.4b). *(@@DATE021@@, cycle 0.2.1 — RX-226, RX-229: two units are pending
 +again, each on a subcycle of this library rather than a compiler —
 +`tests/unit/hir_build_classes.npk` and `hir_build_fold.npk`, until cycle 0.3.4 fills the
-+HIR's hooks — and the runner prints both, outside its count.)*
++HIR build's hooks and widens its `leaf` — and the runner prints both, outside its count.)*
  **This file said 98 and six in one paragraph and *four* tree checks 220 lines
  lower**, and the cycle 0.0 audit found it (N-2) in the document every session is
  told to read first. Two sections of one file disagreeing is the shape this
@@ -67,7 +67,7 @@ index 0e2fdaadb23c7d55814b627319f6f9ba00ad7c2c..0ced11eefea2c9d165475a09196b129e
  > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
  > discipline the compiler used — specs first, then a cycle map, then
 diff --git a/meta/roadmap/0.2/README.md b/meta/roadmap/0.2/README.md
-index 3192b180b9cba6dade346a4436e82d77c06dd84e..484f31fe687a478d2154dcbd432898010415d34a 100644
+index 3192b180b9cba6dade346a4436e82d77c06dd84e..4238d00bafe86cc48fabe1778283dae037eb339b 100644
 --- a/meta/roadmap/0.2/README.md
 +++ b/meta/roadmap/0.2/README.md
 @@ -20,7 +20,8 @@ RX-015, RX-031. Settled. **No open questions.**
@@ -76,7 +76,7 @@ index 3192b180b9cba6dade346a4436e82d77c06dd84e..484f31fe687a478d2154dcbd43289801
    builds the arena bottom-up on an explicit stack, and `check_no_recursion` reads `src/hir/` as it reads `src/syntax/`
 -  (`SAFETY.md` S-19).
 +  (`SAFETY.md` S-19). *(@@DATE021@@, cycle 0.2.1 — RX-228: "carries them as they come" is read as the build stopping at
-+  each, answering the node, until cycle 0.3.4 fills the hook that resolves it.)*
++  each, answering the node, until cycle 0.3.4 fills the hook that resolves it, and widens `leaf` for a bare one.)*
  - **`RepeatProductTooLarge` is a row of `SYNTAX.md` Y-25's table naming 0.2.2**: the test that provokes it strikes the
    row in its own commit, or `check_error_kinds_tested` fails the run (RX-219).
  - **Every refusal's offset lies inside the pattern** (Y-10's note, RX-221), and the HIR's refusals keep it;
@@ -118,7 +118,7 @@ index 3192b180b9cba6dade346a4436e82d77c06dd84e..484f31fe687a478d2154dcbd43289801
  
  ## Gate
 diff --git a/meta/roadmap/0.3/README.md b/meta/roadmap/0.3/README.md
-index b4bbb85a6e0bf0462dd3c9c64dad2ae83ff83bf2..f8750324d625fb84eb54e7abbfe048ba62179c65 100644
+index 567b8aa61eef31cfd8888cdb28c9a3b65a9c1d91..b2380dffb6bc4bb753dffe237173695d5c1303f6 100644
 --- a/meta/roadmap/0.3/README.md
 +++ b/meta/roadmap/0.3/README.md
 @@ -42,7 +42,7 @@ design; recorded when chosen).
