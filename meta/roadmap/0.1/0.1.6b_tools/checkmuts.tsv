@@ -1,0 +1,17 @@
+# 0.1.6b's mutants of the harness -- each one rule of a check broken in a copy of `harness/`, and the self-check case that must
+# then go red; `checkmuts <step>` in env.sh runs a step's rows. TAB-separated; `\n` in a text is a newline.
+# step	name	harness file	the text	its replacement	case
+1	kinds-built-counts	harness/treecheck.py	            if _KIND_BUILT.search(c, max(0, u.start() - 48), u.start()):\n                continue	            if False:\n                continue	33
+1	kinds-any-unit	harness/treecheck.py	        if not _PARSES.search(c):\n            continue	        if False:\n            continue	33
+1	kinds-raw-text	harness/treecheck.py	        c = lexical.blank(text)\n        if not _PARSES.search(c):	        c = text\n        if not _PARSES.search(c):	33
+1	kinds-no-stale	harness/treecheck.py	        if kind in provoked:\n	        if False:\n	33
+1	kinds-no-unknown	harness/treecheck.py	        if kind not in kinds:\n	        if False:\n	33
+1	kinds-no-cycle	harness/treecheck.py	        cyc = _CYCLE.match(cell)	        cyc = re.match(r"^(?:cycle )?(.*)$", cell)	33
+1	kinds-no-readme	harness/treecheck.py	        if not said:\n	        if False:\n	33
+1	kinds-unlisted-ok	harness/treecheck.py	        if kind not in provoked and kind not in listed:\n	        if False:\n	33
+2	const-no-char	harness/treecheck.py	        if kind != "char":\n            continue\n        v = _char_value(text[s:e])	        if True:\n            continue\n        v = _char_value(text[s:e])	32
+2	const-no-cast	harness/treecheck.py	                      + list(_CMP_RIGHT_CAST.finditer(code)) + list(_CMP_LEFT_CAST.finditer(code))):	                      ):	32
+2	const-cast-no-arrow	harness/treecheck.py	_CMP_RIGHT_CAST = re.compile(r"(?<![<>=-])[<>]=?(?![<>=])\s*\(\s*-?\s*(" + _NUM + r")\s*=>")	_CMP_RIGHT_CAST = re.compile(r"(?<![<>=-])[<>]=?(?![<>=])\s*\(\s*-?\s*(" + _NUM + r")")	32
+2	const-char-plus-one	harness/treecheck.py	        return r[0] if r and r[1] == len(body) else None	        return r[0] + 1 if r and r[1] == len(body) else None	32
+2	const-oct-as-ten	harness/treecheck.py	_BASES = (("hex", 16), ("bin", 2), ("oct", 8),	_BASES = (("hex", 16), ("bin", 2), ("oct", 10),	32
+2	const-program-disagrees	harness/selfcheck.py	("65_536i64", "65_536i64", 65536)	("65_536i64", "65_536i64", 65537)	32

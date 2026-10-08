@@ -1,0 +1,10 @@
+# 0.1.6b's omission sweep, block 5 -- one extended regular expression per line, each read by `sweep.py` line by line
+# AND across line breaks, case-insensitive: every statement the three decisions make false.
+has a test that (produces|provokes)|test that provokes it|kind nothing can produce|no pattern reaches
+nine tree checks|nine run|\bnine\b.{0,40}(tree check|check)|eight that can fail
+29 live|33 cases|\b33\b.{0,20}case|thirty-three
+cycle 0\.4 (builds|the second)|neither exists yet
+check_error_kinds_tested
+character literal|char literal|widening
+\b258\b|258/258
+fuzz

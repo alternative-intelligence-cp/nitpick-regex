@@ -1,0 +1,344 @@
+diff --git a/harness/selfcheck.py b/harness/selfcheck.py
+index 364c29f8991a7a159644555b7d0f6926b3e2646d..af1e39358d8e92b2c6d036d8d07b11aae4451fc1 100644
+--- a/harness/selfcheck.py
++++ b/harness/selfcheck.py
+@@ -721,16 +721,20 @@ def _zz(cmp):
+ 
+ 
+ def _run_case32(case):
+-    """Case 32, on the instrument: `check_constants_named` over six planted bounds, each a
+-    spelling the pinned compiler accepts and the check's first pattern could not read -- a
+-    digit-separated decimal, a hex, a binary and an octal literal, a width suffix past the eight it
+-    listed, and a literal on the LEFT of the comparison -- and a clean control holding each spelling
+-    at a small value, a shift, a bound in a comment and in a string, and one in `limits.npk`, the
+-    file that may hold them (RX-202)."""
++    """Case 32, on the instrument: `check_constants_named` over six planted bounds, each a spelling the pinned compiler
++    accepts and the check's first pattern could not read -- a digit-separated decimal, a hex, a binary and an octal
++    literal, a width suffix past the eight it listed, and a literal on the LEFT of the comparison -- and a clean control
++    holding each spelling at a small value, a shift, a bound in a comment and in a string, and one in `limits.npk`, the
++    file that may hold them (RX-202).
++    *(@@DATE@@, cycle 0.1.6b -- RX-220: and three plants more -- a character literal widened, `('\\u{10000}' => int64)`,
++    on either side of the comparison, and a numeric literal behind a widening -- each of which passed it, a small
++    character literal and a generic's `>(` in the control; then the PINNED COMPILER is asked about every spelling the
++    plants hold, in one program, and the reader about each line of it, so a re-pin that moves the numeric scan is a red
++    run here and not only in a re-read -- `nitpick-time`'s part E3, ported, the cycle audit's C5.)*"""
+     lim = os.path.join("src", "core", "limits.npk")
+     with open(os.path.join(ROOT, lim), encoding="utf-8") as fh:
+         limits = fh.read()
+-    return _run_plants(case, "check_constants_named", [
++    out = _run_plants(case, "check_constants_named", [
+         ("a digit-separated decimal", {"src/core/zz.npk": _zz("n > 1_000_000i64")},
+          ["src/core/zz.npk:4", "`1_000_000i64` (1000000)"]),
+         ("a hex literal", {"src/core/zz.npk": _zz("n > 10FFFFhexi64")},
+@@ -743,10 +747,102 @@ def _run_case32(case):
+          ["src/core/zz.npk:4", "`1000i128` (1000)"]),
+         ("a literal left of the comparison", {"src/core/zz.npk": _zz("65_536i64 <= n")},
+          ["src/core/zz.npk:4", "`65_536i64` (65536)"]),
+-    ], {"src/core/zz.npk": _zz("(n > 0FFhex) || (n >= 1_00i64) || (1_0_0i64 < n) || ((n >> 6i64) < 4i64)")
++        ("a character literal, widened", {"src/core/zz.npk": _zz("n > ('\\u{10000}' => int64)")},
++         ["src/core/zz.npk:4", "`'\\u{10000}'` (65536)"]),
++        ("a character literal, widened, left of the comparison",
++         {"src/core/zz.npk": _zz("('\\u{10000}' => int64) <= n")},
++         ["src/core/zz.npk:4", "`'\\u{10000}'` (65536)"]),
++        ("a literal behind a widening", {"src/core/zz.npk": _zz("n > (65536i32 => int64)")},
++         ["src/core/zz.npk:4", "`65536i32` (65536)"]),
++    ], {"src/core/zz.npk": _zz("(n > 0FFhex) || (n >= 1_00i64) || (1_0_0i64 < n) || ((n >> 6i64) < 4i64)"
++                               " || (n > (' ' => int64)) || (zz_id::<int64>(1000i64) == n)")
+                            + "\n// n > 1_000_000i64, in a comment\n"
+-                           + "pub func:zz_s = string() never fails {\n    pass \"n > 99_999\";\n};\n",
++                           + "pub func:zz_s = string() never fails {\n    pass \"n > ('\\u{10000}' => int64)\";\n};\n",
+         lim: limits + "\npub func:zz_l = bool(int64:n) never fails {\n    pass n > 1_000_000i64;\n};\n"})
++    if not out.ok:
++        return out
++    wrong = _numeric_forms()
++    if wrong:
++        return Outcome(case, False, wrong)
++    return Outcome(case, True, out.detail + f"; and the pinned compiler and the reader read all {len(_NUM_LINES)} "
++                                            f"of its spellings as one number each")
++
++
++# THE SPELLINGS `check_constants_named` READS (RX-202, RX-220), asked of the pinned compiler: line by line, each
++# spelling against the plain decimal it must be read as, so the program exits 0 only if the compiler reads every one
++# so -- and the reader, `_int_value` or `_char_value`, must read each spelling on its line as that decimal too. A
++# re-pin that moves the compiler's numeric scan or its character literals -- a base suffix, a width, the separator,
++# an escape -- is a red run (`BUILD.md` B-4e). `nitpick-time`'s part E3, ported (TM-231).
++_NUM_FORMS = (
++    ("1_000_000i64", "1_000_000i64", 1000000), ("10FFFFhexi64", "10FFFFhexi64", 1114111),
++    ("1111_0100bin", None, 244), ("777oct", None, 511), ("(1000i128 =>! int64)", "1000i128", 1000),
++    ("65_536i64", "65_536i64", 65536), ("('\\u{10000}' => int64)", "'\\u{10000}'", 65536),
++    ("(65536i32 => int64)", "65536i32", 65536),
++)
++
++
++def _num_program():
++    """`(text, lines)`: the program, and `[(line, token, value)]` -- the token on each line the reader must read as
++    `value`. A literal with no width suffix is bound to an `int64` first, as a comparison against `n` types it."""
++    body, lines, ln = [], [], 4
++    for k, (expr, tok, value) in enumerate(_NUM_FORMS):
++        if tok is None:
++            body.append(f"    int64:v{k} = {expr};\n")
++            ln += 1
++            body.append(f"    if (v{k} != {value}i64) {{ exit {10 + k}i32; }}\n")
++            lines.append((ln - 1, expr, value))
++        else:
++            body.append(f"    if ({expr} != {value}i64) {{ exit {10 + k}i32; }}\n")
++            lines.append((ln, tok, value))
++        ln += 1
++    text = ("mod:numeric_forms;\n\nfunc:main = int32(cstring[]:_~argv) {\n" + "".join(body)
++            + "    exit 0i32;\n};\n" + FAILSAFE)
++    return text, lines
++
++
++_NUM_TEXT, _NUM_LINES = _num_program()
++
++
++def _numeric_forms():
++    """Case 32's second half: the reader on each line of `_NUM_TEXT`, and the pinned compiler on the program, built
++    with the manifest's flags and run. Returns what disagreed, or ''."""
++    import build
++    import manifest
++    import toolchain
++    import treecheck
++    wrong = []
++    lines = _NUM_TEXT.split("\n")
++    for ln, tok, value in _NUM_LINES:
++        if tok not in lines[ln - 1]:
++            wrong.append(f"line {ln} of the numeric program does not hold `{tok}`")
++            continue
++        got = treecheck._char_value(tok) if tok.startswith("'") else treecheck._int_value(tok)
++        if got != value:
++            wrong.append(f"the reader reads `{tok}` as {got}, and the program asserts {value}")
++    npkc, npkrt = toolchain.compiler(lambda s: None)
++    d = tempfile.mkdtemp(prefix="nregex-selfcheck-32-")
++    try:
++        _write(d, "numeric_forms.npk", _NUM_TEXT)
++        c = build.Ctx(ROOT, manifest.read(os.path.join(ROOT, "nitpick.toml")), npkc, npkrt, d, lambda s: None)
++        ll, obj, exe = (os.path.join(d, "numeric_forms" + x) for x in (".ll", ".o", ""))
++        r = build.emit(c, "numeric_forms.npk", ll, cwd=d)
++        if r.code != 0:
++            wrong.append("the pinned compiler refused the numeric program: " + r.err.strip()[:200])
++        elif build.llc(c, c.llc_flags, ll, obj).code != 0 or build.link(c, obj, exe).code != 0:
++            wrong.append("the numeric program did not assemble or link")
++        else:
++            x = build.Run([exe]).status
++            if x != 0:
++                k = (x - 10) if x is not None else -1
++                what = (f"its spelling `{_NUM_FORMS[k][0]}` was read as another number"
++                        if 0 <= k < len(_NUM_FORMS) else "it did not run to its end")
++                wrong.append(f"the pinned compiler's numeric program exited {x}: {what}. THE COMPILER'S NUMERIC "
++                             f"SCAN HAS MOVED FROM WHAT `_int_value` AND `_char_value` MIRROR: re-read "
++                             f"`src/frontend/numeric.npk`, `num_width.npk`, `lexer.npk` and `escapes.npk` at the new "
++                             f"pin (BUILD.md B-4e) and bring the reader to them, in the adoption that moved the pin.")
++    finally:
++        shutil.rmtree(d, ignore_errors=True)
++    return "; ".join(wrong)
+ 
+ 
+ def _case32(d):
+@@ -1221,9 +1317,11 @@ CASES = [
+          "as `0 - signal` -- shown red here, so `expect-exit: 0` is met by a normal exit alone",
+          _case31, ()),
+     Case(32, "a bound compared in each spelling the compiler accepts: digit-separated, hex, "
+-             "binary, octal, a wide width suffix, and left of the operator",
++             "binary, octal, a wide width suffix, and left of the operator -- and a character "
++             "literal and a literal behind a widening, either side, each spelling asked of the compiler",
+          "RX-202: `check_constants_named` read a literal as decimal digits after the operator "
+-         "and passed all six -- a spelling it cannot read is a bound it cannot see",
++         "and passed all six -- a spelling it cannot read is a bound it cannot see; RX-220: and a "
++         "re-pin that moves the numeric scan is red here",
+          _case32, ()),
+     Case(33, "a kind no test provokes, one a unit only builds, one named where nothing parses or in a comment, "
+              "and a stale, an unknown, an undated and an unplanned row of Y-25's table",
+diff --git a/harness/treecheck.py b/harness/treecheck.py
+index e0479ef4feec53115e5590b32a89ea99effaf2a1..c414f978b842f6315f3133fd658ca3de6578b7fc 100644
+--- a/harness/treecheck.py
++++ b/harness/treecheck.py
+@@ -338,6 +338,50 @@ _BASES = (("hex", 16), ("bin", 2), ("oct", 8), ("ter", 3), ("tri", 3), ("non", 9
+ # `==` -- with the literal on EITHER side of it: a bound is spent whichever side it is written on.
+ _CMP_RIGHT = re.compile(r"(?<![<>=-])[<>]=?(?![<>=])\s*-?\s*(" + _NUM + ")")
+ _CMP_LEFT = re.compile(r"(?<![0-9A-Za-z_.])(" + _NUM + r")\s*(?<![<>=-])[<>]=?(?![<>=])")
++# *(@@DATE@@, cycle 0.1.6b -- RX-220: and a CHARACTER literal, read by its code point -- `'\u{10000}' => int64` is
++# 65 536 at `5fbaf4a` -- and a literal behind a WIDENING, `(65536i32 => int64)`, on either side of the comparison. A
++# character literal meets an integer only so, widened, and `n > ('\u{10000}' => int64)` passed this check while
++# `n > 65536i64` failed it -- the cycle audit's C5. A generic's `>(` holds no `=>` after its literal, so it is not read
++# as one. `_char_value` is `nitpick-time`'s TM-231 reader, ported.)*
++_CMP_RIGHT_CAST = re.compile(r"(?<![<>=-])[<>]=?(?![<>=])\s*\(\s*-?\s*(" + _NUM + r")\s*=>")
++_CMP_LEFT_CAST = re.compile(r"\(\s*(" + _NUM + r")\s*=>\s*[A-Za-z_]\w*\s*\)\s*(?<![<>=-])[<>]=?(?![<>=])")
++
++
++def _char_value(text):
++    """A character literal's code point, as the compiler's lexer reads it -- `'x'`, one code point in UTF-8, or one
++    escape -- or None."""
++    body = text[1:-1] if len(text) >= 3 and text.endswith("'") else ""
++    if body.startswith("\\"):
++        r = lexical._escape(body, 0)
++        return r[0] if r and r[1] == len(body) else None
++    try:
++        cp = body.encode("latin-1").decode("utf-8")
++    except UnicodeDecodeError:
++        return None
++    return ord(cp) if len(cp) == 1 else None
++
++
++def _valued(text):
++    """`lexical.blank`'s text, but each character literal the reader can read written as its code point in decimal,
++    so a comparison reads it as a number; and `{offset: the literal's text}` for each, so a finding names it as
++    written."""
++    sp = lexical.spans(text)
++    code = lexical.blank(text, sp)
++    out, orig, last, at = [], {}, 0, 0
++    for kind, s, e in sorted(sp, key=lambda x: x[1]):
++        if kind != "char":
++            continue
++        v = _char_value(text[s:e])
++        if v is None:
++            continue
++        out.append(code[last:s])
++        at += s - last
++        orig[at] = text[s:e]
++        out.append(str(v))
++        at += len(str(v))
++        last = e
++    out.append(code[last:])
++    return "".join(out), orig
+ 
+ 
+ def _int_value(tok):
+@@ -381,7 +425,12 @@ def check_constants_named(root):
+     spent at a comparison -- `if (n > 65536)` -- so that is what is looked for,
+     and the small values that are structure rather than policy (a bit width, a
+     byte, an alignment) are excluded by value. A narrow check that runs is worth
+-    more than a broad one that gets switched off."""
++    more than a broad one that gets switched off.
++
++    *(@@DATE@@, cycle 0.1.6b -- RX-220: a character literal is a number here too,
++    read by its code point, and a literal behind a widening is read on either
++    side -- `n > ('\\u{10000}' => int64)` passed this check, the cycle audit's C5;
++    a finding names the character literal as written.)*"""
+     fl = []
+     files = [p for p in npk_files(root, "src")
+              if os.path.relpath(p, root) != LIMITS_FILE]
+@@ -391,9 +440,12 @@ def check_constants_named(root):
+             text = lexical.read(p)
+         except OSError:
+             continue
+-        for ln, code in enumerate(lexical.blank(text).split("\n"), 1):
++        valued, orig = _valued(text)
++        at = 0
++        for ln, code in enumerate(valued.split("\n"), 1):
+             seen = set()
+-            for m in list(_CMP_RIGHT.finditer(code)) + list(_CMP_LEFT.finditer(code)):
++            for m in (list(_CMP_RIGHT.finditer(code)) + list(_CMP_LEFT.finditer(code))
++                      + list(_CMP_RIGHT_CAST.finditer(code)) + list(_CMP_LEFT_CAST.finditer(code))):
+                 if m.start(1) in seen:
+                     continue
+                 seen.add(m.start(1))
+@@ -401,12 +453,14 @@ def check_constants_named(root):
+                 v = _int_value(tok)
+                 if v in _SMALL:
+                     continue
++                tok = orig.get(at + m.start(1), tok)
+                 said = f"`{tok}`" if v is None or tok == str(v) else f"`{tok}` ({v})"
+                 fl.append(f"{rel}:{ln}: the literal {said} is compared against outside "
+                           f"`{LIMITS_FILE}`. EVERY BOUND IS A NAMED CONSTANT THERE "
+                           f"(SAFETY.md S-12, RX-062), with the specification rule that "
+                           f"set it beside it -- a bound written inline is a bound "
+                           f"nobody can find when the specification changes.")
++            at += len(code) + 1
+ 
+     # The limits file itself: present from 0.0.4, and its nine names are the
+     # table SAFETY.md §5 declares. Absent today, which is stated rather than
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 71d43872231da31f9d1e17659e397e1d1bd25ac8..77c41daab90d27e2394a91c9ff1bc04fa42eb7a3 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -5046,6 +5046,9 @@ the class parser, whose reading of a class's bytes this is.
+ ## Escapes and flags — cycle 0.1.4
+ 
+ ### RX-202 — `check_constants_named` reads a literal as the compiler's lexer does: every base, separator and width suffix, on either side of the comparison
++> **SUPERSEDED IN PART by RX-220 (@@DATE@@)** — what it reads as a literal: a character literal too, by its code point,
++> and a literal behind a widening, `(65536i32 => int64)`, on either side; and what self-check case 32 asks, which is
++> the pinned compiler as well as the reader. Every spelling it reads is as this decision says.
+ 
+ **2026-10-01, cycle 0.1.4 (the plan's PD-46), at compiler `5fbaf4a`** — `SAFETY.md` S-12 (RX-062), `TESTING.md` V-20.
+ The check found a bound by one pattern — `<`, `>`, `<=` or `>=`, then decimal digits and one of eight width
+@@ -5648,3 +5651,36 @@ build, and `EmptyClass`'s is O-Y3's to decide; **the Gate kept, and cycle 0.1 le
+ open by kinds it cannot reach; **the check made live where the last kind is provoked** — thirty-four kinds unguarded
+ until then, the dormant-rule pattern the check exists to refuse; **the list in the check's own code** — a tree check
+ diffs the library against a document, and which kinds wait is the specification's to say.
++
++### RX-220 — `check_constants_named` reads a character literal by its code point and a literal behind a widening, B-4e's re-read names the files a literal's value is decided in, and case 32 asks the pinned compiler
++
++**@@DATE@@, cycle 0.1.6b (the plan's PD-64), at compiler `5fbaf4a`** — `TESTING.md` §8, `BUILD.md` B-4e; the cycle
++audit's C5. The literal reader `nitpick-time` shares with this repository reads less here, in three ways, each measured
++at `5fbaf4a`. A character literal is blanked, not read: `pass n > ('\u{10000}' => int64);` planted in a copy's
++`src/core/bytes.npk` compiles and passes the check, where `n > 65536i64` fails it — and `'\u{10000}' => int64` is
++65 536, a program exiting 0 on that equality at both legs; and a literal behind a widening, `(65536i32 => int64)`, is
++read on neither side, since the comparison's patterns want the literal next to the operator. B-4e's re-read lists
++`lexer.npk`, `escapes.npk`, `parse_decl.npk` and `LEXICAL_REFERENCE.md`, and not `numeric.npk` or `num_width.npk`,
++which `lexer.npk` imports and where `num_scan` and `num_width_of` decide a literal's value. And self-check case 32 is
++the reader against itself: nothing asks the pinned compiler, so a re-pin that moved `num_scan` would fail
++`nitpick-time`'s run, whose part E3 asks it (TM-231), and pass this one.
++
++**The decision.** The check reads each character literal as its code point — `_char_value`, `nitpick-time`'s TM-231
++reader ported — and a literal behind a widening on either side of a comparison, `(literal => T)`, a generic call's
++`>(` holding no `=>` after its literal; a finding names a character literal as written. B-4e's list names
++`numeric.npk` and `num_width.npk`, and `escapes.npk` for a character literal's code point. And case 32 plants a
++character literal widened, on either side, and a numeric literal behind a widening, beside its six; holds a small
++character literal and a generic's `>(` in its clean tree; and then builds one program asserting every spelling it
++plants against the decimal it must be, with the pinned compiler and the manifest's flags, requires it to exit 0, and
++requires the reader to read each spelling on its line as that decimal — `nitpick-time`'s E3, ported.
++
++**Measured at `5fbaf4a`.** Over the tree the check finds nothing, as before: `src/` holds no character literal and no
++literal behind a widening at a comparison. Case 32's nine plants each fail it by name, its clean tree passes, and the
++program exits 0 at −O0, its eight spellings read alike by the reader; each of the plan's §1.6 mutants is red at case 32.
++
++*Alternatives declined:* **the character literal declined by a decision** — the audit's other way, but `src/` is a
++parser, and `c >= ('a' => int32)` is how a byte comparison reads to anyone who has not met `CH_LOWER_A`, a bound the
++check would then not see; **`nitpick-time`'s whole reader, every literal held by value** — this check's rule is a bound
++spent at a comparison, and its small values are structure, not policy (RX-062); **the compiler half as a unit under
++`tests/`** — the reader and the compiler would then be asked in two places, and a unit is the library's test, where
++this is the harness's.
+diff --git a/meta/specs/BUILD.md b/meta/specs/BUILD.md
+index fb1ce2a394fae7d66ae952bc340cf8daf029941d..20dd57ddbd096b8c501e21f2e3e7a77661a19f69 100644
+--- a/meta/specs/BUILD.md
++++ b/meta/specs/BUILD.md
+@@ -354,6 +354,12 @@ literal's width (DEF-145), not its span; the mirror did not move.)*
+ literal, which `harness/treecheck.py`'s literal reader for `check_constants_named` mirrors: a token from a
+ decimal digit through letters, digits and `_`, its base suffix and its width suffix. A change there is a
+ change to that reader, and self-check case 32 holds six of its spellings.)*
++*(@@DATE@@, cycle 0.1.6b — RX-220: and `src/frontend/numeric.npk` and `src/frontend/num_width.npk`, which `lexer.npk`
++imports at `5fbaf4a` and where a literal's value is decided — `num_scan` and `num_width_of`, which that reader's
++`_int_value` mirrors — and `escapes.npk`'s escapes for a character literal's code point, which its `_char_value`
++reads; and self-check case 32 asks the pinned compiler about every spelling it holds, so a re-pin that moves one is a
++red run and not only a re-read. `numeric.npk` and `num_width.npk` are unchanged from `c970483` to `5fbaf4a`; this list
++named neither — the cycle audit's C5.)*
+ 
+ **Rule B-1a (RX-176) — the manifest pins the target, and the runner holds every
+ emission it links to it.** `[toolchain]` carries `triple` and `datalayout`
+diff --git a/meta/specs/TESTING.md b/meta/specs/TESTING.md
+index b1aaa8ce219a7f42da3f25f62c9d46fcc842d447..25bed4efcec7841e93fe66b6b799443f7325e31e 100644
+--- a/meta/specs/TESTING.md
++++ b/meta/specs/TESTING.md
+@@ -200,7 +200,7 @@ framing that let both be wrong. The framing is the column.
+ |---|---|---|
+ | `check_layering` | **yes** | every `use` edge against `BUILD.md` §6, including the oracle's restriction |
+ | `check_error_budget` | **yes** | every `error:` declaration, public or private, keyed by its module, against `SAFETY.md` §4 — **exactly one**, `api.ERegexPattern` (RX-179) |
+-| `check_constants_named` | **yes** | no bound outside `src/core/limits.npk` — *since cycle 0.1.4 a literal in every spelling the compiler's lexer reads an integer, and on either side of the comparison (RX-202)* |
++| `check_constants_named` | **yes** | no bound outside `src/core/limits.npk` — *since cycle 0.1.4 a literal in every spelling the compiler's lexer reads an integer, and on either side of the comparison (RX-202)* — *since cycle 0.1.6b a character literal by its code point and a literal behind a widening, each spelling asked of the pinned compiler by self-check case 32 (RX-220)* |
+ | `check_no_division` | **yes** | no `/` or `%` under `src/` — `SAFETY.md` S-25 (RX-132), because a division arms two `failsafe` arms in every importer |
+ | `check_accessor_confinement` | **yes** | no `.items[` outside `src/core/vec.npk`, no `.ptr[` outside `src/core/bytes.npk`, **within `src/`** — `SAFETY.md` S-23, **the only bounds check this library has** (RX-136). *Since cycle 0.0.4c `Vec`'s half is the compiler's too — `items` is `hidden`, so `.items` outside `vec.npk` is `NITPICK-TYPE-080` in every module; `Bytes`' half is not, because a sealed `buf` admits a write THROUGH `.ptr` (RX-153). The check stays for both, and for the owning files' own use of their accessors. Since cycle 0.0.4d `Bytes`' half is the compiler's too: `buf` is `hidden` (RX-163). Since cycle 0.1.0b the spaced forms too — `. items [`, and either split across a line break (RX-179)* |
+ | `check_vec_elements_own_nothing` | **yes** | every `Vec` element named under `src/` — in a `Vec<…>`, with or without a space, and in a `vec_…::<…>` turbofish — is CLEARED as owning nothing, **default-deny** (RX-158): each name in it is one of the language's non-owning scalars or a struct or enum declared under `src/` whose fields and payloads clear the same way, every declaration of that name judged; a pointer, a slice, `wild` storage, a prelude type, a bare type parameter or an unresolved name fails — `SAFETY.md` S-23a (RX-155). The language accepts an owning element and `vec_get` then MOVES it out; this is what makes the restriction a rule. Only `vec.npk`'s own `Vec<T>` over its type parameter is exempt, and `tests/` is out of scope because the owning units measure the verbs there. *Since cycle 0.1.1b (RX-188, RX-190) the compiler refuses an element that drops, at the type, and this check is the belt there; it stays the rule for an element that holds a block — a `Copy` struct may hold a pointer or a slice. The declaration `Vec<T: Copy>` is exempt as its parameter, and `tests/` stays out because it ships nothing.* *It was a denylist of nine words until the fourth cycle 0.0 audit walked twelve shapes past it (N-18)* |
+@@ -342,7 +342,11 @@ requires it to report every one as a failure. The list is `harness/selfcheck.py`
+     compiler accepts that its first pattern could not read — a digit-separated
+     decimal, a hex, a binary and an octal literal, a width suffix past `u64`, a
+     literal left of the comparison — each failing by its text and its value, and a
+-    clean tree passing (RX-202). On the instrument.
++    clean tree passing (RX-202). On the instrument. *(Since cycle 0.1.6b, RX-220:
++    and three plants more — a character literal widened, on either side, and a
++    literal behind a widening — and then the pinned compiler is asked about every
++    spelling the plants hold, in one program that must exit 0, and the reader
++    about each line of it.)*
+ 33. `check_error_kinds_tested` over eight planted trees — a kind no test provokes
+     and no row lists; one a unit only builds, as the `??` fallback every refusal
+     unit writes; one named in a unit that parses nothing, and one in a comment;

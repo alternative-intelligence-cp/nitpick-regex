@@ -1,0 +1,73 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 93c434a220c82eee3b89342de30d5453cfc6242f..c7de1d09b1802de1f0a3fa58d5d4e764f828a479 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -5580,3 +5580,28 @@ names `\g` and `\K` beside `\k`, `\G` and `\Z` — `SYNTAX.md` §9's row, `COMPA
+ *Alternatives declined:* **RX-210's text rewritten** — a settled decision's text is never rewritten, and the marker says
+ what changed and why; **a dated note at each of the three places and no decision** — the audit's other way, but the
+ answer is the author's, and a decision is where this repository records one, beside RX-209, as the workbench asked.
++
++### RX-218 — `SAFETY.md` S-2's lookaround row says what is true: automata can match lookaround, and in linear time — the refusal stands on RX-003 and S-6, not on its being "not regular"
++
++**@@DATE@@, cycle 0.1.6a (the plan's PD-62), at compiler `5fbaf4a`** — `SAFETY.md` S-2; per
++`meta/research/lookaround-linear-time.md`, as of 2026-10-01; the cycle audit's C8; and the author's answer to the
++workbench's question 20 (d), 2026-10-02: a dated note on S-2's row, by a decision, at the next subcycle that touches
++`SAFETY.md` — this one, since the audit found that place named no cycle. S-2 says lookahead and lookbehind are *"not
++regular either"*, that automata express *"some"* of it at exponential cost, and that *"the general case needs
++backtracking"*. The digest's primaries say otherwise: finite automata decide matching with lookaround, a deterministic
++one doubly exponential in the worst case (Mamouras and Chattopadhyay, citing Morihata 2012), and two peer-reviewed 2024
++algorithms match it in O(m·n) without backtracking. RX-212 took the false claim out of the sentence a user reads; the
++safety document kept it, and cycle 0.1.5's plan named it for the author.
++
++**The decision.** A dated note under S-2's table, its text kept: what the algorithms ask — Mamouras and Chattopadhyay's
++right-to-left passes over the haystack for a lookahead, and Barrière and Pit-Claudel's general one an oracle as long as
++the haystack, memory a search may not take (S-6), while a lookbehind alone streams and their captureless lookbehind
++needs no extra space, whatever the pattern syntax — and what the refusal stands on: RX-003 keeps the engines automata
++that read no lookaround, and S-6 keeps every search from allocating. The note names the class the row's two examples
++stand for, `(?!…)`, `(?<!…)` and `\K` with them (`SYNTAX.md` Y-30, Y-44). And O-R1's record takes in that a captureless
++lookbehind is known to fit S-6, if a consumer ever asks for one. No refusal and no sentence moves.
++
++*Alternatives declined:* **S-2's row rewritten** — its text was the reason the refusal was first written, and how that
++reason was wrong is kept beside what is true; **the note left for a later subcycle that touches `SAFETY.md`** — the audit
++found that place named no cycle, and this one touches it; **the refusal of lookbehind reconsidered here** — RX-003 and
++S-6 decide it today, and a consumer's need is O-R1's question, not a close's.
+diff --git a/meta/OPEN_QUESTIONS.md b/meta/OPEN_QUESTIONS.md
+index 47a68c85f600d432595a27e7626fd72f2a090bd6..afd9013e723a5141b56f3ac7970e39194814c6ff 100644
+--- a/meta/OPEN_QUESTIONS.md
++++ b/meta/OPEN_QUESTIONS.md
+@@ -882,6 +882,11 @@ movemask intrinsic, which is a better request than a speculative one.
+   point, a step budget in the options, an explicit error when it is exhausted,
+   and a documentation page stating that the linear-time guarantee does not
+   apply. Declining a feature is cheaper to revisit than removing one.
++  *(@@DATE@@, cycle 0.1.6a — RX-218: and lookbehind may not need a backtracker at all. A captureless lookbehind is
++  known to fit `SAFETY.md` S-6: Barrière and Pit-Claudel's streaming algorithm (PLDI 2024, its §4.4) matches it in
++  linear time with no space beyond the automaton's, whatever the pattern syntax
++  ([`research/lookaround-linear-time.md`](research/lookaround-linear-time.md)). Lookahead, and a capture inside a
++  lookbehind, are not known to. If a consumer asks for lookbehind, that is where this question starts.)*
+ - **O-R2 — a reverse DFA to find a match's start.** It is how Rust's `regex`
+   avoids the Pike VM for simple captures. It doubles the compiler's output and
+   needs its own correctness argument. **Decide at cycle 0.8**, where the DFA's
+diff --git a/meta/specs/SAFETY.md b/meta/specs/SAFETY.md
+index 832b037573106fb4ee6eaa79893315dfa76ecccd..2da0cee35d2479a145f81dae7adc3570486e7939 100644
+--- a/meta/specs/SAFETY.md
++++ b/meta/specs/SAFETY.md
+@@ -114,6 +114,19 @@ it. So the engine is a finite automaton, and the bound is structural.
+ | **atomic groups** (`(?>…)`) and **possessive quantifiers** (`a*+`) | these are backtracking-*control* constructs. Under an automaton there is no backtracking to control, and pretending to honour them would change which strings match |
+ | **recursion / subroutine calls** (`(?R)`, `(?1)`) | context-free, not regular |
+ 
++*(@@DATE@@, cycle 0.1.6a — RX-218, the author's answer to the workbench's question 20 (d): the lookaround row's reasons,
++read against the published algorithms ([`../research/lookaround-linear-time.md`](../research/lookaround-linear-time.md),
++as of 2026-10-01), are not what is true. Finite automata do decide matching with lookahead and lookbehind — a
++deterministic one doubly exponential in the pattern in the worst case — and two 2024 algorithms match them in O(m·n),
++backtracking nowhere: Mamouras and Chattopadhyay's makes right-to-left passes over the haystack for a lookahead, and
++Barrière and Pit-Claudel's for every lookaround keeps an oracle as long as the haystack, memory a search may not take
++(S-6); a lookbehind alone streams in one pass, and Barrière and Pit-Claudel's captureless lookbehind needs no extra space,
++whatever the pattern syntax, JavaScript's or another. So the refusal stands on what does hold here — RX-003 keeps the
++engines automata that read no lookaround, and S-6 keeps every search from allocating — not on lookaround being "not
++regular" or needing backtracking.
++The row's two examples stand for a class the parser refuses whole: `(?=…)`, `(?!…)`, `(?<=…)`, `(?<!…)` (`SYNTAX.md`
++Y-30) and `\K` (Y-44).)*
++
+ Each is **refused at compile time, by name, with the byte offset** — never
+ silently accepted and never quietly reinterpreted. A user who needs one needs a
+ parser, and `COMPAT.md` §4 says so with a pointer.

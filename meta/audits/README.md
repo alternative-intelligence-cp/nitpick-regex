@@ -22,6 +22,7 @@ record, not in an edit here.
 | [`nitpick-regex-0.0-2026-09-25-fourth.md`](nitpick-regex-0.0-2026-09-25-fourth.md) | 0.0 | **DO NOT ACCEPT** — 2 blocking (BL-7, BL-8), 6 non-blocking (N-18 … N-23) | [`../roadmap/done/0.0/0.0.5.md`](../roadmap/done/0.0/0.0.5.md) §11 — 8 findings, 8 lines; N-15 deferred to 0.0.4d by the author's decision |
 | [`nitpick-regex-0.0-2026-09-25-fifth.md`](nitpick-regex-0.0-2026-09-25-fifth.md) | 0.0 | **DO NOT ACCEPT** — 1 blocking (BL-9), 6 non-blocking (N-24 … N-29); the loan's refusal excluded, as directed | [`../roadmap/done/0.0/0.0.5.md`](../roadmap/done/0.0/0.0.5.md) §12 — 7 findings, 7 lines, at `c3bdae2`; its post-re-pin checklist is the re-pin subcycle's |
 | [`nitpick-regex-0.0-2026-09-26-sixth.md`](nitpick-regex-0.0-2026-09-26-sixth.md) | 0.0 | **ACCEPT** — the fifth audit's 23 post-re-pin items all met at `c970483`; 5 non-blocking (N-30 … N-34), none blocking | [`../roadmap/done/0.0/0.0.5.md`](../roadmap/done/0.0/0.0.5.md) §13 — the close: 5 findings, 5 lines; the cycle archived |
+| [`nitpick-regex-0.1-2026-10-02.md`](nitpick-regex-0.1-2026-10-02.md) | 0.1 | **ACCEPT once C1 is fixed** — 22 findings: 8 contradiction (C1, a silent wrong answer in `regex_escape`), 1 dormant, 4 stale, 9 cosmetic | [`../roadmap/0.1/0.1.6.md`](../roadmap/0.1/0.1.6.md) §2 — 22 findings, 22 rows, fixed across 0.1.6a, 0.1.6b and 0.1.6 or deferred to a named cycle |
 
 **THE SECOND PASS IS THE ARGUMENT FOR THE FIRST ONE'S EXISTENCE, AND FOR A
 THIRD.** It was scoped tightly to the delta and to where the first audit did not
@@ -32,6 +33,8 @@ a guard whose **stop did not stop**. Each pass here has found what the previous
 pass's shape could not see. That is the case for auditing again rather than the
 case for having finished.
 
+**The cycle 0.1 report was filed here with the close's plan (2026-10-08)**, verbatim from the workbench's copy at
+`0be209e` (the same sha256, `81fdf157…`), because that plan cites it; its triage is the close's §2.
 **The sixth report — the first to ACCEPT — was filed here with the close
 (2026-09-26)**, verbatim from the workbench's copy at `c7939a5` (the same sha256).
 **The fifth report was filed here with its triage (2026-09-25)**, verbatim from

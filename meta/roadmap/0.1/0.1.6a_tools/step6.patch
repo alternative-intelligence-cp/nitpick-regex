@@ -1,0 +1,125 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index c7de1d09b1802de1f0a3fa58d5d4e764f828a479..66a57d9e5a47297aa36cdb72422c91f3a545fe9e 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -4271,6 +4271,9 @@ construct 0.1.0 writes needs one, and the grammar names where one is needed when
+ narrowing.
+ 
+ ### RX-174 — the AST is a flat arena of sixteen kinds of 56-byte node that own nothing, every operand an `int64`, and only `ast.npk` touches its `Vec`
++> **SUPERSEDED IN PART by RX-177 (2026-09-27)** — *"`AstNode` implements `Pod` in one line"*: `Pod` retired into the
++> prelude's `Copy`, which `AstNode` and `AstKind` derive. Every other part is as this decision says. *(Marked
++> @@DATE@@, cycle 0.1.6a — the cycle audit's S2: the marker was not added when RX-177 landed.)*
+ 
+ **2026-09-26, cycle 0.1.0 (the plan's PD-18), at compiler `c970483`.** `src/syntax/ast.npk`, and `SYNTAX.md`
+ rules Y-26 (the node) and Y-27 (the kinds):
+@@ -4522,6 +4525,10 @@ both literally; **an unfinished `{` taken as a literal**, PCRE's rule — a patt
+ brace completes is the context-dependence Y-2 refuses.
+ 
+ ### RX-184 — quantifiers: the six forms and the lazy `?`, a `{` always a bound, and each refusal decided at the quantifier's first byte
++> **SUPERSEDED IN PART by RX-213 (2026-10-02)** — *"a `{` that is not `{n}`, `{n,}` or `{n,m}` in decimal digits is
++> `BadRepeatBounds` (detail 0)"*: after `\b` or `\B`, detail 2, which RX-215 gives only when a letter follows the `{`.
++> Every other part is as this decision says. *(Marked @@DATE@@, cycle 0.1.6a — the cycle audit's S2: the marker was not
++> added when RX-213 landed.)*
+ 
+ **2026-09-27, cycle 0.1.1 (the plan's PD-28)** — `SYNTAX.md` Y-32. `NothingToRepeat` and `DoubleRepeat` are decided at
+ the quantifier's first byte, before a bound is read; a `{` that is not `{n}`, `{n,}` or `{n,m}` in decimal digits
+@@ -5367,6 +5374,8 @@ class holds codepoints, and no engine reads a position there.
+ > **SUPERSEDED IN PART by RX-214 (@@DATE@@)** — the set of bytes it escapes: `:` joins them, since straight after a
+ > nested class's `[` a text that began `:alpha:` was read as the POSIX class, with no error; and the claim *"between `[`
+ > and `]`"*, which held for none of those texts. Every other byte, and every other form, is as this decision says.
++> *(Noted @@DATE@@, cycle 0.1.6a — the cycle audit's S4: its *"as it does `pattern_error_text`"* reads as the present;
++> `src/lib.npk` re-exports `ERegexPattern` alone today, and both at cycle 0.10.5 (`API.md` §1, RX-187).)*
+ 
+ **2026-10-02, cycle 0.1.5 (the plan's PD-55), at compiler `5fbaf4a`** — `SYNTAX.md` Y-24 and Y-45, `API.md` §1; per
+ `meta/research/refusal-syntax-reference-engines.md`, as of 2026-10-01. Y-24 names `regex_escape` the way to match a
+diff --git a/meta/roadmap/0.1/README.md b/meta/roadmap/0.1/README.md
+index 4118dee15c9f997b89bb1a05712726eed3c66095..370929310972f7893723433cfbafbed0149c7580 100644
+--- a/meta/roadmap/0.1/README.md
++++ b/meta/roadmap/0.1/README.md
+@@ -149,7 +149,7 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
+ - [x] the provisional `UnknownEscape` and `UnknownFlag` (`SYNTAX.md` Y-31) replaced; a `Flags` node never the pending atom (`(?i)*` is `NothingToRepeat`); each kind produced here held to its sentence (`0.1.1.md` §8) — **RX-204, `17dbac3`; RX-206, `7943972`**: every escape read by `escape_cp` and every flag by `read_flags`, none provisional but §8's escapes, 0.1.5's (Y-40, Y-41); `(?i)*`, `a(?i)+` and `(?-i){2}` are `NothingToRepeat` (`parse_flag_refusals` 40–42) — the `Flags` node linked at once, a pending one shown red there (40) and green in `parse_flags`, where no tree differs; every kind this subcycle produces held to its sentence by `pattern_error_text` 39 and 41–66; against the parser before each step the new units exit at the first case it answers otherwise (1, 1 and 41; 1 and 2)
+ - [x] every escape in §1's `Escape` production *(2026-10-01 — RX-197: inside a class too, where an escape naming a codepoint is a member and may end a range — `parse.npk`'s `class_escape` and `class_range` refuse each provisionally until then; and `\b` there is this subcycle's to decide)* — **RX-204, `17dbac3` — and `\<` and `\>` refused, a reading Y-2 held since cycle 0.1.1 reversed, RX-205, `ca77859`**: `parse_escapes` 1–48 outside a class and 50–62 inside, where an escape naming a codepoint is a member and either end of a range (51–55); `\b`, `\B`, `\A` and `\z` in a class `UnknownEscape`, positions a class cannot hold (`parse_escape_refusals` 66–70; text 43, 44); `\<` and `\>` `UnknownEscape` in a class and out (74–77; text 53, 54), where Rust's `regex` and GNU `grep` read word assertions and Perl, PCRE, Python and Java the bytes — RX-183 carries the marker
+ - [x] **`\` before an unlisted ASCII letter or digit is `UnknownEscape`, never a literal** (Y-2) — a test per unassigned letter — **RX-204, `17dbac3`**: `parse_escape_refusals` 32–56, one per letter no rule assigns — `c g h i j l m o q y` and `C F H I J K L M N O R T V X Y` — and 57, 58 in a class; `\0` before a digit 59–62, the octal escape nregex does not read; a mutant reading a letter as itself exits 32. `\1` … `\9`, §8's, are `UnknownEscape` until cycle 0.1.5 refuses them by their own kind (Y-40)
+-- [x] `\x41`, `\x{1F600}`, `A`, `\U0001F600`, with `BadHexEscape`, `BadUnicodeEscape`, `InvalidCodepoint` (surrogates and above `U+10FFFF`) *(2026-10-01 — cycle 0.1.4: the third is `\u0041`, which reads `A` because the list was written with the escape decoded, `46d870d`; every other item names an escape)* — **RX-204, `17dbac3`; the end of the pattern `NOT_A_CODEPOINT`, RX-203, `4281569`**: `parse_escapes` 10–24 — leading zeros, either case, U+D7FF and U+E000 beside the surrogates, U+10FFFF the last; `BadHexEscape` 1–13, `BadUnicodeEscape` 14–20 (`\u{41}` at its `{`), `InvalidCodepoint` 21–31 (`parse_escape_refusals`); text 46–52; a value stops growing past U+10FFFF, shown by the `IntOverflow` trap (93) twenty hex digits make without the stop
++- [x] `\x41`, `\x{1F600}`, `A`, `\U0001F600`, with `BadHexEscape`, `BadUnicodeEscape`, `InvalidCodepoint` (surrogates and above `U+10FFFF`) *(2026-10-01 — cycle 0.1.4: the third is `\u0041`, which reads `A` because the list was written with the escape decoded, `46d870d`; every other item names an escape)* — **RX-204, `17dbac3`; the end of the pattern `NOT_A_CODEPOINT`, RX-203, `4281569`**: `parse_escapes` 10–24 — leading zeros, either case, U+D7FF and U+E000 beside the surrogates, U+10FFFF the last; `BadHexEscape` 1–13, `BadUnicodeEscape` 14–20 (`\u{41}` at its `{` *(@@DATE@@ — the cycle audit's K3: at its `\`, its detail the `{`)*), `InvalidCodepoint` 21–31 (`parse_escape_refusals`); text 46–52; a value stops growing past U+10FFFF, shown by the `IntOverflow` trap (93) twenty hex digits make without the stop
+ - [x] flags `imsxu`, scoped per Y-12: `(?i:…)` to the group, `(?i)` to the end of the enclosing group, `(?-i)` clearing — **RX-206, `7943972`**: `parse_flags` 1–27, every node's flags shown — `(?i:a)b` (3), across `|` (11, 16), undone at the `)` (12, 15), `(?-i)` clearing (6, 13, 14); a `Group` carries its parent's flags, the ones at its `(` — a `Group` taking its own frame's exits 3, flags reset at `|` 11
+ - [x] `x` mode: whitespace and `#`-to-end-of-line ignored, per O-Y2's answer *(2026-10-01 — RX-201: outside a class; inside one, a white-space byte or a `#` is refused at it (Y-39), with a kind this subcycle adds to §9 and a sentence naming `\x20` and `\#`; `(?xx)`, a repeated flag, refused saying so)* — **RX-207, `3ad9cfd` — between constructs only, and what the engines read two ways refused**: `parse_flags` 30–47; inside a construct a white-space byte is the construct's own, so `\x4 1`, `a{2, 3}`, `( ?:a)`, `a* ?`, `(?i x)` and `(?<a b>c)` are refused (`parse_flag_refusals` 80–85); RX-201's refusal made, `ExtendedAmbiguity`, a kind after `WrongNamedGroupSpelling` (60–67), and white space past ASCII too, the twenty-one codepoints of White_Space and Pattern_White_Space (70–76); `(?xx)` `DuplicateFlag` (23), its sentence naming `xx` (text 59); text 60–63
+ - [x] `(?-u)` byte mode, and `ByteModeNonAscii` when a non-ASCII literal appears under it (Y-14) — **naming the codepoint** — **RX-208, `61cdf5c` — `\xHH` a byte, every other spelling past ASCII refused**: `parse_flags` 50–61, `AST_FLAG_BYTE` on every `Literal` read under `(?-u)`; `ByteModeNonAscii` for `é`, `\x{E9}`, `\u00E9`, `\U0001F600`, a class member and a range's end, and `\p` and `\P` at their `\` (`parse_escape_refusals` 78–90); the sentence names the codepoint and its UTF-8 bytes, and the one byte below U+0100 (text 64–66)
+diff --git a/meta/roadmap/0.3/README.md b/meta/roadmap/0.3/README.md
+index de6eff8e45da8ba8ce119274fb8d62fe9e47a83f..93ae1638aede9341f8e99cf5f07e715b741d1a45 100644
+--- a/meta/roadmap/0.3/README.md
++++ b/meta/roadmap/0.3/README.md
+@@ -44,6 +44,7 @@ design; recorded when chosen).
+ - [ ] **`\w` is `[\p{Alphabetic}\p{M}\p{Nd}\p{Pc}\p{Join_Control}]`** (U-10) — a test asserts a Devanagari word and an emoji ZWJ sequence are matched by `\w+` without splitting
+ - [ ] complements taken **within the relevant universe** — all codepoints in Unicode mode, all 256 bytes in byte mode — with a test showing `\W` differs between the two
+ - [ ] the fourteen POSIX bracket classes, inside a class only
++- [ ] *(@@DATE@@ — cycle 0.1.6a, the cycle 0.1 audit's D1)* **a rule in `UNICODE.md` §3 giving each of the fourteen POSIX classes its set in Unicode mode and in byte mode, decided before the code** — `SYNTAX.md` Y-43 cites U-9 for their ASCII meanings, and U-9 pins `\d`, `\w` and `\s` alone; Rust's `regex` reads every POSIX class as ASCII in either mode, and UTS #18 Annex C gives each a Unicode set, so which this library takes is a decision with a research item
+ 
+ ### 0.3.3 — case folding
+ - [ ] `CaseFolding.txt`'s `C` and `S` entries only (RX-022)
+diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
+index 5c505db09e254e0b8217bfa74cc104b825a83d80..7a18cf6768acdc4193cc7f95ddc65ec4bd4d6004 100644
+--- a/meta/specs/SYNTAX.md
++++ b/meta/specs/SYNTAX.md
+@@ -81,6 +81,8 @@ end of a word, and Perl, PCRE, Python and Java as the bytes, so each is `Unknown
+   what was read, its detail `NOT_A_CODEPOINT` (RX-203). So `\u{41}` is `BadUnicodeEscape` at its `{`: braces are
+   `\x`'s. A surrogate, U+D800 … U+DFFF, or a value past U+10FFFF is `InvalidCodepoint` at the `\`, spanning the
+   escape, its detail the surrogate's value, or `NOT_A_CODEPOINT`.
++  *(@@DATE@@, cycle 0.1.6a — the cycle audit's K3: `\u{41}` is `BadUnicodeEscape` at the `\`, as this bullet's rule
++  says — byte 0, spanning `\u{`, its detail the `{` (123); only the detail is the `{`.)*
+ - **ASCII that is neither a letter nor a digit** names itself (Y-2).
+ - **`d D w W s S`, `p` and `P`** name classes (Y-37). **`A` and `z`** are `Anchor` 2 and 3, **`b` and `B`**
+   `WordBoundary` 0 and 1 (§6, Y-27) — outside a class; inside one each is `UnknownEscape`, a position a class cannot
+@@ -257,6 +259,9 @@ punctuation, a `Literal` spanning two bytes (Y-2), and `\` as the last byte is
+ `TrailingBackslash` at it.
+ *(2026-10-01, cycle 0.1.4 — RX-204: and every other escape as Y-40 reads it.)*
+ *(2026-10-01, cycle 0.1.4 — RX-205: but `\<` and `\>`, which are refused (Y-2's note).)*
++*(@@DATE@@, cycle 0.1.6a — the cycle audit's K4: and two modes read more than the twelve — under `x` white space
++between constructs is skipped or refused and `#` begins a comment (Y-42), and under `(?-u)` a codepoint past ASCII is
++refused (Y-43).)*
+ 
+ **Rule Y-29 (RX-185) — groups.** `(` opens a capturing group, numbered by its `(`
+ (Y-6); `(?:` a non-capturing one; `(?<name>` a capturing one named by
+@@ -484,6 +489,9 @@ and two hex digits, which name a byte whatever its value: `(?-u)\xE9` is the byt
+ which no codepoint past ASCII is — since a property names codepoints. `\d`, `\w`, `\s`, the POSIX classes, `.`, `\b`
+ and `\B` keep their ASCII meanings (`UNICODE.md` U-9), which the nodes' flags carry. `(?u)` and `(?u:…)` turn Unicode
+ back on.
++*(@@DATE@@, cycle 0.1.6a — the cycle audit's D1: U-9 pins `\d`, `\w` and `\s` alone. What each of §5.1's fourteen
++POSIX classes matches, in Unicode mode and in byte mode, no rule says yet; cycle 0.3.2 writes one in `UNICODE.md` §3
++before its code, the 0.3 README's item. `\b` and `\B` are `UNICODE.md` §5's, U-15 … U-17, and `.` is Y-13's.)*
+ 
+ ---
+ 
+@@ -756,7 +764,7 @@ RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-2
+ 
+ | Kind | Raised when | Offset | Length | Detail |
+ |---|---|---|---|---|
+-| `UnclosedGroup` | the pattern ends inside a group | the innermost open `(` | 1; 2 for `(?` at the end | how many groups are open |
++| `UnclosedGroup` | the pattern ends inside a group | the innermost open `(` | 1; 2 for `(?` at the end — *the head read when the pattern ends inside one, `(?` or a head of flags: `(?i` is 3 (Y-41, RX-206)* | how many groups are open |
+ | `UnopenedGroup` | `)` with no group open | the `)` | 1 | 0 |
+ | `TrailingBackslash` | `\` is the last byte | the `\` | 1 | 0 |
+ | `NothingToRepeat` | a quantifier with no atom before it | the quantifier | 1 | its first byte |
+@@ -770,7 +778,7 @@ RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-2
+ | `WrongNamedGroupSpelling` | `(?P<` or `(?'` | the `(` | the head | 80 or 39 |
+ | `LookaroundUnsupported`, `AtomicGroupUnsupported`, `RecursionUnsupported`, `BackreferenceUnsupported`, `UnsupportedGroup` | Y-30's group heads | the `(` | the head | its last byte |
+ | `AtomicGroupUnsupported` | a quantifier made possessive | the quantifier | through the `+` | 43 |
+-| `InvalidPatternEncoding` | ill-formed UTF-8 | the sequence's first byte | through the byte that broke it | that byte; 0 when cut short |
++| `InvalidPatternEncoding` | ill-formed UTF-8 | the sequence's first byte | through the byte that broke it | that byte; 0 when cut short — *and 0 for a NUL that broke it, which the length tells apart: `C3 00` spans 2, `C3` at the end 1, and no sentence reads the detail (RX-183)* |
+ | `PatternTooLong` (cycle 0.1.0) | over `NREGEX_PATTERN_BYTES` | the first byte past the bound | the bytes over it | the bound |
+ | `NestTooDeep` (cycle 0.1.2) | a `(` that would nest groups deeper than `NREGEX_NEST_DEPTH` (Y-35) — *and since cycle 0.1.3 a `[` that would nest groups and classes deeper, counted together (RX-198)* — *whatever the `(` begins, `(?i)` and `(?#` too, since its head is not read (RX-216)* | that `(` *or `[`* | 1 | the bound |
+ | `UnclosedClass` (cycle 0.1.3) | the pattern ends inside a class — not inside an escape, a property's name or a `[:` | the innermost open `[` | 1 | 93 when that class's first member is a `]`; 0 |
+diff --git a/src/syntax/ast.npk b/src/syntax/ast.npk
+index a802c4b0882565342163b05c8a032f2380b53a0a..78ec594ec9056c2d06d691fbf9f7872ce2942132 100644
+--- a/src/syntax/ast.npk
++++ b/src/syntax/ast.npk
+@@ -78,6 +78,10 @@ pub enum:AstKind = {
+ // `vec_get` hands back a `T: Copy` by value (RX-177), and a node owns nothing, so it
+ // derives `Copy` -- and so does its kind, because a struct is `Copy` only when every
+ // member is (the compiler's D-327; `NITPICK-TYPE-087` names the member otherwise).
++// *(@@DATE@@, cycle 0.1.6a -- the cycle audit's C7: or is a structural kind, a pointer or a slice, which D-327
++// passes in a `Copy` struct, measured at `5fbaf4a`; a user enum is neither until it derives `Copy`, which is
++// why `AstKind` does. And RX-190 is why `check_vec_elements_own_nothing` still reads a `Vec`'s element: `Copy`
++// admits a member that holds a block.)*
+ #[derive(Copy)]
+ pub struct:AstNode = {
+     AstKind:kind;      // Y-27

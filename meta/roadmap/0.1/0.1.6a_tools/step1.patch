@@ -1,0 +1,203 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index b7908e529c486c2ea6894c78b9d599fb243bc489..8d05000322fce99cb66c4784d79d93618c779257 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -5357,6 +5357,9 @@ to write `K`, and the author amended the plan on 2026-10-02; **`\K` refused as l
+ class holds codepoints, and no engine reads a position there.
+ 
+ ### RX-211 — `regex_escape(text)` puts a `\` before every byte that means something in a pattern and writes white space past ASCII as `\x{…}`, so the text means itself whole, in a piece, in a class and under `x`
++> **SUPERSEDED IN PART by RX-214 (@@DATE@@)** — the set of bytes it escapes: `:` joins them, since straight after a
++> nested class's `[` a text that began `:alpha:` was read as the POSIX class, with no error; and the claim *"between `[`
++> and `]`"*, which held for none of those texts. Every other byte, and every other form, is as this decision says.
+ 
+ **2026-10-02, cycle 0.1.5 (the plan's PD-55), at compiler `5fbaf4a`** — `SYNTAX.md` Y-24 and Y-45, `API.md` §1; per
+ `meta/research/refusal-syntax-reference-engines.md`, as of 2026-10-01. Y-24 names `regex_escape` the way to match a
+@@ -5455,3 +5458,37 @@ first exits 72, with `\B` left out 74, and with the sentence's branch lost the s
+ Perl reads the same braces otherwise; **`UnknownEscape` at the `\`** — the `\b` is a word boundary, and what is wrong
+ is the brace; **detail 2 after any atom** — `a{start}` is a brace no engine reads as a boundary; **`\b` alone, without
+ `\B`** — Perl's `\B{wb}` is the same reading of the same shape.
++
++## The cycle audit's findings — cycle 0.1.6a
++
++### RX-214 — `regex_escape` escapes `:` too: a text that began `:alpha:`, put straight after a nested class's `[`, was the POSIX class `[:alpha:]`, with no error
++
++**@@DATE@@, cycle 0.1.6a (the plan's PD-58), at compiler `5fbaf4a`** — `SYNTAX.md` Y-45; the cycle audit's C1 and C2
++(`meta/audits/nitpick-regex-0.1-2026-10-02.md`), and the first of cycle 0.1.5's verifier's three findings. RX-211 put a
++`\` before Rust's eighteen bytes and the six white-space bytes and left `:` bare, as Rust's `regex::escape` does. But
++straight after a `[` that opens a class, `[:` begins a POSIX class (Y-38): `[a[` and `regex_escape(":alpha:")` and `]]`
++make `[a[:alpha:]]`, which parses — `a` or a letter — and `[\w--[` and `regex_escape(":digit:")` and `]]` make `\w`
++less the digits, not less `:`, `d`, `i`, `g` and `t`. A wrong answer with no error, for the fourteen texts `:name:`, in
++a nested class only; their `:^name:` twins, whose `^` it escapes, were refused there, `UnknownPosixClass`. After the
++outermost `[` the fourteen, and every text that begins and ends with `:` and holds another codepoint, were refused
++(RX-200): loud, and Y-45's *"between `[` and `]` one member each"* false for them. Measured on 2026-10-08, regex-syntax 0.8.11's `is_meta_character` holds no `:`, and it reads
++`[[:alpha:]]` and `[a[:alpha:]]` as the POSIX class, so Rust's escaped text is misread there too
++(`meta/research/refusal-syntax-reference-engines.md`, its addendum of 2026-10-08).
++
++**The decision.** `:` joins the bytes `regex_escape` writes a `\` before. `\:` is `:` in a class and out (Y-2), so a
++text's first byte is never a `[:`'s `:`, and every text parses back to one `Literal` per codepoint as a whole pattern,
++as a piece of one and between `[` and `]`, nested or not — but where Y-45's note says it cannot promise that, after a
++`\0`, past the length bound and for the empty text, each a refusal. `tests/unit/regex_escape.npk` holds §5.1's fourteen
++names, as `:name:` and `:^name:`, in a nested class (13) and in the outermost one (14), every ASCII byte alone in a
++nested class (15) and `:a:` in the outermost class (16), and case 31's text holds `\:`.
++
++**Measured at `5fbaf4a`.** `regex_escape.npk` passes at −O0 and through `opt -O2`, and against the parser before this
++decision exits 13: `[[` and the text `:alpha:` and `]]` parsed, to a class holding the POSIX class. With `:` left bare
++again it exits 13. Cycle 0.1.5's mutant `esc-extra`, which escaped `:` and was required to fail at case 31, is this
++decision.
++
++*Alternatives declined:* **Y-45's claim narrowed to the places measured** — a silent misreading left standing behind a
++caveat, as the audit put it; **every ASCII byte that is neither a letter nor a digit escaped** — RX-211's own
++alternative, declined for `<` and `>`, which a `\` makes refused (RX-205); **`[:` read as a nested class after a nested
++`[`, as Rust reads `[[:alpah:]]`** — a change to Y-38 for every pattern, when only the escaped text went wrong;
++**`regex_escape` refusing a text that begins with `:`** — it never fails (`API.md` §1), and the text is not wrong.
+diff --git a/meta/specs/COMPAT.md b/meta/specs/COMPAT.md
+index 256a47131a145cfc7a49f51381a4ee04d38e2d80..41d2bb4b1f005e738424e8afaed4905e1ab04406 100644
+--- a/meta/specs/COMPAT.md
++++ b/meta/specs/COMPAT.md
+@@ -31,7 +31,7 @@ The closest neighbour, so the list is short and each entry is deliberate.
+ |---|---|---|---|
+ | named groups | `(?P<n>…)` **and** `(?<n>…)` | `(?<n>…)` only | one spelling per construct (`SYNTAX.md` Y-7) |
+ | `\Q…\E` | not supported | refused, naming `regex_escape()` | same, with a better message |
+-| `regex::escape` / `regex_escape()` | a `\` before eighteen bytes, white space left bare, so `(?x)` skips it | the same eighteen and the six white-space bytes, and white space past ASCII as `\x{…}` | the text means itself under `x` too (`SYNTAX.md` Y-45) — RX-211 |
++| `regex::escape` / `regex_escape()` | a `\` before eighteen bytes, white space left bare, so `(?x)` skips it | the same eighteen and the six white-space bytes, and white space past ASCII as `\x{…}` — *and `:`, since @@DATE@@ (RX-214)* | the text means itself under `x` too (`SYNTAX.md` Y-45) — RX-211 — *and straight after a nested class's `[`, where `:alpha:` begins a POSIX class: Rust's text is read as one there, measured (RX-214)* |
+ | Unicode blocks | not supported | refused, naming `Script` | `UNICODE.md` §2.1 |
+ | case folding | simple | simple | same |
+ | `x` mode inside classes | ~~whitespace significant~~ white space and `#` comments ignored (measured, regex 1.13.1) | ~~whitespace significant~~ a white-space byte or a `#` refused (`SYNTAX.md` Y-39) | ~~same (O-Y2)~~ the engines disagree, so neither reading is guessed — RX-201, 2026-10-01; this row said Rust kept white space, and it does not |
+diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
+index 220602e80cf75b5eb4665622847a8b39721ada31..d535df26921bc5ce2a20e35661941dbb857ea812 100644
+--- a/meta/specs/SYNTAX.md
++++ b/meta/specs/SYNTAX.md
+@@ -671,6 +671,13 @@ text parses back to one `Literal` per codepoint, in order — as a whole pattern
+ `]` one member each — with `x` in force or not. Under `(?-u)` a codepoint past ASCII is refused as any is (Y-43), and
+ under `i` it matches as `i` says. A text that is not well-formed UTF-8 is copied with only its ASCII escaped, so its
+ pattern is refused `InvalidPatternEncoding` where the text breaks (Y-28), never read as a codepoint it does not hold.
++*(@@DATE@@, cycle 0.1.6a — RX-214: and before `:`, which straight after a `[` begins a POSIX class (Y-38). A text that
++began `:alpha:`, put straight after a nested class's `[` — `[a[`, `[\w--[` — was read as the class `[:alpha:]`, with no
++error, and after the outermost `[` it was refused (RX-200). So between `[` and `]`, nested or not, the text is one member
++per codepoint now. Three things it cannot promise, each a refusal and none a misreading: after `\0` a text that begins
++with a digit makes `\0` and the digit an escape nregex reads not at all (Y-40) — `\0` then `1` is `\01`,
++`UnknownEscape`; a text whose escaped form passes `NREGEX_PATTERN_BYTES` is `PatternTooLong`, an ill-formed one too,
++since the length is checked first (Y-28); and the empty text between `[` and `]` leaves `[]`, which never ends (Y-36).)*
+ 
+ ---
+ 
+diff --git a/src/syntax/parse.npk b/src/syntax/parse.npk
+index 3b609150c1d314ef1585885300182168be3e4182..d8c2173c26e2714e79198917045ce2a1971df190 100644
+--- a/src/syntax/parse.npk
++++ b/src/syntax/parse.npk
+@@ -1556,11 +1556,14 @@ pub func:parse_pattern = PatternError?(uint8[]:pat, Ast->:out) never fails {
+ // ] { } ^ $`; `&`, `-` and `~`, which make a class's operators and ranges; `#`; and the six white-space
+ // bytes `x` skips (Y-42) -- every byte that means something somewhere in a pattern, in a class or out, under
+ // `x` or not. Not `<` or `>`: a `\` before either is refused (RX-205), and each is itself everywhere.
++// *(@@DATE@@, cycle 0.1.6a -- RX-214: and `:`, which straight after a `[` begins a POSIX class (Y-38): a text
++// that began `:alpha:`, put straight after a nested class's `[`, was read as the class `[:alpha:]` with no
++// error, and in the outermost class it was refused (RX-200). `\:` is `:` everywhere (Y-2).)*
+ func:is_escaped = bool(int32:b) never fails {
+     if ((b == CH_BACKSLASH) || (b == CH_DOT) || (b == CH_PLUS) || (b == CH_STAR) || (b == CH_QUESTION)) { pass true; }
+     if ((b == CH_LPAREN) || (b == CH_RPAREN) || (b == CH_PIPE) || (b == CH_LBRACKET) || (b == CH_RBRACKET)) { pass true; }
+     if ((b == CH_LBRACE) || (b == CH_RBRACE) || (b == CH_CARET) || (b == CH_DOLLAR) || (b == CH_HASH)) { pass true; }
+-    if ((b == CH_AMP) || (b == CH_MINUS) || (b == CH_TILDE)) { pass true; }
++    if ((b == CH_AMP) || (b == CH_MINUS) || (b == CH_TILDE) || (b == CH_COLON)) { pass true; }
+     pass raw is_space(b);
+ };
+ 
+diff --git a/tests/unit/regex_escape.npk b/tests/unit/regex_escape.npk
+index 302895cd7f7bb3633870a6b463e125b1c919cf82..d0799e8c0c74893ddb4735b7c768d271d95cbd31 100644
+--- a/tests/unit/regex_escape.npk
++++ b/tests/unit/regex_escape.npk
+@@ -13,6 +13,11 @@
+ // codepoint past ASCII that `x` refuses; every other byte copied -- `<` and `>` bare, since a `\` before
+ // either is refused (RX-205) -- and a text that is not well-formed UTF-8 copied with only its ASCII
+ // escaped. A case that differs exits with its number.
++// *(@@DATE@@, cycle 0.1.6a -- RX-214: and a fifth place, between `[[` and `]]`, a class nested in a class,
++// where a text that began `:alpha:` was read as the POSIX class `[:alpha:]`, with no error, until `:` was
++// escaped: `SYNTAX.md` §5.1's fourteen names as `:name:` and `:^name:` there (13) and in the outermost class
++// (14), every ASCII byte alone there (15), and `:a:` in the outermost class, which RX-200 refused (16). Case
++// 31's text holds `\:` now.)*
+ mod:regex_escape;
+ 
+ use "../../src/core/core.npk".*;
+@@ -22,6 +27,7 @@ fixed int64:WHOLE = 0i64;        // the text is the whole pattern
+ fixed int64:EXTENDED = 1i64;     // after `(?x)`
+ fixed int64:IN_CLASS = 2i64;     // between `[` and `]`
+ fixed int64:EXT_CLASS = 3i64;    // between `(?x)[` and `]`
++fixed int64:NESTED = 4i64;       // between `[[` and `]]`: a class nested in a class (RX-214)
+ 
+ func:same = bool(uint8[]:g, uint8[]:w) never fails {
+     if (g.len != w.len) { pass false; }
+@@ -123,6 +129,13 @@ func:tree_holds = bool(Ast:t, uint8[]:text, int64:place) never fails {
+         if ((c.kind != AstKind.Class) || (c.b != n) || ((c.flags & AST_FLAG_NEGATED) != 0u32)) { pass false; }
+         pass raw holds(t, c.a, text, true);
+     }
++    if (place == NESTED) {
++        if ((r.kind != AstKind.Class) || (r.b != 1i64) || ((r.flags & AST_FLAG_NEGATED) != 0u32)) { pass false; }
++        AstNode:c = raw ast_get(t, r.a);
++        if ((c.kind != AstKind.Class) || (c.b != n) || ((c.flags & AST_FLAG_NEGATED) != 0u32)) { pass false; }
++        if (c.next != AST_NONE) { pass false; }
++        pass raw holds(t, c.a, text, true);
++    }
+     if ((r.kind != AstKind.Class) || (r.b != n) || ((r.flags & AST_FLAG_NEGATED) != 0u32)) { pass false; }
+     pass raw holds(t, r.a, text, true);
+ };
+@@ -136,8 +149,10 @@ func:round_trip = bool(uint8[]:text, int64:place) never fails {
+     Bytes:p = raw bytes_init(32i64);
+     if ((place == EXTENDED) || (place == EXT_CLASS)) { drop bytes_extend_str(@p, "(?x)"); }
+     if ((place == IN_CLASS) || (place == EXT_CLASS)) { drop bytes_extend_str(@p, "["); }
++    if (place == NESTED) { drop bytes_extend_str(@p, "[["); }
+     drop bytes_extend_str(@p, e);
+     if ((place == IN_CLASS) || (place == EXT_CLASS)) { drop bytes_extend_str(@p, "]"); }
++    if (place == NESTED) { drop bytes_extend_str(@p, "]]"); }
+     string:pattern = raw bytes_copy_string(@p);
+     Ast:t = raw ast_init(8i64);
+     PatternError?:r = raw parse_pattern(string_bytes(pattern), @t);
+@@ -195,6 +210,28 @@ func:wide_trip = bool() never fails {
+     pass true;
+ };
+ 
++// Each of `SYNTAX.md` §5.1's fourteen names written `:name:` and `:^name:`, put where `place` says, comes back
++// as its codepoints -- never as the POSIX class that a `[` straight before the text would begin (Y-38, RX-214).
++func:names_trip = bool(int64:place) never fails {
++    int64:k = 0i64;
++    while (k < POSIX_CLASS_NAMES) decreases POSIX_CLASS_NAMES - k {
++        Bytes:a = raw bytes_init(16i64);
++        drop bytes_extend_str(@a, ":");
++        drop bytes_extend_str(@a, raw posix_class_name(k));
++        drop bytes_extend_str(@a, ":");
++        string:plain = raw bytes_copy_string(@a);
++        if (!(raw trip(plain, place))) { pass false; }
++        Bytes:c = raw bytes_init(16i64);
++        drop bytes_extend_str(@c, ":^");
++        drop bytes_extend_str(@c, raw posix_class_name(k));
++        drop bytes_extend_str(@c, ":");
++        string:neg = raw bytes_copy_string(@c);
++        if (!(raw trip(neg, place))) { pass false; }
++        k = k + 1i64;
++    }
++    pass true;
++};
++
+ // Every ASCII byte alone, put where `place` says, comes back as itself.
+ func:ascii_trip = bool(int64:place) never fails {
+     int64:c = 0i64;
+@@ -227,6 +264,12 @@ func:run = int32() never fails {
+     // longer texts, every metacharacter in them
+     if (!(raw trip("a.b*c?d+e|f(g)h[i]j{k}l^m$n\\o", WHOLE)))                    { pass 11i32; }
+     if (!(raw trip("price: $5.00 (approx.) [x] {y} é", EXTENDED)))              { pass 12i32; }
++    // a `[` straight before the text: in a nested class `:name:` would begin a POSIX class, and in the
++    // outermost one a class in a POSIX class's own form, refused (Y-38, RX-200) -- so `:` is escaped (RX-214)
++    if (!(raw names_trip(NESTED)))                                              { pass 13i32; }
++    if (!(raw names_trip(IN_CLASS)))                                            { pass 14i32; }
++    if (!(raw ascii_trip(NESTED)))                                              { pass 15i32; }
++    if (!(raw trip(":a:", IN_CLASS)))                                           { pass 16i32; }
+     // the text it writes
+     if (!(raw escapes("a.b", "a\\.b")))                                         { pass 20i32; }
+     if (!(raw escapes("\\.+*?()|[]{}^$", "\\\\\\.\\+\\*\\?\\(\\)\\|\\[\\]\\{\\}\\^\\$"))) { pass 21i32; }
+@@ -239,7 +282,7 @@ func:run = int32() never fails {
+     if (!(raw escapes("\u{3000}\u{200E}", "\\x{3000}\\x{200E}")))               { pass 28i32; }
+     if (!(raw escapes("é😀\u{200B}", "é😀\u{200B}")))                           { pass 29i32; }
+     if (!(raw escapes("\\Qa\\E", "\\\\Qa\\\\E")))                               { pass 30i32; }
+-    if (!(raw escapes("x:=1,'%@!", "x:=1,'%@!")))                               { pass 31i32; }
++    if (!(raw escapes("x:=1,'%@!", "x\\:=1,'%@!")))                             { pass 31i32; }
+     if (!(raw escapes_bytes(overlong[0i64...3i64], overlong[0i64...3i64])))     { pass 32i32; }
+     uint8[2]:ff = [255u8, 46u8];
+     uint8[3]:ff_out = [255u8, 92u8, 46u8];

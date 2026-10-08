@@ -1,0 +1,14 @@
+# 0.1.6a's omission sweep, block 8 -- one extended regular expression per line, each read by `sweep.py` line by line
+# AND across line breaks, case-insensitive: every statement the five decisions and the records make false.
+eighteen (bytes|metachar)|the same eighteen|one member each|between `\[` and `\]` one member
+holds no (number|digit)|no digit (after|follows)
+would nest groups|251 deep
+author's amendment
+not regular either|needs backtracking|the general case needs
+`copy` only when every member|only when every member
+\bu-9\b
+\\u\{41\}
+2 for `\(\?` at the end|0 when cut short
+every character is a literal but|but twelve
+as it does `pattern_error_text`
+`\[\\k\]`, `\[\\g\]`|\\k`, `\\g` and `\\z`|digits?, `\\k`, `\\g`

@@ -17,8 +17,11 @@ byte offset on every error.**
 > flags, is DONE (2026-10-01)** — RX-202 … RX-208 in eight work commits, `9ec6a2d` … `9f25d69`, 254/254 at `5fbaf4a`
 > and in CI run 36941691688 — **and [`0.1.5`](0.1.5.md), the refusals, is DONE (2026-10-02)** — RX-209 … RX-213 in
 > seven work commits, `36798c1` … `0d57d4c`, 258/258 at `5fbaf4a` and in CI run 37010845658, with the author's
-> amendment of 2026-10-02: `\K` refused as lookaround (RX-210) — **next, 0.1.6, the close, its file a planner's to
-> write**. *(Until 0.1.5's record this banner said 0.1.5 "is PLANNED (2026-10-01, rehearsed at `5fbaf4a`)".)*
+> amendment of 2026-10-02: `\K` refused as lookaround (RX-210) — **next, cycle 0.1's close, in three subcycles:
+> [`0.1.6a`](0.1.6a.md), the cycle audit's library findings, C1 first; [`0.1.6b`](0.1.6b.md), the instruments; and
+> [`0.1.6`](0.1.6.md), the close — PLANNED (2026-10-08, rehearsed at `5fbaf4a`)**. *(Until 0.1.6's plan this banner said
+> "next, 0.1.6, the close, its file a planner's to write".)* *(Until 0.1.5's record this banner said 0.1.5 "is PLANNED
+> (2026-10-01, rehearsed at `5fbaf4a`)".)*
 > *(Until 0.1.5's plan this banner said "next, 0.1.5, the refusals, its file a planner's to write".)*
 > *(Until 0.1.4's record this banner said 0.1.4 "is PLANNED (2026-10-01, rehearsed at `5fbaf4a`)".)* *(Until 0.1.4's plan this banner said "next,
 > 0.1.4, escapes and flags, its file a planner's to write".)* *(Until 0.1.3's record this banner said 0.1.3 "is PLANNED (2026-10-01,
@@ -73,7 +76,9 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
 | [0.1.3](0.1.3.md) | **Classes** — items, ranges, Perl and POSIX classes, nesting, `&&`/`--`/`~~` | every class form in §5, parsed to unresolved items |
 | [0.1.4](0.1.4.md) | **Escapes and flags** — every escape in §1, flag scoping, `(?-u)` | the escape table, and `(?i)` scoped correctly |
 | [0.1.5](0.1.5.md) | **The refusals** — every construct in §8, by name, with its offset | `BackreferenceUnsupported` names the guarantee, not "unsupported" |
-| 0.1.6 | **Close** — `check_error_kinds_tested` live | `done/0.1/`, `0.2.0.md` written |
+| [0.1.6a](0.1.6a.md) | **The cycle audit's library findings** — `regex_escape` escapes `:` (C1, the one wrong answer, first); a `{` after `\b` before a letter; `NestTooDeep`'s sentence; question 23 and `SAFETY.md` S-2 recorded; the records | every library finding of the audit fixed, or deferred to a named cycle; `258/258` |
+| [0.1.6b](0.1.6b.md) | **The instruments** — the Gate amended and `check_error_kinds_tested` live; a character literal read by its code point; the parser's fuzz pass | `260/260`, ten tree checks |
+| [0.1.6](0.1.6.md) | **Close** — `check_error_kinds_tested` live *(2026-10-08, the close's plan: live from [0.1.6b](0.1.6b.md), which amends the Gate; the close triages the audit's twenty-two findings, meets the Gate and archives the cycle)* | `done/0.1/`, `0.2.0.md` written |
 
 ## Checklist
 
@@ -155,6 +160,21 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
 - [x] **each message names the guarantee or the alternative, never "unsupported"** (K-1) — the sentences exist since 0.1.1 (Y-34); here each is held to the letter: `BackreferenceUnsupported` says the pattern could not be matched in linear time; `UnsupportedQuoting` names `regex_escape()`; `\Z` names `\n?\z`; `\p{InGreek}` names `\p{Script=Greek}` — **RX-212, `efa98e6` — and the lookaround's sentence no longer claims what published algorithms do**: every sentence of §8's kinds says what is wrong, where, the guarantee or the reading, and what to write, and none that it is unsupported — `pattern_error_text` case 80 sweeps every kind over twelve details for the word; the four held to the letter, the backreference's (cases 20, 67–69), the quotation's naming `regex_escape()` (74–76), `\Z`'s naming `\n?\z` and `\z` (72), and the block's naming `\p{Script=Greek}` (79, built — cycle 0.3.1 raises it); the lookaround's said it *"cannot be matched in linear time"*, which two peer-reviewed 2024 algorithms refute (`meta/research/lookaround-linear-time.md`), and says now that nregex's automata read none and are what keep every search linear (16, and `\K`'s, 82, the author's amendment of 2026-10-02); the fourteen sentences of the plan's §6 accepted to the letter by the author on 2026-10-02; against the text before it the unit exits 16, six mutants as the plan's §1.12
 - [x] `regex_escape(text)` implemented here, since §8 points at it — **RX-211, `bcb4575`**: in `src/syntax/parse.npk`, beside the reading it inverts, re-exported by `syntax.npk` (`src/lib.npk` at 0.10.5): a `\` before Rust's eighteen bytes and the six white-space bytes, each of Y-42's twenty-one white-space codepoints past ASCII as `\x{…}`, and a text that is not well-formed UTF-8 copied with only its ASCII escaped (`SYNTAX.md` Y-45); `tests/unit/regex_escape.npk` — every ASCII byte alone in four places, the pairs a class reads two ways, all twenty-one under `x`, the overlong U+0085 refused where it breaks, the text it writes; refused at its four calls against the tree before it, and thirteen mutants as the plan's §1.12
 - [x] a rejection test per refusal in `tests/rejection/`, with the exact-code rule — **RX-209, `2ce15fb` — a UNIT holding each refusal's four fields, since `tests/rejection/` is the compiler's stage and a refused pattern compiles**: this line was written with the cycle plan, before cycle 0.0.3 made `tests/rejection/` the `check` stage, where each file must be refused by the COMPILER with exactly the codes it names (`BUILD.md` B-6, B-7); a refused pattern is a value `parse_pattern` answers at run time, so a fixture there compiles (`parse_declined.npk at 5fbaf4a compiles`, the plan's block 2) and the stage would fail it. The exact-code rule's terms for a value are its four fields, which `parse_declined.npk` requires of every escape §8 declines, `\K` among them, and `parse_refusals.npk` of its group heads since 0.1.1
+
+### 0.1.6a — the cycle audit's library findings
+*(Added 2026-10-08 by the close's plan: the audit, `../../audits/nitpick-regex-0.1-2026-10-02.md`, ACCEPT once C1 is
+fixed, twenty-two findings; [`0.1.6.md`](0.1.6.md) §2 triages every one.)*
+- [ ] **C1 first — `regex_escape` escapes `:`**: a text that began `:alpha:`, put straight after a nested class's `[`, was the POSIX class with no error; §5.1's fourteen names, as `:name:` and `:^name:`, round-trip in a nested class and in the outermost one, and so does every ASCII byte alone in a nested class (the audit's C1, C2 and K8; cycle 0.1.5's verifier's first finding) — PD-58
+- [ ] a `{` after `\b` or `\B` gives detail 2 only before an ASCII letter, and its sentence says the brace begins with a letter, not a number (C3) — PD-59
+- [ ] `NestTooDeep` says what is open around the `(` or `[` it refuses, true of `(?i)` at the bound too (K7) — PD-60
+- [ ] question 23 recorded as the worker's reading the author accepted, and every in-class list names `\g` and `\K` (C6, K1; the verifier's second and third findings) — PD-61
+- [ ] `SAFETY.md` S-2's lookaround row dated to what is true, and O-R1's record (C8; the author's answer to the workbench's question 20 (d)) — PD-62
+- [ ] the records: `ast.npk`'s `Copy` comment (C7); the POSIX classes' sets to cycle 0.3.2 (D1); two markers (S2); RX-211's tense (S4); §9's rows and Y-40's, Y-28's and this README's sentences (K2 … K5)
+
+### 0.1.6b — the instruments
+- [ ] **the Gate amended**: every kind in §9 provoked by a test or listed, with the cycle that will provoke it, in `SYNTAX.md` Y-25's table; and `check_error_kinds_tested` live, holding the table both ways and each row's cycle to that cycle's README (C4, S1, K9) — PD-63
+- [ ] `check_constants_named` reads a character literal by its code point, and a literal behind a widening; `BUILD.md` B-4e names `numeric.npk` and `num_width.npk`; self-check case 32 asks the pinned compiler (C5) — PD-64
+- [ ] the parser's fuzz pass, a unit on every run: never traps, always ends, an AST or a refusal at a valid offset — the pattern's length one too, spanning nothing, as `(?<` gives (K6) — PD-65
 
 ### 0.1.6 — close
 - [ ] **`check_error_kinds_tested` live and green**: every `PatternErrorKind` in `SYNTAX.md` §9 has a test that provokes it *(2026-10-01 — RX-197: no pattern reaches `EmptyClass` in the parser, open question O-Y3 for cycle 0.3.4, so the check counts it with the kinds a later cycle provokes, as it does `ClassTooLarge`)* *(2026-10-01 — cycle 0.1.4: thirty-eight kinds; `DuplicateFlag` and `ExtendedAmbiguity` are new, each provoked by `parse_flag_refusals`)* *(2026-10-02 — cycle 0.1.5: `UnsupportedAnchor` and `UnsupportedQuoting`, which no pattern reached before, are provoked by `parse_declined`; `UnknownUnicodeProperty`'s detail 4, a block, is cycle 0.3.1's to raise, and the kind is provoked already)*

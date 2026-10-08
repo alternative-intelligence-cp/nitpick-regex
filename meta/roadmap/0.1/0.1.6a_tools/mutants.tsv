@@ -1,0 +1,9 @@
+# 0.1.6a's mutants -- each one rule broken in a copy of the tree as it stands at its step; `mutants <step>`
+# in env.sh runs a step's rows, the unit at both legs. TAB-separated; `\n` in a text is a newline.
+# step	name	file	the text	its replacement	unit
+1	esc-no-colon	src/syntax/parse.npk	    if ((b == CH_AMP) || (b == CH_MINUS) || (b == CH_TILDE) || (b == CH_COLON)) { pass true; }	    if ((b == CH_AMP) || (b == CH_MINUS) || (b == CH_TILDE)) { pass true; }	regex_escape
+2	wordb-no-letter	src/syntax/parse.npk	if ((target.kind == AstKind.WordBoundary) && (raw is_letter(raw cursor_peek(@p.c)))) { why = 2u32; }	if (target.kind == AstKind.WordBoundary) { why = 2u32; }	parse_refusals
+2	wordb-letter-any-atom	src/syntax/parse.npk	if ((target.kind == AstKind.WordBoundary) && (raw is_letter(raw cursor_peek(@p.c)))) { why = 2u32; }	if (raw is_letter(raw cursor_peek(@p.c))) { why = 2u32; }	parse_refusals
+2	wordb-text-old	src/syntax/pattern_error.npk	and this one begins with a letter, not a number. Rust's	and this one holds no number. Rust's	pattern_error_text
+3	nest-would-nest	src/syntax/pattern_error.npk	drop put(@b, ": groups and classes are open "); drop num(@b, e.detail => int64);	drop put(@b, ": the `(` or `[` here would nest groups and classes "); drop num(@b, (e.detail => int64) + 1i64);	pattern_error_text
+3	nest-plus-one	src/syntax/pattern_error.npk	drop put(@b, ": groups and classes are open "); drop num(@b, e.detail => int64);	drop put(@b, ": groups and classes are open "); drop num(@b, (e.detail => int64) + 1i64);	pattern_error_text

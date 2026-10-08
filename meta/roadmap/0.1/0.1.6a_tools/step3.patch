@@ -1,0 +1,132 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 279613d5ab22f2186219580c19ec64d212997c07..721f4ba4b42b702362d8973065a09e7bdbf5e4c8 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -4925,6 +4925,9 @@ Perl and Python read the same bytes as the range `-`–`a`, so either reading su
+ or before `]`, refused** — Rust, Perl and Python read both as a `-`.
+ 
+ ### RX-198 — groups and classes nest at most `NREGEX_NEST_DEPTH` deep together, decided at the `(` or `[` that would go deeper
++> **SUPERSEDED IN PART by RX-216 (@@DATE@@)** — the sentence it quotes, *"the `(` or `[` here would nest groups and
++> classes 251 deep"*, false for a `(` that begins `(?i)` or `(?#` at the bound: the sentence says what is open around
++> the refused byte. The bound and where it is decided are as this decision says.
+ 
+ **2026-10-01, cycle 0.1.3 (the plan's PD-42), at compiler `5fbaf4a`** — `SYNTAX.md` Y-35's last sentence, *"a class
+ nests too from cycle 0.1.3, which bounds it"*, and `SAFETY.md` S-18. It supersedes in part RX-193 — the sentence that
+@@ -5524,3 +5527,26 @@ way, which keeps a detail naming Rust's and Perl's word boundaries for a brace t
+ it as one; **a letter or `-`, as Rust tests** — no name either engine reads begins with `-`, and `\b{-1}` reads better as
+ a bound gone wrong; **every brace a digit does not begin, as Perl reads every `\b{…}` as a boundary** — RX-213's rule,
+ whose sentence was false for `\b{,3}`.
++
++### RX-216 — `NestTooDeep` says what is open around the `(` or `[` it refuses, not what that `(` would nest
++
++**@@DATE@@, cycle 0.1.6a (the plan's PD-60), at compiler `5fbaf4a`** — `SYNTAX.md` Y-34 and Y-35; the cycle audit's K7.
++RX-198's sentence says *"the `(` or `[` here would nest groups and classes 251 deep"*. Y-35 decides the bound at the
++`(`, before a byte after it is read, so a `(` that begins a flags head or a comment group inside 250 levels — `(?i)`,
++`(?#` — is `NestTooDeep` as well, and neither nests anything: for those the sentence is false, measured at `5fbaf4a`.
++Deciding after the head would undo what RX-193 chose — one rule, and the parse stopping where the bound is — so the
++sentence moves and the rule stays.
++
++**The decision.** The sentence says what is true at the refused byte: *"nesting too deep at byte 250: groups and
++classes are open 250 deep around the `(` or `[` here, as deep as they may nest (NREGEX_NEST_DEPTH), so nregex refuses
++it before reading what it begins. Nest fewer: write `(?:a)` as `a`, and `[[a]]` as `[a]`."* — its number the bound,
++the detail. `tests/unit/pattern_error_text.npk` holds it for 251 groups (23) and 251 classes (35), and with its kind and
++its byte for `(?i)` inside 250 groups (83).
++
++**Measured at `5fbaf4a`.** `pattern_error_text.npk` passes at −O0 and through `opt -O2`, and against the text before
++this decision exits 23.
++
++*Alternatives declined:* **the bound decided after the head is read, so `(?i)` there parses** — two rules where RX-193
++chose one, and `(?i:` opens a group, which the bound must still refuse before its body; **the sentence kept, and a note in
++Y-35** — a sentence a user reads, false for an input the rule names; **"would open a group or a class"** — false for
++the same two.
+diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
+index f21d39585d1f8d86cf33ad0b6282c2d3fe6777c9..1bf15569383d0a37617f827c335edc11123fa4e3 100644
+--- a/meta/specs/SYNTAX.md
++++ b/meta/specs/SYNTAX.md
+@@ -393,6 +393,10 @@ classes — `NREGEX_NEST_DEPTH`, 250, together — are open around it is `NestTo
+ bound, before a byte after it is read; a POSIX class's `[:` opens no class and nests nothing. So 250 nested classes
+ parse and the 251st `[` is `NestTooDeep` at byte 250, and so is a `[` inside 250 groups, or the 126th `[` inside 125.
+ The refusal's sentence names both: *"the `(` or `[` here would nest groups and classes 251 deep"*.)*
++*(@@DATE@@, cycle 0.1.6a — RX-216: and since the bound is decided before the head is read, a `(` that begins `(?i)` or
++`(?#` inside 250 levels is `NestTooDeep` too, though neither nests anything. So the sentence says what is open around
++the refused byte: *"groups and classes are open 250 deep around the `(` or `[` here, as deep as they may nest
++(NREGEX_NEST_DEPTH), so nregex refuses it before reading what it begins"*.)*
+ 
+ ---
+ 
+@@ -765,7 +769,7 @@ RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-2
+ | `AtomicGroupUnsupported` | a quantifier made possessive | the quantifier | through the `+` | 43 |
+ | `InvalidPatternEncoding` | ill-formed UTF-8 | the sequence's first byte | through the byte that broke it | that byte; 0 when cut short |
+ | `PatternTooLong` (cycle 0.1.0) | over `NREGEX_PATTERN_BYTES` | the first byte past the bound | the bytes over it | the bound |
+-| `NestTooDeep` (cycle 0.1.2) | a `(` that would nest groups deeper than `NREGEX_NEST_DEPTH` (Y-35) — *and since cycle 0.1.3 a `[` that would nest groups and classes deeper, counted together (RX-198)* | that `(` *or `[`* | 1 | the bound |
++| `NestTooDeep` (cycle 0.1.2) | a `(` that would nest groups deeper than `NREGEX_NEST_DEPTH` (Y-35) — *and since cycle 0.1.3 a `[` that would nest groups and classes deeper, counted together (RX-198)* — *whatever the `(` begins, `(?i)` and `(?#` too, since its head is not read (RX-216)* | that `(` *or `[`* | 1 | the bound |
+ | `UnclosedClass` (cycle 0.1.3) | the pattern ends inside a class — not inside an escape, a property's name or a `[:` | the innermost open `[` | 1 | 93 when that class's first member is a `]`; 0 |
+ | `BadClassRange` (cycle 0.1.3) | a range's end below its start; a class at either end | the range's first byte | through the byte that made it bad | 0; 1 |
+ | `ClassOpMismatch` (cycle 0.1.3) | `&&`, `--` or `~~` with no member before it or after it | the operator | 2 | its byte: 38, 45 or 126 |
+diff --git a/src/syntax/pattern_error.npk b/src/syntax/pattern_error.npk
+index 92d9ad3af2faf8dd9e1996a0ff4862130d40fc6c..6538c08abafd2a4428617d08ad2d55c87894362e 100644
+--- a/src/syntax/pattern_error.npk
++++ b/src/syntax/pattern_error.npk
+@@ -293,9 +293,10 @@ pub func:pattern_error_text = string(PatternError:e) never fails {
+         },
+         (PatternErrorKind.NestTooDeep) {
+             drop put(@b, "nesting too deep at byte "); drop num(@b, e.offset);
+-            drop put(@b, ": the `(` or `[` here would nest groups and classes "); drop num(@b, (e.detail => int64) + 1i64);
+-            drop put(@b, " deep, and they may nest at most "); drop num(@b, e.detail => int64);
+-            drop put(@b, " deep (NREGEX_NEST_DEPTH). Nest fewer: write `(?:a)` as `a`, and `[[a]]` as `[a]`.");
++            // what is open around the `(` or `[`, not what it would nest: it is refused before its head is
++            // read (Y-35), and `(?i)` or `(?#` there nests nothing (@@DATE@@, cycle 0.1.6a -- RX-216)
++            drop put(@b, ": groups and classes are open "); drop num(@b, e.detail => int64);
++            drop put(@b, " deep around the `(` or `[` here, as deep as they may nest (NREGEX_NEST_DEPTH), so nregex refuses it before reading what it begins. Nest fewer: write `(?:a)` as `a`, and `[[a]]` as `[a]`.");
+         },
+         (PatternErrorKind.TrailingBackslash) {
+             drop put(@b, "trailing backslash at byte "); drop num(@b, e.offset);
+diff --git a/tests/unit/pattern_error_text.npk b/tests/unit/pattern_error_text.npk
+index 897a5a2a7cf573d9cde78479b2d556ec4e714346..1a6976176ff0a0336af7c6aa1a0ce31ea5434924 100644
+--- a/tests/unit/pattern_error_text.npk
++++ b/tests/unit/pattern_error_text.npk
+@@ -17,6 +17,9 @@
+ // lookaround -- its kind, its byte and the lookaround's sentence (82).)*
+ // *(@@DATE@@, cycle 0.1.6a -- RX-215: detail 2's sentence says the `{` after `\b` begins with a letter, not a
+ // number (81), since a letter after it is what gives the detail.)*
++// *(@@DATE@@, cycle 0.1.6a -- RX-216: `NestTooDeep` says what is open around the `(` or `[` -- 23 and 35 --
++// not what it would nest, which a `(?i)` or a `(?#` at that depth does not: the `(` is refused before its
++// head is read (Y-35), and 83 holds the sentence for `(?i)` there.)*
+ mod:pattern_error_text;
+ 
+ use "../../src/core/core.npk".*;
+@@ -112,7 +115,7 @@ func:run = int32() never fails {
+         n = n + 1i64;
+     }
+     string:ds = raw bytes_copy_string(@deep);
+-    if (!(raw says(ds, "nesting too deep at byte 250: the `(` or `[` here would nest groups and classes 251 deep, and they may nest at most 250 deep (NREGEX_NEST_DEPTH). Nest fewer: write `(?:a)` as `a`, and `[[a]]` as `[a]`."))) { pass 23i32; }
++    if (!(raw says(ds, "nesting too deep at byte 250: groups and classes are open 250 deep around the `(` or `[` here, as deep as they may nest (NREGEX_NEST_DEPTH), so nregex refuses it before reading what it begins. Nest fewer: write `(?:a)` as `a`, and `[[a]]` as `[a]`."))) { pass 23i32; }
+     // cycle 0.1.3's classes (Y-36 … Y-38), each sentence to the letter
+     if (!(raw says("[a", "unclosed class at byte 0: this `[` has no matching `]`. Add a `]`, or write `\\[` to match a bracket."))) { pass 24i32; }
+     if (!(raw says("[]", "unclosed class at byte 0: this `[` has no matching `]` -- a `]` straight after `[` or `[^` is a member of the class, not its end. Add a `]`, as in `[]]` for a class of `]`, or write `\\[` to match a bracket."))) { pass 25i32; }
+@@ -133,7 +136,7 @@ func:run = int32() never fails {
+         cn = cn + 1i64;
+     }
+     string:cds = raw bytes_copy_string(@cdeep);
+-    if (!(raw says(cds, "nesting too deep at byte 250: the `(` or `[` here would nest groups and classes 251 deep, and they may nest at most 250 deep (NREGEX_NEST_DEPTH). Nest fewer: write `(?:a)` as `a`, and `[[a]]` as `[a]`."))) { pass 35i32; }
++    if (!(raw says(cds, "nesting too deep at byte 250: groups and classes are open 250 deep around the `(` or `[` here, as deep as they may nest (NREGEX_NEST_DEPTH), so nregex refuses it before reading what it begins. Nest fewer: write `(?:a)` as `a`, and `[[a]]` as `[a]`."))) { pass 35i32; }
+     // outside a class, the same sentence (Y-37, RX-199)
+     if (!(raw says("\\p", "unknown Unicode property at byte 0: `\\p` and `\\P` take a one-letter name, as in `\\pL`, or a name in braces, as in `\\p{Greek}`."))) { pass 36i32; }
+     // a whole class in a POSIX class's own form (Y-38, RX-200)
+@@ -219,6 +222,16 @@ func:run = int32() never fails {
+     // `\K`, Perl's and PCRE's reset of a match's start, refused as lookaround by the author's amendment of
+     // 2026-10-02 (RX-210): its kind, its byte, and the lookaround's sentence to the letter
+     if (!(raw says_kind("foo\\Kbar", PatternErrorKind.LookaroundUnsupported, 3i64, "lookaround at byte 3: nregex's automata read no lookahead or lookbehind, and they are what make every search take linear time. Match the larger text and inspect its captures instead."))) { pass 82i32; }
++    // `(?i)` inside 250 groups: refused at its `(`, which opens no group, before the head is read (Y-35, RX-216)
++    Bytes:fdeep = raw bytes_init(256i64);
++    int64:fk = 0i64;
++    while (fk < 250i64) decreases 250i64 - fk {
++        drop bytes_extend_str(@fdeep, "(");
++        fk = fk + 1i64;
++    }
++    drop bytes_extend_str(@fdeep, "(?i)");
++    string:fds = raw bytes_copy_string(@fdeep);
++    if (!(raw says_kind(fds, PatternErrorKind.NestTooDeep, 250i64, "nesting too deep at byte 250: groups and classes are open 250 deep around the `(` or `[` here, as deep as they may nest (NREGEX_NEST_DEPTH), so nregex refuses it before reading what it begins. Nest fewer: write `(?:a)` as `a`, and `[[a]]` as `[a]`."))) { pass 83i32; }
+     pass 0i32;
+ };
+ 

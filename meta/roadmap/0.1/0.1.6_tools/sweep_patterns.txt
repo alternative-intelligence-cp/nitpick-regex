@@ -1,0 +1,5 @@
+# 0.1.6's omission sweep, block 4b -- one extended regular expression per line, read by `sweep.py` line by line AND
+# across line breaks, case-insensitive: every live statement that cycle 0.1 is open, or that a file is in its old folder.
+cycle 0\.1[^.0-9].{0,30}\b(is )?open\b|\bopen\b.{0,10}cycle 0\.1[^.0-9]|\*\*open:
+(meta/)?roadmap/0\.1/|\.\./0\.1/
+next,? 0\.1\.6|0\.1\.6 is next|the close, its file

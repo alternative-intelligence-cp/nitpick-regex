@@ -1,0 +1,522 @@
+diff --git a/harness/run.py b/harness/run.py
+index 5a8ef969bfdfe046a58b9e5da96be2705568e046..7ebbcb4f7f21d541f03259ccf9c9abe0bfc4e37e 100755
+--- a/harness/run.py
++++ b/harness/run.py
+@@ -45,7 +45,9 @@ stub this replaced could assert almost nothing:
+     than fails -- `treecheck.ALL` is the list, and the run prints each);
+     *(2026-10-02, cycle 0.1.5: this list named eight until then and left out
+     `check_no_recursion`, the ninth since cycle 0.1.2 (RX-192) -- found by cycle
+-    0.1.4's record.)*
++    0.1.4's record.)* *(@@DATE@@, cycle 0.1.6b: and `check_error_kinds_tested`,
++    the tenth -- every `PatternErrorKind` provoked by a unit or listed in
++    `SYNTAX.md` Y-25's table with the cycle that will provoke it (RX-219).)*
+   * every unit a `pending-until:` marker took out of the denominator is on the
+     reviewed list `harness/baseline/PENDING.txt`, gave exactly the exit its
+     marker names on every leg and every run, and did not meet its expectation
+diff --git a/harness/selfcheck.py b/harness/selfcheck.py
+index 1e2356e9aa56ad795b35d92327a7f6caf3036717..364c29f8991a7a159644555b7d0f6926b3e2646d 100644
+--- a/harness/selfcheck.py
++++ b/harness/selfcheck.py
+@@ -59,6 +59,11 @@ reader stubbed to invent every import and see no code. Cases 20 and 21 are a
+ lone CR and an escaped path hiding a syscall from B-2. Case 22 is RX-159's
+ "every run" half, which no case exercised (N-27).
+ 
++CASE 33 IS THE CYCLE 0.1 GATE'S INSTRUMENT (cycle 0.1.6b, RX-219): `check_error_kinds_tested` fed a kind nothing
++provokes, one a unit only builds, one named in a unit that parses nothing and one in a comment, and four rows of
++`SYNTAX.md` Y-25's table -- stale, unknown, with no cycle, and with a cycle whose README does not name its kind -- each
++required to fail it by name, beside a clean tree whose listed kind a unit builds and names in a comment.
++
+ WHY CASE 7 IS THE MOST IMPORTANT ONE IN THE LIST, though it cannot run for
+ five more cycles: it is the case that proves RX-041 -- "every engine gives the
+ same answer" -- is being CHECKED rather than assumed. Every other case guards
+@@ -748,6 +753,73 @@ def _case32(d):
+     return None                                   # handled by `_run_case32`
+ 
+ 
++def _kinds_tree(names, units, rows=(), readme="the kind it raises: `Gamma`"):
++    """A tree for `check_error_kinds_tested`: an enum of `names`, the units given, `SYNTAX.md` Y-25's table holding
++    `rows` -- `(kind, cycle cell)` -- and a README for cycle 0.9 saying `readme`."""
++    t = {"src/syntax/pattern_error.npk": "mod:pattern_error;\n\npub enum:PatternErrorKind = {\n"
++                                        + "".join(f"    {n};\n" for n in names) + "};\n",
++         "meta/specs/SYNTAX.md": "# the pattern language\n\n| Kind no pattern reaches yet | Provoked from | Why the parser "
++                                 "cannot |\n|---|---|---|\n" + "".join(f"| `{k}` | {c} | a reason |\n" for k, c in rows)
++                                 + "\nThe next paragraph.\n",
++         "meta/roadmap/0.9/README.md": "# Cycle 0.9\n\n- [ ] " + readme + "\n"}
++    t.update(units)
++    return t
++
++
++def _kinds_unit(*lines, parses=True):
++    """A unit under `tests/unit/` whose code holds `lines`, and a parse if `parses`."""
++    head = "    PatternError?:r = raw parse_pattern(p, @t);\n" if parses else ""
++    return ("mod:u;\n\nfunc:run = int32() never fails {\n" + head
++            + "".join("    " + l + "\n" for l in lines) + "    pass 0i32;\n};\n")
++
++
++def _run_case33(case):
++    """Case 33, on the instrument: `check_error_kinds_tested` over eight planted trees -- a kind no test provokes and
++    no row lists; one a unit only builds, as the `??` fallback every refusal unit writes; one named in a unit that
++    parses nothing; one named in a comment; and four rows of `SYNTAX.md` Y-25's table, one whose kind a test provokes,
++    one naming no kind the enum declares, one naming no cycle and one whose cycle's README does not name its kind --
++    and a clean tree whose listed kind a unit builds and names in a comment, neither of which provokes it (RX-219)."""
++    A = 'if (!(raw refused("(", PatternErrorKind.Alpha, 0i64, 1i64, 1u32))) { pass 1i32; }'
++    B = "if (e.kind != PatternErrorKind.Beta) { pass 2i32; }"
++    built = "PatternError:e = r ?? raw pattern_error(PatternErrorKind.Beta, 0i64, 0i64, 0u32);"
++    return _run_plants(case, "check_error_kinds_tested", [
++        ("a kind no test provokes and no row lists",
++         _kinds_tree(["Alpha", "Beta"], {"tests/unit/u.npk": _kinds_unit(A)}),
++         ["`Beta` is provoked by no unit"]),
++        ("a kind a unit only builds",
++         _kinds_tree(["Alpha", "Beta"], {"tests/unit/u.npk": _kinds_unit(A, built)}),
++         ["`Beta` is provoked by no unit"]),
++        ("a kind named in a unit that parses nothing",
++         _kinds_tree(["Alpha", "Beta"], {"tests/unit/u.npk": _kinds_unit(A),
++                                         "tests/unit/v.npk": _kinds_unit(B, parses=False)}),
++         ["`Beta` is provoked by no unit"]),
++        ("a kind named in a comment",
++         _kinds_tree(["Alpha", "Beta"], {"tests/unit/u.npk": _kinds_unit(A, "// " + B)}),
++         ["`Beta` is provoked by no unit"]),
++        ("a row whose kind a test provokes",
++         _kinds_tree(["Alpha", "Beta"], {"tests/unit/u.npk": _kinds_unit(A, B)}, [("Beta", "cycle 0.9.1")],
++                     "the kind it raises: `Beta`"),
++         ["lists `Beta` as a kind no pattern reaches yet"]),
++        ("a row naming no kind the enum declares",
++         _kinds_tree(["Alpha"], {"tests/unit/u.npk": _kinds_unit(A)}, [("Delta", "cycle 0.9.1")]),
++         ["lists `Delta`, which `PatternErrorKind` does not declare"]),
++        ("a row naming no cycle",
++         _kinds_tree(["Alpha", "Gamma"], {"tests/unit/u.npk": _kinds_unit(A)}, [("Gamma", "later")]),
++         ["gives `Gamma` no cycle"]),
++        ("a row whose cycle's README does not name its kind",
++         _kinds_tree(["Alpha", "Gamma"], {"tests/unit/u.npk": _kinds_unit(A)}, [("Gamma", "cycle 0.9.1")],
++                     "the kind it raises: none named"),
++         ["does not name it"]),
++    ], _kinds_tree(["Alpha", "Beta", "Gamma"],
++                   {"tests/unit/u.npk": _kinds_unit(A, B, "PatternError:g = r ?? raw pattern_error(PatternErrorKind.Gamma, 0i64, 0i64, 0u32);",
++                                                    "// PatternErrorKind.Gamma is listed, and this comment provokes nothing")},
++                   [("Gamma", "cycle 0.9.1")]))
++
++
++def _case33(d):
++    return None                                   # handled by `_run_case33`
++
++
+ def _case19(d):
+     """A RED UNIT HIDDEN BY TWO LONE CARRIAGE RETURNS -- the fifth audit's BL-9 (a).
+ 
+@@ -1153,6 +1225,11 @@ CASES = [
+          "RX-202: `check_constants_named` read a literal as decimal digits after the operator "
+          "and passed all six -- a spelling it cannot read is a bound it cannot see",
+          _case32, ()),
++    Case(33, "a kind no test provokes, one a unit only builds, one named where nothing parses or in a comment, "
++             "and a stale, an unknown, an undated and an unplanned row of Y-25's table",
++         "RX-219: the cycle 0.1 Gate -- every kind provoked or listed with the cycle that will provoke it, held "
++         "both ways; a kind nothing produces is the dormant-rule pattern the compiler's `check_codes_tested` refuses",
++         _case33, ()),
+ ]
+ 
+ 
+@@ -1260,6 +1337,8 @@ def _run_case(case, keep):
+         return _run_case31(case)
+     if case.num == 32:
+         return _run_case32(case)
++    if case.num == 33:
++        return _run_case33(case)
+     d = tempfile.mkdtemp(prefix=f"nregex-selfcheck-{case.num}-")
+     try:
+         toml = case.build_tree(d)
+diff --git a/harness/treecheck.py b/harness/treecheck.py
+index 80f0fc41f9ae2386c77006ee2992c23d88e7129c..e0479ef4feec53115e5590b32a89ea99effaf2a1 100644
+--- a/harness/treecheck.py
++++ b/harness/treecheck.py
+@@ -1056,6 +1056,138 @@ def check_no_recursion(root):
+                   f"{sum(len(v) for v in edges.values())} distinct edge(s)", fl, notes)
+ 
+ 
++# --- check_error_kinds_tested ---------------------------------------------------------
++
++_KINDS_FILE = os.path.join("src", "syntax", "pattern_error.npk")
++_KINDS_ENUM = re.compile(r"(?<![A-Za-z0-9_])pub\s+enum\s*:\s*PatternErrorKind\s*=\s*\{([^}]*)\}")
++_KIND_USE = re.compile(r"(?<![A-Za-z0-9_.])PatternErrorKind\s*\.\s*([A-Za-z_]\w*)")
++# A kind named as the first argument of `pattern_error(...)` is a value the unit BUILDS -- the `??` fallback every
++# refusal unit writes, or a sentence held without a pattern that raises it -- never one it provokes.
++_KIND_BUILT = re.compile(r"(?<![A-Za-z0-9_.])pattern_error\s*\(\s*$")
++# What turns a pattern into a refusal: the parse, and the two refusals it makes before any grammar.
++_PARSES = re.compile(r"(?<![A-Za-z0-9_.])(?:parse_pattern|parse_check_length|parse_check_encoding)\s*\(")
++_KINDS_TABLE = "| Kind no pattern reaches yet | Provoked from | Why the parser cannot |"
++_TABLE_ROW = re.compile(r"^\|\s*`([A-Za-z_]\w*)`\s*\|\s*([^|]*?)\s*\|")
++_CYCLE = re.compile(r"^cycle (\d+\.\d+)(?:\.\d+)?$")
++
++
++def _kinds_table(root):
++    """`SYNTAX.md` Y-25's table, as `[(kind, cycle cell, line)]` -- the rows under its header line, to the first line
++    that is no table row -- and whether the header was found."""
++    path = os.path.join(root, "meta", "specs", "SYNTAX.md")
++    try:
++        with open(path, encoding="utf-8") as fh:
++            lines = fh.read().split("\n")
++    except OSError:
++        return [], False
++    rows, seen = [], False
++    for n, line in enumerate(lines, 1):
++        if not seen:
++            seen = line.strip() == _KINDS_TABLE
++            continue
++        if line.startswith("|---"):
++            continue
++        m = _TABLE_ROW.match(line)
++        if not m:
++            break
++        rows.append((m.group(1), m.group(2), n))
++    return rows, seen
++
++
++def check_error_kinds_tested(root):
++    """Every `PatternErrorKind` is provoked by a test, or listed with the cycle that will provoke it -- `SYNTAX.md`
++    Y-25 (RX-219), the cycle 0.1 Gate.
++
++    WHY. A kind nothing can produce is a promise the documentation makes and the code does not keep -- the shape the
++    compiler found three times and named the dormant-rule pattern, and what its `check_codes_tested` refuses. Four of
++    this library's kinds are raised by no parser: a product of repetitions, a class's ranges and a program's size are
++    counted where they are computed, and a class that resolves to nothing is open question O-Y3. So each such kind is a
++    row of Y-25's table, naming the cycle that will raise it, and the check holds the table BOTH WAYS: a kind no test
++    provokes and no row lists fails it; a row whose kind a test provokes fails it -- the row is stale, and the next
++    reader would take a provoked kind for a promise; and a row that names no kind the enum declares, or no cycle, or a
++    cycle whose README does not name the kind, fails it -- a destination nobody plans is the next C8.
++
++    WHAT "A TEST PROVOKES IT" MEANS HERE, AND WHAT IT CANNOT SEE. A unit under `tests/unit/` that parses -- calls
++    `parse_pattern`, `parse_check_length` or `parse_check_encoding` -- and names `PatternErrorKind.<kind>` in its code,
++    comments and strings blanked, outside the first argument of a `pattern_error(...)` it builds: as a `refused`
++    helper's argument, beside `.kind`, or as a `pick` arm, the four shapes the units hold. It reads names, not
++    meaning: a unit that names a kind only to require it ABSENT would count it provoked, so a test of that shape says
++    why in its own header, and review is the guard. The enum is read from `src/syntax/pattern_error.npk`."""
++    fl, notes = [], []
++    kinds_path = os.path.join(root, _KINDS_FILE)
++    try:
++        code = lexical.blank(lexical.read(kinds_path))
++    except (OSError, ValueError):
++        code = ""
++    m = _KINDS_ENUM.search(code)
++    if not m:
++        return Result("check_error_kinds_tested", "SYNTAX.md Y-25 (RX-219)", "no enum",
++                      [f"{_KINDS_FILE} declares no `pub enum:PatternErrorKind`, so there is no list of kinds to hold "
++                       f"to the tests -- SYNTAX.md §9 is the list, and Y-25 the rule (RX-172, RX-219)."])
++    kinds = [k.strip() for k in m.group(1).split(";") if k.strip()]
++    provoked, units, parsing = {}, npk_files(root, os.path.join("tests", "unit")), 0
++    for path in units:
++        text = _read(path)
++        c = lexical.blank(text)
++        if not _PARSES.search(c):
++            continue
++        parsing += 1
++        rel = os.path.relpath(path, root)
++        for u in _KIND_USE.finditer(c):
++            if _KIND_BUILT.search(c, max(0, u.start() - 48), u.start()):
++                continue
++            provoked.setdefault(u.group(1), []).append(rel)
++    rows, seen = _kinds_table(root)
++    listed = {}
++    for kind, cell, line in rows:
++        where = f"meta/specs/SYNTAX.md:{line}"
++        if kind in listed:
++            fl.append(f"{where}: Y-25's table lists `{kind}` twice. One row per kind (RX-219).")
++            continue
++        listed[kind] = cell
++        if kind not in kinds:
++            fl.append(f"{where}: Y-25's table lists `{kind}`, which `PatternErrorKind` does not declare. Strike the "
++                      f"row, or declare the kind in §9 and `{_KINDS_FILE}` by a decision (RX-219).")
++            continue
++        if kind in provoked:
++            fl.append(f"{where}: Y-25's table lists `{kind}` as a kind no pattern reaches yet, and "
++                      f"{provoked[kind][0]} provokes it. Strike the row in the commit that made the test: a provoked "
++                      f"kind left on the list reads as a promise still owed (RX-219).")
++            continue
++        cyc = _CYCLE.match(cell)
++        if not cyc:
++            fl.append(f"{where}: Y-25's table gives `{kind}` no cycle -- `{cell}`. Write the cycle that will provoke "
++                      f"it, as `cycle 0.3.4`: a destination nobody can find is a deferral with no owner (RX-219).")
++            continue
++        readme = [os.path.join(root, "meta", "roadmap", sub, cyc.group(1), "README.md") for sub in ("", "done")]
++        found = [p for p in readme if os.path.exists(p)]
++        said = False
++        for p in found:
++            with open(p, encoding="utf-8") as fh:
++                if f"`{kind}`" in fh.read():
++                    said = True
++        if not said:
++            fl.append(f"{where}: Y-25's table says `{kind}` is provoked from {cell}, and "
++                      f"{'no README of cycle ' + cyc.group(1) + ' exists' if not found else os.path.relpath(found[0], root) + ' does not name it'}. "
++                      f"The cycle's checklist names the kind it will raise, or the row names the cycle that does "
++                      f"(RX-219).")
++    for kind in kinds:
++        if kind not in provoked and kind not in listed:
++            fl.append(f"{_KINDS_FILE}: `{kind}` is provoked by no unit under tests/unit/ and listed in no row of "
++                      f"SYNTAX.md Y-25's table. A kind nothing can produce is a promise the documentation makes and the "
++                      f"code does not keep: write the test that provokes it, or list it with the cycle that will "
++                      f"(SYNTAX.md Y-25, RX-219).")
++    if not seen:
++        notes.append("SYNTAX.md holds no table headed `" + _KINDS_TABLE + "`, so every kind must be provoked.")
++    for kind in kinds:
++        if kind in listed and kind not in provoked:
++            notes.append(f"`{kind}`: listed, {listed[kind]}.")
++    return Result("check_error_kinds_tested", "SYNTAX.md Y-25 (RX-219)",
++                  f"{len(kinds)} kind(s) in PatternErrorKind, {sum(1 for k in kinds if k in provoked)} provoked by "
++                  f"{parsing} unit(s) that parse, {len(listed)} listed with the cycle that will provoke them",
++                  fl, notes)
++
++
+ # --- check_specs_current --------------------------------------------------------------
+ 
+ _SPEC_LINK = re.compile(r'\[[^\]]*\]\(([^)]+\.md)(?:#[^)]*)?\)')
+@@ -1276,7 +1408,7 @@ def check_dated_measurements(root):
+ 
+ ALL = [check_layering, check_error_budget, check_constants_named,
+        check_no_division, check_accessor_confinement,
+-       check_vec_elements_own_nothing, check_no_recursion,
++       check_vec_elements_own_nothing, check_no_recursion, check_error_kinds_tested,
+        check_dated_measurements, check_specs_current]
+ REPORTING_ONLY = {"check_specs_current"}
+ 
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 66a57d9e5a47297aa36cdb72422c91f3a545fe9e..71d43872231da31f9d1e17659e397e1d1bd25ac8 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -5614,3 +5614,37 @@ lookbehind is known to fit S-6, if a consumer ever asks for one. No refusal and
+ reason was wrong is kept beside what is true; **the note left for a later subcycle that touches `SAFETY.md`** — the audit
+ found that place named no cycle, and this one touches it; **the refusal of lookbehind reconsidered here** — RX-003 and
+ S-6 decide it today, and a consumer's need is O-R1's question, not a close's.
++
++## The instruments — cycle 0.1.6b
++
++### RX-219 — the cycle 0.1 Gate amended: every kind is provoked by a test or listed with the cycle that will provoke it, and `check_error_kinds_tested` holds the list both ways
++
++**@@DATE@@, cycle 0.1.6b (the plan's PD-63), at compiler `5fbaf4a`** — `SYNTAX.md` Y-25, `TESTING.md` §8 and V-19, and the
++cycle README's Gate and `ROADMAP.md`'s; the cycle audit's C4, S1 and K9. The Gate reads *"every kind in `SYNTAX.md` §9
++has a test that produces it, and `check_error_kinds_tested` is green"*. Of the thirty-eight kinds, thirty-four have a
++producer in `src/` and a unit that provokes them, and four have neither, and no parser can raise them: a product of
++repetitions is counted as the HIR is built (cycle 0.2.2), a class's ranges where it is resolved and a class that
++resolves to nothing is open question O-Y3 (both 0.3.4), and a program's instructions where it is compiled (0.6.2). So
++the Gate could not pass as written, and the cycle README's 0.1.6 box and O-Y3 named two of the four.
++
++**The decision.** Every kind in §9 is provoked by a test, or is a row of Y-25's table naming the cycle that will provoke
++it and why the parser cannot. `check_error_kinds_tested`, a tree check on every run, holds the table both ways: a kind
++no test provokes and no row lists fails it; so does a row whose kind a test provokes — stale, and read as a promise still
++owed — a row naming no kind `PatternErrorKind` declares, a row naming no cycle, and a row whose cycle's README does not
++name its kind, so every row's destination is a checklist's. A test provokes a kind when a unit under `tests/unit/` that
++parses a pattern names it outside a `pattern_error(…)` it builds — as a `refused` helper's argument, beside `.kind`, or
++as a `pick` arm. Self-check case 33 plants each way to be wrong beside a clean tree. The 0.2 and 0.3 READMEs name the
++kinds their subcycles raise, and the 0.3 README O-Y3. And two records the audit found beside the Gate: `TESTING.md`
++V-19's *"cycle 0.4"* for the second check reads cycle 0.6.1, as §8's table does (S1), and §9's RX-172 note is dated as
++the oldest of its four (K9).
++
++**Measured at `5fbaf4a`.** Over the tree the check reads thirty-eight kinds, thirty-four provoked by sixteen units that
++parse and four listed, and finds nothing; each of case 33's eight plants fails it by name and the clean tree passes; and
++each of the plan's §1.4 mutants of the check is red at case 33 or over the tree.
++
++*Alternatives declined:* **the four provoked now** — none is the parser's: each needs the HIR, the resolver or the
++compiler; **the four retired, as RX-181 retired `EmptyAlternate`** — each has a trigger a later cycle is planned to
++build, and `EmptyClass`'s is O-Y3's to decide; **the Gate kept, and cycle 0.1 left open until cycle 0.6** — a cycle held
++open by kinds it cannot reach; **the check made live where the last kind is provoked** — thirty-four kinds unguarded
++until then, the dormant-rule pattern the check exists to refuse; **the list in the check's own code** — a tree check
++diffs the library against a document, and which kinds wait is the specification's to say.
+diff --git a/meta/OPEN_QUESTIONS.md b/meta/OPEN_QUESTIONS.md
+index afd9013e723a5141b56f3ac7970e39194814c6ff..38c54f44a1c102d98528f7f144f0b9ce4fdfe5f9 100644
+--- a/meta/OPEN_QUESTIONS.md
++++ b/meta/OPEN_QUESTIONS.md
+@@ -937,6 +937,8 @@ movemask intrinsic, which is a better request than a speculative one.
+   resolution can see one. **Decide at cycle 0.3.4**, where a class's set is first computed; until then cycle
+   0.1.6's `check_error_kinds_tested` must count it among the kinds a later cycle provokes, as it must
+   `ClassTooLarge`.
++  *(@@DATE@@, cycle 0.1.6b — RX-219: it does, from `specs/SYNTAX.md` Y-25's table, which names cycle 0.3.4 for both and
++  lists `RepeatProductTooLarge` and `ProgramTooLarge` too: four kinds, not two.)*
+ 
+ ### Unicode
+ 
+diff --git a/meta/roadmap/0.1/README.md b/meta/roadmap/0.1/README.md
+index 34502a9bc4bbde0ed9ef2760ef681d182cf45415..0415e5e6800e82abe029057d197d333c8c502e84 100644
+--- a/meta/roadmap/0.1/README.md
++++ b/meta/roadmap/0.1/README.md
+@@ -177,7 +177,7 @@ fixed, twenty-two findings; [`0.1.6.md`](0.1.6.md) §2 triages every one.)*
+ - [ ] the parser's fuzz pass, a unit on every run: never traps, always ends, an AST or a refusal at a valid offset — the pattern's length one too, spanning nothing, as `(?<` gives (K6) — PD-65
+ 
+ ### 0.1.6 — close
+-- [ ] **`check_error_kinds_tested` live and green**: every `PatternErrorKind` in `SYNTAX.md` §9 has a test that provokes it *(2026-10-01 — RX-197: no pattern reaches `EmptyClass` in the parser, open question O-Y3 for cycle 0.3.4, so the check counts it with the kinds a later cycle provokes, as it does `ClassTooLarge`)* *(2026-10-01 — cycle 0.1.4: thirty-eight kinds; `DuplicateFlag` and `ExtendedAmbiguity` are new, each provoked by `parse_flag_refusals`)* *(2026-10-02 — cycle 0.1.5: `UnsupportedAnchor` and `UnsupportedQuoting`, which no pattern reached before, are provoked by `parse_declined`; `UnknownUnicodeProperty`'s detail 4, a block, is cycle 0.3.1's to raise, and the kind is provoked already)*
++- [ ] **`check_error_kinds_tested` live and green**: every `PatternErrorKind` in `SYNTAX.md` §9 has a test that provokes it *(2026-10-01 — RX-197: no pattern reaches `EmptyClass` in the parser, open question O-Y3 for cycle 0.3.4, so the check counts it with the kinds a later cycle provokes, as it does `ClassTooLarge`)* *(2026-10-01 — cycle 0.1.4: thirty-eight kinds; `DuplicateFlag` and `ExtendedAmbiguity` are new, each provoked by `parse_flag_refusals`)* *(2026-10-02 — cycle 0.1.5: `UnsupportedAnchor` and `UnsupportedQuoting`, which no pattern reached before, are provoked by `parse_declined`; `UnknownUnicodeProperty`'s detail 4, a block, is cycle 0.3.1's to raise, and the kind is provoked already)* *(@@DATE@@ — cycle 0.1.6b, RX-219: the kinds a later cycle provokes are four, not two — `RepeatProductTooLarge` and `ProgramTooLarge` beside `EmptyClass` and `ClassTooLarge` — each a row of `SYNTAX.md` Y-25's table, which the check holds both ways)*
+ - [ ] a fuzz pass over random byte strings as patterns: never traps, always terminates, always produces a program or an error with a valid offset
+ - [ ] findings written; `0.2.0.md` written; archived
+ 
+@@ -187,6 +187,10 @@ Every kind in `SYNTAX.md` §9 has a test that produces it, and
+ `check_error_kinds_tested` is green. A kind nothing can produce is a promise
+ the documentation makes and the code does not keep — the compiler found that
+ shape three times and called it the dormant-rule pattern.
++*(@@DATE@@, cycle 0.1.6b — RX-219: or is listed in `SYNTAX.md` Y-25's table with the cycle that will produce it, and
++`check_error_kinds_tested` holds the table both ways. Four kinds are listed — `RepeatProductTooLarge` (0.2.2),
++`EmptyClass` and `ClassTooLarge` (0.3.4), `ProgramTooLarge` (0.6.2) — none of them the parser's to raise, so the Gate
++as first written could not pass (the cycle audit's C4).)*
+ 
+ ## Watch for
+ 
+diff --git a/meta/roadmap/0.2/README.md b/meta/roadmap/0.2/README.md
+index fe4a62d91cc81102e95ad06e71e830e1119a79da..886f528604779530f5019c2a8c04c773e74d6f2a 100644
+--- a/meta/roadmap/0.2/README.md
++++ b/meta/roadmap/0.2/README.md
+@@ -38,7 +38,7 @@ RX-015, RX-031. Settled. **No open questions.**
+ - [ ] the product multiplied on the way down, in `uint64`, narrowed only where proven (RX-015)
+ - [ ] `NREGEX_REPEAT_MAX` on a single bound; `NREGEX_REPEAT_PRODUCT` on the nest *(2026-09-27, cycle 0.1.1: the single
+   bound is the parser's since then — `RepeatTooLarge` at the number, RX-184 — so this subcycle's is the product)*
+-- [ ] `((a{1000}){1000}){1000}` refused **at the third `{1000}`**, with that offset — asserted, because refusing at the end is a different and worse behaviour
++- [ ] `((a{1000}){1000}){1000}` refused **at the third `{1000}`**, with that offset — asserted, because refusing at the end is a different and worse behaviour *(@@DATE@@ — cycle 0.1.6b, RX-219: as `RepeatProductTooLarge`, which `SYNTAX.md` Y-25's table lists for this subcycle; the test that provokes it strikes the row)*
+ - [ ] a test that the refusal happens before any large allocation, by bounding the process's peak memory
+ 
+ ### 0.2.3 — normalisation
+diff --git a/meta/roadmap/0.3/README.md b/meta/roadmap/0.3/README.md
+index 93ae1638aede9341f8e99cf5f07e715b741d1a45..f2a16033575e87aed07e80f015948a7878312f4f 100644
+--- a/meta/roadmap/0.3/README.md
++++ b/meta/roadmap/0.3/README.md
+@@ -7,7 +7,7 @@ lookups over them.**
+ 
+ RX-021, RX-022, RX-023. Settled.
+ 
+-**Open questions to settle:** Q-1 / O-U2 (the version to pin — data, not
++**Open questions to settle:** *(@@DATE@@ — cycle 0.1.6b, RX-219: and O-Y3, what `EmptyClass` names, at 0.3.4.)* Q-1 / O-U2 (the version to pin — data, not
+ design; recorded when chosen).
+ 
+ ## Subcycles
+@@ -59,7 +59,8 @@ design; recorded when chosen).
+ - [ ] union, intersection (`&&`), difference (`--`), symmetric difference (`~~`) over sorted range lists, with Y-17's precedence *(2026-10-01, cycle 0.1.3 — RX-196 replaces Y-17's order: the three share one precedence and apply left to right, union tighter and negation last, and cycle 0.1.3's parser builds the tree in that order — this subcycle evaluates the tree as built)*
+ - [ ] negation within the correct universe
+ - [ ] folding applied **at resolution**, so the engine never folds (U-13)
+-- [ ] `NREGEX_CLASS_RANGES` enforced; `ClassTooLarge`
++- [ ] `NREGEX_CLASS_RANGES` enforced; `ClassTooLarge` *(@@DATE@@ — cycle 0.1.6b, RX-219: a row of `SYNTAX.md` Y-25's table, struck by the test that provokes it)*
++- [ ] *(@@DATE@@ — cycle 0.1.6b, RX-219)* open question O-Y3 decided — `EmptyClass` raised where a class resolves to nothing, or retired as `EmptyAlternate` was — and its row in `SYNTAX.md` Y-25's table struck either way
+ - [ ] 0.2's `(?i:…)` hook filled, and its pending test now green
+ 
+ ### 0.3.5 — close
+diff --git a/meta/roadmap/0.6/README.md b/meta/roadmap/0.6/README.md
+index a6ef112655337bace06920321176e7aac0af6962..53b14c5a17bae80e077ff4db644e83f5ce58f5b6 100644
+--- a/meta/roadmap/0.6/README.md
++++ b/meta/roadmap/0.6/README.md
+@@ -40,7 +40,7 @@ RX-030, RX-031, RX-032. Settled. **No open questions.**
+ - [ ] `a{2,4}` expands to the documented shape; `a{2,}` to `aa` plus a `Split` loop
+ - [ ] greedy and lazy differ **only** in `Split` operand order, and a test asserts the two programs are otherwise identical
+ - [ ] `NREGEX_REPEAT_PRODUCT` already checked at the HIR (H-8), so emission expands without re-deriving — asserted by a test that the compiler does no product arithmetic
+-- [ ] `ProgramTooLarge` when `NREGEX_PROGRAM_INSTRUCTIONS` is exceeded
++- [ ] `ProgramTooLarge` when `NREGEX_PROGRAM_INSTRUCTIONS` is exceeded *(@@DATE@@ — cycle 0.1.6b, RX-219: a row of `SYNTAX.md` Y-25's table, struck by the test that provokes it)*
+ 
+ ### 0.6.3 — entry points
+ - [ ] the unanchored `.*?` prefix compiled as a `Split` loop over the any-byte class
+diff --git a/meta/roadmap/ROADMAP.md b/meta/roadmap/ROADMAP.md
+index 831bd92742cb444cb5ee5e61f8eda74e3947197e..298be0edb7ac6989b8be2f6435bf4418c85b1dd5 100644
+--- a/meta/roadmap/ROADMAP.md
++++ b/meta/roadmap/ROADMAP.md
+@@ -228,6 +228,8 @@ by `NREGEX_NEST_DEPTH`, byte offsets on every error, and every
+ **Gate:** every kind in §9 has a test that produces it, and
+ `check_error_kinds_tested` is green — a kind nothing can produce is a promise
+ the documentation makes and the code does not keep.
++*(@@DATE@@, cycle 0.1.6b — RX-219: or is listed in `SYNTAX.md` Y-25's table with the cycle that will produce it — four
++are, none the parser's to raise — and the check holds the table both ways.)*
+ 
+ ### 0.2 — The HIR
+ `src/hir/`: the flat POD arena, the nine kinds, the desugaring table, the four
+diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
+index 7a18cf6768acdc4193cc7f95ddc65ec4bd4d6004..c6115d12e6b2191bcdc5896183c7e8ac77105719 100644
+--- a/meta/specs/SYNTAX.md
++++ b/meta/specs/SYNTAX.md
+@@ -756,6 +756,18 @@ reads the lookaround's sentence.)*
+ **Rule Y-25 — every kind has a test that provokes it**, and a harness check
+ diffs the enum against the tests, so a kind nothing can produce is caught. This
+ is the compiler's `check_codes_tested` in this library's terms.
++*(@@DATE@@, cycle 0.1.6b — RX-219: or is a row of the table below, naming the cycle that will provoke it and why the
++parser cannot — four are. `check_error_kinds_tested` holds the table both ways on every run: a kind no test provokes
++and no row lists fails it, and so do a row whose kind a test provokes, a row naming no kind §9 declares, a row naming
++no cycle, and a row whose cycle's README does not name its kind. A test provokes a kind when a unit under `tests/unit/`
++that parses a pattern names it, outside a `pattern_error(…)` it builds.)*
++
++| Kind no pattern reaches yet | Provoked from | Why the parser cannot |
++|---|---|---|
++| `RepeatProductTooLarge` | cycle 0.2.2 | `NREGEX_REPEAT_PRODUCT` bounds a product across nested repetitions, counted as the HIR is built (`SAFETY.md` §5) |
++| `EmptyClass` | cycle 0.3.4 | every class the parser builds holds a member (Y-36); whether a class that resolves to nothing is this kind is open question O-Y3 |
++| `ClassTooLarge` | cycle 0.3.4 | `NREGEX_CLASS_RANGES` counts a class's ranges after folding, where it is resolved (`SAFETY.md` §5) |
++| `ProgramTooLarge` | cycle 0.6.2 | `NREGEX_PROGRAM_INSTRUCTIONS` counts a compiled program's instructions (`SAFETY.md` §5) |
+ 
+ **What each refusal cycle 0.1.1 makes carries** — Y-10's offset and length, and the
+ detail a message is built from (Y-29 … Y-32) *(and, since 2026-10-01, each cycle 0.1.3's classes make — Y-36 … Y-38,
+@@ -818,6 +830,9 @@ where a codepoint was due. `UnknownUnicodeProperty`'s details are reasons, not c
+ before the parser produces any of them, and `tests/unit/pattern_error_unit.npk`
+ holds the enum to the list with an exhaustive `pick`. The harness check is
+ cycle 0.1.6's.)*
++*(@@DATE@@, cycle 0.1.6b — the cycle audit's K9: that note is the oldest of the four above it, though it stands last —
++thirty-seven was cycle 0.1.0's count, and §9 holds thirty-eight since cycle 0.1.4 (RX-207); the harness check is live
++since this cycle (Y-25, RX-219).)*
+ 
+ ---
+ 
+diff --git a/meta/specs/TESTING.md b/meta/specs/TESTING.md
+index 9a7809295f4063cf732d7ab429d29a08cf14a937..b1aaa8ce219a7f42da3f25f62c9d46fcc842d447 100644
+--- a/meta/specs/TESTING.md
++++ b/meta/specs/TESTING.md
+@@ -210,7 +210,7 @@ framing that let both be wrong. The framing is the column.
+ | `check_no_syscalls` | **yes**, as a BUILD STEP and not a tree check | the object's undefined symbols, **and the IR's floor call edges**, against the committed baseline — RX-116 and RX-120, §2 |
+ | `check_tables_regenerate` | no — **cycle 0.3** | the committed Unicode tables against a fresh generator run |
+ | `check_table_invariants` | no — **cycle 0.3** | every range table sorted, disjoint, `lo <= hi`, within `U+10FFFF` |
+-| `check_error_kinds_tested` | no — **cycle 0.1** | every `PatternErrorKind` against the tests that provoke it (`SYNTAX.md` Y-25) |
++| `check_error_kinds_tested` | **yes** — *since cycle 0.1.6b, RX-219; "no — cycle 0.1" until then* | every `PatternErrorKind` against the tests that provoke it, and `SYNTAX.md` Y-25's table of the kinds no pattern reaches yet against the cycles named to provoke them, both ways (`SYNTAX.md` Y-25) |
+ | `check_inst_kinds_total` | no — **cycle 0.6** (0.6.1, the compiler's and the oracle's half; each engine's half with its cycle, the Pike VM's at 0.7) | every `InstKind` emitted by the compiler and handled by every engine and the oracle |
+ | `check_hir_kinds_total` | no — **cycle 0.2** | the same for `HirKind` |
+ | `check_byte_class_partition` | no — **cycle 0.4** (0.4.3) | `COMPILE.md` C-9's property, over every corpus program |
+@@ -229,6 +229,8 @@ from this table: the count moved *inside* the subcycle that last corrected it.
+ *(2026-10-01, cycle 0.1.2 — RX-192: **nine** run on every full invocation since
+ `check_no_recursion` joined `ALL`, eight of which can fail the run; `check_no_syscalls`
+ stays the build step beside them.)*
++*(@@DATE@@, cycle 0.1.6b — RX-219: **ten** since `check_error_kinds_tested` joined `ALL`, nine of which can fail the
++run.)*
+ 
+ **Rule V-22 — A CHECK IS A RULE ONLY OVER THE FILES IT OPENS, so every check
+ here reports what it examined and not merely its verdict.** This module's own
+@@ -250,6 +252,9 @@ that emits it. Both are stated in the future tense on purpose: the rule was
+ written in the present, two lines under a table that listed them as running, and
+ a reader had no way to tell. **Cycle 0.1 builds the first and cycle 0.4 the
+ second**, and V-19 becomes a present-tense rule on the day the second lands.
++*(@@DATE@@, cycle 0.1.6b — RX-219: the first exists, live since this cycle, and its half of the rule is in the present.
++The second is cycle 0.6.1's, as §8's table says — "cycle 0.4" above is the table's old cycle, which cycle 0.1.0b's EC11
++corrected there and not here (the cycle audit's S1).)*
+ 
+ ---
+ 
+@@ -338,6 +343,14 @@ requires it to report every one as a failure. The list is `harness/selfcheck.py`
+     decimal, a hex, a binary and an octal literal, a width suffix past `u64`, a
+     literal left of the comparison — each failing by its text and its value, and a
+     clean tree passing (RX-202). On the instrument.
++33. `check_error_kinds_tested` over eight planted trees — a kind no test provokes
++    and no row lists; one a unit only builds, as the `??` fallback every refusal
++    unit writes; one named in a unit that parses nothing, and one in a comment;
++    and four rows of `SYNTAX.md` Y-25's table, one whose kind a test provokes, one
++    naming no kind the enum declares, one naming no cycle and one whose cycle's
++    README does not name its kind — each failing by name, and a clean tree passing
++    whose listed kind a unit builds and names in a comment (RX-219). On the
++    instrument.
+ 
+ *(Reconciled 2026-09-25 by the third cycle 0.0 audit's triage, RX-154. This list
+ had eight bullets and `CASES` eleven entries, and they disagreed in BOTH
+@@ -382,6 +395,9 @@ stood before — all six plants passed — and against two broken readers: one t
+ the left of a comparison, and one that never read a base suffix. **33 cases, 29 live, 4
+ pending** on the day it was written.)*
+ 
++*(Extended @@DATE@@ by cycle 0.1.6b, RX-219: 33. It was seen to fail against each mutant of the check that the plan's
++§1.4 lists. **34 cases, 30 live, 4 pending** on the day it was written.)*
++
+ **Rule V-21 — the self-check runs first in every full invocation.** A harness
+ that has not proven it can fail has not proven anything.
+ 
+diff --git a/src/syntax/pattern_error.npk b/src/syntax/pattern_error.npk
+index 6538c08abafd2a4428617d08ad2d55c87894362e..d393f18d56f91b6dc252a3696dae0095bd259252 100644
+--- a/src/syntax/pattern_error.npk
++++ b/src/syntax/pattern_error.npk
+@@ -7,6 +7,8 @@
+ // against the tests that provoke each kind, and it cannot be written against an
+ // enum that is still moving; a kind added later is a kind nobody notices is
+ // untested.
++// *(@@DATE@@, cycle 0.1.6b -- RX-219: live on every run since; a kind no pattern
++// reaches yet is a row of `SYNTAX.md` Y-25's table, with the cycle that will.)*
+ //
+ // `PatternError` is `SAFETY.md` rule S-9's value: the kind, the byte offset into
+ // the pattern (`SYNTAX.md` Y-10), a length where the construct spans more than a

@@ -1,0 +1,71 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 4cdbe0277fb6c3362e751c56e3495ea80c0429e9..bd7050ff07936cbde3195487d6c9d425e9235891 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -6,7 +6,7 @@ Guidance for Claude Code sessions working in this repository.
+ 
+ `nregex` — a regular-expression library for **Nitpick**, the safety-critical
+ systems language at `../../nitpick`. **Status: cycle 0.1, the pattern parser, is
+-open, and its 0.1.0, 0.1.0b, 0.1.1, 0.1.1b, 0.1.2, 0.1.3, 0.1.4 and 0.1.5 are done** — the pieces the parser is written
++open, and its 0.1.0, 0.1.0b, 0.1.1, 0.1.1b, 0.1.2, 0.1.3, 0.1.4, 0.1.5 and 0.1.6a are done** — the pieces the parser is written
+ in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/0.1/0.1.0.md`); the adoption of
+ compiler `5fbaf4a` (RX-176 … RX-180, `0.1.0b.md`); and the core grammar —
+ `parse_pattern` builds the AST for literals, `.`, `^`, `$`, groups, alternation and
+@@ -27,7 +27,11 @@ that names no codepoint for the end of the pattern; and `check_constants_named`
+ (RX-202 … RX-208, `0.1.4.md`); and the refusals — every escape §8 declines refused by its own kind, `\g` among them
+ and `\K` as lookaround, by the author's amendment, each sentence saying what is wrong, where, and the guarantee or
+ what to write, none that it is unsupported, and `regex_escape` writing a text as a pattern that matches exactly it
+-(RX-209 … RX-213, `0.1.5.md`).
++(RX-209 … RX-213, `0.1.5.md`); and the cycle audit's library findings, the first of the close's three subcycles —
++`regex_escape` escaping `:`, so a text stays itself straight after a nested class's `[`, where `:alpha:` was read as
++the POSIX class with no error; a `{` after `\b` naming Rust's and Perl's boundaries only when a letter follows it;
++`NestTooDeep` saying what is open around the byte it refuses; question 23, and `SAFETY.md` S-2's lookaround row,
++recorded as what is true; and the audit's records (RX-214 … RX-218, `0.1.6a.md`).
+ Cycle 0.0, foundations, CLOSED on 2026-09-26 — the sixth audit accepted it, and
+ it is archived in `meta/roadmap/done/0.0/`. The
+ specifications, the decisions and the roadmap are complete; `tests/probe/` holds
+@@ -82,7 +86,7 @@ unit programs more, `parse_declined` and `regex_escape`; nothing is refused prov
+ happens yet**: `src/hir/`,
+ `src/compile/`, `src/engine/`, `src/unicode/` and `src/api/` are still one
+ placeholder module each. A full green run at compiler `5fbaf4a` is
+-**258 units** (after cycle 0.1.5; 254 after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus nine tree checks (eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
++**258 units** (after cycle 0.1.6a, as after cycle 0.1.5; 254 after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus nine tree checks (eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
+ summary rather than from here. **Nothing is PENDING any more**:
+ `tests/unit/bytes_copy_string_empty.npk` was committed red under
+ `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
+diff --git a/README.md b/README.md
+index b0e5041654faa91d416473c6e2c9c3d80c236438..c5975804027959ecee4742bc567e25244c126927 100644
+--- a/README.md
++++ b/README.md
+@@ -26,7 +26,9 @@ makes the guarantee below possible.
+ > `u`, scoped to their group, refusing what the engines read two ways. Cycle 0.1.5 refuses
+ > what nregex declines — a backreference, lookaround, `\Q…\E` — each by its own kind, with a
+ > sentence saying why and what to write instead, and `regex_escape` writes any text as a
+-> pattern that matches exactly it. Nothing matches a pattern yet.
++> pattern that matches exactly it. Cycle 0.1.6 closes the cycle on its audit, which found
++> one wrong answer — an escaped text read as a POSIX class straight after a nested class's
++> `[` — and `:` is escaped now. Nothing matches a pattern yet.
+ > The specification set is in [`meta/specs/`](meta/specs/) and the plan in
+ > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
+ > discipline the compiler used — specs first, then a cycle map, then
+diff --git a/meta/roadmap/ROADMAP.md b/meta/roadmap/ROADMAP.md
+index 00cfd79210fe67de0a5448c63a4b45d1a8a52dc9..831bd92742cb444cb5ee5e61f8eda74e3947197e 100644
+--- a/meta/roadmap/ROADMAP.md
++++ b/meta/roadmap/ROADMAP.md
+@@ -53,7 +53,7 @@ cycle 0.0.
+ | Cycle | Topic | Gated on |
+ |---|---|---|
+ | **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **DONE 2026-09-26, archived to [`done/0.0/`](done/0.0/README.md).** The sixth W-22 audit ACCEPTED the close at compiler `c970483`, after five refusals — three on 2026-09-06, two on 2026-09-25 — and two inserted subcycles, 0.0.4d (`Vec` move-only) and 0.0.4e (the re-pin that refused the loan). The close is [`done/0.0/0.0.5.md`](done/0.0/0.0.5.md) §13 | — |
+-| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **OPEN: [`0.1.0`](0.1/0.1.0.md), the cursor and the AST, done; [`0.1.0b`](0.1/0.1.0b.md), the adoption of `5fbaf4a` and the ecosystem audit's items, done; [`0.1.1`](0.1/0.1.1.md), the core grammar, done; [`0.1.1b`](0.1/0.1.1b.md), open question O-R3 — `Vec<T: Copy>` — done; [`0.1.2`](0.1/0.1.2.md), the explicit stack's bound, done; [`0.1.3`](0.1/0.1.3.md), classes, done; [`0.1.4`](0.1/0.1.4.md), escapes and flags, done; [`0.1.5`](0.1/0.1.5.md), the refusals, done; next, 0.1.6, the close** | 0.0 |
++| **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **OPEN: [`0.1.0`](0.1/0.1.0.md), the cursor and the AST, done; [`0.1.0b`](0.1/0.1.0b.md), the adoption of `5fbaf4a` and the ecosystem audit's items, done; [`0.1.1`](0.1/0.1.1.md), the core grammar, done; [`0.1.1b`](0.1/0.1.1b.md), open question O-R3 — `Vec<T: Copy>` — done; [`0.1.2`](0.1/0.1.2.md), the explicit stack's bound, done; [`0.1.3`](0.1/0.1.3.md), classes, done; [`0.1.4`](0.1/0.1.4.md), escapes and flags, done; [`0.1.5`](0.1/0.1.5.md), the refusals, done; [`0.1.6a`](0.1/0.1.6a.md), the cycle audit's library findings, done; next, [`0.1.6b`](0.1/0.1.6b.md), the instruments, and [`0.1.6`](0.1/0.1.6.md), the close** | 0.0 |
+ | **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction | 0.1 |
+ | **0.3** | **Unicode** — generated tables, properties, scripts, simple case folding | 0.0 |
+ | **0.4** | **UTF-8 automata** — codepoint ranges to byte ranges, alphabet compression | 0.3 |
+@@ -197,6 +197,7 @@ RX-201.)*
+ of **33** cases, 29 live; **thirty-eight** pattern error kinds; decisions through RX-208.)*
+ *(After cycle 0.1.5, the same compiler: **258** units — `parse_declined` and `regex_escape`, each
+ run as a program and swept as a root; decisions through RX-213.)*
++*(After cycle 0.1.6a, the same compiler: **258** units, no file added; decisions through RX-218.)*
+ 
+ **Two probes refuted their own hypothesis**, which is the cycle's best return:
+ `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler

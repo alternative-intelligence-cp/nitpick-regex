@@ -143,3 +143,29 @@ in a class and out, with Python, Java and node under `u`.)*
 So `\K` outside a class resets the match's start in Perl and PCRE2 — what matched before it stays out of the match,
 as a lookbehind would keep it — and is refused by Python, Java and node under `u`; inside a class no engine reads a
 position, Perl and node without `u` reading the letter and the rest refusing it.
+
+## Added 2026-10-08 — `:` straight after a nested class's `[`, and what follows `\b{`
+
+*(Run on 2026-10-08 by cycle 0.1's close's planner, for `roadmap/0.1/0.1.6a.md` PD-58 and PD-59 — the cycle audit's C1
+and C3 — Perl and PCRE2 as installed and as above, and Rust's regex-syntax 0.8.11 through cycle 0.1.3's planner's build,
+`.internal/p013/rx-target/release/rx`, its source read in that planner's cargo home.)*
+
+| shape | regex-syntax 0.8.11 | Perl 5.38.2 | PCRE2 10.42 (`grep -P`) |
+|---|---|---|---|
+| `[[:alpha:]]`; `[a[:alpha:]]` | the POSIX class: `[A-Za-z]` both | — | the POSIX class: `x` and `b` matched, `:` not, both |
+| `[\:alpha\:]` | a class of `:`, `a`, `h`, `l` and `p` | — | — |
+| `\b{start}` | a word boundary | refused, *"'start' is an unknown bound type"* | — |
+| `\b{wb}` | — | a Unicode boundary | — |
+| `\b{,3}`; `\B{,2}` | refused as a repetition, `RepetitionCountDecimalEmpty` | refused, *"',3' is an unknown bound type"*; *"',2' …"* | — |
+| `\b{ 3}` | a repetition of `\b` | refused, *"'3' is an unknown bound type"* | — |
+| `\b{}` | refused as a repetition, `RepetitionCountDecimalEmpty` | refused, *"Empty \b{}"* | — |
+| `\b{` | refused, `SpecialWordOrRepetitionUnexpectedEof` | — | — |
+| `\b{3x}` | refused as a repetition, `RepetitionCountUnclosed` | — | — |
+| `\b{x3}` | refused as a word boundary, `SpecialWordBoundaryUnclosed` | refused, *"'x3' is an unknown bound type"* | — |
+
+And regex-syntax 0.8.11's source: `is_meta_character` (`src/lib.rs`) is `\ . + * ? ( ) | [ ] { } ^ $ # & - ~` — no `:`;
+and `maybe_parse_special_word_boundary` (`src/ast/parse.rs`): *"if the first non-whitespace character isn't in
+[-A-Za-z] (i.e., this can't be a special word boundary), then we bail and let the counted repetition parser deal with
+this."* So Rust's own escaped text `:alpha:` is the POSIX class straight after a nested class's `[`, and Rust tells a
+word boundary's name from a bound by the byte after the `{`: a letter or `-`. Perl reads every `\b{…}` as a boundary,
+refusing a name it does not know.

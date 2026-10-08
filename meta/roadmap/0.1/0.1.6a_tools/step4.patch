@@ -1,0 +1,142 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 721f4ba4b42b702362d8973065a09e7bdbf5e4c8..93c434a220c82eee3b89342de30d5453cfc6242f 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -5321,6 +5321,10 @@ four read octal; **`\G` and `\Z` in a class refused as anchors** — a class hol
+ them since 0.1.1.
+ 
+ ### RX-210 — `\g` is refused as what it is where it means anything: a backreference, and before `<` or `'` a call of a group — and `\K`, by the author's amendment, as lookaround
++> **SUPERSEDED IN PART by RX-217 (@@DATE@@)** — the attribution of `\K`'s in-class half, which its paragraph *"The
++> author's amendment, 2026-10-02"* holds as his: that `[\K]` stays `UnknownEscape` was cycle 0.1.5's worker's reading of
++> RX-209, which the author accepted on 2026-10-02 as the workbench's question 23. What `\K` and `\g` are, in a class and
++> out, is as this decision says.
+ 
+ **2026-10-02, cycle 0.1.5 (the plan's PD-54), at compiler `5fbaf4a`** — `SYNTAX.md` Y-44; per
+ `meta/research/refusal-syntax-reference-engines.md`, as of 2026-10-01, and for `\K` its addendum of 2026-10-02.
+@@ -5550,3 +5554,29 @@ this decision exits 23.
+ chose one, and `(?i:` opens a group, which the bound must still refuse before its body; **the sentence kept, and a note in
+ Y-35** — a sentence a user reads, false for an input the rule names; **"would open a group or a class"** — false for
+ the same two.
++
++### RX-217 — `\K` in a class stays `UnknownEscape`: cycle 0.1.5's worker's reading of RX-209, which the author accepted as the workbench's question 23 — recorded as that, not as his amendment
++
++**@@DATE@@, cycle 0.1.6a (the plan's PD-61), at compiler `5fbaf4a`** — `SYNTAX.md` Y-44 and §9, `COMPAT.md` §3; the
++cycle audit's C6 and K1, and the second and third of cycle 0.1.5's verifier's findings. The author amended cycle 0.1.5's
++plan on 2026-10-02: `\K` refused as lookaround, with the lookaround's sentence (RX-210). What `\K` is inside a class he
++did not say. The worker read RX-209's rule — a class holds codepoints, and no engine reads a group or a position in one —
++as keeping `[\K]` `UnknownEscape`, as `[\G]` and `[\Z]` are, and its record said so: *"That half is this worker's
++reading of RX-209's rule, not the author's words"*. But RX-210's paragraph *"The author's amendment, 2026-10-02"* and
++Y-44's note *"the author's amendment of 2026-10-02"* hold that half as his. He accepted the reading at 09:45 on
++2026-10-02, the workbench's question 23 — *"im fine with your recomendation for question 23"* — and the workbench's
++record asked that this repository record it beside RX-209.
++
++**The decision.** No pattern moves: `[\K]` is `UnknownEscape` at the `\`, spanning two bytes, its detail `K` (75), and
++`\K` outside a class `LookaroundUnsupported` (RX-210). The record moves: this decision is the in-class half, the
++worker's reading the author accepted as question 23; RX-210 carries its marker, and Y-44's note and
++`tests/unit/parse_declined.npk`'s header a dated note each. And every list of what stays `UnknownEscape` in a class
++names `\g` and `\K` beside `\k`, `\G` and `\Z` — `SYNTAX.md` §9's row, `COMPAT.md` §3's row, and the comment over
++`class_escape`, which each named three.
++
++**Measured at `5fbaf4a`.** `[\K]` is `UnknownEscape` at byte 1, length 2, detail 75, and `[\g]` the same with detail
++103 — `tests/unit/parse_declined.npk` cases 63 and 57, unchanged.
++
++*Alternatives declined:* **RX-210's text rewritten** — a settled decision's text is never rewritten, and the marker says
++what changed and why; **a dated note at each of the three places and no decision** — the audit's other way, but the
++answer is the author's, and a decision is where this repository records one, beside RX-209, as the workbench asked.
+diff --git a/meta/roadmap/0.1/README.md b/meta/roadmap/0.1/README.md
+index 5b305064b790dacdfcb1381189bdc9b10cfad30f..4118dee15c9f997b89bb1a05712726eed3c66095 100644
+--- a/meta/roadmap/0.1/README.md
++++ b/meta/roadmap/0.1/README.md
+@@ -156,7 +156,7 @@ classes? recommendation: no, matching Rust, and refuse `xx`).
+ - [x] `UnknownFlag` — **RX-206, `7943972`**: `parse_flag_refusals` 1–16 and 50–52 — a byte that is no flag, at it, its codepoint; a `)` or `:` where a flag is due; a second `-` — each with a sentence of its own (text 55–57); `(?Px)` still `UnknownFlag` at the `P` (`parse_refusals` 64); and beside it a new kind, `DuplicateFlag`, a flag named twice in one head, set or cleared (20–26; text 58, 59)
+ 
+ ### 0.1.5 — the refusals
+-- [x] every construct in §8 refused with its own kind and offset — the group-head ones and the possessive quantifier since 0.1.1 (Y-30); here the escape-shaped ones *(2026-10-01 — cycle 0.1.4: each is `UnknownEscape` until then (Y-40), and `\Q` in a class too. Two sentences of 0.1.1's meet Rust's syntax: `(?R)` is Rust's CRLF flag and `\b{start}` its start-of-word assertion, which read today as recursion and as a bad bound)* — **RX-209, `2ce15fb`; RX-210, `1e7e3ba`**: `tests/unit/parse_declined.npk` holds every escape §8 declines in its four fields — outside a class `\1` … `\9` and `\k` `BackreferenceUnsupported`, `\G` and `\Z` `UnsupportedAnchor`, `\Q` and a lone `\E` `UnsupportedQuoting`; in a class `\Q` and `\E` as outside and the rest `UnknownEscape`, no engine reading a group or a position there (cases 1–45); `\g`, Perl's and PCRE's backreference, and before `<` or `'` PCRE's call of a group (50–57); and `\K`, Perl's and PCRE's reset of a match's start, refused as lookaround by the author's amendment of 2026-10-02 (60–63); §8's group heads and its possessive quantifier `parse_refusals` 21–23 and 51–63 since 0.1.1; against the parser before each step the unit exits 1 and 50, and with `\K` a letter no rule names 60; nothing is refused provisionally any more (Y-31's notes). The two sentences: `(?R)`'s names Rust's CRLF mode beside PCRE's recursion (RX-212, `pattern_error_text` case 19), and `\b{start}` is `BadRepeatBounds` with detail 2, naming Rust's and Perl's readings (RX-213, `2a4ad37`; `parse_refusals` 72–75, text 81)
++- [x] every construct in §8 refused with its own kind and offset — the group-head ones and the possessive quantifier since 0.1.1 (Y-30); here the escape-shaped ones *(2026-10-01 — cycle 0.1.4: each is `UnknownEscape` until then (Y-40), and `\Q` in a class too. Two sentences of 0.1.1's meet Rust's syntax: `(?R)` is Rust's CRLF flag and `\b{start}` its start-of-word assertion, which read today as recursion and as a bad bound)* — **RX-209, `2ce15fb`; RX-210, `1e7e3ba`**: `tests/unit/parse_declined.npk` holds every escape §8 declines in its four fields — outside a class `\1` … `\9` and `\k` `BackreferenceUnsupported`, `\G` and `\Z` `UnsupportedAnchor`, `\Q` and a lone `\E` `UnsupportedQuoting`; in a class `\Q` and `\E` as outside and the rest `UnknownEscape`, no engine reading a group or a position there (cases 1–45); `\g`, Perl's and PCRE's backreference, and before `<` or `'` PCRE's call of a group (50–57); and `\K`, Perl's and PCRE's reset of a match's start, refused as lookaround by the author's amendment of 2026-10-02 (60–63 *(@@DATE@@ — RX-217: 63, `[\K]` in a class, was the worker's reading, accepted as question 23)*); §8's group heads and its possessive quantifier `parse_refusals` 21–23 and 51–63 since 0.1.1; against the parser before each step the unit exits 1 and 50, and with `\K` a letter no rule names 60; nothing is refused provisionally any more (Y-31's notes). The two sentences: `(?R)`'s names Rust's CRLF mode beside PCRE's recursion (RX-212, `pattern_error_text` case 19), and `\b{start}` is `BadRepeatBounds` with detail 2, naming Rust's and Perl's readings (RX-213, `2a4ad37`; `parse_refusals` 72–75, text 81)
+ - [x] **each message names the guarantee or the alternative, never "unsupported"** (K-1) — the sentences exist since 0.1.1 (Y-34); here each is held to the letter: `BackreferenceUnsupported` says the pattern could not be matched in linear time; `UnsupportedQuoting` names `regex_escape()`; `\Z` names `\n?\z`; `\p{InGreek}` names `\p{Script=Greek}` — **RX-212, `efa98e6` — and the lookaround's sentence no longer claims what published algorithms do**: every sentence of §8's kinds says what is wrong, where, the guarantee or the reading, and what to write, and none that it is unsupported — `pattern_error_text` case 80 sweeps every kind over twelve details for the word; the four held to the letter, the backreference's (cases 20, 67–69), the quotation's naming `regex_escape()` (74–76), `\Z`'s naming `\n?\z` and `\z` (72), and the block's naming `\p{Script=Greek}` (79, built — cycle 0.3.1 raises it); the lookaround's said it *"cannot be matched in linear time"*, which two peer-reviewed 2024 algorithms refute (`meta/research/lookaround-linear-time.md`), and says now that nregex's automata read none and are what keep every search linear (16, and `\K`'s, 82, the author's amendment of 2026-10-02); the fourteen sentences of the plan's §6 accepted to the letter by the author on 2026-10-02; against the text before it the unit exits 16, six mutants as the plan's §1.12
+ - [x] `regex_escape(text)` implemented here, since §8 points at it — **RX-211, `bcb4575`**: in `src/syntax/parse.npk`, beside the reading it inverts, re-exported by `syntax.npk` (`src/lib.npk` at 0.10.5): a `\` before Rust's eighteen bytes and the six white-space bytes, each of Y-42's twenty-one white-space codepoints past ASCII as `\x{…}`, and a text that is not well-formed UTF-8 copied with only its ASCII escaped (`SYNTAX.md` Y-45); `tests/unit/regex_escape.npk` — every ASCII byte alone in four places, the pairs a class reads two ways, all twenty-one under `x`, the overlong U+0085 refused where it breaks, the text it writes; refused at its four calls against the tree before it, and thirteen mutants as the plan's §1.12
+ - [x] a rejection test per refusal in `tests/rejection/`, with the exact-code rule — **RX-209, `2ce15fb` — a UNIT holding each refusal's four fields, since `tests/rejection/` is the compiler's stage and a refused pattern compiles**: this line was written with the cycle plan, before cycle 0.0.3 made `tests/rejection/` the `check` stage, where each file must be refused by the COMPILER with exactly the codes it names (`BUILD.md` B-6, B-7); a refused pattern is a value `parse_pattern` answers at run time, so a fixture there compiles (`parse_declined.npk at 5fbaf4a compiles`, the plan's block 2) and the stage would fail it. The exact-code rule's terms for a value are its four fields, which `parse_declined.npk` requires of every escape §8 declines, `\K` among them, and `parse_refusals.npk` of its group heads since 0.1.1
+diff --git a/meta/specs/COMPAT.md b/meta/specs/COMPAT.md
+index 41d2bb4b1f005e738424e8afaed4905e1ab04406..8f9211338a65fdd416662848fc12cdddc6f24921 100644
+--- a/meta/specs/COMPAT.md
++++ b/meta/specs/COMPAT.md
+@@ -82,7 +82,7 @@ The list a user migrating from Python, PHP, Java or JavaScript needs.
+ | `\<`, `\>` — the bytes in Perl, PCRE, Python and Java | refused, since Rust's `regex` and GNU `grep` read word assertions; write `<` or `>` (Y-40, RX-205) |
+ | `\E` alone — ignored by Perl and PCRE, refused by Java | refused, `UnsupportedQuoting`, as `\Q` is (`SYNTAX.md` Y-44, RX-209) |
+ | `[\1]` … `[\7]` — octal in a class in Perl, PCRE and Python | refused, `UnknownEscape`; write the hex form, `\x01` (Y-44) |
+-| `[\k]`, `[\G]`, `[\Z]` — the letter in Perl | refused, `UnknownEscape`, as any letter no rule names in a class (Y-44) |
++| `[\k]`, `[\G]`, `[\Z]` — the letter in Perl | refused, `UnknownEscape`, as any letter no rule names in a class (Y-44) — *and `[\g]`, the letter in Perl and PCRE, and `[\K]`, the letter in Perl (RX-210, RX-217)* |
+ | `\g1`, `\g{-1}`, `\g{name}` — Perl's and PCRE's backreferences; `\g<1>`, `\g'1'` — PCRE's call of a group | refused, `BackreferenceUnsupported` and `RecursionUnsupported` (`SYNTAX.md` Y-44, RX-210) |
+ | `\b{wb}`, `\b{sb}`, `\b{gcb}`, `\b{lb}`, `\B{wb}` — Perl's Unicode boundaries | refused, `BadRepeatBounds`, naming `\b` and Perl's reading (`SYNTAX.md` Y-32, RX-213) |
+ | `(?i)` after the pattern's start — global in Python, which requires it first | from there to the enclosing group's `)`, across `|`, as in Perl, PCRE and Rust (`SYNTAX.md` Y-41, RX-206) |
+diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
+index 1bf15569383d0a37617f827c335edc11123fa4e3..5c505db09e254e0b8217bfa74cc104b825a83d80 100644
+--- a/meta/specs/SYNTAX.md
++++ b/meta/specs/SYNTAX.md
+@@ -308,6 +308,9 @@ its detail the third, as Y-30's `(?P>` is; in a class `\g` stays `UnknownEscape`
+ `LookaroundUnsupported` — Perl's and PCRE's reset of a match's start, which keeps what matched before it out of the
+ match, as a lookbehind would — at the `\`, spanning it and the `K`, its detail `K` (75); in a class `\K` stays
+ `UnknownEscape`, as `\G` and `\Z` do.)*
++*(@@DATE@@, cycle 0.1.6a — RX-217: the note above holds two halves as the author's amendment, and only the first is:
++`\K` outside a class. That `[\K]` stays `UnknownEscape` was cycle 0.1.5's worker's reading of RX-209 — no engine reads a
++position in a class — which the author accepted on 2026-10-02 as the workbench's question 23.)*
+ 
+ **Rule Y-31 (RX-186) — until its parser exists, a construct is refused
+ PROVISIONALLY**, with the kind its parser gives a member it does not know: `[` is
+@@ -789,7 +792,7 @@ RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-2
+ | `BackreferenceUnsupported` (cycle 0.1.5, RX-209) | `\1` … `\9` or `\k`, outside a class | the `\` | 2 | the digit or `k`: 49 … 57, 107 |
+ | `UnsupportedAnchor` (cycle 0.1.5, RX-209) | `\G` or `\Z`, outside a class | the `\` | 2 | 71 or 90 |
+ | `UnsupportedQuoting` (cycle 0.1.5, RX-209) | `\Q` or `\E`, in a class or out | the `\` | 2 | 81 or 69 |
+-| `UnknownEscape` (cycle 0.1.5, RX-209) | in a class, a `\` before a digit `1` … `9`, `k`, `G` or `Z` | the `\` | 2 | that byte |
++| `UnknownEscape` (cycle 0.1.5, RX-209) | in a class, a `\` before a digit `1` … `9`, `k`, `G` or `Z` — *and `g` and `K` (RX-210, RX-217)* | the `\` | 2 | that byte |
+ | `UnknownUnicodeProperty` (cycle 0.3.1, RX-212) | a Unicode block, `\p{InGreek}` or `\p{Block=Greek}` (`UNICODE.md` U-8) | the `\` | through its `}` | 4 |
+ | `BackreferenceUnsupported` (cycle 0.1.5, RX-210) | `\g` outside a class, but before `<` or `'` | the `\` | 2 | 103 |
+ | `RecursionUnsupported` (cycle 0.1.5, RX-210) | `\g<` or `\g'` outside a class | the `\` | 3 | 60 or 39 |
+diff --git a/src/syntax/parse.npk b/src/syntax/parse.npk
+index 8bc27223e8217a1f2af41d45384d09ae4ebfc9f3..0635c74a513c62234eec172401a955d46d77065b 100644
+--- a/src/syntax/parse.npk
++++ b/src/syntax/parse.npk
+@@ -1252,6 +1252,8 @@ func:class_close = PatternError?(Ast->:out, ClassFrame->:cf, uint32:flags, int64
+ // `UnsupportedQuoting`, as outside a class (Y-44); every other escape is `UnknownEscape` -- `\b`, `\B`, `\A`
+ // and `\z` too, since a class holds codepoints and they name positions, `\<` and `\>` (RX-205), and the
+ // digits, `\k`, `\G` and `\Z`, which no engine reads in a class as a group or a position (Y-44).
++// *(@@DATE@@, cycle 0.1.6a -- RX-217: and `\g` and `\K`, which RX-210 refuses outside a class: no engine reads a
++// group or a position here either.)*
+ func:class_escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame->:cf, int64:at) never fails {
+     int32:d = raw cursor_peek(@p.c);
+     if (d == CURSOR_END) {
+diff --git a/tests/unit/parse_declined.npk b/tests/unit/parse_declined.npk
+index d7bbd6649b7cf1cb1cb38aa2d38b9875c36dd778..9405d686d7a5b7a58a6887aa0d8a215691693166 100644
+--- a/tests/unit/parse_declined.npk
++++ b/tests/unit/parse_declined.npk
+@@ -17,6 +17,9 @@
+ // *(2026-10-02, cycle 0.1.5 -- RX-210, the author's amendment of 2026-10-02: and `\K`, Perl's and PCRE's
+ // reset of a match's start, `LookaroundUnsupported` at the `\`; in a class `UnknownEscape`, as `\G` and `\Z`
+ // are (60-63).)*
++// *(@@DATE@@, cycle 0.1.6a -- RX-217: the in-class half, `[\K]` (63), was cycle 0.1.5's worker's reading of
++// RX-209, which the author accepted on 2026-10-02 as the workbench's question 23 -- not his amendment, which is
++// `\K` outside a class.)*
+ //
+ // THIS IS THE CYCLE README'S "A REJECTION TEST PER REFUSAL". `tests/rejection/` holds what the COMPILER
+ // refuses, each file with its exact codes (`BUILD.md` B-7); a refused pattern is a value `parse_pattern`
+@@ -91,6 +94,7 @@ func:run = int32() never fails {
+     if (!(raw refused("[\\g]", PatternErrorKind.UnknownEscape, 1i64, 2i64, 103u32)))                    { pass 57i32; }
+     // `\K`: Perl's and PCRE's reset of a match's start, a lookbehind in effect -- refused as lookaround, the
+     // author's amendment of 2026-10-02 (RX-210); in a class no position, so the letter no rule names
++    // *(@@DATE@@ -- RX-217: that half, 63, the worker's reading, accepted as the workbench's question 23)*
+     if (!(raw refused("\\K", PatternErrorKind.LookaroundUnsupported, 0i64, 2i64, 75u32)))               { pass 60i32; }
+     if (!(raw refused("foo\\Kbar", PatternErrorKind.LookaroundUnsupported, 3i64, 2i64, 75u32)))         { pass 61i32; }
+     if (!(raw refused("(a)\\K(", PatternErrorKind.LookaroundUnsupported, 3i64, 2i64, 75u32)))           { pass 62i32; }
+diff --git a/tests/unit/parse_escape_refusals.npk b/tests/unit/parse_escape_refusals.npk
+index 30cdcba5c32cd635fcc9620113772fbb9d8f6fbc..d4a65ac9ee057480736c16846b3aa1d3f39766cc 100644
+--- a/tests/unit/parse_escape_refusals.npk
++++ b/tests/unit/parse_escape_refusals.npk
+@@ -18,6 +18,8 @@
+ // *(2026-10-02, cycle 0.1.5 -- RX-210, the author's amendment of 2026-10-02: and `\K`, Perl's and PCRE's
+ // reset of a match's start, refused as lookaround, which case 47 held as an unknown letter until then;
+ // `parse_declined.npk`'s cases 60-63 hold it.)*
++// *(@@DATE@@, cycle 0.1.6a -- RX-217: 60-62 the amendment's, outside a class; 63, `[\K]` `UnknownEscape`, the
++// worker's reading of RX-209, accepted as the workbench's question 23.)*
+ mod:parse_escape_refusals;
+ 
+ use "../../src/core/core.npk".*;
