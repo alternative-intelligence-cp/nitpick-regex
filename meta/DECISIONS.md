@@ -5357,6 +5357,9 @@ to write `K`, and the author amended the plan on 2026-10-02; **`\K` refused as l
 class holds codepoints, and no engine reads a position there.
 
 ### RX-211 — `regex_escape(text)` puts a `\` before every byte that means something in a pattern and writes white space past ASCII as `\x{…}`, so the text means itself whole, in a piece, in a class and under `x`
+> **SUPERSEDED IN PART by RX-214 (2026-10-08)** — the set of bytes it escapes: `:` joins them, since straight after a
+> nested class's `[` a text that began `:alpha:` was read as the POSIX class, with no error; and the claim *"between `[`
+> and `]`"*, which held for none of those texts. Every other byte, and every other form, is as this decision says.
 
 **2026-10-02, cycle 0.1.5 (the plan's PD-55), at compiler `5fbaf4a`** — `SYNTAX.md` Y-24 and Y-45, `API.md` §1; per
 `meta/research/refusal-syntax-reference-engines.md`, as of 2026-10-01. Y-24 names `regex_escape` the way to match a
@@ -5455,3 +5458,37 @@ first exits 72, with `\B` left out 74, and with the sentence's branch lost the s
 Perl reads the same braces otherwise; **`UnknownEscape` at the `\`** — the `\b` is a word boundary, and what is wrong
 is the brace; **detail 2 after any atom** — `a{start}` is a brace no engine reads as a boundary; **`\b` alone, without
 `\B`** — Perl's `\B{wb}` is the same reading of the same shape.
+
+## The cycle audit's findings — cycle 0.1.6a
+
+### RX-214 — `regex_escape` escapes `:` too: a text that began `:alpha:`, put straight after a nested class's `[`, was the POSIX class `[:alpha:]`, with no error
+
+**2026-10-08, cycle 0.1.6a (the plan's PD-58), at compiler `5fbaf4a`** — `SYNTAX.md` Y-45; the cycle audit's C1 and C2
+(`meta/audits/nitpick-regex-0.1-2026-10-02.md`), and the first of cycle 0.1.5's verifier's three findings. RX-211 put a
+`\` before Rust's eighteen bytes and the six white-space bytes and left `:` bare, as Rust's `regex::escape` does. But
+straight after a `[` that opens a class, `[:` begins a POSIX class (Y-38): `[a[` and `regex_escape(":alpha:")` and `]]`
+make `[a[:alpha:]]`, which parses — `a` or a letter — and `[\w--[` and `regex_escape(":digit:")` and `]]` make `\w`
+less the digits, not less `:`, `d`, `i`, `g` and `t`. A wrong answer with no error, for the fourteen texts `:name:`, in
+a nested class only; their `:^name:` twins, whose `^` it escapes, were refused there, `UnknownPosixClass`. After the
+outermost `[` the fourteen, and every text that begins and ends with `:`, holds a codepoint not `:` and is written with no `\`, were refused
+(RX-200): loud, and Y-45's *"between `[` and `]` one member each"* false for them. Measured on 2026-10-08, regex-syntax 0.8.11's `is_meta_character` holds no `:`, and it reads
+`[[:alpha:]]` and `[a[:alpha:]]` as the POSIX class, so Rust's escaped text is misread there too
+(`meta/research/refusal-syntax-reference-engines.md`, its addendum of 2026-10-08).
+
+**The decision.** `:` joins the bytes `regex_escape` writes a `\` before. `\:` is `:` in a class and out (Y-2), so a
+text's first byte is never a `[:`'s `:`, and every text parses back to one `Literal` per codepoint as a whole pattern,
+as a piece of one and between `[` and `]`, nested or not — but where Y-45's note says it cannot promise that, after a
+`\0`, past the length bound and for the empty text, each a refusal. `tests/unit/regex_escape.npk` holds §5.1's fourteen
+names, as `:name:` and `:^name:`, in a nested class (13) and in the outermost one (14), every ASCII byte alone in a
+nested class (15) and `:a:` in the outermost class (16), and case 31's text holds `\:`.
+
+**Measured at `5fbaf4a`.** `regex_escape.npk` passes at −O0 and through `opt -O2`, and against the parser before this
+decision exits 13: `[[` and the text `:alpha:` and `]]` parsed, to a class holding the POSIX class. With `:` left bare
+again it exits 13. Cycle 0.1.5's mutant `esc-extra`, which escaped `:` and was required to fail at case 31, is this
+decision.
+
+*Alternatives declined:* **Y-45's claim narrowed to the places measured** — a silent misreading left standing behind a
+caveat, as the audit put it; **every ASCII byte that is neither a letter nor a digit escaped** — RX-211's own
+alternative, declined for `<` and `>`, which a `\` makes refused (RX-205); **`[:` read as a nested class after a nested
+`[`, as Rust reads `[[:alpah:]]`** — a change to Y-38 for every pattern, when only the escaped text went wrong;
+**`regex_escape` refusing a text that begins with `:`** — it never fails (`API.md` §1), and the text is not wrong.

@@ -1556,11 +1556,14 @@ pub func:parse_pattern = PatternError?(uint8[]:pat, Ast->:out) never fails {
 // ] { } ^ $`; `&`, `-` and `~`, which make a class's operators and ranges; `#`; and the six white-space
 // bytes `x` skips (Y-42) -- every byte that means something somewhere in a pattern, in a class or out, under
 // `x` or not. Not `<` or `>`: a `\` before either is refused (RX-205), and each is itself everywhere.
+// *(2026-10-08, cycle 0.1.6a -- RX-214: and `:`, which straight after a `[` begins a POSIX class (Y-38): a text
+// that began `:alpha:`, put straight after a nested class's `[`, was read as the class `[:alpha:]` with no
+// error, and in the outermost class it was refused (RX-200). `\:` is `:` everywhere (Y-2).)*
 func:is_escaped = bool(int32:b) never fails {
     if ((b == CH_BACKSLASH) || (b == CH_DOT) || (b == CH_PLUS) || (b == CH_STAR) || (b == CH_QUESTION)) { pass true; }
     if ((b == CH_LPAREN) || (b == CH_RPAREN) || (b == CH_PIPE) || (b == CH_LBRACKET) || (b == CH_RBRACKET)) { pass true; }
     if ((b == CH_LBRACE) || (b == CH_RBRACE) || (b == CH_CARET) || (b == CH_DOLLAR) || (b == CH_HASH)) { pass true; }
-    if ((b == CH_AMP) || (b == CH_MINUS) || (b == CH_TILDE)) { pass true; }
+    if ((b == CH_AMP) || (b == CH_MINUS) || (b == CH_TILDE) || (b == CH_COLON)) { pass true; }
     pass raw is_space(b);
 };
 

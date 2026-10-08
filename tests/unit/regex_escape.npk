@@ -13,6 +13,11 @@
 // codepoint past ASCII that `x` refuses; every other byte copied -- `<` and `>` bare, since a `\` before
 // either is refused (RX-205) -- and a text that is not well-formed UTF-8 copied with only its ASCII
 // escaped. A case that differs exits with its number.
+// *(2026-10-08, cycle 0.1.6a -- RX-214: and a fifth place, between `[[` and `]]`, a class nested in a class,
+// where a text that began `:alpha:` was read as the POSIX class `[:alpha:]`, with no error, until `:` was
+// escaped: `SYNTAX.md` §5.1's fourteen names as `:name:` and `:^name:` there (13) and in the outermost class
+// (14), every ASCII byte alone there (15), and `:a:` in the outermost class, which RX-200 refused (16). Case
+// 31's text holds `\:` now.)*
 mod:regex_escape;
 
 use "../../src/core/core.npk".*;
@@ -22,6 +27,7 @@ fixed int64:WHOLE = 0i64;        // the text is the whole pattern
 fixed int64:EXTENDED = 1i64;     // after `(?x)`
 fixed int64:IN_CLASS = 2i64;     // between `[` and `]`
 fixed int64:EXT_CLASS = 3i64;    // between `(?x)[` and `]`
+fixed int64:NESTED = 4i64;       // between `[[` and `]]`: a class nested in a class (RX-214)
 
 func:same = bool(uint8[]:g, uint8[]:w) never fails {
     if (g.len != w.len) { pass false; }
@@ -123,6 +129,13 @@ func:tree_holds = bool(Ast:t, uint8[]:text, int64:place) never fails {
         if ((c.kind != AstKind.Class) || (c.b != n) || ((c.flags & AST_FLAG_NEGATED) != 0u32)) { pass false; }
         pass raw holds(t, c.a, text, true);
     }
+    if (place == NESTED) {
+        if ((r.kind != AstKind.Class) || (r.b != 1i64) || ((r.flags & AST_FLAG_NEGATED) != 0u32)) { pass false; }
+        AstNode:c = raw ast_get(t, r.a);
+        if ((c.kind != AstKind.Class) || (c.b != n) || ((c.flags & AST_FLAG_NEGATED) != 0u32)) { pass false; }
+        if (c.next != AST_NONE) { pass false; }
+        pass raw holds(t, c.a, text, true);
+    }
     if ((r.kind != AstKind.Class) || (r.b != n) || ((r.flags & AST_FLAG_NEGATED) != 0u32)) { pass false; }
     pass raw holds(t, r.a, text, true);
 };
@@ -136,8 +149,10 @@ func:round_trip = bool(uint8[]:text, int64:place) never fails {
     Bytes:p = raw bytes_init(32i64);
     if ((place == EXTENDED) || (place == EXT_CLASS)) { drop bytes_extend_str(@p, "(?x)"); }
     if ((place == IN_CLASS) || (place == EXT_CLASS)) { drop bytes_extend_str(@p, "["); }
+    if (place == NESTED) { drop bytes_extend_str(@p, "[["); }
     drop bytes_extend_str(@p, e);
     if ((place == IN_CLASS) || (place == EXT_CLASS)) { drop bytes_extend_str(@p, "]"); }
+    if (place == NESTED) { drop bytes_extend_str(@p, "]]"); }
     string:pattern = raw bytes_copy_string(@p);
     Ast:t = raw ast_init(8i64);
     PatternError?:r = raw parse_pattern(string_bytes(pattern), @t);
@@ -195,6 +210,28 @@ func:wide_trip = bool() never fails {
     pass true;
 };
 
+// Each of `SYNTAX.md` §5.1's fourteen names written `:name:` and `:^name:`, put where `place` says, comes back
+// as its codepoints -- never as the POSIX class that a `[` straight before the text would begin (Y-38, RX-214).
+func:names_trip = bool(int64:place) never fails {
+    int64:k = 0i64;
+    while (k < POSIX_CLASS_NAMES) decreases POSIX_CLASS_NAMES - k {
+        Bytes:a = raw bytes_init(16i64);
+        drop bytes_extend_str(@a, ":");
+        drop bytes_extend_str(@a, raw posix_class_name(k));
+        drop bytes_extend_str(@a, ":");
+        string:plain = raw bytes_copy_string(@a);
+        if (!(raw trip(plain, place))) { pass false; }
+        Bytes:c = raw bytes_init(16i64);
+        drop bytes_extend_str(@c, ":^");
+        drop bytes_extend_str(@c, raw posix_class_name(k));
+        drop bytes_extend_str(@c, ":");
+        string:neg = raw bytes_copy_string(@c);
+        if (!(raw trip(neg, place))) { pass false; }
+        k = k + 1i64;
+    }
+    pass true;
+};
+
 // Every ASCII byte alone, put where `place` says, comes back as itself.
 func:ascii_trip = bool(int64:place) never fails {
     int64:c = 0i64;
@@ -227,6 +264,12 @@ func:run = int32() never fails {
     // longer texts, every metacharacter in them
     if (!(raw trip("a.b*c?d+e|f(g)h[i]j{k}l^m$n\\o", WHOLE)))                    { pass 11i32; }
     if (!(raw trip("price: $5.00 (approx.) [x] {y} é", EXTENDED)))              { pass 12i32; }
+    // a `[` straight before the text: in a nested class `:name:` would begin a POSIX class, and in the
+    // outermost one a class in a POSIX class's own form, refused (Y-38, RX-200) -- so `:` is escaped (RX-214)
+    if (!(raw names_trip(NESTED)))                                              { pass 13i32; }
+    if (!(raw names_trip(IN_CLASS)))                                            { pass 14i32; }
+    if (!(raw ascii_trip(NESTED)))                                              { pass 15i32; }
+    if (!(raw trip(":a:", IN_CLASS)))                                           { pass 16i32; }
     // the text it writes
     if (!(raw escapes("a.b", "a\\.b")))                                         { pass 20i32; }
     if (!(raw escapes("\\.+*?()|[]{}^$", "\\\\\\.\\+\\*\\?\\(\\)\\|\\[\\]\\{\\}\\^\\$"))) { pass 21i32; }
@@ -239,7 +282,7 @@ func:run = int32() never fails {
     if (!(raw escapes("\u{3000}\u{200E}", "\\x{3000}\\x{200E}")))               { pass 28i32; }
     if (!(raw escapes("é😀\u{200B}", "é😀\u{200B}")))                           { pass 29i32; }
     if (!(raw escapes("\\Qa\\E", "\\\\Qa\\\\E")))                               { pass 30i32; }
-    if (!(raw escapes("x:=1,'%@!", "x:=1,'%@!")))                               { pass 31i32; }
+    if (!(raw escapes("x:=1,'%@!", "x\\:=1,'%@!")))                             { pass 31i32; }
     if (!(raw escapes_bytes(overlong[0i64...3i64], overlong[0i64...3i64])))     { pass 32i32; }
     uint8[2]:ff = [255u8, 46u8];
     uint8[3]:ff_out = [255u8, 92u8, 46u8];

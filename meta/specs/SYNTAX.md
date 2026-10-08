@@ -671,6 +671,13 @@ text parses back to one `Literal` per codepoint, in order — as a whole pattern
 `]` one member each — with `x` in force or not. Under `(?-u)` a codepoint past ASCII is refused as any is (Y-43), and
 under `i` it matches as `i` says. A text that is not well-formed UTF-8 is copied with only its ASCII escaped, so its
 pattern is refused `InvalidPatternEncoding` where the text breaks (Y-28), never read as a codepoint it does not hold.
+*(2026-10-08, cycle 0.1.6a — RX-214: and before `:`, which straight after a `[` begins a POSIX class (Y-38). A text that
+began `:alpha:`, put straight after a nested class's `[` — `[a[`, `[\w--[` — was read as the class `[:alpha:]`, with no
+error, and after the outermost `[` it was refused (RX-200). So between `[` and `]`, nested or not, the text is one member
+per codepoint now. Three things it cannot promise, each a refusal and none a misreading: after `\0` a text that begins
+with a digit makes `\0` and the digit an escape nregex reads not at all (Y-40) — `\0` then `1` is `\01`,
+`UnknownEscape`; a text whose escaped form passes `NREGEX_PATTERN_BYTES` is `PatternTooLong`, an ill-formed one too,
+since the length is checked first (Y-28); and the empty text between `[` and `]` leaves `[]`, which never ends (Y-36).)*
 
 ---
 
