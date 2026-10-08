@@ -12,7 +12,7 @@
 > (DEF-116, its landing 69), which probe 18 pins and nothing in `src/` depends on. This
 > folder moved to `meta/roadmap/done/0.0/` in the closing commit, and it is not
 > rewritten from here on (`../README.md`). **Cycle 0.1, the pattern parser, opens from
-> [`../../0.1/0.1.0.md`](../../0.1/0.1.0.md).**
+> [`../../0.1/0.1.0.md`](../0.1/0.1.0.md).**
 
 > ## 0.0.4e — the adoption to compiler `c970483`: the loan refused, `vec_get` bounded
 >

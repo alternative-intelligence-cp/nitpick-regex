@@ -43,7 +43,7 @@ byte offset on every error.**
 > order".)* *(Until
 > then this banner said 0.1.1 was next and its file its planner's to write — `0.1.0.md` §8.)* *(Until
 > 0.1.0's record this banner opened "OPENS NEXT":)* Cycle 0.0 closed on 2026-09-26 — the sixth audit accepted it, and it
-> is archived in [`../done/0.0/`](../done/0.0/README.md). [`0.1.0.md`](0.1.0.md) is the
+> is archived in [`../done/0.0/`](../0.0/README.md). [`0.1.0.md`](0.1.0.md) is the
 > first dispatch, revised at that close for what its last audit taught — and made
 > execution-grade by a planner before that dispatch, rehearsed at `c970483` on
 > 2026-09-26: B-15a's rule 2 decided first, then the error list, the cursor, the AST
