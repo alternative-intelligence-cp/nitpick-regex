@@ -124,7 +124,7 @@ index af891c1b46a7df6f4568e82ffaf0fc9d51c40445..a10e90c3c5722583e89ac68d6047e040
  _WIDTH = re.compile(r"(?:[iu](?:8|16|32|64|128|256|512|1024|2048|4096)|tbb(?:8|16|32|64|128|256)"
                      r"|f(?:32|64|128)|tfp(?:32|64|128|256)|dim256|char(?:8|16|32))$")
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index 1ec8b9b5685dc06a3cb5007c0e76687b9f32009d..2b51c39475524332e6db2c9f1f9d199ba690de51 100644
+index f4191b6d0a392795a249d5dec66245738c6a47d8..27ab7a911c1e7e2dc245eb02213f323501532ed4 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
 @@ -4208,6 +4208,8 @@ true reason; **leaving it to the next audit** — the first layer entry written

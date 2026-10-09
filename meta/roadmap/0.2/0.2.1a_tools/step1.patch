@@ -1,5 +1,5 @@
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index 1edb3ede114aad8ae96abb96d79e3a547caa13ad..1ec8b9b5685dc06a3cb5007c0e76687b9f32009d 100644
+index 1edb3ede114aad8ae96abb96d79e3a547caa13ad..f4191b6d0a392795a249d5dec66245738c6a47d8 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
 @@ -370,6 +370,9 @@ channel, or held across an `await`. Stated in `API.md` A-15 because a consumer
@@ -86,7 +86,7 @@ index 1edb3ede114aad8ae96abb96d79e3a547caa13ad..1ec8b9b5685dc06a3cb5007c0e76687b
 +
 +- **Every `uint8[]` slot in the tree is `fixed uint8[]`** — 133 slots in 32 files: `parse_pattern` and every parser
 +  function it hands the pattern to, `cursor_init` and the `Cursor`'s `src` field (`sealed fixed uint8[]:src`),
-+  `hir_build`, `hir_read` and the dump reader's functions, `hir_add_group`, `bytes_extend`, the five locals, and the
++  `hir_build`, `hir_read` and the dump reader's functions, `hir_add_group`, `bytes_extend`, the four locals, and the
 +  tests' locals, helpers and probe 12's iterator field — because no slot is written through: the re-spelled tree has no
 +  `NITPICK-TYPE-086` at `7e91730`, and no `NITPICK-ASSIGN-002` for a `fixed` parameter reassigned (the compiler's
 +  DEF-248). A plain `uint8[]` converts to every one, so a caller holding a writable buffer's view passes it as before —

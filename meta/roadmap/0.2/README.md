@@ -3,14 +3,17 @@
 **`src/hir/`: desugaring, normalisation, the computed properties, and literal
 extraction.** Everything decidable without knowing which engine will run.
 
-> **OPEN. [`0.2.0`](0.2.0.md), the arena, and [`0.2.1`](0.2.1.md), the desugaring, are DONE (2026-10-08).** 0.2.0: RX-222 …
-> RX-225 in seven work commits, `02bf6d7` … `35edbfe`, 283/283 in CI run 37817452049. 0.2.1: RX-226 … RX-229 in five work
-> commits, `93e78a1` … `3fd81af` — a `pending-until:` marker that names a subcycle, a dump that shows every bit or stops,
-> `hir_build` over H-5's table, and the two tests of what cycle 0.3.4 will build, pending until then; 294/294 at `5fbaf4a`,
-> two pending outside the count, and in CI run 37858159348 — **next, 0.2.1a, the adoption of compiler `7e91730`, the
-> libraries' one re-pin: planned and rehearsed in [`0.2.1a.md`](0.2.1a.md); then 0.2.2, the repetition product, whose
-> plan no file holds yet.** *(Until 0.2.1's record this banner named 0.2.0 alone as done, and 0.2.1 next; until 0.2.1a's
-> plan, 0.2.2 next.)*
+> **OPEN. [`0.2.0`](0.2.0.md), the arena, and [`0.2.1`](0.2.1.md), the desugaring, are DONE (2026-10-08), and
+> [`0.2.1a`](0.2.1a.md), the adoption of compiler `7e91730`, is DONE (2026-10-09).** 0.2.0: RX-222 … RX-225 in seven work
+> commits, `02bf6d7` … `35edbfe`, 283/283 in CI run 37817452049. 0.2.1: RX-226 … RX-229 in five work commits, `93e78a1` …
+> `3fd81af` — a `pending-until:` marker that names a subcycle, a dump that shows every bit or stops, `hir_build` over H-5's
+> table, and the two tests of what cycle 0.3.4 will build, pending until then; 294/294 at `5fbaf4a`, two pending outside
+> the count, and in CI run 37858159348. 0.2.1a: RX-230 and RX-231 in four work commits, `90b7a3c` … `c160bb7` — every slice
+> the tree holds the read-only view, `fixed uint8[]`, with `5fbaf4a` seeing no difference, then LLVM 20.1.8, one
+> `NITPICK-TYPE-079` for a literal, probe 06b's return and CI at the new pin; 294/294 at `7e91730`, two pending outside the
+> count, and in CI run 37931590622 — **next, 0.2.2, the repetition product, whose plan no file holds yet.** *(Until
+> 0.2.1's record this banner named 0.2.0 alone as done, and 0.2.1 next; until 0.2.1a's plan, 0.2.2 next; until 0.2.1a's
+> record, 0.2.1a next.)*
 
 ## Decisions in
 
@@ -38,7 +41,7 @@ RX-015, RX-031. Settled. **No open questions.**
 |---|---|---|
 | 0.2.0 | **The arena** — the nine kinds, the flat POD representation, the dump — **[`0.2.0.md`](0.2.0.md)**, written at cycle 0.1's close and measured at `5fbaf4a`, then rehearsed in its real position at `5fbaf4a` by cycle 0.2's planner, three records first — the author's words for `README.md`'s price paragraph, four decisions' first paragraphs freed from their notes' blockquotes, and `ROADMAP.md`'s cycle 0.1 sentence dated; PD-66 … PD-69 accepted as RX-222 … RX-225 — **DONE (2026-10-08)**, 283/283 *(until 0.2.0's record this row said "PD-66 … PD-69 are the orchestrator's to accept")* | a HIR that round-trips through its text form |
 | 0.2.1 | **Desugaring** — `HIR.md` §3's table, exactly and nothing else — **[`0.2.1.md`](0.2.1.md)**, planned and rehearsed in its real position at `5fbaf4a` by cycle 0.2's planner, the instruments first — a `pending-until:` marker that names a subcycle, and a dump that shows every bit or stops — then the build and the two tests pending on it until cycle 0.3.4; PD-70 … PD-73 accepted as RX-226 … RX-229, with the orchestrator's correction made through the patches — the build stops in `leaf` too, before any hook — **DONE (2026-10-08)**, 294/294, two pending outside it *(until 0.2.1's record this row said "then the build and the two tests pending on its hooks; PD-70 … PD-73 are the orchestrator's to accept")* | every row tested; flags erased |
-| 0.2.1a | **The adoption of compiler `7e91730`** — landing 103, the libraries' one re-pin: `fixed uint8[]`, the read-only view, in every slice the tree holds, the old compiler seeing no difference; then the pin's own moves — LLVM 20.1.8, the compiler's DEF-165 at one rejection header, probe 06b's return, `rx120.sh`, B-4e's re-read — and CI's three rows — **[`0.2.1a.md`](0.2.1a.md)**, planned and rehearsed in its real position at both pins by cycle 0.2's planner; PD-103 and PD-104 are the orchestrator's to accept | the unchanged tree measured at both pins; `294/294` at `7e91730` |
+| 0.2.1a | **The adoption of compiler `7e91730`** — landing 103, the libraries' one re-pin: `fixed uint8[]`, the read-only view, in every slice the tree holds, the old compiler seeing no difference; then the pin's own moves — LLVM 20.1.8, the compiler's DEF-165 at one rejection header, probe 06b's return, `rx120.sh`, B-4e's re-read — and CI's three rows — **[`0.2.1a.md`](0.2.1a.md)**, planned and rehearsed in its real position at both pins by cycle 0.2's planner; PD-103 and PD-104 accepted as RX-230 and RX-231 — **DONE (2026-10-09)**, 294/294 at `7e91730`, two pending outside it *(until 0.2.1a's record this row said "PD-103 and PD-104 are the orchestrator's to accept")* | the unchanged tree measured at both pins; `294/294` at `7e91730` |
 | 0.2.2 | **The repetition product** — the bound checked on the way down | `((a{1000}){1000}){1000}` refused at the third `{1000}` |
 | 0.2.3 | **Normalisation** — flattening, merging, canonical form | structurally equal patterns produce identical dumps |
 | 0.2.4 | **Computed properties** — the four flags in one bottom-up pass | each asserted against a hand-computed reference |
@@ -61,12 +64,12 @@ RX-015, RX-031. Settled. **No open questions.**
 - [x] `(?i:…)` folds its classes at construction — the folding itself is 0.3's, so 0.2 leaves a hook and 0.3 fills it, with a test that fails until then — RX-228, **`3a5ee5e`**, and RX-229, **`2bb85cc`**: the hook is `fold_ranges` in `src/hir/build.npk`, false until cycle 0.3.4 fills it, so the build stops at every literal, class and `.` under `i` that reaches it (`hir_build` 24 … 27); the test is `tests/unit/hir_build_fold.npk`, `pending-until: 0.3.4 exit 1` (RX-226) with its line in `harness/baseline/PENDING.txt`, and the 0.3 README's last 0.3.4 box names it; the mutants `fold-hook-answers-true` and `literal-folded-skipped` move it to 10
 
 ### 0.2.1a — the adoption of compiler `7e91730`
-- [ ] the unchanged tree measured at both pins: `294/294` with two pending at `5fbaf4a`; at `7e91730` refused at the toolchain check, and with its LLVM rows moved red by landing 103's readers alone, each enumerated
-- [ ] every slice the tree holds is `fixed uint8[]`, none written through, and the old compiler sees no difference — `294/294` at `5fbaf4a` (PD-103)
-- [ ] the pin moved: LLVM 20.1.8 in the manifest and in every tree the self-check builds, one `NITPICK-TYPE-079` in `pattern_error_literal.npk`, probe 06b's return, `rx120.sh` — `294/294` at `7e91730` (PD-104)
-- [ ] B-4e's re-read, its verdict beside each reader's pin and in the record
-- [ ] CI pinned to `7e91730` — the commit, the emission's row and LLVM 20.1.8 — and its log read per job
-- [ ] the prose, and the sweep read line by line
+- [x] the unchanged tree measured at both pins: `294/294` with two pending at `5fbaf4a`; at `7e91730` refused at the toolchain check, and with its LLVM rows moved red by landing 103's readers alone, each enumerated — blocks 0a and 0b `SAME`, before step 1: `294/294` at `5fbaf4a` in 205.4 s, both units `PEND`; at `7e91730` `FAIL  toolchain` before anything was built; with both LLVM rows moved `150/304`, its 154 failures 146 `NITPICK-TYPE-007` verdicts over 78 files, two `PENDING.txt` lines and six `RESIDUE.txt` entries; every `.npk` a root at both pins — 170 distinct `TYPE-007` sites in 39 files, five in `src/`
+- [x] every slice the tree holds is `fixed uint8[]`, none written through, and the old compiler sees no difference — `294/294` at `5fbaf4a` (PD-103) — RX-230, **`90b7a3c`**: 133 slots in 32 files; the census at `5fbaf4a` the unchanged tree's in all 160 files; at `7e91730` one `TYPE-007` site, probe 06b's return, and probe 12b's `BORROW-009` back; the six view mutants at their verdicts, `writer` `TYPE-086` and `reassign` `ASSIGN-002` at `7e91730` and both compiling at `5fbaf4a`; `294/294` at `5fbaf4a` in 200.5 s
+- [x] the pin moved: LLVM 20.1.8 in the manifest and in every tree the self-check builds, one `NITPICK-TYPE-079` in `pattern_error_literal.npk`, probe 06b's return, `rx120.sh` — `294/294` at `7e91730` (PD-104) — RX-231, **`864ae4c`**: probe 06b compiling at both pins; the literal one `TYPE-079` at 29:22 at `7e91730` and four at `5fbaf4a`; D-332's count agreeing for all 33 files at `7e91730`; each header passing at its own pin and failing at the other; `subview-return-plain` `TYPE-007` at `7e91730` alone; 21 of 31 live self-check cases NOT red with the self-check's manifest at 20.1.2, and the toolchain refusal with the tree's; every file at `7e91730` as the unchanged tree at `5fbaf4a` but the two headers' lines; `294/294` at `7e91730` in 203.7 s
+- [x] B-4e's re-read, its verdict beside each reader's pin and in the record — RX-231, **`864ae4c`**: `lexer.npk`, `numeric.npk`, `parse_decl.npk` and `LEXICAL_REFERENCE.md` moved, for a float literal's scan and a refused integer literal kept a literal token; `p_parse_import` and `num_scan` the same at both pins, `escapes.npk` and `num_width.npk` unchanged; neither reader moves — `harness/lexical.py`'s docstring and `harness/treecheck.py`'s literal reader each dated at `7e91730`, B-4d and B-4e dated, and the verdict in `0.2.1a.md`'s record
+- [x] CI pinned to `7e91730` — the commit, the emission's row and LLVM 20.1.8 — and its log read per job — **`ff7e1e6`**: the four rows equal to the compiler's commit, `PIN.md`'s row and the manifest's release, and the emission step exiting 1 on a fake and 0 on the fake's own row; CI run 37931590622 on `c160bb7` a success, job 113823372937's log (93 108 bytes) read: the compiler `7e91730` clean, LLVM 20.1.8, `npkc.ll` the pin's emission (31 527 001 B, `b79f89c5…`), rx120's legs held, `294/294`, `GREEN.`
+- [x] the prose, and the sweep read line by line — **`c160bb7`**: `CLAUDE.md`, `README.md`, `ROADMAP.md` and `BUILD.md` §8a; `294/294` at `7e91730` in 205.4 s; block 5's 185 and 33 saved lines each read against §5b's classes, and none an omission
 
 ### 0.2.2 — the repetition product
 - [ ] the product multiplied on the way down, in `uint64`, narrowed only where proven (RX-015) *(2026-10-08, cycle 0.2.1 — RX-228: `hir_build`'s walk enters a `Repeat` before its node and leaves it after, so a factor is known on the way down; the build answers an AST index, HIR_NONE when built, and the answer this subcycle's refusal needs is its to shape — `0.2.1.md` §7)*
