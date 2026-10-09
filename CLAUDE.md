@@ -12,7 +12,9 @@ built and read through accessors that check every index, and as one line of text
 `src/unicode/` holds `ClassRange` (RX-222 … RX-225, `meta/roadmap/0.2/0.2.0.md`); and its 0.2.1, the desugaring, is
 done — `hir_build` builds a HIR from a pattern's AST, `HIR.md` H-5's table and nothing else, every flag erased into what
 it means, and stops where cycle 0.3.4 must fill one of its two hooks or widen its `leaf`, the two tests of what it will
-build pending until then (RX-226 … RX-229, `meta/roadmap/0.2/0.2.1.md`); 0.2.2, the repetition product, is next.
+build pending until then (RX-226 … RX-229, `meta/roadmap/0.2/0.2.1.md`); and its 0.2.1a, the adoption of compiler
+`7e91730`, is done — a string's bytes are a read-only view there, and every slice the library takes or holds says so,
+`fixed uint8[]`; LLVM is 20.1.8 (RX-230, RX-231, `meta/roadmap/0.2/0.2.1a.md`); 0.2.2, the repetition product, is next.
 Cycle 0.1's 0.1.0, 0.1.0b, 0.1.1, 0.1.1b, 0.1.2, 0.1.3, 0.1.4, 0.1.5, 0.1.6a, 0.1.6b and 0.1.6 are done** — the pieces the parser is written
 in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/done/0.1/0.1.0.md`); the adoption of
 compiler `5fbaf4a` (RX-176 … RX-180, `0.1.0b.md`); and the core grammar —
@@ -101,8 +103,8 @@ accessors, and `dump.npk`, the HIR as one line of text and back — with nine un
 and `src/unicode/` holds `ClassRange`, written by hand, which a class's ranges are — **and since 0.2.1 the desugaring**,
 `build.npk` (`HIR.md` H-16), with six unit programs more, two of them pending until cycle 0.3.4. **No matching
 happens yet**: `src/compile/`, `src/engine/` and `src/api/` are still one
-placeholder module each. A full green run at compiler `5fbaf4a` is
-**294 units** (after cycle 0.2.1, two pending units outside them; 283 after cycle 0.2.0; 260 after cycle 0.1.6b; 258 after cycle 0.1.6a, as after cycle 0.1.5; 254 after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus ten tree checks (nine until cycle 0.1.6b's `check_error_kinds_tested`, eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
+placeholder module each. A full green run at compiler `7e91730` is
+**294 units** (after cycle 0.2.1a, the adoption of that pin, two pending units outside them, as after cycle 0.2.1 at `5fbaf4a`; 283 after cycle 0.2.0; 260 after cycle 0.1.6b; 258 after cycle 0.1.6a, as after cycle 0.1.5; 254 after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus ten tree checks (nine until cycle 0.1.6b's `check_error_kinds_tested`, eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
 summary rather than from here. **Nothing is PENDING any more**:
 `tests/unit/bytes_copy_string_empty.npk` was committed red under
 `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
@@ -420,6 +422,17 @@ evidence.
   reported SITE, not once per code (D-332, B-7b, RX-178); and CI asserts the emission's
   digest (RX-180). Landing 78's move-only `cstring` refuses nothing here: every
   `cstring` in the tree is `main`'s `argv`.
+- **At compiler `7e91730` (cycle 0.2.1a) a string's bytes are READ-ONLY, and every slice
+  here says so.** `string_bytes` returns `fixed uint8[]`, the read-only view (the compiler's
+  D-348 (ii), D-350 and D-351, its landing 103): a plain `uint8[]` converts to it and nothing
+  converts it back (`NITPICK-TYPE-007`), and a write through one is `NITPICK-TYPE-086`. So
+  the pattern, the dump's text, the cursor's view, a group's name and `bytes_extend`'s
+  source are `fixed uint8[]` — none is written through — and a caller holding a writable
+  buffer passes its view as before (RX-230). A RE-POINTABLE binding of the view is
+  `(fixed uint8[]):v`, which nothing here needs and `5fbaf4a` cannot parse; `fixed` before a
+  return type is that type now, and meant nothing at `5fbaf4a` (DEF-247). LLVM is 20.1.8
+  (D-349), and a literal writing several `sealed` fields is one `NITPICK-TYPE-079`
+  (DEF-165) — RX-231.
 - **A recursion deeper than its stack is a `StackExhausted` trap, not a segfault — and
   the explicit stack stands** (cycle 0.1.2, RX-191, measured at `5fbaf4a`). Since
   `c3bdae2` every emitted function checks its stack before its frame exists (the
@@ -505,8 +518,8 @@ The compiler binary is the **pinned toolchain** the board names
 (`../BOARD.md`, W-18): `$NPKC` and `$NPKRT` are supplied to every session by the
 orchestrator, or set by hand from `../.internal/toolchain/<commit>/`. Never build the
 compiler from here and never read its `build/` directly — the guard refuses
-the first, and the second is rebuilt under you. LLVM 20.1.2 exactly, pinned;
-`llvm-config --version` to check.
+the first, and the second is rebuilt under you. LLVM 20.1.8 exactly, pinned (20.1.2 until cycle
+0.2.1a, RX-231 — the compiler's D-349); `llvm-config --version` to check.
 
 ## Where things go
 

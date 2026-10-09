@@ -741,6 +741,7 @@ carries the pinned commit's `npkc.ll` row — notice 82's, `5630c2b4…` /
 30 232 291 B at `5fbaf4a`, moved with every pin — and a runner whose emission
 differs fails the run, as the compiler defect it would be; the binary rows stay
 prints. What follows is RX-141's reasoning, kept as the record of why it waited.)*
+*(2026-10-09, cycle 0.2.1a: notice 103's row since then, `b79f89c5…` / 31 527 001 B at `7e91730`.)*
 
 **RX-141.** `.github/workflows/ci.yml` digests the compiler's emission
 (`.internal/quickemit/npkc.ll`) on every run and **prints** it, for the

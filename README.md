@@ -35,7 +35,9 @@ makes the guarantee below possible.
 > wrote a HIR as one line of text that reads back to the same bytes. Cycle 0.2.1 builds the
 > HIR from a parsed pattern — quantifiers, groups, anchors, `.` and classes written as ranges,
 > every flag erased into what it means — and stops where cycle 0.3 must resolve or fold: a Perl
-> or POSIX class, a property, a class's `^` or operators, and `i`. Nothing matches a pattern yet.
+> or POSIX class, a property, a class's `^` or operators, and `i`. Cycle 0.2.1a moved the pinned
+> compiler to `7e91730`, where a string's bytes are a read-only view: every slice the library
+> takes says so, and LLVM is 20.1.8. Nothing matches a pattern yet.
 > The specification set is in [`meta/specs/`](meta/specs/) and the plan in
 > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
 > discipline the compiler used — specs first, then a cycle map, then
@@ -143,7 +145,7 @@ is a folder, a subcycle is a file inside it, and a finished cycle moves to
 
 ## Requirements
 
-The Nitpick compiler and LLVM 20.1.2 — the same toolchain the compiler pins.
+The Nitpick compiler and LLVM 20.1.8 — the same toolchain the compiler pins.
 The library itself makes no syscall and assumes no operating system; only the
 test harness is Linux-specific.
 
