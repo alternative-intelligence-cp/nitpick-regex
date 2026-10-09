@@ -4208,6 +4208,8 @@ true reason; **leaving it to the next audit** — the first layer entry written 
 cycle 0.0's close placed the decision before it.
 
 ### RX-172 — `PatternErrorKind` is `SYNTAX.md` §9 complete and in order; `PatternError` is sealed, so `pattern_error(…)` is the only way to build one, and it stops on a negative offset
+> **SUPERSEDED IN PART by RX-231 (2026-10-09)** — its *"once per field, at the literal"*: one `NITPICK-TYPE-079` at the literal since
+> compiler `7e91730`, the compiler's DEF-165. The seal and the one constructor stand.
 > **SUPERSEDED IN PART by RX-181 (2026-09-27)** — its count: §9 lists thirty-six kinds since cycle 0.1.1, which
 > retired `EmptyAlternate`. The seal, the one constructor and the order stand.
 
@@ -4239,6 +4241,8 @@ nothing notices is untested; **S-9's fields reordered to save the eight bytes of
 specification, the value is never in an array, and a parse stops at its first error.
 
 ### RX-173 — the parser reads a pattern through a sealed cursor: `cursor_init` returns it, only its own functions move it, and it looks one byte ahead
+> **SUPERSEDED IN PART by RX-231 (2026-10-09)** — its *"a `Cursor{ … }` literal, once per field"*: one report at the literal
+> since compiler `7e91730` (DEF-165).
 > **SUPERSEDED IN PART by RX-230 (2026-10-09)** — its `uint8[]`s: the `Cursor`'s view is `sealed fixed uint8[]:src`, and
 > `cursor_init` takes `fixed uint8[]:pat`, since compiler `7e91730`. The seal, the one byte and the constructor stand.
 
@@ -4415,6 +4419,8 @@ reason; **`impl:AstNode:Copy`** — the derive states it where the fields are, a
 refused at the declaration; **renaming the unit** — its subject is a plain-old-data struct, which it still is.
 
 ### RX-178 — a rejection file's sites are counted per code: one `expect-error` line per reported site, as the compiler's runners hold since its landing 82
+> **SUPERSEDED IN PART by RX-231 (2026-10-09)** — its *"It names it four times now, at 31:22"*: once, at 29:22, since compiler
+> `7e91730` reports one site (DEF-165). The count rule stands.
 
 **2026-09-27, cycle 0.1.0b (the plan's PD-22), at compiler `5fbaf4a`** — the compiler's D-332 (its S-113, the
 author's decision), announced to the libraries as advance notice F24.
@@ -6069,3 +6075,41 @@ here re-points, and `5fbaf4a` refuses it `NITPICK-PARSE-001`; **`string` paramet
 and a writable buffer's view would need a copy into a `string`; **A-16 left for cycle 0.10** — its own sentence, *"a
 `string` caller writes `string_bytes(s)`"*, is refused `TYPE-007` by a plain `uint8[]` parameter at this compiler, and
 the next planner would read the signatures as written.
+
+### RX-231 — the adoption of compiler `7e91730`: LLVM 20.1.8 in the manifest and in every tree the self-check builds, one `TYPE-079` for a literal, probe 06b's subview returned read-only, and B-4e's re-read
+
+**2026-10-09, cycle 0.2.1a (the plan's PD-104), at compiler `7e91730`, from `5fbaf4a`** — landings 83 … 103, the
+libraries' one re-pin by the author's word of 2026-10-08, after RX-230 re-spelled the tree. Measured on the unchanged
+tree first: at `5fbaf4a` it is `294/294` with the two pending; at `7e91730` under the machine's LLVM 20.1.8 the runner
+refuses it at the toolchain check before anything is built; with its two LLVM rows moved and nothing else it is
+`150/304` — 146 verdicts for the 78 files landing 103 refuses, the two `PENDING.txt` lines their units no longer meet,
+and six `RESIDUE.txt` entries no compiled program references any more.
+
+- **`[toolchain] llvm` is `20.1.8`**, and so is the manifest every self-check case tree carries — the compiler's D-349,
+  its landing 99: the release the distributions serve, the compiler's own pin, and this machine's default `llc` since
+  2026-10-08. Measured: with the tree's manifest moved and `selfcheck.py`'s left, twenty-one of the thirty-one live
+  cases go red for the pin alone, each failing to say what it plants. `opt` 20.1.8 derives the pinned layout (B-1a).
+- **`tests/rejection/pattern_error_literal.npk` names `NITPICK-TYPE-079` once**, at 29:22 — the compiler's DEF-165
+  under its D-337, landing 100: a literal writing several `sealed` fields is one report at the literal. D-332's count
+  (RX-178, `BUILD.md` B-7b) agrees for all 33 files carrying `expect-error` at `7e91730`; at `5fbaf4a` this one is
+  reported four times where it names one.
+- **Probe 06b's two functions return the read-only view** — its view is a string's bytes, so the subrange is
+  `fixed uint8[]`, a return type `7e91730` reads as the type and `5fbaf4a` read as a qualifier that meant nothing (the
+  compiler's DEF-247). Its answer stands: a subrange of a PARAMETER returned compiles and runs, exit 0 at both legs.
+- **`harness/baseline/rx120.sh` asserts at `7e91730`**: the floor's five symbols, a syscaller's six, the difference
+  `{npk_sys6}`, and its `950bb1d` control 29 / 29, identical, under LLVM 20.1.8.
+- **B-4e's re-read**: `lexer.npk`, `numeric.npk`, `parse_decl.npk` and `LEXICAL_REFERENCE.md` moved — a float literal's
+  scan, a refused integer literal kept a literal token, §6.2's float production — and `p_parse_import` and `num_scan`
+  are byte for byte as they were; `escapes.npk` and `num_width.npk` did not move. `harness/lexical.py` and the literal
+  reader do not move, and their texts and `BUILD.md` B-4d and B-4e say so, dated.
+- RX-172, RX-173 and RX-178, whose texts state a literal's four reports, gain their markers.
+
+*Alternatives declined:* **20.1.2 kept through the workbench's private copy** — no package source serves it any more
+(D-349), the compiler's own pin is 20.1.8, and the copy is one machine's, deleted after the adoptions: CI would pin a
+release nobody can install; **the tree's manifest moved and the self-check's left** — twenty-one cases red for a
+reason none of them is about, the red a self-check exists to refuse; **probe 06b over a local array's view** — a plain
+view to keep the old spelling, which takes the probe off the string bytes every view in this library is; **probe 06b's
+return re-spelled with RX-230** — its `fixed` would have meant nothing to `5fbaf4a`, the silent shape a re-pin does
+not write where the old compiler reads it; **the self-check's row taken from the tree's manifest**, as `nitpick-time`'s
+self-check takes its own — the better shape, and not an adoption's: it changes how the runner writes its fixtures, all
+three of their pins with it, and wants its own decision and a case that holds the rows to the tree's.

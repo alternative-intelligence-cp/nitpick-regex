@@ -161,7 +161,7 @@ way from the cause — the workbench registry's O-N11, the compiler's DEF-5. *A
 probe that was only compiled is a probe that has not been run.*
 
 `$NPKC` and `$NPKRT` are the pinned toolchain the board names (`../../../BOARD.md`,
-W-18). LLVM must be exactly 20.1.2.
+W-18). LLVM must be exactly 20.1.8 *(20.1.2 until cycle 0.2.1a, 2026-10-09 — RX-231: the compiler's D-349)*.
 
 ## The conventions
 

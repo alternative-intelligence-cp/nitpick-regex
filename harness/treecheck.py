@@ -330,6 +330,10 @@ _CMP_LITERAL = re.compile(
 # `tri` (digits 0, 1 and `T` for -1) and `n`, `non` (digits 0 … 4 and `a` … `d` for -1 … -4) --
 # and a width suffix may follow it. A C prefix, `0x`, is a lexer error there (`NITPICK-LEX-003`),
 # so it is no literal here.
+# *(2026-10-09, cycle 0.2.1a -- RX-231: re-read at `7e91730`. An integer literal is scanned as it
+# was -- `num_scan` and `num_width_of` byte for byte -- and §6.2's new note is a FLOAT's production,
+# whose whole part is decimal digits, so `0FFhex.5` is the integer `0FFhex`, a dot and `5`, as this
+# reader reads it.)*
 _NUM = r"[0-9][0-9A-Za-z_]*"
 _WIDTH = re.compile(r"(?:[iu](?:8|16|32|64|128|256|512|1024|2048|4096)|tbb(?:8|16|32|64|128|256)"
                     r"|f(?:32|64|128)|tfp(?:32|64|128|256)|dim256|char(?:8|16|32))$")

@@ -13,6 +13,11 @@
 // present-tense sentence below about O-N9, DEF-3 being "scheduled" or
 // "unlanded", and a code "not in the pinned toolchain" was true at `950bb1d` and
 // `3d15ac9` and is history; the measured behaviour it records has not moved.)*
+// *(2026-10-09, cycle 0.2.1a -- RX-231: the view below is a string's bytes, READ-ONLY since
+// compiler `7e91730` (its D-351), so the subrange returned is the read-only view too, and the two
+// functions say so in their return type -- which `7e91730` reads as the type `fixed uint8[]` and
+// `5fbaf4a` read as a return qualifier that meant nothing (the compiler's DEF-247). The answer
+// is the same: a subrange of a PARAMETER, returned, compiles and runs, exit 0 at both legs.)*
 //
 // `0.0.0.md` §4 wrote this half as "expected **refused**", and §5 instructed the
 // executor that an acceptance means "stop and re-plan `API.md` §2". **That
@@ -84,13 +89,13 @@ mod:probe06b_subview_returned;
 // THE SHAPE UNDER TEST. Under D-004 rule 2 as written, this should be refused;
 // it is accepted. The storage is `src`'s, which is the caller's, so the returned
 // view is not dangling -- which is precisely why it is worth distinguishing.
-func:subview = uint8[](uint8[]:src, int64:lo, int64:hi) never fails {
+func:subview = fixed uint8[](fixed uint8[]:src, int64:lo, int64:hi) never fails {
     pass src[lo...hi];              // `...` is EXCLUSIVE (LEXICAL §5.1)
 };
 
 // The same thing one level deeper, to check that the acceptance is not an
 // artefact of a single frame: a view handed down twice and returned twice.
-func:subview2 = uint8[](uint8[]:src, int64:lo, int64:hi) never fails {
+func:subview2 = fixed uint8[](fixed uint8[]:src, int64:lo, int64:hi) never fails {
     pass (raw subview(src, lo, hi));
 };
 
@@ -98,33 +103,33 @@ func:main = int32(cstring[]:_~argv) {
     // "abcaabXbb", nine bytes, owned by THIS frame -- so every view below is
     // viewing storage that outlives every call that returns one.
     string:s = string_concat("abcaa", "bXbb");
-    uint8[]:v = string_bytes(s);
+    fixed uint8[]:v = string_bytes(s);
     if (v.len != 9i64)                                  { exit 10i32; }
 
     // ---- the return that D-004 rule 2 says cannot happen ------------------
 
-    uint8[]:sub = raw subview(v, 3i64, 5i64);           // "aa"
+    fixed uint8[]:sub = raw subview(v, 3i64, 5i64);     // "aa"
     if (sub.len != 2i64)                                { exit 11i32; }
     if (sub[0i64] != 97u8)                              { exit 12i32; }
     if (sub[1i64] != 97u8)                              { exit 13i32; }
 
     // It is a VIEW and not a copy: the length is the subrange's, and the bytes
     // are the originals at their new offsets.
-    uint8[]:tail = raw subview(v, 6i64, 9i64);          // "Xbb"
+    fixed uint8[]:tail = raw subview(v, 6i64, 9i64);    // "Xbb"
     if (tail.len != 3i64)                               { exit 14i32; }
     if (tail[0i64] != 88u8)                             { exit 15i32; }
     if (tail[2i64] != 98u8)                             { exit 16i32; }
 
     // ---- two frames deep --------------------------------------------------
 
-    uint8[]:deep = raw subview2(v, 0i64, 3i64);         // "abc"
+    fixed uint8[]:deep = raw subview2(v, 0i64, 3i64);   // "abc"
     if (deep.len != 3i64)                               { exit 20i32; }
     if (deep[0i64] != 97u8)                             { exit 21i32; }
     if (deep[2i64] != 99u8)                             { exit 22i32; }
 
     // ---- a view OF a view -------------------------------------------------
 
-    uint8[]:inner = raw subview(tail, 1i64, 3i64);      // "bb"
+    fixed uint8[]:inner = raw subview(tail, 1i64, 3i64);   // "bb"
     if (inner.len != 2i64)                              { exit 23i32; }
     if (inner[0i64] != 98u8)                            { exit 24i32; }
 

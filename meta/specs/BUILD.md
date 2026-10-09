@@ -337,6 +337,8 @@ wrong next" — so `// see<CR>use …` in a sibling and `// note<CR>/*` above th
 unit's `main` defeated both at once: `209/209`, GREEN, exit 0. Case 19 is that
 plant; cases 20 and 21 are the CR and the escaped path hiding a syscall from
 B-2. Measured: either defence removed alone, the plant stays red; both, GREEN.)*
+*(2026-10-09, cycle 0.2.1a — RX-231: "mirrors that lexer at `5fbaf4a`" — and at `7e91730`, re-read by B-4e at
+cycle 0.2.1a: no span it finds moved.)*
 
 **Rule B-4e (RX-176) — every adoption re-reads what the reader mirrors.** Before
 an adoption's first run at a new pin, `git diff --stat <old> <new>` over the
@@ -360,6 +362,11 @@ imports at `5fbaf4a` and where a literal's value is decided — `num_scan` and `
 reads; and self-check case 32 asks the pinned compiler about every spelling it holds, so a re-pin that moves one is a
 red run and not only a re-read. `numeric.npk` and `num_width.npk` are unchanged from `c970483` to `5fbaf4a`; this list
 named neither — the cycle audit's C5.)*
+*(2026-10-09, cycle 0.2.1a — RX-231: the second re-read, `5fbaf4a` to `7e91730`. `lexer.npk`, `numeric.npk`,
+`parse_decl.npk` and `LEXICAL_REFERENCE.md` moved: a float literal's scan (the compiler's DEF-166, DEF-164), a refused
+integer literal kept a literal token, and §6.2's float production — while `p_parse_import` and `num_scan` are byte for
+byte as they were, and `escapes.npk` and `num_width.npk` did not move. Neither reader moves; `harness/lexical.py`'s
+docstring and `harness/treecheck.py`'s literal reader say so beside their pins.)*
 
 **Rule B-1a (RX-176) — the manifest pins the target, and the runner holds every
 emission it links to it.** `[toolchain]` carries `triple` and `datalayout`

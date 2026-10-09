@@ -1,5 +1,5 @@
 // expect-error: NITPICK-TYPE-079
-// expect-error-at: 22:5
+// expect-error-at: 23:5
 //
 // NOTHING OUTSIDE `src/syntax/cursor.npk` MOVES A CURSOR. Cycle 0.1.0, RX-173.
 //
@@ -9,6 +9,7 @@
 // compiler's: a parser can move a cursor only through `cursor_bump` and
 // `cursor_eat`, and nothing rewinds one. The literal form, `Cursor{ … }`
 // outside the file, is refused the same way, once per field.
+// *(Once for the literal since compiler `7e91730`, its DEF-165 -- cycle 0.2.1a, RX-231.)*
 //
 // A TEST OF THE SEAL, NOT OF THIS FILE: with `cursor.npk`'s two `sealed`s
 // deleted it compiles (`meta/roadmap/done/0.1/0.1.0.md`, step 3's controls).

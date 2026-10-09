@@ -163,6 +163,7 @@ with the one qualifier it tests deleted (`meta/roadmap/done/0.1/0.1.0.md`'s cont
   `src/syntax/pattern_error.npk`: `NITPICK-TYPE-079`, once per sealed field. So
   `pattern_error(…)`, which takes an offset and refuses a negative one, is the
   only way to build an error (RX-172).
+  *(2026-10-09, cycle 0.2.1a — RX-231: once for the literal since compiler `7e91730`, the compiler's DEF-165.)*
 - **`cursor_pos_write.npk`** — a write of a `Cursor`'s `pos`: `NITPICK-TYPE-079`.
   So nothing outside `cursor.npk` moves a cursor, and the parser's one byte of
   lookahead is the compiler's rule (RX-173).
@@ -206,6 +207,8 @@ every run and requires the harness to catch it.
   site it is reported at** — one `expect-error` line, each with its
   `expect-error-at`, per site (B-7b, RX-178, the compiler's D-332):
   `pattern_error_literal.npk` names `NITPICK-TYPE-079` four times.
+  *(Once since cycle 0.2.1a, RX-231: at compiler `7e91730` a literal writing several `sealed` fields is one
+  report, the compiler's DEF-165 — the count is the compiler's sites, whatever they are.)*
 - **`// expect-error-at: L:C` is worth pinning** — it separates "refused with
   this code" from "refused with this code *at the failsafe*". It is also
   brittle: adding a line above the span moves it, and the first two fixtures

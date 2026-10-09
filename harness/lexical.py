@@ -37,6 +37,14 @@ lexical reference not at all, so nothing below moved:
 `src/frontend/lexer.npk`, `lexer_skip_trivia` and `lexer_next`;
 `src/frontend/escapes.npk`, `escape_decode` and `decode_string`; `p_parse_import` in
 `src/frontend/parse_decl.npk`; and `LEXICAL_REFERENCE.md` §2, §6.3 and §6.4.
+*(2026-10-09, cycle 0.2.1a -- RX-231: AND AGAIN AT `7e91730`. `lexer.npk` differs in a FLOAT
+literal's scan -- its numeric body, then one suffix or nothing (the compiler's DEF-166), a sign the
+literal's only where a digit follows it (DEF-164) -- and in a refused integer literal staying a
+literal token; `numeric.npk` adds that scan and a float's rounding, `num_scan` byte for byte as it
+was; `LEXICAL_REFERENCE.md` §6.2 gains the float's production; `p_parse_import`, `escapes.npk` and
+`num_width.npk` are unchanged. No span this module finds moved. And `e+r"` after a float, in the
+list below, is now read by the compiler as this module reads it -- a refused tail, a `+` and a raw
+string -- in a file both compilers refuse.)*
 
   * THE TEXT IS BYTES. `read()` maps each byte to one character (latin-1), so every
     offset here is the compiler's byte offset, `\\n` (byte 10) is the only line end,
@@ -101,6 +109,7 @@ ITS OWN TEST IS SELF-CHECK CASE 18, which writes one text holding every form
 above to a FILE, reads it back through `read()`, and requires exactly the
 imports and the code the compiler would see at `c970483` and at `5fbaf4a`. Cases 19, 20 and 21
 are BL-9's three routes through the whole runner.
+*(And at `7e91730`: the re-read above moved nothing it holds -- cycle 0.2.1a, RX-231.)*
 """
 import os
 import re

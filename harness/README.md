@@ -11,8 +11,9 @@ NPKC=… NPKRT=… python3 harness/run.py
 ```
 
 `$NPKC` and `$NPKRT` are the pinned toolchain the board names (`../../BOARD.md`,
-W-18). LLVM must be exactly 20.1.2, and the runner **asserts** that rather than
-reporting it.
+W-18). LLVM must be exactly 20.1.8, and the runner **asserts** that rather than
+reporting it. *(20.1.2 until
+cycle 0.2.1a, 2026-10-09 — RX-231: the compiler's D-349, which compiler `7e91730` carries.)*
 
 ## The modules
 
@@ -20,7 +21,7 @@ reporting it.
 |---|---|
 | `run.py` | the driver: build steps, then the suites in manifest order, then the summary |
 | `manifest.py` | `nitpick.toml`, in the compiler's own subset, with the compiler's schema |
-| `toolchain.py` | `llc`, `opt`, `ld.lld` asked their versions and held to the pinned LLVM 20.1.2; and the manifest's `datalayout` held to what the pinned `opt` derives from its `triple` (`BUILD.md` B-1a, RX-176) |
+| `toolchain.py` | `llc`, `opt`, `ld.lld` asked their versions and held to the pinned LLVM 20.1.8 (20.1.2 until cycle 0.2.1a, RX-231); and the manifest's `datalayout` held to what the pinned `opt` derives from its `triple` (`BUILD.md` B-1a, RX-176) |
 | `lexical.py` | **the harness's one reading of `.npk` source** (RX-157, RX-165): every `.npk` file opened by `lexical.read`, as BYTES — `\n` the only line end, as in the compiler's lexer — comments, strings, character literals and template text blanked, imports read the way the compiler's parser reads them, each path the literal's decoded value. The program suites' skip, B-2's reach, the expectation markers and every tree check stand on it; self-check case 18 tests it through a file |
 | `expect.py` | the `// expect-…` grammar, marker for marker with `npkg/expect.npk`, **plus two markers of this runner's own** — `mem-cap-mib:` and `pending-until: <commit> exit <N>` (`BUILD.md` B-5b, RX-146 as amended by RX-154 — its label a subcycle of this library since cycle 0.2.1, RX-226), each declared there so the parity stage has a row rather than a surprise |
 | `elf.py` | an ELF64 symbol table, read with `struct` — no fourth tool |
@@ -30,7 +31,7 @@ reporting it.
 | `treecheck.py` | the live tree checks — the library diffed against its own documents; every one but `check_specs_current` can fail the run, and the runner prints each with what it examined |
 | `selfcheck.py` | **the harness fed wrong expectations and required to fail**; runs FIRST |
 | `baseline/` | the empty program the two scans are differences against, `rx120.sh`, and the two REVIEWED LISTS — `RESIDUE.txt` (what `nregex` needs from the runtime, RX-131) and `PENDING.txt` (every unit a `pending-until:` marker takes out of the denominator, RX-154), each checked both ways |
-| `baseline/rx120.sh` | **executable**: builds the floor and a syscaller at the pinned compiler and ASSERTS floor == 5, syscaller == 6, difference == `{npk_sys6}` (at `c3bdae2`, `c970483` and `5fbaf4a`; 2 and 3 at `3d15ac9`); with `950bb1d` present it also asserts 29/29/identical, compiling the two programs without the two arms that compiler does not have (RX-148). A harness **build step** and its own CI step. It replaced a hand-copied transcript that recorded a command which could not have produced the output beside it (RX-142's neighbourhood; cycle 0.0 audit, adjudication (a)) |
+| `baseline/rx120.sh` | **executable**: builds the floor and a syscaller at the pinned compiler and ASSERTS floor == 5, syscaller == 6, difference == `{npk_sys6}` (at `c3bdae2`, `c970483`, `5fbaf4a` and `7e91730`; 2 and 3 at `3d15ac9`); with `950bb1d` present it also asserts 29/29/identical, compiling the two programs without the two arms that compiler does not have (RX-148). A harness **build step** and its own CI step. It replaced a hand-copied transcript that recorded a command which could not have produced the output beside it (RX-142's neighbourhood; cycle 0.0 audit, adjudication (a)) |
 | `selfcheck/` | fixtures that must **fail**; `selfcheck.py` drives them |
 
 ## What a green run asserts

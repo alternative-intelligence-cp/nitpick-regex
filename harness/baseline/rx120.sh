@@ -49,7 +49,7 @@
 # which is where the workbench keeps them.
 set -u
 
-PIN=5fbaf4a
+PIN=7e91730    # 5fbaf4a until cycle 0.2.1a, 2026-10-09 (RX-231): the same 5, 6 and {npk_sys6} at both
 OLD_PIN=950bb1d
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/../.." && pwd)"

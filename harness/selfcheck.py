@@ -85,6 +85,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # supplies. The toolchain block must be the tree's own: the runner asserts the
 # LLVM version rather than reporting it, so a case that quietly changed it
 # would be testing a different toolchain from the one under test.
+# *(2026-10-09, cycle 0.2.1a -- RX-231: 20.1.8 with the manifest. Left at 20.1.2 under a 20.1.8
+# toolchain, twenty-one of the live cases went red for that alone, never for what each plants.)*
 TOML = """[project]
 name        = "selfcheck"
 version     = "0.0.0"
@@ -98,7 +100,7 @@ output    = "build/selfcheck"
 opt-level = 0
 
 [toolchain]
-llvm          = "20.1.2"
+llvm          = "20.1.8"
 triple        = "x86_64-unknown-linux-gnu"
 datalayout    = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
 llc-flags     = ["-O0", "-filetype=obj", "-relocation-model=static"]

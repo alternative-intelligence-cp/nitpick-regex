@@ -68,7 +68,8 @@ exactly `{npk_sys6}`, which is the claim that matters. What moved, and why:
 `rx120.sh` asserts 5 / 6 / `{npk_sys6}` at `c3bdae2`, at `c970483` (the
 floor unchanged by the compiler's 1.6.0 chain, cycle 0.0.4e) and at `5fbaf4a` (the
 same five symbols through landings 67 … 82, the anchor's move at 78 included --
-cycle 0.1.0b, RX-176), and its `950bb1d` leg
+cycle 0.1.0b, RX-176) and at `7e91730` (the same five through landings 83 … 103, and
+under LLVM 20.1.8 -- cycle 0.2.1a, RX-231), and its `950bb1d` leg
 still reproduces RX-120 as first measured — 29 / 29, identical, `npk_sys6` in
 the floor — by compiling both programs with the two arms that compiler does not
 have removed (RX-148).

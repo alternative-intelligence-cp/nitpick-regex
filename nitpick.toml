@@ -36,8 +36,10 @@ opt-level = 0
 # compiler pins, because a patch release may change instruction selection.
 # These lists are READ by every `llc`/`opt`/`ld.lld` invocation the harness
 # makes; a stated flag nothing consumes is the next stale document.
+# *(20.1.8 since cycle 0.2.1a, 2026-10-09 -- RX-231: the compiler's D-349 moved its pin from 20.1.2
+# at its landing 99, and compiler `7e91730` carries it.)*
 [toolchain]
-llvm          = "20.1.2"
+llvm          = "20.1.8"
 # THE TARGET EVERY MODULE STATES (the compiler's E-8, D-322 (5), its landing 71;
 # carried since cycle 0.1.0b, RX-176). Every emission opens with a `target
 # datalayout` and a `target triple` line, and these two rows are what the runner
