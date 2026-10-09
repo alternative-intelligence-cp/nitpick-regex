@@ -238,7 +238,7 @@ func:held = int64(Hir->:out, Vec<int64>->:done) never fails {
 // leaves `out`'s root unset, its nodes partial, for the caller to free. Nothing for an `Ast` with
 // no root. A group's number is the AST's, and `hir_add_group` must answer it as the walk enters
 // the group, or the arena would name one group's text for another's: an `OutOfBounds` stop.
-pub func:hir_build = int64(uint8[]:pat, Ast:t, Hir->:out) never fails {
+pub func:hir_build = int64(fixed uint8[]:pat, Ast:t, Hir->:out) never fails {
     if (t.root == AST_NONE) { pass HIR_NONE; }
     Vec<Step>:todo = raw vec_init::<Step>(16i64);
     Vec<int64>:done = raw vec_init::<int64>(16i64);

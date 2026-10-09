@@ -55,7 +55,7 @@ struct:Fr = {
 // its `)`, or -1 when the pattern ends first. One native frame per level of nesting,
 // each holding a copy of the frame above it. The call sits inside the loop, so no
 // optimiser can turn it into a jump.
-func:rd = int64(uint8[]:pat, int64:i, Fr:outer) never fails {
+func:rd = int64(fixed uint8[]:pat, int64:i, Fr:outer) never fails {
     Fr:f = outer;
     f.a0 = i;
     int64:j = i + 1i64;
@@ -83,8 +83,8 @@ func:main = int32(cstring[]:_~argv) {
         n = n * 2i64;
         k = k + 1i64;
     }
-    uint8[]:all = string_bytes(t);
-    uint8[]:pat = all[0i64...LEVELS];
+    fixed uint8[]:all = string_bytes(t);
+    fixed uint8[]:pat = all[0i64...LEVELS];
     Fr:z = Fr{ a0: 0i64, a1: 0i64, a2: 0i64, a3: 0i64, a4: 0i64, a5: 0i64, a6: 0i64,
                a7: 0i64, a8: 0i64, a9: 0i64, a10: 0i64, a11: 0i64, fl: 0u32 };
     int64:r = raw rd(pat, 0i64, z);

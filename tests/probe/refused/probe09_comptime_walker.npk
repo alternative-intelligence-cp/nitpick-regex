@@ -67,7 +67,7 @@ mod:probe09_comptime_walker;
 // those works at RUN time — this same function without `comptime` is ordinary
 // code, which is what makes the gap a gap rather than a design.
 comptime func:first_paren = int64(string:s) {
-    uint8[]:b = string_bytes(s);
+    fixed uint8[]:b = string_bytes(s);
     int64:i = 0i64;
     while (i < b.len) decreases b.len - i {
         if (b[i] == 40u8) { pass i; }        // '('

@@ -17,12 +17,12 @@ mod:parse_check_length;
 use "../../src/core/core.npk".*;
 use "../../src/syntax/syntax.npk".*;
 
-func:fits = bool(uint8[]:pat) never fails {
+func:fits = bool(fixed uint8[]:pat) never fails {
     PatternError?:e = raw parse_check_length(pat);
     pass e == NIL;
 };
 
-func:check_over = int32(uint8[]:pat, int32:base) never fails {
+func:check_over = int32(fixed uint8[]:pat, int32:base) never fails {
     PatternError?:e = raw parse_check_length(pat);
     if (e == NIL) { pass base; }
     PatternError:got = e ?? raw pattern_error(PatternErrorKind.UnclosedGroup, 0i64, 0i64, 0u32);
@@ -38,7 +38,7 @@ func:check_over = int32(uint8[]:pat, int32:base) never fails {
     pass 0i32;
 };
 
-func:run = int32(uint8[]:v) never fails {
+func:run = int32(fixed uint8[]:v) never fails {
     int64:bound = NREGEX_PATTERN_BYTES;
     if (!(raw fits(v[0i64...0i64])))                   { pass 10i32; }
     if (!(raw fits(v[0i64...1i64])))                   { pass 11i32; }
@@ -59,7 +59,7 @@ func:main = int32(cstring[]:_~argv) {
         i = i + 1i64;
     }
     string:s = raw bytes_copy_string(@b);
-    uint8[]:v = string_bytes(s);
+    fixed uint8[]:v = string_bytes(s);
     if (v.len != n) { exit 9i32; }
     int32:r = raw run(v);
     exit r;

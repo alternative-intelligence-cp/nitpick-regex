@@ -34,7 +34,7 @@ use "../../src/syntax/syntax.npk".*;
 use "../../src/hir/hir.npk".*;
 
 // Whether `b` holds exactly the bytes of `want`.
-func:same = bool(Bytes->:b, uint8[]:want) never fails {
+func:same = bool(Bytes->:b, fixed uint8[]:want) never fails {
     if ((raw bytes_len(b)) != want.len) { pass false; }
     int64:i = 0i64;
     while (i < want.len) decreases want.len - i {
@@ -46,7 +46,7 @@ func:same = bool(Bytes->:b, uint8[]:want) never fails {
 
 // Whether the `n` bytes of `b` at `s` are the word `w`.
 func:word_at = bool(Bytes->:b, int64:s, int64:n, string:w) never fails {
-    uint8[]:wb = string_bytes(w);
+    fixed uint8[]:wb = string_bytes(w);
     if (n != wb.len) { pass false; }
     int64:k = 0i64;
     while (k < n) decreases n - k {
@@ -162,7 +162,7 @@ func:is_tree = bool(Hir->:h) never fails {
 
 // `pattern` parses and builds, and its HIR is `want`: the dump byte for byte, every word H-15's,
 // the arena the tree and nothing else, and the text read back and written the same.
-func:built_bytes = bool(uint8[]:pat, uint8[]:want) never fails {
+func:built_bytes = bool(fixed uint8[]:pat, fixed uint8[]:want) never fails {
     Ast:t = raw ast_init(8i64);
     PatternError?:e = raw parse_pattern(pat, @t);
     bool:ok = e == NIL;
@@ -199,7 +199,7 @@ func:one_hir = bool(string:a, string:b, string:want) never fails {
 
 // `pattern` parses, and its build stops at the node whose first byte is `at`, the root unset.
 func:stops = bool(string:pattern, int64:at) never fails {
-    uint8[]:pat = string_bytes(pattern);
+    fixed uint8[]:pat = string_bytes(pattern);
     Ast:t = raw ast_init(8i64);
     PatternError?:e = raw parse_pattern(pat, @t);
     bool:ok = e == NIL;
@@ -299,7 +299,7 @@ func:kinds = int32() never fails {
     // a name, copied into the HIR
     if ((!(raw built("(?<year>a)", "(group 1 year (literal 97))"))) || (!(raw built("(?<n>)", "(group 1 n (empty))")))) { pass 41i32; }
     // the group table: group 0 the whole match, then the pattern's in number order, their names
-    uint8[]:gp = string_bytes("(?<year>a)(b)(?<m_1>c)");
+    fixed uint8[]:gp = string_bytes("(?<year>a)(b)(?<m_1>c)");
     Ast:gt = raw ast_init(8i64);
     if ((raw parse_pattern(gp, @gt)) != NIL) { pass 42i32; }
     Hir:gh = raw hir_init(8i64);

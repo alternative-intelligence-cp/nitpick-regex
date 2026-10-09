@@ -62,7 +62,7 @@ func:member = bool(AstKind:k) never fails {
 };
 
 // A node's list: `count` members from `first`, each dumped after a space.
-func:list = NIL(uint8[]:pat, Ast:t, int64:first, int64:count, Bytes->:b, bool:spans, bool:inclass) never fails {
+func:list = NIL(fixed uint8[]:pat, Ast:t, int64:first, int64:count, Bytes->:b, bool:spans, bool:inclass) never fails {
     int64:k = 0i64;
     int64:m = first;
     while (k < count) decreases count - k {
@@ -81,7 +81,7 @@ func:list = NIL(uint8[]:pat, Ast:t, int64:first, int64:count, Bytes->:b, bool:sp
 };
 
 // A node an operator or a `Repeat` holds, which no list holds.
-func:held = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
+func:held = NIL(fixed uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
     drop put(b, " ");
     AstNode:x = raw ast_get(t, i);
     if (x.next != AST_NONE) { drop put(b, "!next"); }
@@ -89,7 +89,7 @@ func:held = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails 
     pass NIL;
 };
 
-func:dump = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
+func:dump = NIL(fixed uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
     AstNode:n = raw ast_get(t, i);
     uint32:want = AST_FLAG_U;
     if ((n.kind == AstKind.Repeat) && (n.flags == AST_FLAG_U + AST_FLAG_LAZY)) { want = n.flags; }
@@ -168,7 +168,7 @@ func:dump = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails 
 };
 
 func:same = bool(Bytes->:b, string:want) never fails {
-    uint8[]:w = string_bytes(want);
+    fixed uint8[]:w = string_bytes(want);
     if ((raw bytes_len(b)) != w.len) { pass false; }
     int64:i = 0i64;
     while (i < w.len) decreases w.len - i {
@@ -180,7 +180,7 @@ func:same = bool(Bytes->:b, string:want) never fails {
 
 // Parses `pattern`, dumps its tree, and compares the text with `want`.
 func:tree = bool(string:pattern, string:want, bool:spans) never fails {
-    uint8[]:pat = string_bytes(pattern);
+    fixed uint8[]:pat = string_bytes(pattern);
     Ast:t = raw ast_init(8i64);
     PatternError?:e = raw parse_pattern(pat, @t);
     Bytes:b = raw bytes_init(64i64);

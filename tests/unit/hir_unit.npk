@@ -40,7 +40,7 @@ func:ordinal = int64(HirKind:k) never fails {
 
 // Whether `b` holds exactly the bytes of `want`.
 func:same = bool(Bytes->:b, string:want) never fails {
-    uint8[]:w = string_bytes(want);
+    fixed uint8[]:w = string_bytes(want);
     if ((raw bytes_len(b)) != w.len) { pass false; }
     int64:i = 0i64;
     while (i < w.len) decreases w.len - i {

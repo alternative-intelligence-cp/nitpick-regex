@@ -52,7 +52,7 @@ func:ordinal = int64(AstKind:k) never fails {
     pass n;
 };
 
-func:skeleton = PatternError?(uint8[]:pat, Ast->:out) never fails {
+func:skeleton = PatternError?(fixed uint8[]:pat, Ast->:out) never fails {
     PatternError?:long = raw parse_check_length(pat);
     if (long != NIL) { pass long; }
     Cursor:c = raw cursor_init(pat);
@@ -174,7 +174,7 @@ func:case_ab_open = int32() never fails {
     pass 0i32;
 };
 
-func:case_bound = int32(uint8[]:v) never fails {
+func:case_bound = int32(fixed uint8[]:v) never fails {
     int64:bound = NREGEX_PATTERN_BYTES;
     Ast:t = raw ast_init(4i64);
     PatternError?:e = raw skeleton(v[0i64...bound], @t);

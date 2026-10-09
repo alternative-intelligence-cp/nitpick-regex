@@ -370,6 +370,9 @@ channel, or held across an `await`. Stated in `API.md` A-15 because a consumer
 arriving from Rust will expect to return one and will not be able to.
 
 ### RX-054 — `uint8[]` is the primitive; `string` is a convenience over it
+> **SUPERSEDED IN PART by RX-230 (2026-10-09)** — its *"a haystack slice"*: the slice is the READ-ONLY view,
+> `fixed uint8[]`, since compiler `7e91730`, because `string_bytes` returns one and a plain `uint8[]` refuses it.
+> The direction and both reasons stand.
 **2026-09-03.** Every search entry point takes a haystack slice; a `string`
 caller writes `string_bytes(s)`, which is the borrowed view the floor already
 provides at no cost. Two reasons for this direction rather than the other: a
@@ -4236,6 +4239,8 @@ nothing notices is untested; **S-9's fields reordered to save the eight bytes of
 specification, the value is never in an array, and a parse stops at its first error.
 
 ### RX-173 — the parser reads a pattern through a sealed cursor: `cursor_init` returns it, only its own functions move it, and it looks one byte ahead
+> **SUPERSEDED IN PART by RX-230 (2026-10-09)** — its `uint8[]`s: the `Cursor`'s view is `sealed fixed uint8[]:src`, and
+> `cursor_init` takes `fixed uint8[]:pat`, since compiler `7e91730`. The seal, the one byte and the constructor stand.
 
 **2026-09-26, cycle 0.1.0 (the plan's PD-17), at compiler `c970483`.** `src/syntax/cursor.npk`:
 `struct:Cursor = { sealed uint8[]:src; sealed int64:pos; }`, built by `cursor_init(uint8[]:pat)` at offset 0,
@@ -4319,6 +4324,8 @@ read the `Vec` and index it past `ast_get`; **`AstNode`'s fields sealed** — th
 builds nodes, and a node has no invariant a constructor would keep.
 
 ### RX-175 — the syntax layer answers a `PatternError` as a value, `PatternError?`, never as an identity; the pattern's length is refused first; and 0.1.0 writes no parser, only the entry's first refusal and a unit that composes the pieces
+> **SUPERSEDED IN PART by RX-230 (2026-10-09)** — `parse_pattern` and `parse_check_length` take `fixed uint8[]:pat` since
+> compiler `7e91730`. The value, the length first and the entry stand.
 
 **2026-09-26, cycle 0.1.0 (the plan's PD-19), at compiler `c970483`.**
 
@@ -4493,6 +4500,8 @@ trigger** — none is in §1's grammar, and a kind held for a construct nobody h
 **leave it to cycle 0.1.6** — the decision is the grammar's, and 0.1.1 is where the grammar is written.
 
 ### RX-182 — the parse is one explicit-stack walk that builds the arena bottom-up, the last atom held pending for a quantifier
+> **SUPERSEDED IN PART by RX-230 (2026-10-09)** — `parse_pattern(uint8[]:pat, …)`: `fixed uint8[]:pat` since compiler `7e91730`. The
+> walk stands.
 > **SUPERSEDED IN PART by RX-197 (2026-10-01)** — *"then one `while` over the cursor"*: a class is read by a `while` of
 > its own, `parse_class`'s, which the walk's calls at a `[` — still once over the pattern, on an explicit stack of
 > its own (`SYNTAX.md` Y-33's note). The walk, its stack and its pending atom are as this decision says.
@@ -5795,6 +5804,8 @@ kinds for the byte forms** — H-4 closes the list at nine, and a byte is still 
 node** — H-6.
 
 ### RX-224 — `GroupInfo` shaped, a name's offset and length in `Hir.names`, group 0 the whole match; `Literal` left to cycle 0.2.5
+> **SUPERSEDED IN PART by RX-230 (2026-10-09)** — `hir_add_group`'s name is `fixed uint8[]` since compiler `7e91730`. `GroupInfo`
+> stands.
 
 **2026-10-08, cycle 0.2.0 (the plan's PD-68), at compiler `5fbaf4a`** — `HIR.md` H-2 and H-11, `COMPILE.md` C-16,
 `SYNTAX.md` Y-6, and `SAFETY.md` S-23a's RX-182 note, *"Two types are left to shape, `Literal` and `GroupInfo`, at cycle
@@ -5824,6 +5835,8 @@ without group 0** — `k − 1` wherever a number is an index; **`Literal` shape
 `Bytes`** — an empty `Vec` and a `Bytes` in every HIR for five subcycles, and a guess at 0.2.5's design.
 
 ### RX-225 — the HIR as one line of text and back, a new rule H-15: a writer that stops on an arena it cannot show, and a reader that refuses at a byte and never traps
+> **SUPERSEDED IN PART by RX-230 (2026-10-09)** — `hir_read`'s text is `fixed uint8[]` since compiler `7e91730`. The text and
+> both directions stand.
 
 **2026-10-08, cycle 0.2.0 (the plan's PD-69), at compiler `5fbaf4a`** — `HIR.md` H-2 and H-13, `TESTING.md` §4,
 `SAFETY.md` S-8, S-12 and S-19, `COMPILE.md` C-19, and the cycle README's last 0.2.0 box, *"a stable text dump and its
@@ -5928,6 +5941,8 @@ put the arena's other checks; **leaving it** — the cycle README's grep would r
 looks for.
 
 ### RX-228 — the desugaring, a new rule H-16: `hir_build` builds every kind of AST node as H-5 says and nothing else, erases every flag, holds C-3, builds a tree, and stops where cycle 0.3.4 fills its two hooks
+> **SUPERSEDED IN PART by RX-230 (2026-10-09)** — `hir_build(uint8[]:pat, …)`: `fixed uint8[]:pat` since compiler `7e91730`. The
+> build stands.
 
 **2026-10-08, cycle 0.2.1 (the plan's PD-72), at compiler `5fbaf4a`** — `HIR.md` H-1, H-5 … H-8 and H-15, `SYNTAX.md` Y-6,
 Y-26, Y-27, Y-33 and Y-41, `COMPILE.md` C-3, `SAFETY.md` S-19, and the cycle README's 0.2.1 row, *"`HIR.md` §3's
@@ -6016,3 +6031,41 @@ Unicode sets written out** — `\d`'s extent is the version cycle 0.3.0 pins, an
 it; **POSIX classes written out** — cycle 0.3.2 decides their sets, and a test that chose would decide for it; **`(?i)`
 on a class with negation** — whether the fold comes before the complement is cycle 0.3.4's to decide, and is handed to
 it in the plan.
+
+## The adoption of compiler 7e91730 — cycle 0.2.1a
+
+### RX-230 — the read-only view: every slice this library and its tests hold is `fixed uint8[]`, since none is written through, and so is the haystack the API will take
+
+**2026-10-09, cycle 0.2.1a (the plan's PD-103), at compiler `7e91730`, from `5fbaf4a`** — the compiler's D-348 step
+(ii), D-350 and D-351, its landing 103: `fixed T[]` is a TYPE, the read-only view; a plain `T[]` converts to it and
+nothing converts back (`NITPICK-TYPE-007`); `string_bytes` returns it, always; a write through it is
+`NITPICK-TYPE-086` wherever it sits. Measured on the unchanged tree first: at `7e91730` 78 of its 160 `.npk` files are
+refused `NITPICK-TYPE-007`, at 170 distinct sites in 39 files — five of them in `src/`: `bytes_extend_str`'s argument,
+`word_is`'s, `holds`'s and `regex_escape`'s locals, and `hex`'s digit table — every one a reader of a string's bytes.
+Nothing else moves at `7e91730` but `tests/rejection/pattern_error_literal.npk`'s count, the compiler's DEF-165, and
+probe 12b's `NITPICK-BORROW-009`, which stands behind its `TYPE-007` until the file is re-spelled.
+
+- **Every `uint8[]` slot in the tree is `fixed uint8[]`** — 133 slots in 32 files: `parse_pattern` and every parser
+  function it hands the pattern to, `cursor_init` and the `Cursor`'s `src` field (`sealed fixed uint8[]:src`),
+  `hir_build`, `hir_read` and the dump reader's functions, `hir_add_group`, `bytes_extend`, the four locals, and the
+  tests' locals, helpers and probe 12's iterator field — because no slot is written through: the re-spelled tree has no
+  `NITPICK-TYPE-086` at `7e91730`, and no `NITPICK-ASSIGN-002` for a `fixed` parameter reassigned (the compiler's
+  DEF-248). A plain `uint8[]` converts to every one, so a caller holding a writable buffer's view passes it as before —
+  `parse_encoding`'s arrays do.
+- **The old compiler sees no difference**: at `5fbaf4a` each of the 160 files gives exactly the codes and positions it
+  gave before, and the full run is `294/294` with the two pending. At `7e91730` one site is left, probe 06b's return,
+  which moves with the pin: `fixed` before a return type is read at `5fbaf4a` and means nothing (the compiler's
+  DEF-247).
+- **`SYNTAX.md` Y-33's `parse_pattern`, `HIR.md` H-16's `hir_build` and `API.md` A-16 dated**: the pattern, the build's
+  pattern and the haystack the search entry points will take are the read-only view. RX-054, and the six decisions
+  that state a signature this changes — RX-173, RX-175, RX-182, RX-224, RX-225 and RX-228 — gain their markers.
+
+*Alternatives declined:* **only the slots the pin refuses** — 127 of the 133; the other six are test helpers'
+parameters handed a local array's view — `walk` in `cursor_unit`, `bad` and `good` in `parse_encoding`, `escapes_bytes`
+and `ill_formed` in `regex_escape` — which read only, and a plain one promises less than it does and is the next
+caller's `TYPE-007`; **a copy at each call** — an allocation for bytes nothing writes, and on the search path a way to
+fail where `SAFETY.md` S-4 allows none; **the grouped spelling, `(fixed uint8[]):v`** — a re-pointable binding, which nothing
+here re-points, and `5fbaf4a` refuses it `NITPICK-PARSE-001`; **`string` parameters** — the parser reads bytes (Y-11),
+and a writable buffer's view would need a copy into a `string`; **A-16 left for cycle 0.10** — its own sentence, *"a
+`string` caller writes `string_bytes(s)`"*, is refused `TYPE-007` by a plain `uint8[]` parameter at this compiler, and
+the next planner would read the signatures as written.

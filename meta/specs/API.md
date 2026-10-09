@@ -261,6 +261,11 @@ at no cost.
 Two reasons this direction rather than the other: a systems library is asked to
 search things that are not validated text, and `string_bytes` is free while
 `string_from_bytes` over a subrange is not.
+*(2026-10-09, cycle 0.2.1a — RX-230: the primitive is the READ-ONLY view, `fixed uint8[]`, since compiler
+`7e91730`: `string_bytes` returns one (the compiler's D-351), and it converts to no plain `uint8[]` while a plain
+`uint8[]` converts to it. A search reads its haystack and never writes it, so each `uint8[]` in §1's list is taken as
+`fixed uint8[]` — the replacement template too, and A-11's `Replacer`'s `hay` — the one spelling that admits a
+string's bytes and a writable buffer's view alike. §1 keeps the family's name.)*
 
 **Rule A-17 — a `Match`'s offsets index the haystack the caller passed**, which
 for a `string` caller is the string's bytes. Slicing a `string` by them is

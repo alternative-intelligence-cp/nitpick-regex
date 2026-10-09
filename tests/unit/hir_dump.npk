@@ -27,7 +27,7 @@ use "../../src/core/core.npk".*;
 use "../../src/hir/hir.npk".*;
 
 // Whether `b` holds exactly the bytes of `want`.
-func:same = bool(Bytes->:b, uint8[]:want) never fails {
+func:same = bool(Bytes->:b, fixed uint8[]:want) never fails {
     if ((raw bytes_len(b)) != want.len) { pass false; }
     int64:i = 0i64;
     while (i < want.len) decreases want.len - i {
@@ -38,7 +38,7 @@ func:same = bool(Bytes->:b, uint8[]:want) never fails {
 };
 
 // `text` reads whole, writes back as itself, and its dump does the same.
-func:round = bool(uint8[]:text) never fails {
+func:round = bool(fixed uint8[]:text) never fails {
     Hir:h = raw hir_init(4i64);
     int64:e = raw hir_read(text, @h);
     Bytes:b = raw bytes_init(16i64);
@@ -56,7 +56,7 @@ func:round = bool(uint8[]:text) never fails {
 };
 
 // `text` is refused at byte `at`, and the root stays unset.
-func:refused = bool(uint8[]:text, int64:at) never fails {
+func:refused = bool(fixed uint8[]:text, int64:at) never fails {
     Hir:h = raw hir_init(4i64);
     int64:e = raw hir_read(text, @h);
     bool:ok = (e == at) && (h.root == HIR_NONE);
@@ -158,7 +158,7 @@ func:built = int32() never fails {
     drop hir_set_root(@h, cat);
     Bytes:b = raw bytes_init(16i64);
     drop hir_dump(@h, @b);
-    uint8[]:want = string_bytes("(concat (literal 97) (group 1 w (repeat lazy 0 - (class 97-122 48-57))) (wordboundary byte not))");
+    fixed uint8[]:want = string_bytes("(concat (literal 97) (group 1 w (repeat lazy 0 - (class 97-122 48-57))) (wordboundary byte not))");
     if ((!(raw same(@b, want))) || (!(raw round(want)))) { pass 40i32; }
     drop hir_free(@h);
 

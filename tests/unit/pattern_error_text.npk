@@ -26,8 +26,8 @@ use "../../src/core/core.npk".*;
 use "../../src/syntax/syntax.npk".*;
 
 func:same = bool(string:got, string:want) never fails {
-    uint8[]:g = string_bytes(got);
-    uint8[]:w = string_bytes(want);
+    fixed uint8[]:g = string_bytes(got);
+    fixed uint8[]:w = string_bytes(want);
     if (g.len != w.len) { pass false; }
     int64:i = 0i64;
     while (i < w.len) decreases w.len - i {
@@ -62,8 +62,8 @@ func:says_kind = bool(string:pattern, PatternErrorKind:kind, int64:off, string:w
 
 // Does `text` contain `part`?
 func:has = bool(string:text, string:part) never fails {
-    uint8[]:t = string_bytes(text);
-    uint8[]:p = string_bytes(part);
+    fixed uint8[]:t = string_bytes(text);
+    fixed uint8[]:p = string_bytes(part);
     int64:i = 0i64;
     while ((i + p.len) <= t.len) decreases t.len - i {
         int64:k = 0i64;

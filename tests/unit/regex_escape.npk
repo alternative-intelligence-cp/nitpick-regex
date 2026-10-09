@@ -29,7 +29,7 @@ fixed int64:IN_CLASS = 2i64;     // between `[` and `]`
 fixed int64:EXT_CLASS = 3i64;    // between `(?x)[` and `]`
 fixed int64:NESTED = 4i64;       // between `[[` and `]]`: a class nested in a class (RX-214)
 
-func:same = bool(uint8[]:g, uint8[]:w) never fails {
+func:same = bool(fixed uint8[]:g, fixed uint8[]:w) never fails {
     if (g.len != w.len) { pass false; }
     int64:i = 0i64;
     while (i < w.len) decreases w.len - i {
@@ -46,7 +46,7 @@ func:escapes = bool(string:text, string:want) never fails {
 };
 
 // The same for a text a string literal cannot hold -- one that is not well-formed UTF-8.
-func:escapes_bytes = bool(uint8[]:text, uint8[]:want) never fails {
+func:escapes_bytes = bool(fixed uint8[]:text, fixed uint8[]:want) never fails {
     Bytes:t = raw bytes_init(8i64);
     drop bytes_extend(@t, text);
     string:s = raw bytes_copy_string(@t);
@@ -63,7 +63,7 @@ func:seq_len = int64(int64:lead) never fails {
     pass 4i64;
 };
 
-func:cp_at = int64(uint8[]:t, int64:i) never fails {
+func:cp_at = int64(fixed uint8[]:t, int64:i) never fails {
     int64:lead = t[i] => int64;
     int64:n = raw seq_len(lead);
     int64:cp = lead;
@@ -78,7 +78,7 @@ func:cp_at = int64(uint8[]:t, int64:i) never fails {
     pass cp;
 };
 
-func:count_cps = int64(uint8[]:t) never fails {
+func:count_cps = int64(fixed uint8[]:t) never fails {
     int64:i = 0i64;
     int64:n = 0i64;
     while (i < t.len) decreases t.len - i {
@@ -90,7 +90,7 @@ func:count_cps = int64(uint8[]:t) never fails {
 
 // The list from `first` holds exactly the codepoints of `text`, in order: each a `Literal` of it, or in
 // a class a `ClassRange` from it to itself, and the last one's `next` is `AST_NONE`.
-func:holds = bool(Ast:t, int64:first, uint8[]:text, bool:inclass) never fails {
+func:holds = bool(Ast:t, int64:first, fixed uint8[]:text, bool:inclass) never fails {
     int64:m = first;
     int64:i = 0i64;
     while (i < text.len) decreases text.len - i {
@@ -108,7 +108,7 @@ func:holds = bool(Ast:t, int64:first, uint8[]:text, bool:inclass) never fails {
 };
 
 // The tree parsed holds `text`'s codepoints as `place` puts them.
-func:tree_holds = bool(Ast:t, uint8[]:text, int64:place) never fails {
+func:tree_holds = bool(Ast:t, fixed uint8[]:text, int64:place) never fails {
     AstNode:r = raw ast_get(t, t.root);
     int64:n = raw count_cps(text);
     if (place == WHOLE) {
@@ -141,7 +141,7 @@ func:tree_holds = bool(Ast:t, uint8[]:text, int64:place) never fails {
 };
 
 // `regex_escape(text)`, put where `place` says, parses, and its tree holds exactly `text`'s codepoints.
-func:round_trip = bool(uint8[]:text, int64:place) never fails {
+func:round_trip = bool(fixed uint8[]:text, int64:place) never fails {
     Bytes:tb = raw bytes_init(8i64);
     drop bytes_extend(@tb, text);
     string:s = raw bytes_copy_string(@tb);
@@ -167,7 +167,7 @@ func:trip = bool(string:text, int64:place) never fails {
 };
 
 // `regex_escape(text)` is refused `InvalidPatternEncoding` at `off` when parsed.
-func:ill_formed = bool(uint8[]:text, int64:off) never fails {
+func:ill_formed = bool(fixed uint8[]:text, int64:off) never fails {
     Bytes:tb = raw bytes_init(8i64);
     drop bytes_extend(@tb, text);
     string:s = raw bytes_copy_string(@tb);

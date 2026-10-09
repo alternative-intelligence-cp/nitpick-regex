@@ -24,7 +24,7 @@ use "../../src/syntax/syntax.npk".*;
 use "../../src/hir/hir.npk".*;
 
 // Whether `b` holds exactly the bytes of `want`.
-func:same = bool(Bytes->:b, uint8[]:want) never fails {
+func:same = bool(Bytes->:b, fixed uint8[]:want) never fails {
     if ((raw bytes_len(b)) != want.len) { pass false; }
     int64:i = 0i64;
     while (i < want.len) decreases want.len - i {
@@ -37,7 +37,7 @@ func:same = bool(Bytes->:b, uint8[]:want) never fails {
 // Builds `pattern` into `h`: 0 when the build completes and its dump reads back to the same text,
 // 1 when it stops -- the one exit this unit is pending on -- and `c` for anything else.
 func:build = int32(string:pattern, Hir->:h, int32:c) never fails {
-    uint8[]:pat = string_bytes(pattern);
+    fixed uint8[]:pat = string_bytes(pattern);
     Ast:t = raw ast_init(8i64);
     PatternError?:e = raw parse_pattern(pat, @t);
     int32:r = c;

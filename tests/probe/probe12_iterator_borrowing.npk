@@ -66,9 +66,12 @@ struct:Prog = {
 
 // THE SECOND-CLASS STRUCT. It holds a borrow (`Prog->`) and a view (`uint8[]`),
 // so it can be built, passed down and iterated — and never returned.
+// *(2026-10-09, cycle 0.2.1a -- RX-230: a READ-ONLY view, `fixed uint8[]`, since compiler
+// `7e91730`: a string's bytes are one (its D-351). The verdict above is unchanged, and
+// `refused/probe12b_for_over_borrow_refused.npk` is still `NITPICK-BORROW-009`.)*
 struct:Matches = {
     Prog->:re;
-    uint8[]:hay;
+    fixed uint8[]:hay;
     int64:at;
 };
 
@@ -96,7 +99,7 @@ impl:Matches:Iterator = {
 
 func:main = int32(cstring[]:_~argv) {
     string:s = string_concat("abcaa", "bXbb");     // "abcaabXbb"
-    uint8[]:hay = string_bytes(s);
+    fixed uint8[]:hay = string_bytes(s);
     Prog:p = Prog{ want: 97u8, calls: 0i64 };      // 'a'
 
     // ---- built by STRUCT LITERAL at the call site -------------------------

@@ -70,37 +70,37 @@ func:run = int32() never fails {
     // 1. 10 000 levels, and their 10 000 closers
     Bytes:a = raw pattern("(", 10000i64, ")", 10000i64);
     string:sa = raw bytes_copy_string(@a);
-    uint8[]:va = string_bytes(sa);
+    fixed uint8[]:va = string_bytes(sa);
     if (va.len != 20000i64) { pass 1i32; }
     if (!(raw refused_at(sa, 250i64))) { pass 2i32; }
     // 2. the longest pattern there is, every byte a `(`
     Bytes:b = raw pattern("(", 65536i64, "", 0i64);
     string:sb = raw bytes_copy_string(@b);
-    uint8[]:vb = string_bytes(sb);
+    fixed uint8[]:vb = string_bytes(sb);
     if (vb.len != 65536i64) { pass 3i32; }
     if (!(raw refused_at(sb, 250i64))) { pass 4i32; }
     // 3. the longest pattern there is, nested without capturing
     Bytes:c = raw pattern("(?:", 21845i64, "a", 1i64);
     string:sc = raw bytes_copy_string(@c);
-    uint8[]:vc = string_bytes(sc);
+    fixed uint8[]:vc = string_bytes(sc);
     if (vc.len != 65536i64) { pass 5i32; }
     if (!(raw refused_at(sc, 750i64))) { pass 6i32; }
     // 4. 10 000 nested classes, and their 10 000 closers
     Bytes:d = raw pattern("[", 10000i64, "]", 10000i64);
     string:sd = raw bytes_copy_string(@d);
-    uint8[]:vd = string_bytes(sd);
+    fixed uint8[]:vd = string_bytes(sd);
     if (vd.len != 20000i64) { pass 7i32; }
     if (!(raw refused_at(sd, 250i64))) { pass 8i32; }
     // 5. the longest pattern there is, every byte a `[`
     Bytes:f = raw pattern("[", 65536i64, "", 0i64);
     string:sf = raw bytes_copy_string(@f);
-    uint8[]:vf = string_bytes(sf);
+    fixed uint8[]:vf = string_bytes(sf);
     if (vf.len != 65536i64) { pass 9i32; }
     if (!(raw refused_at(sf, 250i64))) { pass 10i32; }
     // 6. groups and classes together: 200 groups, then the 51st `[` is the 251st level
     Bytes:g = raw pattern("(", 200i64, "[", 10000i64);
     string:sg = raw bytes_copy_string(@g);
-    uint8[]:vg = string_bytes(sg);
+    fixed uint8[]:vg = string_bytes(sg);
     if (vg.len != 10200i64) { pass 11i32; }
     if (!(raw refused_at(sg, 250i64))) { pass 12i32; }
     pass 0i32;

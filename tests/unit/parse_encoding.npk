@@ -16,7 +16,7 @@ mod:parse_encoding;
 use "../../src/core/core.npk".*;
 use "../../src/syntax/syntax.npk".*;
 
-func:bad = bool(uint8[]:pat, int64:off, int64:len, uint32:detail) never fails {
+func:bad = bool(fixed uint8[]:pat, int64:off, int64:len, uint32:detail) never fails {
     Ast:t = raw ast_init(4i64);
     PatternError?:r = raw parse_pattern(pat, @t);
     drop ast_free(@t);
@@ -29,7 +29,7 @@ func:bad = bool(uint8[]:pat, int64:off, int64:len, uint32:detail) never fails {
 };
 
 // One literal, the whole pattern, decoded to `cp`.
-func:good = bool(uint8[]:pat, int64:cp) never fails {
+func:good = bool(fixed uint8[]:pat, int64:cp) never fails {
     Ast:t = raw ast_init(4i64);
     PatternError?:r = raw parse_pattern(pat, @t);
     bool:ok = false;

@@ -37,7 +37,7 @@ func:refused = bool(string:pattern, PatternErrorKind:kind, int64:off, int64:len,
 };
 
 // The same, for a pattern a string literal cannot hold -- one with a NUL in it.
-func:refused_bytes = bool(uint8[]:pat, PatternErrorKind:kind, int64:off, int64:len, uint32:detail) never fails {
+func:refused_bytes = bool(fixed uint8[]:pat, PatternErrorKind:kind, int64:off, int64:len, uint32:detail) never fails {
     Ast:t = raw ast_init(8i64);
     PatternError?:r = raw parse_pattern(pat, @t);
     drop ast_free(@t);

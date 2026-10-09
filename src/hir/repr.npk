@@ -177,7 +177,7 @@ pub func:hir_group_count = int64(Hir:h) never fails {
 //
 // The next group, its name copied into `Hir.names` -- an empty `name` for a group that has
 // none -- answering its number.
-pub func:hir_add_group = int64(Hir->:h, uint8[]:name) never fails {
+pub func:hir_add_group = int64(Hir->:h, fixed uint8[]:name) never fails {
     int64:off = raw bytes_len(@h.names);
     drop bytes_extend(@h.names, name);
     drop vec_push(@h.groups, GroupInfo{ off: off, len: name.len });

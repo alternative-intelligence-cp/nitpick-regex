@@ -6,6 +6,8 @@
 // ASKS: does a function that takes a `uint8[]` and returns
 // `struct:Match = { int64:lo; int64:hi; }` -- offsets, not a view -- compile and
 // run? And does the `Match?` form `API.md` §2 actually specifies work too?
+// *(2026-10-09, cycle 0.2.1a -- RX-230: it takes the READ-ONLY view, `fixed uint8[]`, since
+// compiler `7e91730`, the type `string_bytes` returns (its D-351). Both answers are unchanged.)*
 //
 // DEPENDS ON THE ANSWER: RX-050, and through it every entry point in `API.md`.
 // `regex_find` returns `Match?`; `Match` carries byte offsets precisely because
@@ -46,7 +48,7 @@ struct:Match = {
 };
 
 // The shape of every search entry point: a view DOWN, offsets UP.
-func:find_byte = Match?(uint8[]:src, uint8:want, int64:from) never fails {
+func:find_byte = Match?(fixed uint8[]:src, uint8:want, int64:from) never fails {
     int64:i = from;
     while (i < src.len) decreases src.len - i {
         if (src[i] == want) {
@@ -68,7 +70,7 @@ func:find_byte = Match?(uint8[]:src, uint8:want, int64:from) never fails {
 // run was 1. It is written out here because the same shape recurs in every
 // engine in `ENGINES.md`: a scan that must report WHERE it stopped cannot use
 // its cursor as its own flag.
-func:find_run = Match?(uint8[]:src, uint8:want, int64:from) never fails {
+func:find_run = Match?(fixed uint8[]:src, uint8:want, int64:from) never fails {
     int64:i = from;
     while (i < src.len) decreases src.len - i {
         if (src[i] == want) {
@@ -90,7 +92,7 @@ func:find_run = Match?(uint8[]:src, uint8:want, int64:from) never fails {
 
 func:main = int32(cstring[]:_~argv) {
     string:s = string_concat("abcaa", "bXbb");     // "abcaabXbb", 9 bytes
-    uint8[]:v = string_bytes(s);                   // the owner is ALIVE
+    fixed uint8[]:v = string_bytes(s);             // the owner is ALIVE
     if (v.len != 9i64)                                  { exit 10i32; }
 
     // ---- the `Match?` present case ---------------------------------------

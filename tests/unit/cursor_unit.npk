@@ -20,7 +20,7 @@ mod:cursor_unit;
 
 use "../../src/syntax/syntax.npk".*;
 
-func:walk = int32(uint8[]:pat) never fails {
+func:walk = int32(fixed uint8[]:pat) never fails {
     Cursor:c = raw cursor_init(pat);
     if (raw cursor_at_end(@c))               { pass 10i32; }
     if ((raw cursor_offset(@c)) != 0i64)     { pass 11i32; }
@@ -43,7 +43,7 @@ func:walk = int32(uint8[]:pat) never fails {
     pass 0i32;
 };
 
-func:empty = int32(uint8[]:pat) never fails {
+func:empty = int32(fixed uint8[]:pat) never fails {
     Cursor:c = raw cursor_init(pat);
     if (!(raw cursor_at_end(@c)))            { pass 30i32; }
     if ((raw cursor_peek(@c)) != CURSOR_END) { pass 31i32; }

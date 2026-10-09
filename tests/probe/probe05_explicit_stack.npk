@@ -145,7 +145,7 @@ struct:ParseOutcome = {
 
 // THE PARSER. No recursion anywhere: one `while` over the bytes and one
 // explicit `Vec<Frame>`. `src` is a view passed DOWN, never returned (RX-050).
-func:parse_nested = ParseOutcome(uint8[]:src) never fails {
+func:parse_nested = ParseOutcome(fixed uint8[]:src) never fails {
     Vec<Frame>:frames = raw vec_init::<Frame>(16i64);
     int64:i = 0i64;
     int64:deepest = 0i64;
@@ -233,7 +233,7 @@ func:main = int32(cstring[]:_~argv) {
     // ---- the shallow cases, so the parser is known to work ---------------
 
     string:s0 = string_concat("(a(b)c)", "");
-    uint8[]:v0 = string_bytes(s0);
+    fixed uint8[]:v0 = string_bytes(s0);
     ParseOutcome:r0 = raw parse_nested(v0);
     if (r0.code != 0i32)                                { exit 10i32; }
     if (r0.max_depth != 2i64)                           { exit 11i32; }
@@ -252,7 +252,7 @@ func:main = int32(cstring[]:_~argv) {
     // `SAFETY.md` §5 requires a case sitting exactly on every bound and one
     // exceeding it. This is the first.
     string:deep = raw nest_of(250i64);
-    uint8[]:vd = string_bytes(deep);
+    fixed uint8[]:vd = string_bytes(deep);
     if (vd.len != 500i64)                               { exit 20i32; }
     ParseOutcome:rd = raw parse_nested(vd);
     if (rd.code != 0i32)                                { exit 21i32; }
@@ -277,7 +277,7 @@ func:main = int32(cstring[]:_~argv) {
     // This one refuses at depth 251 and returns, and the fact that the next
     // line executes at all IS the result.
     string:huge = raw nest_of(10000i64);
-    uint8[]:vh = string_bytes(huge);
+    fixed uint8[]:vh = string_bytes(huge);
     if (vh.len != 20000i64)                             { exit 40i32; }
     ParseOutcome:rh = raw parse_nested(vh);
     if (rh.code != 1i32)                                { exit 41i32; }

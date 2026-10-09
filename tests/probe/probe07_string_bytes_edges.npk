@@ -20,6 +20,9 @@
 //
 // DEPENDS ON THE ANSWER: RX-054 makes `uint8[]` the primitive and every entry
 // point in `API.md` takes one.
+// *(2026-10-09, cycle 0.2.1a -- RX-230: the READ-ONLY one, `fixed uint8[]`, since compiler
+// `7e91730`: `string_bytes` returns it (its D-351), so every view below is one, every
+// parameter it is passed down to says so, and the four edges answer as they did.)*
 //
 // ==========================================================================
 // THREE OF THE FOUR EDGES WERE ALREADY ANSWERED. READ THIS BEFORE EXTENDING.
@@ -81,7 +84,7 @@ error:E9;
 // ---------------------------------------------------------------------------
 
 // A scanner step: takes the view, returns a NUMBER and never the view.
-func:count_byte = int64(uint8[]:src, uint8:want) never fails {
+func:count_byte = int64(fixed uint8[]:src, uint8:want) never fails {
     int64:i = 0i64;
     int64:n = 0i64;
     while (i < src.len) decreases src.len - i {
@@ -93,13 +96,13 @@ func:count_byte = int64(uint8[]:src, uint8:want) never fails {
 
 // Two frames deep, because "passed down" must survive being passed down again --
 // this is `regex_find` calling an engine calling a byte-class test.
-func:count_two_deep = int64(uint8[]:src, uint8:a, uint8:b) never fails {
+func:count_two_deep = int64(fixed uint8[]:src, uint8:a, uint8:b) never fails {
     pass (raw count_byte(src, a)) + (raw count_byte(src, b));
 };
 
 // A view NARROWED and passed down. The narrowing is a `...` range on the way
 // IN, which is legal for the same reason: it never travels up.
-func:count_in_span = int64(uint8[]:src, int64:lo, int64:hi, uint8:want) never fails {
+func:count_in_span = int64(fixed uint8[]:src, int64:lo, int64:hi, uint8:want) never fails {
     pass (raw count_byte(src[lo...hi], want));
 };
 
@@ -115,7 +118,7 @@ async func:step = int64(int64:v) {
 // EDGE 4: a `uint8[]` HELD ACROSS AN `await`. The view is a parameter, the
 // suspension happens between binding it and reading it, and `src.len` is read
 // on the far side.
-async func:view_across_await = int64(uint8[]:src) {
+async func:view_across_await = int64(fixed uint8[]:src) {
     int64:n = relay await step(0i64);
     pass src.len + n;
 };
@@ -132,7 +135,7 @@ async func:borrow_across_await = int64(int64->:p) {
 async func:main = int32(cstring[]:_~argv) {
     // "abcaabXbb", nine bytes. `s` is owned by this frame throughout.
     string:s = string_concat("abcaa", "bXbb");
-    uint8[]:v = string_bytes(s);
+    fixed uint8[]:v = string_bytes(s);
 
     // ---- §3 — the slice's own members ---------------------------------
 
@@ -149,7 +152,7 @@ async func:main = int32(cstring[]:_~argv) {
 
     // An empty view is legal and has length zero, which is the case every
     // engine hits on an empty haystack.
-    uint8[]:empty = v[0i64...0i64];
+    fixed uint8[]:empty = v[0i64...0i64];
     if (empty.len != 0i64)                              { exit 12i32; }
 
     // ---- §1 in practice — edge 1 -----------------------------------------

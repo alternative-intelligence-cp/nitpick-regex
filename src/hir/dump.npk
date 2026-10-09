@@ -245,7 +245,7 @@ struct:ReadState = {
 };
 
 // The byte at `i`, or -1 past the text's end.
-func:byte_at = int32(uint8[]:text, int64:i) never fails {
+func:byte_at = int32(fixed uint8[]:text, int64:i) never fails {
     if (i >= text.len) { pass -1i32; }
     pass text[i] => int32;
 };
@@ -271,20 +271,20 @@ func:is_name_char = bool(int32:b) never fails {
 };
 
 // Moves past the next byte if it is `want`, and says whether it did.
-func:eat = bool(uint8[]:text, ReadState->:r, int32:want) never fails {
+func:eat = bool(fixed uint8[]:text, ReadState->:r, int32:want) never fails {
     if ((raw byte_at(text, r.pos)) != want) { pass false; }
     r.pos = r.pos + 1i64;
     pass true;
 };
 
 // Whether a space and then a lower-case letter come next: a word the head may hold.
-func:word_next = bool(uint8[]:text, ReadState->:r) never fails {
+func:word_next = bool(fixed uint8[]:text, ReadState->:r) never fails {
     if ((raw byte_at(text, r.pos)) != CH_SPACE) { pass false; }
     pass raw is_lower(raw byte_at(text, r.pos + 1i64));
 };
 
 // Reads a word, `[a-z-]*`, and answers its length.
-func:read_word = int64(uint8[]:text, ReadState->:r) never fails {
+func:read_word = int64(fixed uint8[]:text, ReadState->:r) never fails {
     int64:s = r.pos;
     bool:more = true;
     while (more && (r.pos < text.len)) decreases text.len - r.pos {
@@ -296,8 +296,8 @@ func:read_word = int64(uint8[]:text, ReadState->:r) never fails {
 };
 
 // Whether the `n` bytes at `s` are the word `w`.
-func:word_is = bool(uint8[]:text, int64:s, int64:n, string:w) never fails {
-    uint8[]:wb = string_bytes(w);
+func:word_is = bool(fixed uint8[]:text, int64:s, int64:n, string:w) never fails {
+    fixed uint8[]:wb = string_bytes(w);
     if (n != wb.len) { pass false; }
     int64:k = 0i64;
     while (k < n) decreases n - k {
@@ -309,7 +309,7 @@ func:word_is = bool(uint8[]:text, int64:s, int64:n, string:w) never fails {
 
 // Reads a number as `hir_dump` writes one -- `0`, or a digit other than `0` and at most
 // seventeen more -- and answers it, or HIR_NONE for anything else.
-func:read_num = int64(uint8[]:text, ReadState->:r) never fails {
+func:read_num = int64(fixed uint8[]:text, ReadState->:r) never fails {
     int32:b = raw byte_at(text, r.pos);
     if (!(raw is_digit(b))) { pass HIR_NONE; }
     if (b == CH_0) {
@@ -336,7 +336,7 @@ func:open_node = int64(ReadState->:r, HirKind:k, uint32:flags, int64:a, int64:b,
 };
 
 // `literal N`, `literal byte N`.
-func:read_literal = int64(uint8[]:text, ReadState->:r) never fails {
+func:read_literal = int64(fixed uint8[]:text, ReadState->:r) never fails {
     uint32:flags = 0u32;
     if (raw word_next(text, r)) {
         r.pos = r.pos + 1i64;
@@ -356,7 +356,7 @@ func:read_literal = int64(uint8[]:text, ReadState->:r) never fails {
 };
 
 // `class`, `class byte`, and a range `LO-HI` after either, as many as the class holds.
-func:read_class = int64(uint8[]:text, Hir->:out, ReadState->:r) never fails {
+func:read_class = int64(fixed uint8[]:text, Hir->:out, ReadState->:r) never fails {
     uint32:flags = 0u32;
     if (raw word_next(text, r)) {
         r.pos = r.pos + 1i64;
@@ -387,7 +387,7 @@ func:read_class = int64(uint8[]:text, Hir->:out, ReadState->:r) never fails {
 };
 
 // `repeat MIN MAX`, `repeat lazy MIN MAX`, MAX `-` when unbounded.
-func:read_repeat = int64(uint8[]:text, ReadState->:r) never fails {
+func:read_repeat = int64(fixed uint8[]:text, ReadState->:r) never fails {
     uint32:flags = 0u32;
     if (raw word_next(text, r)) {
         r.pos = r.pos + 1i64;
@@ -411,7 +411,7 @@ func:read_repeat = int64(uint8[]:text, ReadState->:r) never fails {
 };
 
 // `group K`, `group K NAME` -- `K` the number the next group must carry (Y-6).
-func:read_group = int64(uint8[]:text, Hir->:out, ReadState->:r) never fails {
+func:read_group = int64(fixed uint8[]:text, Hir->:out, ReadState->:r) never fails {
     if (!(raw eat(text, r, CH_SPACE))) { pass r.pos; }
     int64:s = r.pos;
     int64:k = raw read_num(text, r);
@@ -432,7 +432,7 @@ func:read_group = int64(uint8[]:text, Hir->:out, ReadState->:r) never fails {
 };
 
 // `anchor text-start`, `text-end`, `line-start`, `line-end`.
-func:read_anchor = int64(uint8[]:text, ReadState->:r) never fails {
+func:read_anchor = int64(fixed uint8[]:text, ReadState->:r) never fails {
     if (!(raw eat(text, r, CH_SPACE))) { pass r.pos; }
     int64:w = r.pos;
     int64:n = raw read_word(text, r);
@@ -446,7 +446,7 @@ func:read_anchor = int64(uint8[]:text, ReadState->:r) never fails {
 };
 
 // `wordboundary`, then `byte` and `not`, each if it holds, in that order.
-func:read_boundary = int64(uint8[]:text, ReadState->:r) never fails {
+func:read_boundary = int64(fixed uint8[]:text, ReadState->:r) never fails {
     uint32:flags = 0u32;
     int64:a = HIR_WORD;
     if (raw word_next(text, r)) {
@@ -469,7 +469,7 @@ func:read_boundary = int64(uint8[]:text, ReadState->:r) never fails {
 };
 
 // The head after a `(`: the kind's name, its words and its operands.
-func:read_head = int64(uint8[]:text, Hir->:out, ReadState->:r) never fails {
+func:read_head = int64(fixed uint8[]:text, Hir->:out, ReadState->:r) never fails {
     int64:w = r.pos;
     int64:n = raw read_word(text, r);
     if (raw word_is(text, w, n, "empty")) { pass raw open_node(r, HirKind.Empty, 0u32, 0i64, 0i64, 0i64); }
@@ -524,7 +524,7 @@ func:close_node = int64(Hir->:out, ReadState->:r, int64:at) never fails {
     pass HIR_NONE;
 };
 
-func:read_run = int64(uint8[]:text, Hir->:out, ReadState->:r) never fails {
+func:read_run = int64(fixed uint8[]:text, Hir->:out, ReadState->:r) never fails {
     if (!(raw eat(text, r, CH_LPAREN))) { pass r.pos; }
     int64:e = raw read_head(text, out, r);
     if (e != HIR_NONE) { pass e; }
@@ -556,7 +556,7 @@ func:read_run = int64(uint8[]:text, Hir->:out, ReadState->:r) never fails {
 // that is not what `hir_dump` writes there -- the text's length when it ends early -- and
 // leaves `out`'s root as it was, its nodes partial, for the caller to free. Pass a `Hir`
 // fresh from `hir_init`: its groups are numbered from the count it already holds.
-pub func:hir_read = int64(uint8[]:text, Hir->:out) never fails {
+pub func:hir_read = int64(fixed uint8[]:text, Hir->:out) never fails {
     ReadState:r = ReadState{ pos: 0i64, next_group: raw hir_group_count(<-out), top: HIR_NONE,
                              open: raw vec_init::<ReadFrame>(8i64) };
     int64:e = raw read_run(text, out, @r);

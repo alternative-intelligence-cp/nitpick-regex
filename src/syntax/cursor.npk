@@ -5,6 +5,9 @@
 // them and an `int64` offset: the offset of the next byte, from 0 to the
 // pattern's length. Every position the parser reports comes from here
 // (`cursor_offset`), which is Y-10's byte offset on every error made structural.
+// *(2026-10-09, cycle 0.2.1a -- RX-230: a READ-ONLY view, `fixed uint8[]`, since compiler
+// `7e91730`: `string_bytes` returns one (its D-351), a plain `uint8[]` converts to it and nothing
+// converts it back, and a write through it is NITPICK-TYPE-086. Nothing here writes one.)*
 //
 // ONE BYTE OF LOOKAHEAD, AND THE COMPILER HOLDS THE PARSER TO IT. Both fields are
 // `sealed` (the compiler's D-313): outside this file nothing builds a `Cursor`
@@ -55,12 +58,12 @@ mod:cursor;
 pub fixed int32:CURSOR_END = -1i32;
 
 pub struct:Cursor = {
-    sealed uint8[]:src;    // the pattern: a VIEW of the caller's bytes (Y-11)
-    sealed int64:pos;      // the offset of the next byte, 0 .. src.len
+    sealed fixed uint8[]:src;    // the pattern: a READ-ONLY view of the caller's bytes (Y-11)
+    sealed int64:pos;            // the offset of the next byte, 0 .. src.len
 };
 
 // obligation: never fails ensures result.pos == 0i64
-pub func:cursor_init = Cursor(uint8[]:pat) never fails {
+pub func:cursor_init = Cursor(fixed uint8[]:pat) never fails {
     pass Cursor{ src: pat, pos: 0i64 };
 };
 

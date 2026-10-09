@@ -39,7 +39,7 @@ func:overwrite = NIL(Box:b) never fails {
 func:main = int32(cstring[]:_~argv) {
     Box:b = Box{ s: string_concat("abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "c") };
     drop overwrite(b);
-    uint8[]:bs = string_bytes(b.s);
+    fixed uint8[]:bs = string_bytes(b.s);
     if (bs[0i64] == 97u8) { exit 21i32; }
     if (bs[0i64] == 170u8) { exit 70i32; }
     exit 71i32;

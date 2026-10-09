@@ -211,7 +211,7 @@ pub func:bytes_push = NIL(Bytes->:b, uint8:x) never fails {
 // THE SLICE IS A PARAMETER, WHICH IS THE ONLY DIRECTION IT MAY TRAVEL (O-N9).
 // One `mcpy` rather than a push loop: the whole point of this type is that bulk
 // output is one copy and not `src.len` calls.
-pub func:bytes_extend = NIL(Bytes->:b, uint8[]:src) never fails {
+pub func:bytes_extend = NIL(Bytes->:b, fixed uint8[]:src) never fails {
     if (src.len <= 0i64) { pass NIL; }
     drop bytes_reserve(b, src.len);
     discard(mcpy(#ptr_add<uint8>(b.buf.ptr, b.len), src.ptr, src.len));
@@ -224,6 +224,9 @@ pub func:bytes_extend = NIL(Bytes->:b, uint8[]:src) never fails {
 // `string_bytes` yields a `uint8[]` VIEW and does not allocate, so this adds no
 // owning temporary and needs no binding (the D-183 rule is about values whose
 // type DROPS, and a slice does not).
+// *(2026-10-09, cycle 0.2.1a -- RX-230: a READ-ONLY view, `fixed uint8[]`, since compiler
+// `7e91730` (its D-351) -- so `bytes_extend` takes its source as one, which a plain view converts
+// to; it reads the bytes and writes only `b`.)*
 pub func:bytes_extend_str = NIL(Bytes->:b, string:s) never fails {
     drop bytes_extend(b, string_bytes(s));
     pass NIL;

@@ -175,6 +175,9 @@ each must be the AST's number or the build stops `OutOfBounds`; an AST that is n
 *(2026-10-08, cycle 0.2.1 — RX-229: and two are pending until cycle 0.3.4, on the build's stop at a hook or in `leaf`:
 `tests/unit/hir_build_classes.npk`, the class row's HIRs and a class's negation and operators, and
 `hir_build_fold.npk`, the `(?i:…)` row's.)*
+*(2026-10-09, cycle 0.2.1a — RX-230: `hir_build(fixed uint8[]:pat, Ast:t, Hir->:out)` since compiler `7e91730`: the
+pattern is the READ-ONLY view `parse_pattern` reads (`SYNTAX.md` Y-33), and a group's name goes to `hir_add_group` as
+one; `hir_read` takes its text so too.)*
 
 ---
 

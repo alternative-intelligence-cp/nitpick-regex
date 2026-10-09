@@ -389,6 +389,9 @@ calls at a `[` and which returns at the class's `]` — still once over the patt
 calling itself, its frames on an explicit stack of their own, a `Vec<ClassFrame>` (Y-36).)*
 *(2026-10-01, cycle 0.1.4 — RX-206: "`AST_FLAG_U` until cycle 0.1.4 parses flags": since then the flags in force in the
 node's frame when it is built (Y-41).)*
+*(2026-10-09, cycle 0.2.1a — RX-230: `parse_pattern(fixed uint8[]:pat, Ast->:out)` since compiler `7e91730` — the
+pattern is a READ-ONLY view, the type `string_bytes` returns (the compiler's D-351), a plain `uint8[]` converts to it,
+and nothing in the parser writes through it.)*
 
 **Rule Y-35 (RX-193) — groups nest at most `NREGEX_NEST_DEPTH` deep, and the bound
 is decided at the `(`.** A `(` read while `NREGEX_NEST_DEPTH` groups — 250 — are open
