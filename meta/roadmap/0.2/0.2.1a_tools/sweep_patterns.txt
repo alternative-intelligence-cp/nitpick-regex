@@ -1,0 +1,11 @@
+# 0.2.1a's omission sweep, block 5 -- one extended regular expression per line, each read by `sweep.py` line by line AND
+# across line breaks, case-insensitive: every statement steps 1 ... 4 make false, and every place a reader would look for
+# what they changed. The old pin by name; the LLVM release; the plain view's name in prose; what `string_bytes` yields;
+# a literal's several TYPE-079 reports; the emission's row; the lexical mirror's pin and its re-read.
+5fbaf4a
+20\.1\.[0-9]
+`uint8\[\]`
+string_bytes. (yields|returns|is) |borrowed view
+once per (sealed )?field|four (times|lines|sites|.expect-error.)|reported four|NITPICK-TYPE-079. four
+notice 82|30 ?232 ?291|5630c2b4|31 ?527 ?001|b79f89c5
+mirrors (that|the) lexer|read at .5fbaf4a.|re-read

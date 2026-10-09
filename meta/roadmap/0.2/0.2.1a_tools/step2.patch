@@ -1,0 +1,391 @@
+diff --git a/harness/README.md b/harness/README.md
+index babc4af018ee5c1f63a58edc238d14fff9a6b8d0..bc37c7b53c9e2d4cead497d3947e31bc20f04469 100644
+--- a/harness/README.md
++++ b/harness/README.md
+@@ -11,8 +11,9 @@ NPKC=… NPKRT=… python3 harness/run.py
+ ```
+ 
+ `$NPKC` and `$NPKRT` are the pinned toolchain the board names (`../../BOARD.md`,
+-W-18). LLVM must be exactly 20.1.2, and the runner **asserts** that rather than
+-reporting it.
++W-18). LLVM must be exactly 20.1.8, and the runner **asserts** that rather than
++reporting it. *(20.1.2 until
++cycle 0.2.1a, @@DATE021A@@ — RX-231: the compiler's D-349, which compiler `7e91730` carries.)*
+ 
+ ## The modules
+ 
+@@ -20,7 +21,7 @@ reporting it.
+ |---|---|
+ | `run.py` | the driver: build steps, then the suites in manifest order, then the summary |
+ | `manifest.py` | `nitpick.toml`, in the compiler's own subset, with the compiler's schema |
+-| `toolchain.py` | `llc`, `opt`, `ld.lld` asked their versions and held to the pinned LLVM 20.1.2; and the manifest's `datalayout` held to what the pinned `opt` derives from its `triple` (`BUILD.md` B-1a, RX-176) |
++| `toolchain.py` | `llc`, `opt`, `ld.lld` asked their versions and held to the pinned LLVM 20.1.8 (20.1.2 until cycle 0.2.1a, RX-231); and the manifest's `datalayout` held to what the pinned `opt` derives from its `triple` (`BUILD.md` B-1a, RX-176) |
+ | `lexical.py` | **the harness's one reading of `.npk` source** (RX-157, RX-165): every `.npk` file opened by `lexical.read`, as BYTES — `\n` the only line end, as in the compiler's lexer — comments, strings, character literals and template text blanked, imports read the way the compiler's parser reads them, each path the literal's decoded value. The program suites' skip, B-2's reach, the expectation markers and every tree check stand on it; self-check case 18 tests it through a file |
+ | `expect.py` | the `// expect-…` grammar, marker for marker with `npkg/expect.npk`, **plus two markers of this runner's own** — `mem-cap-mib:` and `pending-until: <commit> exit <N>` (`BUILD.md` B-5b, RX-146 as amended by RX-154 — its label a subcycle of this library since cycle 0.2.1, RX-226), each declared there so the parity stage has a row rather than a surprise |
+ | `elf.py` | an ELF64 symbol table, read with `struct` — no fourth tool |
+@@ -30,7 +31,7 @@ reporting it.
+ | `treecheck.py` | the live tree checks — the library diffed against its own documents; every one but `check_specs_current` can fail the run, and the runner prints each with what it examined |
+ | `selfcheck.py` | **the harness fed wrong expectations and required to fail**; runs FIRST |
+ | `baseline/` | the empty program the two scans are differences against, `rx120.sh`, and the two REVIEWED LISTS — `RESIDUE.txt` (what `nregex` needs from the runtime, RX-131) and `PENDING.txt` (every unit a `pending-until:` marker takes out of the denominator, RX-154), each checked both ways |
+-| `baseline/rx120.sh` | **executable**: builds the floor and a syscaller at the pinned compiler and ASSERTS floor == 5, syscaller == 6, difference == `{npk_sys6}` (at `c3bdae2`, `c970483` and `5fbaf4a`; 2 and 3 at `3d15ac9`); with `950bb1d` present it also asserts 29/29/identical, compiling the two programs without the two arms that compiler does not have (RX-148). A harness **build step** and its own CI step. It replaced a hand-copied transcript that recorded a command which could not have produced the output beside it (RX-142's neighbourhood; cycle 0.0 audit, adjudication (a)) |
++| `baseline/rx120.sh` | **executable**: builds the floor and a syscaller at the pinned compiler and ASSERTS floor == 5, syscaller == 6, difference == `{npk_sys6}` (at `c3bdae2`, `c970483`, `5fbaf4a` and `7e91730`; 2 and 3 at `3d15ac9`); with `950bb1d` present it also asserts 29/29/identical, compiling the two programs without the two arms that compiler does not have (RX-148). A harness **build step** and its own CI step. It replaced a hand-copied transcript that recorded a command which could not have produced the output beside it (RX-142's neighbourhood; cycle 0.0 audit, adjudication (a)) |
+ | `selfcheck/` | fixtures that must **fail**; `selfcheck.py` drives them |
+ 
+ ## What a green run asserts
+diff --git a/harness/baseline/README.md b/harness/baseline/README.md
+index 2ef5b45c59ec41d5173e7ad40dc351cd27ab5cd9..0d95470b754cc9157e23604bee27bd4d69d834d7 100644
+--- a/harness/baseline/README.md
++++ b/harness/baseline/README.md
+@@ -68,7 +68,8 @@ exactly `{npk_sys6}`, which is the claim that matters. What moved, and why:
+ `rx120.sh` asserts 5 / 6 / `{npk_sys6}` at `c3bdae2`, at `c970483` (the
+ floor unchanged by the compiler's 1.6.0 chain, cycle 0.0.4e) and at `5fbaf4a` (the
+ same five symbols through landings 67 … 82, the anchor's move at 78 included --
+-cycle 0.1.0b, RX-176), and its `950bb1d` leg
++cycle 0.1.0b, RX-176) and at `7e91730` (the same five through landings 83 … 103, and
++under LLVM 20.1.8 -- cycle 0.2.1a, RX-231), and its `950bb1d` leg
+ still reproduces RX-120 as first measured — 29 / 29, identical, `npk_sys6` in
+ the floor — by compiling both programs with the two arms that compiler does not
+ have removed (RX-148).
+diff --git a/harness/baseline/rx120.sh b/harness/baseline/rx120.sh
+index d2c6490233c0ad38efd5c071ed24b862fce9c9ce..f9fbdf8128e0ad875cef60463271013cbb509e0f 100755
+--- a/harness/baseline/rx120.sh
++++ b/harness/baseline/rx120.sh
+@@ -49,7 +49,7 @@
+ # which is where the workbench keeps them.
+ set -u
+ 
+-PIN=5fbaf4a
++PIN=7e91730    # 5fbaf4a until cycle 0.2.1a, @@DATE021A@@ (RX-231): the same 5, 6 and {npk_sys6} at both
+ OLD_PIN=950bb1d
+ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ root="$(cd "$here/../.." && pwd)"
+diff --git a/harness/lexical.py b/harness/lexical.py
+index 413eac04461834f825bb51a55b182701d300b51c..1d3632da2e59a818bb5cda75beb76d5164fb7adc 100644
+--- a/harness/lexical.py
++++ b/harness/lexical.py
+@@ -37,6 +37,14 @@ lexical reference not at all, so nothing below moved:
+ `src/frontend/lexer.npk`, `lexer_skip_trivia` and `lexer_next`;
+ `src/frontend/escapes.npk`, `escape_decode` and `decode_string`; `p_parse_import` in
+ `src/frontend/parse_decl.npk`; and `LEXICAL_REFERENCE.md` §2, §6.3 and §6.4.
++*(@@DATE021A@@, cycle 0.2.1a -- RX-231: AND AGAIN AT `7e91730`. `lexer.npk` differs in a FLOAT
++literal's scan -- its numeric body, then one suffix or nothing (the compiler's DEF-166), a sign the
++literal's only where a digit follows it (DEF-164) -- and in a refused integer literal staying a
++literal token; `numeric.npk` adds that scan and a float's rounding, `num_scan` byte for byte as it
++was; `LEXICAL_REFERENCE.md` §6.2 gains the float's production; `p_parse_import`, `escapes.npk` and
++`num_width.npk` are unchanged. No span this module finds moved. And `e+r"` after a float, in the
++list below, is now read by the compiler as this module reads it -- a refused tail, a `+` and a raw
++string -- in a file both compilers refuse.)*
+ 
+   * THE TEXT IS BYTES. `read()` maps each byte to one character (latin-1), so every
+     offset here is the compiler's byte offset, `\\n` (byte 10) is the only line end,
+@@ -101,6 +109,7 @@ ITS OWN TEST IS SELF-CHECK CASE 18, which writes one text holding every form
+ above to a FILE, reads it back through `read()`, and requires exactly the
+ imports and the code the compiler would see at `c970483` and at `5fbaf4a`. Cases 19, 20 and 21
+ are BL-9's three routes through the whole runner.
++*(And at `7e91730`: the re-read above moved nothing it holds -- cycle 0.2.1a, RX-231.)*
+ """
+ import os
+ import re
+diff --git a/harness/selfcheck.py b/harness/selfcheck.py
+index 34a8c8be883a8e0066aac333cfb84e915bbcbec7..fc54ec2841e818c702e4122e4795e4734c0899f9 100644
+--- a/harness/selfcheck.py
++++ b/harness/selfcheck.py
+@@ -85,6 +85,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ # supplies. The toolchain block must be the tree's own: the runner asserts the
+ # LLVM version rather than reporting it, so a case that quietly changed it
+ # would be testing a different toolchain from the one under test.
++# *(@@DATE021A@@, cycle 0.2.1a -- RX-231: 20.1.8 with the manifest. Left at 20.1.2 under a 20.1.8
++# toolchain, twenty-one of the live cases went red for that alone, never for what each plants.)*
+ TOML = """[project]
+ name        = "selfcheck"
+ version     = "0.0.0"
+@@ -98,7 +100,7 @@ output    = "build/selfcheck"
+ opt-level = 0
+ 
+ [toolchain]
+-llvm          = "20.1.2"
++llvm          = "20.1.8"
+ triple        = "x86_64-unknown-linux-gnu"
+ datalayout    = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
+ llc-flags     = ["-O0", "-filetype=obj", "-relocation-model=static"]
+diff --git a/harness/treecheck.py b/harness/treecheck.py
+index af891c1b46a7df6f4568e82ffaf0fc9d51c40445..a10e90c3c5722583e89ac68d6047e040a04220c7 100644
+--- a/harness/treecheck.py
++++ b/harness/treecheck.py
+@@ -330,6 +330,10 @@ _CMP_LITERAL = re.compile(
+ # `tri` (digits 0, 1 and `T` for -1) and `n`, `non` (digits 0 … 4 and `a` … `d` for -1 … -4) --
+ # and a width suffix may follow it. A C prefix, `0x`, is a lexer error there (`NITPICK-LEX-003`),
+ # so it is no literal here.
++# *(@@DATE021A@@, cycle 0.2.1a -- RX-231: re-read at `7e91730`. An integer literal is scanned as it
++# was -- `num_scan` and `num_width_of` byte for byte -- and §6.2's new note is a FLOAT's production,
++# whose whole part is decimal digits, so `0FFhex.5` is the integer `0FFhex`, a dot and `5`, as this
++# reader reads it.)*
+ _NUM = r"[0-9][0-9A-Za-z_]*"
+ _WIDTH = re.compile(r"(?:[iu](?:8|16|32|64|128|256|512|1024|2048|4096)|tbb(?:8|16|32|64|128|256)"
+                     r"|f(?:32|64|128)|tfp(?:32|64|128|256)|dim256|char(?:8|16|32))$")
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 1ec8b9b5685dc06a3cb5007c0e76687b9f32009d..2b51c39475524332e6db2c9f1f9d199ba690de51 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -4208,6 +4208,8 @@ true reason; **leaving it to the next audit** — the first layer entry written
+ cycle 0.0's close placed the decision before it.
+ 
+ ### RX-172 — `PatternErrorKind` is `SYNTAX.md` §9 complete and in order; `PatternError` is sealed, so `pattern_error(…)` is the only way to build one, and it stops on a negative offset
++> **SUPERSEDED IN PART by RX-231 (@@DATE021A@@)** — its *"once per field, at the literal"*: one `NITPICK-TYPE-079` at the literal since
++> compiler `7e91730`, the compiler's DEF-165. The seal and the one constructor stand.
+ > **SUPERSEDED IN PART by RX-181 (2026-09-27)** — its count: §9 lists thirty-six kinds since cycle 0.1.1, which
+ > retired `EmptyAlternate`. The seal, the one constructor and the order stand.
+ 
+@@ -4239,6 +4241,8 @@ nothing notices is untested; **S-9's fields reordered to save the eight bytes of
+ specification, the value is never in an array, and a parse stops at its first error.
+ 
+ ### RX-173 — the parser reads a pattern through a sealed cursor: `cursor_init` returns it, only its own functions move it, and it looks one byte ahead
++> **SUPERSEDED IN PART by RX-231 (@@DATE021A@@)** — its *"a `Cursor{ … }` literal, once per field"*: one report at the literal
++> since compiler `7e91730` (DEF-165).
+ > **SUPERSEDED IN PART by RX-230 (@@DATE021A@@)** — its `uint8[]`s: the `Cursor`'s view is `sealed fixed uint8[]:src`, and
+ > `cursor_init` takes `fixed uint8[]:pat`, since compiler `7e91730`. The seal, the one byte and the constructor stand.
+ 
+@@ -4415,6 +4419,8 @@ reason; **`impl:AstNode:Copy`** — the derive states it where the fields are, a
+ refused at the declaration; **renaming the unit** — its subject is a plain-old-data struct, which it still is.
+ 
+ ### RX-178 — a rejection file's sites are counted per code: one `expect-error` line per reported site, as the compiler's runners hold since its landing 82
++> **SUPERSEDED IN PART by RX-231 (@@DATE021A@@)** — its *"It names it four times now, at 31:22"*: once, at 29:22, since compiler
++> `7e91730` reports one site (DEF-165). The count rule stands.
+ 
+ **2026-09-27, cycle 0.1.0b (the plan's PD-22), at compiler `5fbaf4a`** — the compiler's D-332 (its S-113, the
+ author's decision), announced to the libraries as advance notice F24.
+@@ -6069,3 +6075,41 @@ here re-points, and `5fbaf4a` refuses it `NITPICK-PARSE-001`; **`string` paramet
+ and a writable buffer's view would need a copy into a `string`; **A-16 left for cycle 0.10** — its own sentence, *"a
+ `string` caller writes `string_bytes(s)`"*, is refused `TYPE-007` by a plain `uint8[]` parameter at this compiler, and
+ the next planner would read the signatures as written.
++
++### RX-231 — the adoption of compiler `7e91730`: LLVM 20.1.8 in the manifest and in every tree the self-check builds, one `TYPE-079` for a literal, probe 06b's subview returned read-only, and B-4e's re-read
++
++**@@DATE021A@@, cycle 0.2.1a (the plan's PD-104), at compiler `7e91730`, from `5fbaf4a`** — landings 83 … 103, the
++libraries' one re-pin by the author's word of 2026-10-08, after RX-230 re-spelled the tree. Measured on the unchanged
++tree first: at `5fbaf4a` it is `294/294` with the two pending; at `7e91730` under the machine's LLVM 20.1.8 the runner
++refuses it at the toolchain check before anything is built; with its two LLVM rows moved and nothing else it is
++`150/304` — 146 verdicts for the 78 files landing 103 refuses, the two `PENDING.txt` lines their units no longer meet,
++and six `RESIDUE.txt` entries no compiled program references any more.
++
++- **`[toolchain] llvm` is `20.1.8`**, and so is the manifest every self-check case tree carries — the compiler's D-349,
++  its landing 99: the release the distributions serve, the compiler's own pin, and this machine's default `llc` since
++  2026-10-08. Measured: with the tree's manifest moved and `selfcheck.py`'s left, twenty-one of the thirty-one live
++  cases go red for the pin alone, each failing to say what it plants. `opt` 20.1.8 derives the pinned layout (B-1a).
++- **`tests/rejection/pattern_error_literal.npk` names `NITPICK-TYPE-079` once**, at 29:22 — the compiler's DEF-165
++  under its D-337, landing 100: a literal writing several `sealed` fields is one report at the literal. D-332's count
++  (RX-178, `BUILD.md` B-7b) agrees for all 33 files carrying `expect-error` at `7e91730`; at `5fbaf4a` this one is
++  reported four times where it names one.
++- **Probe 06b's two functions return the read-only view** — its view is a string's bytes, so the subrange is
++  `fixed uint8[]`, a return type `7e91730` reads as the type and `5fbaf4a` read as a qualifier that meant nothing (the
++  compiler's DEF-247). Its answer stands: a subrange of a PARAMETER returned compiles and runs, exit 0 at both legs.
++- **`harness/baseline/rx120.sh` asserts at `7e91730`**: the floor's five symbols, a syscaller's six, the difference
++  `{npk_sys6}`, and its `950bb1d` control 29 / 29, identical, under LLVM 20.1.8.
++- **B-4e's re-read**: `lexer.npk`, `numeric.npk`, `parse_decl.npk` and `LEXICAL_REFERENCE.md` moved — a float literal's
++  scan, a refused integer literal kept a literal token, §6.2's float production — and `p_parse_import` and `num_scan`
++  are byte for byte as they were; `escapes.npk` and `num_width.npk` did not move. `harness/lexical.py` and the literal
++  reader do not move, and their texts and `BUILD.md` B-4d and B-4e say so, dated.
++- RX-172, RX-173 and RX-178, whose texts state a literal's four reports, gain their markers.
++
++*Alternatives declined:* **20.1.2 kept through the workbench's private copy** — no package source serves it any more
++(D-349), the compiler's own pin is 20.1.8, and the copy is one machine's, deleted after the adoptions: CI would pin a
++release nobody can install; **the tree's manifest moved and the self-check's left** — twenty-one cases red for a
++reason none of them is about, the red a self-check exists to refuse; **probe 06b over a local array's view** — a plain
++view to keep the old spelling, which takes the probe off the string bytes every view in this library is; **probe 06b's
++return re-spelled with RX-230** — its `fixed` would have meant nothing to `5fbaf4a`, the silent shape a re-pin does
++not write where the old compiler reads it; **the self-check's row taken from the tree's manifest**, as `nitpick-time`'s
++self-check takes its own — the better shape, and not an adoption's: it changes how the runner writes its fixtures, all
++three of their pins with it, and wants its own decision and a case that holds the rows to the tree's.
+diff --git a/meta/specs/BUILD.md b/meta/specs/BUILD.md
+index b24ff4340a58747d9cf89955d40fa80b58b1ff6b..9b67599fbed74111f8743baa9841dc8f96308e65 100644
+--- a/meta/specs/BUILD.md
++++ b/meta/specs/BUILD.md
+@@ -337,6 +337,8 @@ wrong next" — so `// see<CR>use …` in a sibling and `// note<CR>/*` above th
+ unit's `main` defeated both at once: `209/209`, GREEN, exit 0. Case 19 is that
+ plant; cases 20 and 21 are the CR and the escaped path hiding a syscall from
+ B-2. Measured: either defence removed alone, the plant stays red; both, GREEN.)*
++*(@@DATE021A@@, cycle 0.2.1a — RX-231: "mirrors that lexer at `5fbaf4a`" — and at `7e91730`, re-read by B-4e at
++cycle 0.2.1a: no span it finds moved.)*
+ 
+ **Rule B-4e (RX-176) — every adoption re-reads what the reader mirrors.** Before
+ an adoption's first run at a new pin, `git diff --stat <old> <new>` over the
+@@ -360,6 +362,11 @@ imports at `5fbaf4a` and where a literal's value is decided — `num_scan` and `
+ reads; and self-check case 32 asks the pinned compiler about every spelling it holds, so a re-pin that moves one is a
+ red run and not only a re-read. `numeric.npk` and `num_width.npk` are unchanged from `c970483` to `5fbaf4a`; this list
+ named neither — the cycle audit's C5.)*
++*(@@DATE021A@@, cycle 0.2.1a — RX-231: the second re-read, `5fbaf4a` to `7e91730`. `lexer.npk`, `numeric.npk`,
++`parse_decl.npk` and `LEXICAL_REFERENCE.md` moved: a float literal's scan (the compiler's DEF-166, DEF-164), a refused
++integer literal kept a literal token, and §6.2's float production — while `p_parse_import` and `num_scan` are byte for
++byte as they were, and `escapes.npk` and `num_width.npk` did not move. Neither reader moves; `harness/lexical.py`'s
++docstring and `harness/treecheck.py`'s literal reader say so beside their pins.)*
+ 
+ **Rule B-1a (RX-176) — the manifest pins the target, and the runner holds every
+ emission it links to it.** `[toolchain]` carries `triple` and `datalayout`
+diff --git a/nitpick.toml b/nitpick.toml
+index 9a4b894d9a0ccb86e405f8297b9f99645570e504..ee9777334391ffce72e1c97f584c5ff8de3203d1 100644
+--- a/nitpick.toml
++++ b/nitpick.toml
+@@ -36,8 +36,10 @@ opt-level = 0
+ # compiler pins, because a patch release may change instruction selection.
+ # These lists are READ by every `llc`/`opt`/`ld.lld` invocation the harness
+ # makes; a stated flag nothing consumes is the next stale document.
++# *(20.1.8 since cycle 0.2.1a, @@DATE021A@@ -- RX-231: the compiler's D-349 moved its pin from 20.1.2
++# at its landing 99, and compiler `7e91730` carries it.)*
+ [toolchain]
+-llvm          = "20.1.2"
++llvm          = "20.1.8"
+ # THE TARGET EVERY MODULE STATES (the compiler's E-8, D-322 (5), its landing 71;
+ # carried since cycle 0.1.0b, RX-176). Every emission opens with a `target
+ # datalayout` and a `target triple` line, and these two rows are what the runner
+diff --git a/tests/probe/README.md b/tests/probe/README.md
+index 34948e9bdd58db66f93962660a13141317b8a264..22bd187cb8a481d2f3c47e51a12def5cc0661839 100644
+--- a/tests/probe/README.md
++++ b/tests/probe/README.md
+@@ -161,7 +161,7 @@ way from the cause — the workbench registry's O-N11, the compiler's DEF-5. *A
+ probe that was only compiled is a probe that has not been run.*
+ 
+ `$NPKC` and `$NPKRT` are the pinned toolchain the board names (`../../../BOARD.md`,
+-W-18). LLVM must be exactly 20.1.2.
++W-18). LLVM must be exactly 20.1.8 *(20.1.2 until cycle 0.2.1a, @@DATE021A@@ — RX-231: the compiler's D-349)*.
+ 
+ ## The conventions
+ 
+diff --git a/tests/probe/probe06b_subview_returned.npk b/tests/probe/probe06b_subview_returned.npk
+index 5daea28f1d720108b28df3b7576b1def878058e0..f9ccc263e4bf35f6b44b4c31a18968da2cbe765c 100644
+--- a/tests/probe/probe06b_subview_returned.npk
++++ b/tests/probe/probe06b_subview_returned.npk
+@@ -13,6 +13,11 @@
+ // present-tense sentence below about O-N9, DEF-3 being "scheduled" or
+ // "unlanded", and a code "not in the pinned toolchain" was true at `950bb1d` and
+ // `3d15ac9` and is history; the measured behaviour it records has not moved.)*
++// *(@@DATE021A@@, cycle 0.2.1a -- RX-231: the view below is a string's bytes, READ-ONLY since
++// compiler `7e91730` (its D-351), so the subrange returned is the read-only view too, and the two
++// functions say so in their return type -- which `7e91730` reads as the type `fixed uint8[]` and
++// `5fbaf4a` read as a return qualifier that meant nothing (the compiler's DEF-247). The answer
++// is the same: a subrange of a PARAMETER, returned, compiles and runs, exit 0 at both legs.)*
+ //
+ // `0.0.0.md` §4 wrote this half as "expected **refused**", and §5 instructed the
+ // executor that an acceptance means "stop and re-plan `API.md` §2". **That
+@@ -84,13 +89,13 @@ mod:probe06b_subview_returned;
+ // THE SHAPE UNDER TEST. Under D-004 rule 2 as written, this should be refused;
+ // it is accepted. The storage is `src`'s, which is the caller's, so the returned
+ // view is not dangling -- which is precisely why it is worth distinguishing.
+-func:subview = uint8[](uint8[]:src, int64:lo, int64:hi) never fails {
++func:subview = fixed uint8[](fixed uint8[]:src, int64:lo, int64:hi) never fails {
+     pass src[lo...hi];              // `...` is EXCLUSIVE (LEXICAL §5.1)
+ };
+ 
+ // The same thing one level deeper, to check that the acceptance is not an
+ // artefact of a single frame: a view handed down twice and returned twice.
+-func:subview2 = uint8[](uint8[]:src, int64:lo, int64:hi) never fails {
++func:subview2 = fixed uint8[](fixed uint8[]:src, int64:lo, int64:hi) never fails {
+     pass (raw subview(src, lo, hi));
+ };
+ 
+@@ -98,33 +103,33 @@ func:main = int32(cstring[]:_~argv) {
+     // "abcaabXbb", nine bytes, owned by THIS frame -- so every view below is
+     // viewing storage that outlives every call that returns one.
+     string:s = string_concat("abcaa", "bXbb");
+-    uint8[]:v = string_bytes(s);
++    fixed uint8[]:v = string_bytes(s);
+     if (v.len != 9i64)                                  { exit 10i32; }
+ 
+     // ---- the return that D-004 rule 2 says cannot happen ------------------
+ 
+-    uint8[]:sub = raw subview(v, 3i64, 5i64);           // "aa"
++    fixed uint8[]:sub = raw subview(v, 3i64, 5i64);     // "aa"
+     if (sub.len != 2i64)                                { exit 11i32; }
+     if (sub[0i64] != 97u8)                              { exit 12i32; }
+     if (sub[1i64] != 97u8)                              { exit 13i32; }
+ 
+     // It is a VIEW and not a copy: the length is the subrange's, and the bytes
+     // are the originals at their new offsets.
+-    uint8[]:tail = raw subview(v, 6i64, 9i64);          // "Xbb"
++    fixed uint8[]:tail = raw subview(v, 6i64, 9i64);    // "Xbb"
+     if (tail.len != 3i64)                               { exit 14i32; }
+     if (tail[0i64] != 88u8)                             { exit 15i32; }
+     if (tail[2i64] != 98u8)                             { exit 16i32; }
+ 
+     // ---- two frames deep --------------------------------------------------
+ 
+-    uint8[]:deep = raw subview2(v, 0i64, 3i64);         // "abc"
++    fixed uint8[]:deep = raw subview2(v, 0i64, 3i64);   // "abc"
+     if (deep.len != 3i64)                               { exit 20i32; }
+     if (deep[0i64] != 97u8)                             { exit 21i32; }
+     if (deep[2i64] != 99u8)                             { exit 22i32; }
+ 
+     // ---- a view OF a view -------------------------------------------------
+ 
+-    uint8[]:inner = raw subview(tail, 1i64, 3i64);      // "bb"
++    fixed uint8[]:inner = raw subview(tail, 1i64, 3i64);   // "bb"
+     if (inner.len != 2i64)                              { exit 23i32; }
+     if (inner[0i64] != 98u8)                            { exit 24i32; }
+ 
+diff --git a/tests/rejection/README.md b/tests/rejection/README.md
+index 73226d4e68bb92ff1320a81516dc3f6ab0ba754c..824930f9d29211a644e501bafaa842de81114163 100644
+--- a/tests/rejection/README.md
++++ b/tests/rejection/README.md
+@@ -163,6 +163,7 @@ with the one qualifier it tests deleted (`meta/roadmap/done/0.1/0.1.0.md`'s cont
+   `src/syntax/pattern_error.npk`: `NITPICK-TYPE-079`, once per sealed field. So
+   `pattern_error(…)`, which takes an offset and refuses a negative one, is the
+   only way to build an error (RX-172).
++  *(@@DATE021A@@, cycle 0.2.1a — RX-231: once for the literal since compiler `7e91730`, the compiler's DEF-165.)*
+ - **`cursor_pos_write.npk`** — a write of a `Cursor`'s `pos`: `NITPICK-TYPE-079`.
+   So nothing outside `cursor.npk` moves a cursor, and the parser's one byte of
+   lookahead is the compiler's rule (RX-173).
+@@ -206,6 +207,8 @@ every run and requires the harness to catch it.
+   site it is reported at** — one `expect-error` line, each with its
+   `expect-error-at`, per site (B-7b, RX-178, the compiler's D-332):
+   `pattern_error_literal.npk` names `NITPICK-TYPE-079` four times.
++  *(Once since cycle 0.2.1a, RX-231: at compiler `7e91730` a literal writing several `sealed` fields is one
++  report, the compiler's DEF-165 — the count is the compiler's sites, whatever they are.)*
+ - **`// expect-error-at: L:C` is worth pinning** — it separates "refused with
+   this code" from "refused with this code *at the failsafe*". It is also
+   brittle: adding a line above the span moves it, and the first two fixtures
+diff --git a/tests/rejection/cursor_pos_write.npk b/tests/rejection/cursor_pos_write.npk
+index 66a2a29c73c76e5048257b92f29ac87af35975b4..5b4b17e7332162c47d2d3d0aa61e8d90198270c0 100644
+--- a/tests/rejection/cursor_pos_write.npk
++++ b/tests/rejection/cursor_pos_write.npk
+@@ -1,5 +1,5 @@
+ // expect-error: NITPICK-TYPE-079
+-// expect-error-at: 22:5
++// expect-error-at: 23:5
+ //
+ // NOTHING OUTSIDE `src/syntax/cursor.npk` MOVES A CURSOR. Cycle 0.1.0, RX-173.
+ //
+@@ -9,6 +9,7 @@
+ // compiler's: a parser can move a cursor only through `cursor_bump` and
+ // `cursor_eat`, and nothing rewinds one. The literal form, `Cursor{ … }`
+ // outside the file, is refused the same way, once per field.
++// *(Once for the literal since compiler `7e91730`, its DEF-165 -- cycle 0.2.1a, RX-231.)*
+ //
+ // A TEST OF THE SEAL, NOT OF THIS FILE: with `cursor.npk`'s two `sealed`s
+ // deleted it compiles (`meta/roadmap/done/0.1/0.1.0.md`, step 3's controls).
+diff --git a/tests/rejection/pattern_error_literal.npk b/tests/rejection/pattern_error_literal.npk
+index 61b2349537c5a7d03c8157224337c40f88227d44..5483b666ff9e1f4f59baa83611eba9396aee84fd 100644
+--- a/tests/rejection/pattern_error_literal.npk
++++ b/tests/rejection/pattern_error_literal.npk
+@@ -1,11 +1,5 @@
+ // expect-error: NITPICK-TYPE-079
+-// expect-error-at: 31:22
+-// expect-error: NITPICK-TYPE-079
+-// expect-error-at: 31:22
+-// expect-error: NITPICK-TYPE-079
+-// expect-error-at: 31:22
+-// expect-error: NITPICK-TYPE-079
+-// expect-error-at: 31:22
++// expect-error-at: 29:22
+ //
+ // A `PatternError` IS BUILT BY `pattern_error` AND BY NOTHING ELSE. Cycle 0.1.0,
+ // RX-172; `SYNTAX.md` Y-10, `SAFETY.md` S-9.
+@@ -20,6 +14,10 @@
+ // which takes an offset and refuses a negative one. The rule "every error
+ // carries a byte offset" is the compiler's to hold, not a tree check's or a
+ // reviewed grep's.
++// *(@@DATE021A@@, cycle 0.2.1a -- RX-231: the compiler's DEF-165 landed, its landing 100 under
++// its D-337: a literal writing several `sealed` fields outside their module is ONE
++// NITPICK-TYPE-079, at the literal, naming every field it writes -- so one `expect-error` line.
++// "Once for each field it writes" was the reading through `5fbaf4a`, which still reports four.)*
+ //
+ // A TEST OF THE SEAL, NOT OF THIS FILE: with the four `sealed`s deleted it
+ // compiles (`meta/roadmap/done/0.1/0.1.0.md`, step 2's controls).

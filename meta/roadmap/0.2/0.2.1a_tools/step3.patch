@@ -1,0 +1,62 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index a2b5d85539f01a85355980676fbd7408babffaa4..d05d4096ea2fc5f8d4a907610ec44485d0a033f6 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -20,6 +20,7 @@
+ # suite's count on every run; take the numbers from there. Two are PENDING since
+ # cycle 0.2.1 (none was from cycle 0.0.4b): the HIR's two hooks' tests, each on a
+ # subcycle of this library, 0.3.4, and on its exit 1 (RX-226, RX-229).
++# *(LLVM is exactly 20.1.8 since cycle 0.2.1a, @@DATE021A@@ -- RX-231, the compiler's D-349.)*
+ # THE ONE THAT WAS PENDING, AND ALL THAT HAPPENED TO IT. Through cycle 0.0.5 a
+ # unit asserting against a compiler defect (DEF-25, fixed at `fe42dba`) was
+ # committed red under a `pending-until:` marker and counted as neither a pass
+@@ -90,7 +91,7 @@ permissions:
+   contents: read
+ 
+ env:
+-  # ../BOARD.md's pinned toolchain, by FULL sha. `5fbaf4a` is the short form
++  # ../BOARD.md's pinned toolchain, by FULL sha. `7e91730` is the short form
+   # used in the roadmap and the transcripts.
+   #
+   # BUMPED 2026-09-06 FROM `950bb1d`, WHICH WAS 57 COMMITS AND TWO RE-PINS
+@@ -121,15 +122,25 @@ env:
+   # with them, so CI runs once, on the adopted tree: at `5fbaf4a` the old tree is
+   # 248/250 (probe 18 refused), and the adopted one does not build at `c970483`
+   # (`#[derive(Copy)]`, `NITPICK-DERIVE-001`).
+-  NITPICK_COMMIT: 5fbaf4a40a2f6b213754cd71b6c69700f8aa2c87
++  #
++  # AND BUMPED @@DATE021A@@ FROM `5fbaf4a` TO `7e91730`, landing 103 -- landings 83 …
++  # 103 and the compiler's D-349, the libraries' one re-pin, by the author's word -- IN A
++  # COMMIT OF ITS OWN, after the adoption's commits (`meta/roadmap/0.2/0.2.1a.md`) and
++  # pushed with them, so CI runs once, on the adopted tree: at `7e91730` the old tree is
++  # refused at the toolchain check, and with its LLVM rows moved it is 150/304, landing
++  # 103's TYPE-007 at every reader of a string's bytes; LLVM moves with it.
++  NITPICK_COMMIT: 7e91730d19cffd35fcff25c36893cfaa2c01509e
+   # THE EMISSION AT THAT COMMIT, as the compiler's own build recorded it -- notice
+-  # 82's `npkc.ll` row, in the workbench's `.internal/toolchain/5fbaf4a/PIN.md`. The
+-  # emission step below ASSERTS it since cycle 0.1.0b (RX-180): moved with every pin.
+-  NPKC_LL_SHA256: 5630c2b4464f5628f23467b7eb775a7571f0c6b8b7f1bdc6c3974b4af5bf97be
+-  NPKC_LL_BYTES: 30232291
++  # 103's `npkc.ll` row, in the workbench's `.internal/toolchain/7e91730/PIN.md` (notice
++  # 82's, `5fbaf4a`'s, until cycle 0.2.1a). The emission step below ASSERTS it since
++  # cycle 0.1.0b (RX-180): moved with every pin.
++  NPKC_LL_SHA256: b79f89c554ef83eeadca05d4e22929e70746483aec74e7b2f046f7a3933b66e7
++  NPKC_LL_BYTES: 31527001
+   # nitpick.toml [toolchain] llvm. Exact patch release: a patch may change
+   # instruction selection, which is why the manifest names three digits.
+-  LLVM_VERSION: 20.1.2
++  # 20.1.2 until cycle 0.2.1a (RX-231, the compiler's D-349); upstream publishes
++  # `LLVM-20.1.8-Linux-X64.tar.xz` at its `llvmorg-20.1.8` release, as it did 20.1.2's.
++  LLVM_VERSION: 20.1.8
+ 
+ jobs:
+   build:
+@@ -339,7 +350,7 @@ jobs:
+       # compiler lives in the workbench's gitignored toolchain directory and is
+       # not on a runner. The working-pin assertions are the ones that guard a
+       # re-pin, and they all run.
+-      - name: RX-120's floor, syscaller and difference, asserted at `5fbaf4a`
++      - name: RX-120's floor, syscaller and difference, asserted at `7e91730`
+         run: harness/baseline/rx120.sh
+ 
+       # AND THE SUMMARY IS ASSERTED, NOT JUST THE STATUS (RX-180, the ecosystem

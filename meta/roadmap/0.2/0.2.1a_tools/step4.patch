@@ -1,0 +1,113 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 8a580f8c041a050b366fcc169f2b27337c12c479..a1bce5f4b978dc45a434ed8d175a27395e8cd6c9 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -12,7 +12,9 @@ built and read through accessors that check every index, and as one line of text
+ `src/unicode/` holds `ClassRange` (RX-222 … RX-225, `meta/roadmap/0.2/0.2.0.md`); and its 0.2.1, the desugaring, is
+ done — `hir_build` builds a HIR from a pattern's AST, `HIR.md` H-5's table and nothing else, every flag erased into what
+ it means, and stops where cycle 0.3.4 must fill one of its two hooks or widen its `leaf`, the two tests of what it will
+-build pending until then (RX-226 … RX-229, `meta/roadmap/0.2/0.2.1.md`); 0.2.2, the repetition product, is next.
++build pending until then (RX-226 … RX-229, `meta/roadmap/0.2/0.2.1.md`); and its 0.2.1a, the adoption of compiler
++`7e91730`, is done — a string's bytes are a read-only view there, and every slice the library takes or holds says so,
++`fixed uint8[]`; LLVM is 20.1.8 (RX-230, RX-231, `meta/roadmap/0.2/0.2.1a.md`); 0.2.2, the repetition product, is next.
+ Cycle 0.1's 0.1.0, 0.1.0b, 0.1.1, 0.1.1b, 0.1.2, 0.1.3, 0.1.4, 0.1.5, 0.1.6a, 0.1.6b and 0.1.6 are done** — the pieces the parser is written
+ in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/done/0.1/0.1.0.md`); the adoption of
+ compiler `5fbaf4a` (RX-176 … RX-180, `0.1.0b.md`); and the core grammar —
+@@ -101,8 +103,8 @@ accessors, and `dump.npk`, the HIR as one line of text and back — with nine un
+ and `src/unicode/` holds `ClassRange`, written by hand, which a class's ranges are — **and since 0.2.1 the desugaring**,
+ `build.npk` (`HIR.md` H-16), with six unit programs more, two of them pending until cycle 0.3.4. **No matching
+ happens yet**: `src/compile/`, `src/engine/` and `src/api/` are still one
+-placeholder module each. A full green run at compiler `5fbaf4a` is
+-**294 units** (after cycle 0.2.1, two pending units outside them; 283 after cycle 0.2.0; 260 after cycle 0.1.6b; 258 after cycle 0.1.6a, as after cycle 0.1.5; 254 after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus ten tree checks (nine until cycle 0.1.6b's `check_error_kinds_tested`, eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
++placeholder module each. A full green run at compiler `7e91730` is
++**294 units** (after cycle 0.2.1a, the adoption of that pin, two pending units outside them, as after cycle 0.2.1 at `5fbaf4a`; 283 after cycle 0.2.0; 260 after cycle 0.1.6b; 258 after cycle 0.1.6a, as after cycle 0.1.5; 254 after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus ten tree checks (nine until cycle 0.1.6b's `check_error_kinds_tested`, eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
+ summary rather than from here. **Nothing is PENDING any more**:
+ `tests/unit/bytes_copy_string_empty.npk` was committed red under
+ `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
+@@ -420,6 +422,17 @@ evidence.
+   reported SITE, not once per code (D-332, B-7b, RX-178); and CI asserts the emission's
+   digest (RX-180). Landing 78's move-only `cstring` refuses nothing here: every
+   `cstring` in the tree is `main`'s `argv`.
++- **At compiler `7e91730` (cycle 0.2.1a) a string's bytes are READ-ONLY, and every slice
++  here says so.** `string_bytes` returns `fixed uint8[]`, the read-only view (the compiler's
++  D-348 (ii), D-350 and D-351, its landing 103): a plain `uint8[]` converts to it and nothing
++  converts it back (`NITPICK-TYPE-007`), and a write through one is `NITPICK-TYPE-086`. So
++  the pattern, the dump's text, the cursor's view, a group's name and `bytes_extend`'s
++  source are `fixed uint8[]` — none is written through — and a caller holding a writable
++  buffer passes its view as before (RX-230). A RE-POINTABLE binding of the view is
++  `(fixed uint8[]):v`, which nothing here needs and `5fbaf4a` cannot parse; `fixed` before a
++  return type is that type now, and meant nothing at `5fbaf4a` (DEF-247). LLVM is 20.1.8
++  (D-349), and a literal writing several `sealed` fields is one `NITPICK-TYPE-079`
++  (DEF-165) — RX-231.
+ - **A recursion deeper than its stack is a `StackExhausted` trap, not a segfault — and
+   the explicit stack stands** (cycle 0.1.2, RX-191, measured at `5fbaf4a`). Since
+   `c3bdae2` every emitted function checks its stack before its frame exists (the
+@@ -505,8 +518,8 @@ The compiler binary is the **pinned toolchain** the board names
+ (`../BOARD.md`, W-18): `$NPKC` and `$NPKRT` are supplied to every session by the
+ orchestrator, or set by hand from `../.internal/toolchain/<commit>/`. Never build the
+ compiler from here and never read its `build/` directly — the guard refuses
+-the first, and the second is rebuilt under you. LLVM 20.1.2 exactly, pinned;
+-`llvm-config --version` to check.
++the first, and the second is rebuilt under you. LLVM 20.1.8 exactly, pinned (20.1.2 until cycle
++0.2.1a, RX-231 — the compiler's D-349); `llvm-config --version` to check.
+ 
+ ## Where things go
+ 
+diff --git a/README.md b/README.md
+index 0ced11eefea2c9d165475a09196b129e6c00d72f..1d7b4d3823a115bb20ccaa98a19fb927c16a141f 100644
+--- a/README.md
++++ b/README.md
+@@ -35,7 +35,9 @@ makes the guarantee below possible.
+ > wrote a HIR as one line of text that reads back to the same bytes. Cycle 0.2.1 builds the
+ > HIR from a parsed pattern — quantifiers, groups, anchors, `.` and classes written as ranges,
+ > every flag erased into what it means — and stops where cycle 0.3 must resolve or fold: a Perl
+-> or POSIX class, a property, a class's `^` or operators, and `i`. Nothing matches a pattern yet.
++> or POSIX class, a property, a class's `^` or operators, and `i`. Cycle 0.2.1a moved the pinned
++> compiler to `7e91730`, where a string's bytes are a read-only view: every slice the library
++> takes says so, and LLVM is 20.1.8. Nothing matches a pattern yet.
+ > The specification set is in [`meta/specs/`](meta/specs/) and the plan in
+ > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
+ > discipline the compiler used — specs first, then a cycle map, then
+@@ -143,7 +145,7 @@ is a folder, a subcycle is a file inside it, and a finished cycle moves to
+ 
+ ## Requirements
+ 
+-The Nitpick compiler and LLVM 20.1.2 — the same toolchain the compiler pins.
++The Nitpick compiler and LLVM 20.1.8 — the same toolchain the compiler pins.
+ The library itself makes no syscall and assumes no operating system; only the
+ test harness is Linux-specific.
+ 
+diff --git a/meta/roadmap/ROADMAP.md b/meta/roadmap/ROADMAP.md
+index 3dbec13fbf3851031da7037319332ab505402846..cc3215e9316713fe6ff06d70dad3926c9f26c5dd 100644
+--- a/meta/roadmap/ROADMAP.md
++++ b/meta/roadmap/ROADMAP.md
+@@ -54,7 +54,7 @@ cycle 0.0.
+ |---|---|---|
+ | **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **DONE 2026-09-26, archived to [`done/0.0/`](done/0.0/README.md).** The sixth W-22 audit ACCEPTED the close at compiler `c970483`, after five refusals — three on 2026-09-06, two on 2026-09-25 — and two inserted subcycles, 0.0.4d (`Vec` move-only) and 0.0.4e (the re-pin that refused the loan). The close is [`done/0.0/0.0.5.md`](done/0.0/0.0.5.md) §13 | — |
+ | **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **DONE 2026-10-08, archived to [`done/0.1/`](done/0.1/README.md).** Its audit ACCEPTED it once C1 was fixed — `regex_escape`'s text read as a POSIX class straight after a nested class's `[`, the one wrong answer, fixed first — and the close is [`done/0.1/0.1.6.md`](done/0.1/0.1.6.md), its §2 the audit's twenty-two findings, one row each | 0.0 |
+-| **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction — **OPEN: [`0.2.0`](0.2/0.2.0.md), the arena, and [`0.2.1`](0.2/0.2.1.md), the desugaring, done; 0.2.2, the repetition product, next** | 0.1 |
++| **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction — **OPEN: [`0.2.0`](0.2/0.2.0.md), the arena, [`0.2.1`](0.2/0.2.1.md), the desugaring, and [`0.2.1a`](0.2/0.2.1a.md), the adoption of compiler `7e91730`, done; 0.2.2, the repetition product, next** | 0.1 |
+ | **0.3** | **Unicode** — generated tables, properties, scripts, simple case folding | 0.0 |
+ | **0.4** | **UTF-8 automata** — codepoint ranges to byte ranges, alphabet compression | 0.3 |
+ | **0.5** | **The oracle** — the naive reference matcher, and the conformance corpus | 0.2, 0.3 |
+@@ -206,6 +206,8 @@ judged and swept; decisions through RX-225.)*
+ *(After cycle 0.2.1, the same compiler: **294** units — `src/hir/build.npk` swept; four unit programs of the HIR's,
+ each run as a program and swept as a root, and two pending until cycle 0.3.4, swept and printed outside the count; a
+ self-check of **35** cases, 31 live; decisions through RX-229.)*
++*(After cycle 0.2.1a, at compiler `7e91730`: **294** units, no file added — every slice the tree holds the
++read-only view, `fixed uint8[]`, and LLVM 20.1.8; decisions through RX-231.)*
+ 
+ **Two probes refuted their own hypothesis**, which is the cycle's best return:
+ `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler
+diff --git a/meta/specs/BUILD.md b/meta/specs/BUILD.md
+index 9b67599fbed74111f8743baa9841dc8f96308e65..646e021d1ebdf7d6afb634d8f81bb353a16e6cc2 100644
+--- a/meta/specs/BUILD.md
++++ b/meta/specs/BUILD.md
+@@ -741,6 +741,7 @@ carries the pinned commit's `npkc.ll` row — notice 82's, `5630c2b4…` /
+ 30 232 291 B at `5fbaf4a`, moved with every pin — and a runner whose emission
+ differs fails the run, as the compiler defect it would be; the binary rows stay
+ prints. What follows is RX-141's reasoning, kept as the record of why it waited.)*
++*(@@DATE021A@@, cycle 0.2.1a: notice 103's row since then, `b79f89c5…` / 31 527 001 B at `7e91730`.)*
+ 
+ **RX-141.** `.github/workflows/ci.yml` digests the compiler's emission
+ (`.internal/quickemit/npkc.ll`) on every run and **prints** it, for the

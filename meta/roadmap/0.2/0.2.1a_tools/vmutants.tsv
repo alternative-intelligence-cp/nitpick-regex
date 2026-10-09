@@ -1,0 +1,10 @@
+# 0.2.1a's view mutants -- `vmut.py` copies the tree per row whose first column is the block's step, replaces the
+# fourth column's text ONCE with the fifth's, and compiles each root of the sixth at both pins. TAB-separated;
+# `\n` in a text is a newline. Step 1's rows run over the tree step 1 leaves, step 2's over step 2's.
+1	parse-pattern-plain	src/syntax/parse.npk	pub func:parse_pattern = PatternError?(fixed uint8[]:pat, Ast->:out) never fails {	pub func:parse_pattern = PatternError?(uint8[]:pat, Ast->:out) never fails {	tests/unit/parse_grammar.npk
+1	cursor-field-plain	src/syntax/cursor.npk	    sealed fixed uint8[]:src;	    sealed uint8[]:src;	src/syntax/cursor.npk
+1	bridge-local-plain	src/syntax/parse.npk	    fixed uint8[]:w = string_bytes(want);	    uint8[]:w = string_bytes(want);	src/syntax/parse.npk
+1	writer	src/syntax/parse.npk	    fixed uint8[]:w = string_bytes(want);\n    if (w.len != len) { pass false; }\n	    fixed uint8[]:w = string_bytes(want);\n    if (w.len != len) { pass false; }\n    pat[off] = pat[off];\n	src/syntax/parse.npk
+1	reassign	src/syntax/parse.npk	pub func:parse_check_length = PatternError?(fixed uint8[]:pat) never fails {\n	pub func:parse_check_length = PatternError?(fixed uint8[]:pat) never fails {\n    pat = pat[0i64...pat.len];\n	src/syntax/parse.npk
+1	helper-plain	tests/unit/parse_encoding.npk	func:bad = bool(fixed uint8[]:pat,	func:bad = bool(uint8[]:pat,	tests/unit/parse_encoding.npk
+2	subview-return-plain	tests/probe/probe06b_subview_returned.npk	func:subview = fixed uint8[](fixed uint8[]:src,	func:subview = uint8[](fixed uint8[]:src,	tests/probe/probe06b_subview_returned.npk

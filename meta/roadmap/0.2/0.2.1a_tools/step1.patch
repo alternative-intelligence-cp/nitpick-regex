@@ -1,0 +1,1441 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 1edb3ede114aad8ae96abb96d79e3a547caa13ad..1ec8b9b5685dc06a3cb5007c0e76687b9f32009d 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -370,6 +370,9 @@ channel, or held across an `await`. Stated in `API.md` A-15 because a consumer
+ arriving from Rust will expect to return one and will not be able to.
+ 
+ ### RX-054 — `uint8[]` is the primitive; `string` is a convenience over it
++> **SUPERSEDED IN PART by RX-230 (@@DATE021A@@)** — its *"a haystack slice"*: the slice is the READ-ONLY view,
++> `fixed uint8[]`, since compiler `7e91730`, because `string_bytes` returns one and a plain `uint8[]` refuses it.
++> The direction and both reasons stand.
+ **2026-09-03.** Every search entry point takes a haystack slice; a `string`
+ caller writes `string_bytes(s)`, which is the borrowed view the floor already
+ provides at no cost. Two reasons for this direction rather than the other: a
+@@ -4236,6 +4239,8 @@ nothing notices is untested; **S-9's fields reordered to save the eight bytes of
+ specification, the value is never in an array, and a parse stops at its first error.
+ 
+ ### RX-173 — the parser reads a pattern through a sealed cursor: `cursor_init` returns it, only its own functions move it, and it looks one byte ahead
++> **SUPERSEDED IN PART by RX-230 (@@DATE021A@@)** — its `uint8[]`s: the `Cursor`'s view is `sealed fixed uint8[]:src`, and
++> `cursor_init` takes `fixed uint8[]:pat`, since compiler `7e91730`. The seal, the one byte and the constructor stand.
+ 
+ **2026-09-26, cycle 0.1.0 (the plan's PD-17), at compiler `c970483`.** `src/syntax/cursor.npk`:
+ `struct:Cursor = { sealed uint8[]:src; sealed int64:pos; }`, built by `cursor_init(uint8[]:pat)` at offset 0,
+@@ -4319,6 +4324,8 @@ read the `Vec` and index it past `ast_get`; **`AstNode`'s fields sealed** — th
+ builds nodes, and a node has no invariant a constructor would keep.
+ 
+ ### RX-175 — the syntax layer answers a `PatternError` as a value, `PatternError?`, never as an identity; the pattern's length is refused first; and 0.1.0 writes no parser, only the entry's first refusal and a unit that composes the pieces
++> **SUPERSEDED IN PART by RX-230 (@@DATE021A@@)** — `parse_pattern` and `parse_check_length` take `fixed uint8[]:pat` since
++> compiler `7e91730`. The value, the length first and the entry stand.
+ 
+ **2026-09-26, cycle 0.1.0 (the plan's PD-19), at compiler `c970483`.**
+ 
+@@ -4493,6 +4500,8 @@ trigger** — none is in §1's grammar, and a kind held for a construct nobody h
+ **leave it to cycle 0.1.6** — the decision is the grammar's, and 0.1.1 is where the grammar is written.
+ 
+ ### RX-182 — the parse is one explicit-stack walk that builds the arena bottom-up, the last atom held pending for a quantifier
++> **SUPERSEDED IN PART by RX-230 (@@DATE021A@@)** — `parse_pattern(uint8[]:pat, …)`: `fixed uint8[]:pat` since compiler `7e91730`. The
++> walk stands.
+ > **SUPERSEDED IN PART by RX-197 (2026-10-01)** — *"then one `while` over the cursor"*: a class is read by a `while` of
+ > its own, `parse_class`'s, which the walk's calls at a `[` — still once over the pattern, on an explicit stack of
+ > its own (`SYNTAX.md` Y-33's note). The walk, its stack and its pending atom are as this decision says.
+@@ -5795,6 +5804,8 @@ kinds for the byte forms** — H-4 closes the list at nine, and a byte is still
+ node** — H-6.
+ 
+ ### RX-224 — `GroupInfo` shaped, a name's offset and length in `Hir.names`, group 0 the whole match; `Literal` left to cycle 0.2.5
++> **SUPERSEDED IN PART by RX-230 (@@DATE021A@@)** — `hir_add_group`'s name is `fixed uint8[]` since compiler `7e91730`. `GroupInfo`
++> stands.
+ 
+ **2026-10-08, cycle 0.2.0 (the plan's PD-68), at compiler `5fbaf4a`** — `HIR.md` H-2 and H-11, `COMPILE.md` C-16,
+ `SYNTAX.md` Y-6, and `SAFETY.md` S-23a's RX-182 note, *"Two types are left to shape, `Literal` and `GroupInfo`, at cycle
+@@ -5824,6 +5835,8 @@ without group 0** — `k − 1` wherever a number is an index; **`Literal` shape
+ `Bytes`** — an empty `Vec` and a `Bytes` in every HIR for five subcycles, and a guess at 0.2.5's design.
+ 
+ ### RX-225 — the HIR as one line of text and back, a new rule H-15: a writer that stops on an arena it cannot show, and a reader that refuses at a byte and never traps
++> **SUPERSEDED IN PART by RX-230 (@@DATE021A@@)** — `hir_read`'s text is `fixed uint8[]` since compiler `7e91730`. The text and
++> both directions stand.
+ 
+ **2026-10-08, cycle 0.2.0 (the plan's PD-69), at compiler `5fbaf4a`** — `HIR.md` H-2 and H-13, `TESTING.md` §4,
+ `SAFETY.md` S-8, S-12 and S-19, `COMPILE.md` C-19, and the cycle README's last 0.2.0 box, *"a stable text dump and its
+@@ -5928,6 +5941,8 @@ put the arena's other checks; **leaving it** — the cycle README's grep would r
+ looks for.
+ 
+ ### RX-228 — the desugaring, a new rule H-16: `hir_build` builds every kind of AST node as H-5 says and nothing else, erases every flag, holds C-3, builds a tree, and stops where cycle 0.3.4 fills its two hooks
++> **SUPERSEDED IN PART by RX-230 (@@DATE021A@@)** — `hir_build(uint8[]:pat, …)`: `fixed uint8[]:pat` since compiler `7e91730`. The
++> build stands.
+ 
+ **2026-10-08, cycle 0.2.1 (the plan's PD-72), at compiler `5fbaf4a`** — `HIR.md` H-1, H-5 … H-8 and H-15, `SYNTAX.md` Y-6,
+ Y-26, Y-27, Y-33 and Y-41, `COMPILE.md` C-3, `SAFETY.md` S-19, and the cycle README's 0.2.1 row, *"`HIR.md` §3's
+@@ -6016,3 +6031,41 @@ Unicode sets written out** — `\d`'s extent is the version cycle 0.3.0 pins, an
+ it; **POSIX classes written out** — cycle 0.3.2 decides their sets, and a test that chose would decide for it; **`(?i)`
+ on a class with negation** — whether the fold comes before the complement is cycle 0.3.4's to decide, and is handed to
+ it in the plan.
++
++## The adoption of compiler 7e91730 — cycle 0.2.1a
++
++### RX-230 — the read-only view: every slice this library and its tests hold is `fixed uint8[]`, since none is written through, and so is the haystack the API will take
++
++**@@DATE021A@@, cycle 0.2.1a (the plan's PD-103), at compiler `7e91730`, from `5fbaf4a`** — the compiler's D-348 step
++(ii), D-350 and D-351, its landing 103: `fixed T[]` is a TYPE, the read-only view; a plain `T[]` converts to it and
++nothing converts back (`NITPICK-TYPE-007`); `string_bytes` returns it, always; a write through it is
++`NITPICK-TYPE-086` wherever it sits. Measured on the unchanged tree first: at `7e91730` 78 of its 160 `.npk` files are
++refused `NITPICK-TYPE-007`, at 170 distinct sites in 39 files — five of them in `src/`: `bytes_extend_str`'s argument,
++`word_is`'s, `holds`'s and `regex_escape`'s locals, and `hex`'s digit table — every one a reader of a string's bytes.
++Nothing else moves at `7e91730` but `tests/rejection/pattern_error_literal.npk`'s count, the compiler's DEF-165, and
++probe 12b's `NITPICK-BORROW-009`, which stands behind its `TYPE-007` until the file is re-spelled.
++
++- **Every `uint8[]` slot in the tree is `fixed uint8[]`** — 133 slots in 32 files: `parse_pattern` and every parser
++  function it hands the pattern to, `cursor_init` and the `Cursor`'s `src` field (`sealed fixed uint8[]:src`),
++  `hir_build`, `hir_read` and the dump reader's functions, `hir_add_group`, `bytes_extend`, the five locals, and the
++  tests' locals, helpers and probe 12's iterator field — because no slot is written through: the re-spelled tree has no
++  `NITPICK-TYPE-086` at `7e91730`, and no `NITPICK-ASSIGN-002` for a `fixed` parameter reassigned (the compiler's
++  DEF-248). A plain `uint8[]` converts to every one, so a caller holding a writable buffer's view passes it as before —
++  `parse_encoding`'s arrays do.
++- **The old compiler sees no difference**: at `5fbaf4a` each of the 160 files gives exactly the codes and positions it
++  gave before, and the full run is `294/294` with the two pending. At `7e91730` one site is left, probe 06b's return,
++  which moves with the pin: `fixed` before a return type is read at `5fbaf4a` and means nothing (the compiler's
++  DEF-247).
++- **`SYNTAX.md` Y-33's `parse_pattern`, `HIR.md` H-16's `hir_build` and `API.md` A-16 dated**: the pattern, the build's
++  pattern and the haystack the search entry points will take are the read-only view. RX-054, and the six decisions
++  that state a signature this changes — RX-173, RX-175, RX-182, RX-224, RX-225 and RX-228 — gain their markers.
++
++*Alternatives declined:* **only the slots the pin refuses** — 127 of the 133; the other six are test helpers'
++parameters handed a local array's view — `walk` in `cursor_unit`, `bad` and `good` in `parse_encoding`, `escapes_bytes`
++and `ill_formed` in `regex_escape` — which read only, and a plain one promises less than it does and is the next
++caller's `TYPE-007`; **a copy at each call** — an allocation for bytes nothing writes, and on the search path a way to
++fail where `SAFETY.md` S-4 allows none; **the grouped spelling, `(fixed uint8[]):v`** — a re-pointable binding, which nothing
++here re-points, and `5fbaf4a` refuses it `NITPICK-PARSE-001`; **`string` parameters** — the parser reads bytes (Y-11),
++and a writable buffer's view would need a copy into a `string`; **A-16 left for cycle 0.10** — its own sentence, *"a
++`string` caller writes `string_bytes(s)`"*, is refused `TYPE-007` by a plain `uint8[]` parameter at this compiler, and
++the next planner would read the signatures as written.
+diff --git a/meta/specs/API.md b/meta/specs/API.md
+index 493bae69b645f17cf440cf9a3dc0fa7a690be4ba..c3478f59d122210022d5999ea0bc293b72bb6281 100644
+--- a/meta/specs/API.md
++++ b/meta/specs/API.md
+@@ -261,6 +261,11 @@ at no cost.
+ Two reasons this direction rather than the other: a systems library is asked to
+ search things that are not validated text, and `string_bytes` is free while
+ `string_from_bytes` over a subrange is not.
++*(@@DATE021A@@, cycle 0.2.1a — RX-230: the primitive is the READ-ONLY view, `fixed uint8[]`, since compiler
++`7e91730`: `string_bytes` returns one (the compiler's D-351), and it converts to no plain `uint8[]` while a plain
++`uint8[]` converts to it. A search reads its haystack and never writes it, so each `uint8[]` in §1's list is taken as
++`fixed uint8[]` — the replacement template too, and A-11's `Replacer`'s `hay` — the one spelling that admits a
++string's bytes and a writable buffer's view alike. §1 keeps the family's name.)*
+ 
+ **Rule A-17 — a `Match`'s offsets index the haystack the caller passed**, which
+ for a `string` caller is the string's bytes. Slicing a `string` by them is
+diff --git a/meta/specs/HIR.md b/meta/specs/HIR.md
+index 3fb8d58630289d71496ffc956bef9ce4ac4f8cda..864224c15863e0b2f8fad811987c7a7e96b6df1d 100644
+--- a/meta/specs/HIR.md
++++ b/meta/specs/HIR.md
+@@ -175,6 +175,9 @@ each must be the AST's number or the build stops `OutOfBounds`; an AST that is n
+ *(2026-10-08, cycle 0.2.1 — RX-229: and two are pending until cycle 0.3.4, on the build's stop at a hook or in `leaf`:
+ `tests/unit/hir_build_classes.npk`, the class row's HIRs and a class's negation and operators, and
+ `hir_build_fold.npk`, the `(?i:…)` row's.)*
++*(@@DATE021A@@, cycle 0.2.1a — RX-230: `hir_build(fixed uint8[]:pat, Ast:t, Hir->:out)` since compiler `7e91730`: the
++pattern is the READ-ONLY view `parse_pattern` reads (`SYNTAX.md` Y-33), and a group's name goes to `hir_add_group` as
++one; `hir_read` takes its text so too.)*
+ 
+ ---
+ 
+diff --git a/meta/specs/SYNTAX.md b/meta/specs/SYNTAX.md
+index cb6ec96b8b87365c8f8eecf463905295706298b0..34b4c5dabc7c8a12ddaa773fca4fbac4e4d9c257 100644
+--- a/meta/specs/SYNTAX.md
++++ b/meta/specs/SYNTAX.md
+@@ -389,6 +389,9 @@ calls at a `[` and which returns at the class's `]` — still once over the patt
+ calling itself, its frames on an explicit stack of their own, a `Vec<ClassFrame>` (Y-36).)*
+ *(2026-10-01, cycle 0.1.4 — RX-206: "`AST_FLAG_U` until cycle 0.1.4 parses flags": since then the flags in force in the
+ node's frame when it is built (Y-41).)*
++*(@@DATE021A@@, cycle 0.2.1a — RX-230: `parse_pattern(fixed uint8[]:pat, Ast->:out)` since compiler `7e91730` — the
++pattern is a READ-ONLY view, the type `string_bytes` returns (the compiler's D-351), a plain `uint8[]` converts to it,
++and nothing in the parser writes through it.)*
+ 
+ **Rule Y-35 (RX-193) — groups nest at most `NREGEX_NEST_DEPTH` deep, and the bound
+ is decided at the `(`.** A `(` read while `NREGEX_NEST_DEPTH` groups — 250 — are open
+diff --git a/src/core/bytes.npk b/src/core/bytes.npk
+index f2d53cd537e41cb36b9d456a498cd0ce13b5320c..33dc873f1a45d310678f5784cf02e78321d03a53 100644
+--- a/src/core/bytes.npk
++++ b/src/core/bytes.npk
+@@ -211,7 +211,7 @@ pub func:bytes_push = NIL(Bytes->:b, uint8:x) never fails {
+ // THE SLICE IS A PARAMETER, WHICH IS THE ONLY DIRECTION IT MAY TRAVEL (O-N9).
+ // One `mcpy` rather than a push loop: the whole point of this type is that bulk
+ // output is one copy and not `src.len` calls.
+-pub func:bytes_extend = NIL(Bytes->:b, uint8[]:src) never fails {
++pub func:bytes_extend = NIL(Bytes->:b, fixed uint8[]:src) never fails {
+     if (src.len <= 0i64) { pass NIL; }
+     drop bytes_reserve(b, src.len);
+     discard(mcpy(#ptr_add<uint8>(b.buf.ptr, b.len), src.ptr, src.len));
+@@ -224,6 +224,9 @@ pub func:bytes_extend = NIL(Bytes->:b, uint8[]:src) never fails {
+ // `string_bytes` yields a `uint8[]` VIEW and does not allocate, so this adds no
+ // owning temporary and needs no binding (the D-183 rule is about values whose
+ // type DROPS, and a slice does not).
++// *(@@DATE021A@@, cycle 0.2.1a -- RX-230: a READ-ONLY view, `fixed uint8[]`, since compiler
++// `7e91730` (its D-351) -- so `bytes_extend` takes its source as one, which a plain view converts
++// to; it reads the bytes and writes only `b`.)*
+ pub func:bytes_extend_str = NIL(Bytes->:b, string:s) never fails {
+     drop bytes_extend(b, string_bytes(s));
+     pass NIL;
+diff --git a/src/hir/build.npk b/src/hir/build.npk
+index 21199c21313acabf75d5f08088db60bede538fc3..7e307f2fa6136bb8ebdb693fc1453f26634278aa 100644
+--- a/src/hir/build.npk
++++ b/src/hir/build.npk
+@@ -238,7 +238,7 @@ func:held = int64(Hir->:out, Vec<int64>->:done) never fails {
+ // leaves `out`'s root unset, its nodes partial, for the caller to free. Nothing for an `Ast` with
+ // no root. A group's number is the AST's, and `hir_add_group` must answer it as the walk enters
+ // the group, or the arena would name one group's text for another's: an `OutOfBounds` stop.
+-pub func:hir_build = int64(uint8[]:pat, Ast:t, Hir->:out) never fails {
++pub func:hir_build = int64(fixed uint8[]:pat, Ast:t, Hir->:out) never fails {
+     if (t.root == AST_NONE) { pass HIR_NONE; }
+     Vec<Step>:todo = raw vec_init::<Step>(16i64);
+     Vec<int64>:done = raw vec_init::<int64>(16i64);
+diff --git a/src/hir/dump.npk b/src/hir/dump.npk
+index 1d0f8e76c725896e7b5b55d408378a9bf84db452..070c0dfc46265b1c42a91e832b9ea9431918ebe1 100644
+--- a/src/hir/dump.npk
++++ b/src/hir/dump.npk
+@@ -245,7 +245,7 @@ struct:ReadState = {
+ };
+ 
+ // The byte at `i`, or -1 past the text's end.
+-func:byte_at = int32(uint8[]:text, int64:i) never fails {
++func:byte_at = int32(fixed uint8[]:text, int64:i) never fails {
+     if (i >= text.len) { pass -1i32; }
+     pass text[i] => int32;
+ };
+@@ -271,20 +271,20 @@ func:is_name_char = bool(int32:b) never fails {
+ };
+ 
+ // Moves past the next byte if it is `want`, and says whether it did.
+-func:eat = bool(uint8[]:text, ReadState->:r, int32:want) never fails {
++func:eat = bool(fixed uint8[]:text, ReadState->:r, int32:want) never fails {
+     if ((raw byte_at(text, r.pos)) != want) { pass false; }
+     r.pos = r.pos + 1i64;
+     pass true;
+ };
+ 
+ // Whether a space and then a lower-case letter come next: a word the head may hold.
+-func:word_next = bool(uint8[]:text, ReadState->:r) never fails {
++func:word_next = bool(fixed uint8[]:text, ReadState->:r) never fails {
+     if ((raw byte_at(text, r.pos)) != CH_SPACE) { pass false; }
+     pass raw is_lower(raw byte_at(text, r.pos + 1i64));
+ };
+ 
+ // Reads a word, `[a-z-]*`, and answers its length.
+-func:read_word = int64(uint8[]:text, ReadState->:r) never fails {
++func:read_word = int64(fixed uint8[]:text, ReadState->:r) never fails {
+     int64:s = r.pos;
+     bool:more = true;
+     while (more && (r.pos < text.len)) decreases text.len - r.pos {
+@@ -296,8 +296,8 @@ func:read_word = int64(uint8[]:text, ReadState->:r) never fails {
+ };
+ 
+ // Whether the `n` bytes at `s` are the word `w`.
+-func:word_is = bool(uint8[]:text, int64:s, int64:n, string:w) never fails {
+-    uint8[]:wb = string_bytes(w);
++func:word_is = bool(fixed uint8[]:text, int64:s, int64:n, string:w) never fails {
++    fixed uint8[]:wb = string_bytes(w);
+     if (n != wb.len) { pass false; }
+     int64:k = 0i64;
+     while (k < n) decreases n - k {
+@@ -309,7 +309,7 @@ func:word_is = bool(uint8[]:text, int64:s, int64:n, string:w) never fails {
+ 
+ // Reads a number as `hir_dump` writes one -- `0`, or a digit other than `0` and at most
+ // seventeen more -- and answers it, or HIR_NONE for anything else.
+-func:read_num = int64(uint8[]:text, ReadState->:r) never fails {
++func:read_num = int64(fixed uint8[]:text, ReadState->:r) never fails {
+     int32:b = raw byte_at(text, r.pos);
+     if (!(raw is_digit(b))) { pass HIR_NONE; }
+     if (b == CH_0) {
+@@ -336,7 +336,7 @@ func:open_node = int64(ReadState->:r, HirKind:k, uint32:flags, int64:a, int64:b,
+ };
+ 
+ // `literal N`, `literal byte N`.
+-func:read_literal = int64(uint8[]:text, ReadState->:r) never fails {
++func:read_literal = int64(fixed uint8[]:text, ReadState->:r) never fails {
+     uint32:flags = 0u32;
+     if (raw word_next(text, r)) {
+         r.pos = r.pos + 1i64;
+@@ -356,7 +356,7 @@ func:read_literal = int64(uint8[]:text, ReadState->:r) never fails {
+ };
+ 
+ // `class`, `class byte`, and a range `LO-HI` after either, as many as the class holds.
+-func:read_class = int64(uint8[]:text, Hir->:out, ReadState->:r) never fails {
++func:read_class = int64(fixed uint8[]:text, Hir->:out, ReadState->:r) never fails {
+     uint32:flags = 0u32;
+     if (raw word_next(text, r)) {
+         r.pos = r.pos + 1i64;
+@@ -387,7 +387,7 @@ func:read_class = int64(uint8[]:text, Hir->:out, ReadState->:r) never fails {
+ };
+ 
+ // `repeat MIN MAX`, `repeat lazy MIN MAX`, MAX `-` when unbounded.
+-func:read_repeat = int64(uint8[]:text, ReadState->:r) never fails {
++func:read_repeat = int64(fixed uint8[]:text, ReadState->:r) never fails {
+     uint32:flags = 0u32;
+     if (raw word_next(text, r)) {
+         r.pos = r.pos + 1i64;
+@@ -411,7 +411,7 @@ func:read_repeat = int64(uint8[]:text, ReadState->:r) never fails {
+ };
+ 
+ // `group K`, `group K NAME` -- `K` the number the next group must carry (Y-6).
+-func:read_group = int64(uint8[]:text, Hir->:out, ReadState->:r) never fails {
++func:read_group = int64(fixed uint8[]:text, Hir->:out, ReadState->:r) never fails {
+     if (!(raw eat(text, r, CH_SPACE))) { pass r.pos; }
+     int64:s = r.pos;
+     int64:k = raw read_num(text, r);
+@@ -432,7 +432,7 @@ func:read_group = int64(uint8[]:text, Hir->:out, ReadState->:r) never fails {
+ };
+ 
+ // `anchor text-start`, `text-end`, `line-start`, `line-end`.
+-func:read_anchor = int64(uint8[]:text, ReadState->:r) never fails {
++func:read_anchor = int64(fixed uint8[]:text, ReadState->:r) never fails {
+     if (!(raw eat(text, r, CH_SPACE))) { pass r.pos; }
+     int64:w = r.pos;
+     int64:n = raw read_word(text, r);
+@@ -446,7 +446,7 @@ func:read_anchor = int64(uint8[]:text, ReadState->:r) never fails {
+ };
+ 
+ // `wordboundary`, then `byte` and `not`, each if it holds, in that order.
+-func:read_boundary = int64(uint8[]:text, ReadState->:r) never fails {
++func:read_boundary = int64(fixed uint8[]:text, ReadState->:r) never fails {
+     uint32:flags = 0u32;
+     int64:a = HIR_WORD;
+     if (raw word_next(text, r)) {
+@@ -469,7 +469,7 @@ func:read_boundary = int64(uint8[]:text, ReadState->:r) never fails {
+ };
+ 
+ // The head after a `(`: the kind's name, its words and its operands.
+-func:read_head = int64(uint8[]:text, Hir->:out, ReadState->:r) never fails {
++func:read_head = int64(fixed uint8[]:text, Hir->:out, ReadState->:r) never fails {
+     int64:w = r.pos;
+     int64:n = raw read_word(text, r);
+     if (raw word_is(text, w, n, "empty")) { pass raw open_node(r, HirKind.Empty, 0u32, 0i64, 0i64, 0i64); }
+@@ -524,7 +524,7 @@ func:close_node = int64(Hir->:out, ReadState->:r, int64:at) never fails {
+     pass HIR_NONE;
+ };
+ 
+-func:read_run = int64(uint8[]:text, Hir->:out, ReadState->:r) never fails {
++func:read_run = int64(fixed uint8[]:text, Hir->:out, ReadState->:r) never fails {
+     if (!(raw eat(text, r, CH_LPAREN))) { pass r.pos; }
+     int64:e = raw read_head(text, out, r);
+     if (e != HIR_NONE) { pass e; }
+@@ -556,7 +556,7 @@ func:read_run = int64(uint8[]:text, Hir->:out, ReadState->:r) never fails {
+ // that is not what `hir_dump` writes there -- the text's length when it ends early -- and
+ // leaves `out`'s root as it was, its nodes partial, for the caller to free. Pass a `Hir`
+ // fresh from `hir_init`: its groups are numbered from the count it already holds.
+-pub func:hir_read = int64(uint8[]:text, Hir->:out) never fails {
++pub func:hir_read = int64(fixed uint8[]:text, Hir->:out) never fails {
+     ReadState:r = ReadState{ pos: 0i64, next_group: raw hir_group_count(<-out), top: HIR_NONE,
+                              open: raw vec_init::<ReadFrame>(8i64) };
+     int64:e = raw read_run(text, out, @r);
+diff --git a/src/hir/repr.npk b/src/hir/repr.npk
+index 999a0dbf27872161ef698f5ade48f61f774a661d..ac7f07ae3181da711bbf7adbc2547d5af19bac80 100644
+--- a/src/hir/repr.npk
++++ b/src/hir/repr.npk
+@@ -177,7 +177,7 @@ pub func:hir_group_count = int64(Hir:h) never fails {
+ //
+ // The next group, its name copied into `Hir.names` -- an empty `name` for a group that has
+ // none -- answering its number.
+-pub func:hir_add_group = int64(Hir->:h, uint8[]:name) never fails {
++pub func:hir_add_group = int64(Hir->:h, fixed uint8[]:name) never fails {
+     int64:off = raw bytes_len(@h.names);
+     drop bytes_extend(@h.names, name);
+     drop vec_push(@h.groups, GroupInfo{ off: off, len: name.len });
+diff --git a/src/syntax/cursor.npk b/src/syntax/cursor.npk
+index eecbd962b82a24f688a64b2f277ab6c8b9f2d10f..61b6d09a10bbc1b1bafc1fbb7d00ee21c3192aca 100644
+--- a/src/syntax/cursor.npk
++++ b/src/syntax/cursor.npk
+@@ -5,6 +5,9 @@
+ // them and an `int64` offset: the offset of the next byte, from 0 to the
+ // pattern's length. Every position the parser reports comes from here
+ // (`cursor_offset`), which is Y-10's byte offset on every error made structural.
++// *(@@DATE021A@@, cycle 0.2.1a -- RX-230: a READ-ONLY view, `fixed uint8[]`, since compiler
++// `7e91730`: `string_bytes` returns one (its D-351), a plain `uint8[]` converts to it and nothing
++// converts it back, and a write through it is NITPICK-TYPE-086. Nothing here writes one.)*
+ //
+ // ONE BYTE OF LOOKAHEAD, AND THE COMPILER HOLDS THE PARSER TO IT. Both fields are
+ // `sealed` (the compiler's D-313): outside this file nothing builds a `Cursor`
+@@ -55,12 +58,12 @@ mod:cursor;
+ pub fixed int32:CURSOR_END = -1i32;
+ 
+ pub struct:Cursor = {
+-    sealed uint8[]:src;    // the pattern: a VIEW of the caller's bytes (Y-11)
+-    sealed int64:pos;      // the offset of the next byte, 0 .. src.len
++    sealed fixed uint8[]:src;    // the pattern: a READ-ONLY view of the caller's bytes (Y-11)
++    sealed int64:pos;            // the offset of the next byte, 0 .. src.len
+ };
+ 
+ // obligation: never fails ensures result.pos == 0i64
+-pub func:cursor_init = Cursor(uint8[]:pat) never fails {
++pub func:cursor_init = Cursor(fixed uint8[]:pat) never fails {
+     pass Cursor{ src: pat, pos: 0i64 };
+ };
+ 
+diff --git a/src/syntax/parse.npk b/src/syntax/parse.npk
+index 16d395f8abbc2d5891eed742f581135dd4a4a3fb..9f61275253ccaa00bcfcaac08a7c48849310d0d2 100644
+--- a/src/syntax/parse.npk
++++ b/src/syntax/parse.npk
+@@ -327,7 +327,7 @@ func:utf8_len = int64(int64:lead) never fails {
+ };
+ 
+ // The codepoint whose UTF-8 sequence starts at `i` in a VALIDATED pattern.
+-func:decode_at = int64(uint8[]:pat, int64:i) never fails {
++func:decode_at = int64(fixed uint8[]:pat, int64:i) never fails {
+     int64:lead = pat[i] => int64;
+     int64:n = raw utf8_len(lead);
+     int64:cp = lead;
+@@ -350,7 +350,7 @@ func:decode_at = int64(uint8[]:pat, int64:i) never fails {
+ // at the FIRST ill-formed sequence (Y-28): its offset the sequence's first byte,
+ // its length the bytes read up to and including the one that broke it, its
+ // detail that byte -- or 0 when the pattern ended inside the sequence.
+-pub func:parse_check_encoding = PatternError?(uint8[]:pat) never fails {
++pub func:parse_check_encoding = PatternError?(fixed uint8[]:pat) never fails {
+     int64:i = 0i64;
+     while (i < pat.len) decreases pat.len - i {
+         int64:b = pat[i] => int64;
+@@ -394,7 +394,7 @@ pub func:parse_check_encoding = PatternError?(uint8[]:pat) never fails {
+ // `PatternTooLong`: its offset the first byte past the bound, its length the bytes
+ // over it, its detail the bound. The bound is 65 536, which a `uint32` holds, so
+ // the narrowing truncates nothing (`SAFETY.md` S-12).
+-pub func:parse_check_length = PatternError?(uint8[]:pat) never fails {
++pub func:parse_check_length = PatternError?(fixed uint8[]:pat) never fails {
+     if (pat.len > NREGEX_PATTERN_BYTES) {
+         pass raw pattern_error(PatternErrorKind.PatternTooLong, NREGEX_PATTERN_BYTES,
+                                pat.len - NREGEX_PATTERN_BYTES, NREGEX_PATTERN_BYTES =>! uint32);
+@@ -506,7 +506,7 @@ func:take_cap = PatternError?(Parser->:p, int64:open) never fails {
+ // `(?<name>` with `(?<` read: the name, its `>`, and the checks on both (Y-8, Y-29). A pattern
+ // that ends inside the name is `BadGroupName` with `NOT_A_CODEPOINT`, which no codepoint is, so a
+ // NUL in the name keeps its own detail, 0 (RX-203).
+-func:named_group = PatternError?(uint8[]:pat, Parser->:p, int64:open) never fails {
++func:named_group = PatternError?(fixed uint8[]:pat, Parser->:p, int64:open) never fails {
+     int64:start = p.c.pos;
+     int32:b = raw cursor_peek(@p.c);
+     if (b == CURSOR_END) {
+@@ -563,7 +563,7 @@ func:named_group = PatternError?(uint8[]:pat, Parser->:p, int64:open) never fail
+ // flag is `UnknownFlag` at it, its detail that codepoint -- a `)` or `:` where a flag is due, and a
+ // second `-`, included; a flag named twice is `DuplicateFlag` at the second, its detail the letter;
+ // and a pattern that ends inside the flags is `UnclosedGroup` spanning them, as `(?` at the end is.
+-func:read_flags = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:open, bool:neg) never fails {
++func:read_flags = PatternError?(fixed uint8[]:pat, Ast->:out, Parser->:p, int64:open, bool:neg) never fails {
+     uint32:set = 0u32;
+     uint32:clear = 0u32;
+     bool:minus = neg;
+@@ -625,7 +625,7 @@ func:head_refused = PatternError?(Parser->:p, PatternErrorKind:k, int64:open, in
+ // than `NREGEX_NEST_DEPTH` is `NestTooDeep` here, before a byte after it is read --
+ // so no frame past the bound is pushed, and the parse stops where the bound is.
+ // Then what follows decides the group (Y-29), or the refusal (Y-30).
+-func:open_group = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:open) never fails {
++func:open_group = PatternError?(fixed uint8[]:pat, Ast->:out, Parser->:p, int64:open) never fails {
+     if (p.stack.count >= NREGEX_NEST_DEPTH) {
+         pass raw pattern_error(PatternErrorKind.NestTooDeep, open, 1i64, NREGEX_NEST_DEPTH =>! uint32);
+     }
+@@ -836,7 +836,7 @@ func:read_property = PatternError?(Parser->:p, int64:at) never fails {
+ // `\d \D \w \W \s \S` or `\p…` `\P…` (Y-37), its `\` at `at` and its name read
+ // up to `upto`: the node, unresolved -- which class a Perl letter names, or where a
+ // property's name is in the pattern; cycle 0.3 resolves both. A capital negates.
+-func:escape_class_node = AstNode(uint8[]:pat, uint32:flags, int64:at, int32:d, int64:upto) never fails {
++func:escape_class_node = AstNode(fixed uint8[]:pat, uint32:flags, int64:at, int32:d, int64:upto) never fails {
+     uint32:bits = flags;
+     if ((d == CH_UPPER_D) || (d == CH_UPPER_W) || (d == CH_UPPER_S) || (d == CH_UPPER_P)) {
+         bits = bits + AST_FLAG_NEGATED;
+@@ -855,7 +855,7 @@ func:escape_class_node = AstNode(uint8[]:pat, uint32:flags, int64:at, int32:d, i
+ // The escape at `at` wanted a hex digit and found another byte: `kind` at the `\`, spanning
+ // through that byte, its detail the codepoint it begins -- or, where the pattern ended, spanning
+ // what was read, its detail `NOT_A_CODEPOINT` (RX-203).
+-func:escape_bad_digit = PatternError?(uint8[]:pat, Parser->:p, PatternErrorKind:kind, int64:at) never fails {
++func:escape_bad_digit = PatternError?(fixed uint8[]:pat, Parser->:p, PatternErrorKind:kind, int64:at) never fails {
+     int32:b = raw cursor_peek(@p.c);
+     if (b == CURSOR_END) {
+         pass raw pattern_error(kind, at, p.c.pos - at, NOT_A_CODEPOINT);
+@@ -882,7 +882,7 @@ func:escape_value = PatternError?(Parser->:p, int64:at, Esc->:e, int64:v) never
+ // `\x` read, its `\` at `at`: exactly two hex digits, a codepoint up to U+00FF that under `(?-u)`
+ // is a byte (Y-13) -- or one or more in braces, `\x{1F600}`, any codepoint. The value stops growing
+ // once it passes U+10FFFF, so no run of digits overflows, as `digits` stops (RX-184).
+-func:hex_escape = PatternError?(uint8[]:pat, Parser->:p, int64:at, Esc->:e) never fails {
++func:hex_escape = PatternError?(fixed uint8[]:pat, Parser->:p, int64:at, Esc->:e) never fails {
+     int64:v = 0i64;
+     if (raw cursor_eat(@p.c, CH_LBRACE =>! uint8)) {
+         int64:n = 0i64;
+@@ -914,7 +914,7 @@ func:hex_escape = PatternError?(uint8[]:pat, Parser->:p, int64:at, Esc->:e) neve
+ 
+ // `\u` or `\U` read, its `\` at `at`: exactly `n` hex digits, four or eight (§1) -- a codepoint, not
+ // a surrogate and not past U+10FFFF. Braces are `\x{…}`'s: `\u{41}` is a `{` where a digit is due.
+-func:unicode_escape = PatternError?(uint8[]:pat, Parser->:p, int64:at, Esc->:e, int64:n) never fails {
++func:unicode_escape = PatternError?(fixed uint8[]:pat, Parser->:p, int64:at, Esc->:e, int64:n) never fails {
+     int64:v = 0i64;
+     int64:k = 0i64;
+     while (k < n) decreases n - k {
+@@ -934,7 +934,7 @@ func:unicode_escape = PatternError?(uint8[]:pat, Parser->:p, int64:at, Esc->:e,
+ // (Y-2) -- it is read and `e` says what it names; any other escape is left unread, `e.named` false,
+ // for the caller. `\0` before a digit is `UnknownEscape` at the `\`, spanning the three bytes, its
+ // detail `0`: elsewhere it begins an octal escape, and nregex reads none (RX-204).
+-func:escape_cp = PatternError?(uint8[]:pat, Parser->:p, int64:at, Esc->:e) never fails {
++func:escape_cp = PatternError?(fixed uint8[]:pat, Parser->:p, int64:at, Esc->:e) never fails {
+     e.named = false;
+     e.byte = false;
+     e.cp = 0i64;
+@@ -976,7 +976,7 @@ func:escape_cp = PatternError?(uint8[]:pat, Parser->:p, int64:at, Esc->:e) never
+ // The `\` at `at` begins an escape no rule reads, in a class or out (Y-2, Y-40, Y-44): `\Q` and `\E`, the
+ // quotation `SYNTAX.md` §8 declines, are `UnsupportedQuoting`, spanning the two bytes, their detail the letter;
+ // any other is `UnknownEscape`, spanning the `\` and the codepoint after it, its detail that codepoint.
+-func:escape_refused = PatternError?(uint8[]:pat, int64:at) never fails {
++func:escape_refused = PatternError?(fixed uint8[]:pat, int64:at) never fails {
+     int32:d = pat[at + 1i64] => int32;
+     if ((d == CH_UPPER_Q) || (d == CH_UPPER_E)) {
+         pass raw pattern_error(PatternErrorKind.UnsupportedQuoting, at, 2i64, d =>! uint32);
+@@ -1019,7 +1019,7 @@ func:declined_escape = PatternError?(Parser->:p, int64:at, int32:d) never fails
+ // each refused by its own kind (`declined_escape`, `escape_refused`; Y-44); and a `\` before any other
+ // letter or digit, or before a non-ASCII codepoint, is `UnknownEscape` (RX-204) -- and so is a `\` before
+ // `<` or `>` (RX-205).
+-func:escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:at) never fails {
++func:escape = PatternError?(fixed uint8[]:pat, Ast->:out, Parser->:p, int64:at) never fails {
+     int32:d = raw cursor_peek(@p.c);
+     if (d == CURSOR_END) {
+         pass raw pattern_error(PatternErrorKind.TrailingBackslash, at, 1i64, 0u32);
+@@ -1115,7 +1115,7 @@ func:skip_comment = NIL(Parser->:p) never fails {
+ // A literal whose first byte `lead` was read at `at`: one codepoint, decoded -- unless it is white
+ // space past ASCII under `x`, which is `ExtendedAmbiguity` (Y-42), or past ASCII under `(?-u)`, which
+ // is `ByteModeNonAscii` (Y-43).
+-func:literal = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:at, int32:lead) never fails {
++func:literal = PatternError?(fixed uint8[]:pat, Ast->:out, Parser->:p, int64:at, int32:lead) never fails {
+     int64:n = raw utf8_len(lead => int64);
+     int64:k = 1i64;
+     while (k < n) decreases n - k {
+@@ -1254,7 +1254,7 @@ func:class_close = PatternError?(Ast->:out, ClassFrame->:cf, uint32:flags, int64
+ // digits, `\k`, `\G` and `\Z`, which no engine reads in a class as a group or a position (Y-44).
+ // *(2026-10-08, cycle 0.1.6a -- RX-217: and `\g` and `\K`, which RX-210 refuses outside a class: no engine reads a
+ // group or a position here either.)*
+-func:class_escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame->:cf, int64:at) never fails {
++func:class_escape = PatternError?(fixed uint8[]:pat, Ast->:out, Parser->:p, ClassFrame->:cf, int64:at) never fails {
+     int32:d = raw cursor_peek(@p.c);
+     if (d == CURSOR_END) {
+         pass raw pattern_error(PatternErrorKind.TrailingBackslash, at, 1i64, 0u32);
+@@ -1284,8 +1284,8 @@ func:class_escape = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame
+ };
+ 
+ // Does the pattern hold `want` at `off`, `len` bytes long?
+-func:holds = bool(uint8[]:pat, int64:off, int64:len, string:want) never fails {
+-    uint8[]:w = string_bytes(want);
++func:holds = bool(fixed uint8[]:pat, int64:off, int64:len, string:want) never fails {
++    fixed uint8[]:w = string_bytes(want);
+     if (w.len != len) { pass false; }
+     int64:k = 0i64;
+     while (k < len) decreases len - k {
+@@ -1297,7 +1297,7 @@ func:holds = bool(uint8[]:pat, int64:off, int64:len, string:want) never fails {
+ 
+ // The place in `SYNTAX.md` §5.1's list of the POSIX name at `off`, `len` bytes long, or
+ // AST_NONE when it is none of them.
+-func:posix_index = int64(uint8[]:pat, int64:off, int64:len) never fails {
++func:posix_index = int64(fixed uint8[]:pat, int64:off, int64:len) never fails {
+     int64:k = 0i64;
+     while (k < POSIX_CLASS_NAMES) decreases POSIX_CLASS_NAMES - k {
+         if (raw holds(pat, off, len, raw posix_class_name(k))) { pass k; }
+@@ -1310,7 +1310,7 @@ func:posix_index = int64(uint8[]:pat, int64:off, int64:len) never fails {
+ // the name one of §5.1's (Y-38). Anything else is `UnknownPosixClass` at the `[`,
+ // spanning what was read, detail 0 -- never a nested class, since the cursor does not
+ // go back.
+-func:posix_class = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame->:cf, int64:at) never fails {
++func:posix_class = PatternError?(fixed uint8[]:pat, Ast->:out, Parser->:p, ClassFrame->:cf, int64:at) never fails {
+     uint32:bits = p.f.flags;
+     if (raw cursor_eat(@p.c, CH_CARET =>! uint8)) { bits = bits + AST_FLAG_NEGATED; }
+     int64:name = p.c.pos;
+@@ -1338,7 +1338,7 @@ func:posix_class = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame-
+ // codepoint or an escape naming one (RX-204), not below the first (`BadClassRange`, detail 0);
+ // a class there is `BadClassRange`, detail 1. Each spans from the range's first byte
+ // through the byte that made it bad.
+-func:class_range = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame->:cf) never fails {
++func:class_range = PatternError?(fixed uint8[]:pat, Ast->:out, Parser->:p, ClassFrame->:cf) never fails {
+     AstNode:lo = raw ast_get(<-out, cf.last);
+     int64:at = p.c.pos;
+     int32:b = raw cursor_peek(@p.c);
+@@ -1399,7 +1399,7 @@ func:class_range = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, ClassFrame-
+ // UTF-8 sequence its first byte begins: a range, an escape, a nested class, a POSIX or a
+ // Perl class, a property and the operators' fold each span more, and a class holding one
+ // is a class written as one -- `[:foo\:]`, `[:a-z:]` and `[:[:digit:]:]` are classes.
+-func:posix_alone = PatternError?(uint8[]:pat, Ast->:out, ClassFrame:cf, int64:upto) never fails {
++func:posix_alone = PatternError?(fixed uint8[]:pat, Ast->:out, ClassFrame:cf, int64:upto) never fails {
+     int64:lo = cf.open + 1i64;
+     if (cf.neg != 0u32) { lo = lo + 1i64; }
+     int64:hi = upto - 2i64;
+@@ -1426,7 +1426,7 @@ func:posix_alone = PatternError?(uint8[]:pat, Ast->:out, ClassFrame:cf, int64:up
+ // `[` read at `open`, outside any class: the class, every class nested in it and
+ // every member, in one `while` (Y-36); its node becomes the frame's pending atom. A
+ // class needs no `(` and no `)`, so nothing in here meets a group.
+-func:parse_class = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:open) never fails {
++func:parse_class = PatternError?(fixed uint8[]:pat, Ast->:out, Parser->:p, int64:open) never fails {
+     if (p.stack.count >= NREGEX_NEST_DEPTH) {
+         pass raw pattern_error(PatternErrorKind.NestTooDeep, open, 1i64, NREGEX_NEST_DEPTH =>! uint32);
+     }
+@@ -1496,7 +1496,7 @@ func:parse_class = PatternError?(uint8[]:pat, Ast->:out, Parser->:p, int64:open)
+ 
+ // ---- the walk --------------------------------------------------------------
+ 
+-func:parse_run = PatternError?(uint8[]:pat, Ast->:out, Parser->:p) never fails {
++func:parse_run = PatternError?(fixed uint8[]:pat, Ast->:out, Parser->:p) never fails {
+     while (!(raw cursor_at_end(@p.c))) decreases pat.len - p.c.pos {
+         int64:at = p.c.pos;
+         int32:b = raw cursor_bump(@p.c);
+@@ -1538,7 +1538,7 @@ func:parse_run = PatternError?(uint8[]:pat, Ast->:out, Parser->:p) never fails {
+ // root as it was -- its nodes are then partial, and the caller frees them. Pass
+ // an `Ast` fresh from `ast_init`; the pattern's bytes must outlive the AST,
+ // which holds names by offset (Y-26).
+-pub func:parse_pattern = PatternError?(uint8[]:pat, Ast->:out) never fails {
++pub func:parse_pattern = PatternError?(fixed uint8[]:pat, Ast->:out) never fails {
+     PatternError?:long = raw parse_check_length(pat);
+     if (long != NIL) { pass long; }
+     PatternError?:bad = raw parse_check_encoding(pat);
+@@ -1579,7 +1579,7 @@ func:is_escaped = bool(int32:b) never fails {
+ // is not well-formed UTF-8 is copied with only its ASCII escaped, so its pattern is refused
+ // `InvalidPatternEncoding` where the text breaks (Y-28), never read as a codepoint the text does not hold.
+ pub func:regex_escape = string(string:text) never fails {
+-    uint8[]:t = string_bytes(text);
++    fixed uint8[]:t = string_bytes(text);
+     PatternError?:bad = raw parse_check_encoding(t);
+     Bytes:b = raw bytes_init(t.len + 16i64);
+     int64:i = 0i64;
+diff --git a/src/syntax/pattern_error.npk b/src/syntax/pattern_error.npk
+index 340adf13839756a72f06517ecb4af1fa1cea7a95..5ada6bb76996af2e2f431926a41ea67852c6e446 100644
+--- a/src/syntax/pattern_error.npk
++++ b/src/syntax/pattern_error.npk
+@@ -198,7 +198,7 @@ fixed int64:UTF8_FOUR = 65536i64;
+ // *(2026-10-02, cycle 0.1.5 -- RX-211: `pub`, so `regex_escape` in `parse.npk` writes a codepoint's
+ // `\x{…}` with the same digits; `syntax.npk` does not offer it.)*
+ pub func:hex = NIL(Bytes->:b, int64:v, int64:min) never fails {
+-    uint8[]:digit = string_bytes("0123456789ABCDEF");
++    fixed uint8[]:digit = string_bytes("0123456789ABCDEF");
+     int64:n = 1i64;
+     while ((n < 8i64) && ((v >> (4i64 * n)) != 0i64)) decreases 8i64 - n {
+         n = n + 1i64;
+diff --git a/tests/probe/probe05_explicit_stack.npk b/tests/probe/probe05_explicit_stack.npk
+index 243030f13c95022446cfce97e73d84bddc617cf5..dc20d973b2f6dc754f5a531132015d6b61254c74 100644
+--- a/tests/probe/probe05_explicit_stack.npk
++++ b/tests/probe/probe05_explicit_stack.npk
+@@ -145,7 +145,7 @@ struct:ParseOutcome = {
+ 
+ // THE PARSER. No recursion anywhere: one `while` over the bytes and one
+ // explicit `Vec<Frame>`. `src` is a view passed DOWN, never returned (RX-050).
+-func:parse_nested = ParseOutcome(uint8[]:src) never fails {
++func:parse_nested = ParseOutcome(fixed uint8[]:src) never fails {
+     Vec<Frame>:frames = raw vec_init::<Frame>(16i64);
+     int64:i = 0i64;
+     int64:deepest = 0i64;
+@@ -233,7 +233,7 @@ func:main = int32(cstring[]:_~argv) {
+     // ---- the shallow cases, so the parser is known to work ---------------
+ 
+     string:s0 = string_concat("(a(b)c)", "");
+-    uint8[]:v0 = string_bytes(s0);
++    fixed uint8[]:v0 = string_bytes(s0);
+     ParseOutcome:r0 = raw parse_nested(v0);
+     if (r0.code != 0i32)                                { exit 10i32; }
+     if (r0.max_depth != 2i64)                           { exit 11i32; }
+@@ -252,7 +252,7 @@ func:main = int32(cstring[]:_~argv) {
+     // `SAFETY.md` §5 requires a case sitting exactly on every bound and one
+     // exceeding it. This is the first.
+     string:deep = raw nest_of(250i64);
+-    uint8[]:vd = string_bytes(deep);
++    fixed uint8[]:vd = string_bytes(deep);
+     if (vd.len != 500i64)                               { exit 20i32; }
+     ParseOutcome:rd = raw parse_nested(vd);
+     if (rd.code != 0i32)                                { exit 21i32; }
+@@ -277,7 +277,7 @@ func:main = int32(cstring[]:_~argv) {
+     // This one refuses at depth 251 and returns, and the fact that the next
+     // line executes at all IS the result.
+     string:huge = raw nest_of(10000i64);
+-    uint8[]:vh = string_bytes(huge);
++    fixed uint8[]:vh = string_bytes(huge);
+     if (vh.len != 20000i64)                             { exit 40i32; }
+     ParseOutcome:rh = raw parse_nested(vh);
+     if (rh.code != 1i32)                                { exit 41i32; }
+diff --git a/tests/probe/probe06a_offsets_returned.npk b/tests/probe/probe06a_offsets_returned.npk
+index ce3c787798638a3c01f2bdc265f9d8471b070700..98385723b2a5ef745a7323724dfa9615aae671a0 100644
+--- a/tests/probe/probe06a_offsets_returned.npk
++++ b/tests/probe/probe06a_offsets_returned.npk
+@@ -6,6 +6,8 @@
+ // ASKS: does a function that takes a `uint8[]` and returns
+ // `struct:Match = { int64:lo; int64:hi; }` -- offsets, not a view -- compile and
+ // run? And does the `Match?` form `API.md` §2 actually specifies work too?
++// *(@@DATE021A@@, cycle 0.2.1a -- RX-230: it takes the READ-ONLY view, `fixed uint8[]`, since
++// compiler `7e91730`, the type `string_bytes` returns (its D-351). Both answers are unchanged.)*
+ //
+ // DEPENDS ON THE ANSWER: RX-050, and through it every entry point in `API.md`.
+ // `regex_find` returns `Match?`; `Match` carries byte offsets precisely because
+@@ -46,7 +48,7 @@ struct:Match = {
+ };
+ 
+ // The shape of every search entry point: a view DOWN, offsets UP.
+-func:find_byte = Match?(uint8[]:src, uint8:want, int64:from) never fails {
++func:find_byte = Match?(fixed uint8[]:src, uint8:want, int64:from) never fails {
+     int64:i = from;
+     while (i < src.len) decreases src.len - i {
+         if (src[i] == want) {
+@@ -68,7 +70,7 @@ func:find_byte = Match?(uint8[]:src, uint8:want, int64:from) never fails {
+ // run was 1. It is written out here because the same shape recurs in every
+ // engine in `ENGINES.md`: a scan that must report WHERE it stopped cannot use
+ // its cursor as its own flag.
+-func:find_run = Match?(uint8[]:src, uint8:want, int64:from) never fails {
++func:find_run = Match?(fixed uint8[]:src, uint8:want, int64:from) never fails {
+     int64:i = from;
+     while (i < src.len) decreases src.len - i {
+         if (src[i] == want) {
+@@ -90,7 +92,7 @@ func:find_run = Match?(uint8[]:src, uint8:want, int64:from) never fails {
+ 
+ func:main = int32(cstring[]:_~argv) {
+     string:s = string_concat("abcaa", "bXbb");     // "abcaabXbb", 9 bytes
+-    uint8[]:v = string_bytes(s);                   // the owner is ALIVE
++    fixed uint8[]:v = string_bytes(s);             // the owner is ALIVE
+     if (v.len != 9i64)                                  { exit 10i32; }
+ 
+     // ---- the `Match?` present case ---------------------------------------
+diff --git a/tests/probe/probe07_string_bytes_edges.npk b/tests/probe/probe07_string_bytes_edges.npk
+index ff20f726ce664c5a0a26939b8fbe3e3d9cae2e47..1f084f22a0a5a20c3f12a17e7ef1e207463417d1 100644
+--- a/tests/probe/probe07_string_bytes_edges.npk
++++ b/tests/probe/probe07_string_bytes_edges.npk
+@@ -20,6 +20,9 @@
+ //
+ // DEPENDS ON THE ANSWER: RX-054 makes `uint8[]` the primitive and every entry
+ // point in `API.md` takes one.
++// *(@@DATE021A@@, cycle 0.2.1a -- RX-230: the READ-ONLY one, `fixed uint8[]`, since compiler
++// `7e91730`: `string_bytes` returns it (its D-351), so every view below is one, every
++// parameter it is passed down to says so, and the four edges answer as they did.)*
+ //
+ // ==========================================================================
+ // THREE OF THE FOUR EDGES WERE ALREADY ANSWERED. READ THIS BEFORE EXTENDING.
+@@ -81,7 +84,7 @@ error:E9;
+ // ---------------------------------------------------------------------------
+ 
+ // A scanner step: takes the view, returns a NUMBER and never the view.
+-func:count_byte = int64(uint8[]:src, uint8:want) never fails {
++func:count_byte = int64(fixed uint8[]:src, uint8:want) never fails {
+     int64:i = 0i64;
+     int64:n = 0i64;
+     while (i < src.len) decreases src.len - i {
+@@ -93,13 +96,13 @@ func:count_byte = int64(uint8[]:src, uint8:want) never fails {
+ 
+ // Two frames deep, because "passed down" must survive being passed down again --
+ // this is `regex_find` calling an engine calling a byte-class test.
+-func:count_two_deep = int64(uint8[]:src, uint8:a, uint8:b) never fails {
++func:count_two_deep = int64(fixed uint8[]:src, uint8:a, uint8:b) never fails {
+     pass (raw count_byte(src, a)) + (raw count_byte(src, b));
+ };
+ 
+ // A view NARROWED and passed down. The narrowing is a `...` range on the way
+ // IN, which is legal for the same reason: it never travels up.
+-func:count_in_span = int64(uint8[]:src, int64:lo, int64:hi, uint8:want) never fails {
++func:count_in_span = int64(fixed uint8[]:src, int64:lo, int64:hi, uint8:want) never fails {
+     pass (raw count_byte(src[lo...hi], want));
+ };
+ 
+@@ -115,7 +118,7 @@ async func:step = int64(int64:v) {
+ // EDGE 4: a `uint8[]` HELD ACROSS AN `await`. The view is a parameter, the
+ // suspension happens between binding it and reading it, and `src.len` is read
+ // on the far side.
+-async func:view_across_await = int64(uint8[]:src) {
++async func:view_across_await = int64(fixed uint8[]:src) {
+     int64:n = relay await step(0i64);
+     pass src.len + n;
+ };
+@@ -132,7 +135,7 @@ async func:borrow_across_await = int64(int64->:p) {
+ async func:main = int32(cstring[]:_~argv) {
+     // "abcaabXbb", nine bytes. `s` is owned by this frame throughout.
+     string:s = string_concat("abcaa", "bXbb");
+-    uint8[]:v = string_bytes(s);
++    fixed uint8[]:v = string_bytes(s);
+ 
+     // ---- §3 — the slice's own members ---------------------------------
+ 
+@@ -149,7 +152,7 @@ async func:main = int32(cstring[]:_~argv) {
+ 
+     // An empty view is legal and has length zero, which is the case every
+     // engine hits on an empty haystack.
+-    uint8[]:empty = v[0i64...0i64];
++    fixed uint8[]:empty = v[0i64...0i64];
+     if (empty.len != 0i64)                              { exit 12i32; }
+ 
+     // ---- §1 in practice — edge 1 -----------------------------------------
+diff --git a/tests/probe/probe12_iterator_borrowing.npk b/tests/probe/probe12_iterator_borrowing.npk
+index 66ca513bff3c2fda134d9f010383ccfffd28b59a..ddd38e755b0ccb719115ceb7c4333cbc23e5a1aa 100644
+--- a/tests/probe/probe12_iterator_borrowing.npk
++++ b/tests/probe/probe12_iterator_borrowing.npk
+@@ -66,9 +66,12 @@ struct:Prog = {
+ 
+ // THE SECOND-CLASS STRUCT. It holds a borrow (`Prog->`) and a view (`uint8[]`),
+ // so it can be built, passed down and iterated — and never returned.
++// *(@@DATE021A@@, cycle 0.2.1a -- RX-230: a READ-ONLY view, `fixed uint8[]`, since compiler
++// `7e91730`: a string's bytes are one (its D-351). The verdict above is unchanged, and
++// `refused/probe12b_for_over_borrow_refused.npk` is still `NITPICK-BORROW-009`.)*
+ struct:Matches = {
+     Prog->:re;
+-    uint8[]:hay;
++    fixed uint8[]:hay;
+     int64:at;
+ };
+ 
+@@ -96,7 +99,7 @@ impl:Matches:Iterator = {
+ 
+ func:main = int32(cstring[]:_~argv) {
+     string:s = string_concat("abcaa", "bXbb");     // "abcaabXbb"
+-    uint8[]:hay = string_bytes(s);
++    fixed uint8[]:hay = string_bytes(s);
+     Prog:p = Prog{ want: 97u8, calls: 0i64 };      // 'a'
+ 
+     // ---- built by STRUCT LITERAL at the call site -------------------------
+diff --git a/tests/probe/probe19_native_recursion_traps.npk b/tests/probe/probe19_native_recursion_traps.npk
+index 0c4092dd60805f1f9e40e82707957691f2d485d1..a8d1b6285807098b217763e3ff07c9cccf61ed38 100644
+--- a/tests/probe/probe19_native_recursion_traps.npk
++++ b/tests/probe/probe19_native_recursion_traps.npk
+@@ -55,7 +55,7 @@ struct:Fr = {
+ // its `)`, or -1 when the pattern ends first. One native frame per level of nesting,
+ // each holding a copy of the frame above it. The call sits inside the loop, so no
+ // optimiser can turn it into a jump.
+-func:rd = int64(uint8[]:pat, int64:i, Fr:outer) never fails {
++func:rd = int64(fixed uint8[]:pat, int64:i, Fr:outer) never fails {
+     Fr:f = outer;
+     f.a0 = i;
+     int64:j = i + 1i64;
+@@ -83,8 +83,8 @@ func:main = int32(cstring[]:_~argv) {
+         n = n * 2i64;
+         k = k + 1i64;
+     }
+-    uint8[]:all = string_bytes(t);
+-    uint8[]:pat = all[0i64...LEVELS];
++    fixed uint8[]:all = string_bytes(t);
++    fixed uint8[]:pat = all[0i64...LEVELS];
+     Fr:z = Fr{ a0: 0i64, a1: 0i64, a2: 0i64, a3: 0i64, a4: 0i64, a5: 0i64, a6: 0i64,
+                a7: 0i64, a8: 0i64, a9: 0i64, a10: 0i64, a11: 0i64, fl: 0u32 };
+     int64:r = raw rd(pat, 0i64, z);
+diff --git a/tests/probe/refused/probe09_comptime_walker.npk b/tests/probe/refused/probe09_comptime_walker.npk
+index d12d1b6e7d99122b6bb0ae70b192e4d88f111c48..c0ffb122e39e92e0f1dc5f8dc7eb0a7a58a8a561 100644
+--- a/tests/probe/refused/probe09_comptime_walker.npk
++++ b/tests/probe/refused/probe09_comptime_walker.npk
+@@ -67,7 +67,7 @@ mod:probe09_comptime_walker;
+ // those works at RUN time — this same function without `comptime` is ordinary
+ // code, which is what makes the gap a gap rather than a design.
+ comptime func:first_paren = int64(string:s) {
+-    uint8[]:b = string_bytes(s);
++    fixed uint8[]:b = string_bytes(s);
+     int64:i = 0i64;
+     while (i < b.len) decreases b.len - i {
+         if (b[i] == 40u8) { pass i; }        // '('
+diff --git a/tests/probe/refused/probe12b_for_over_borrow_refused.npk b/tests/probe/refused/probe12b_for_over_borrow_refused.npk
+index 8dfbb63424da1f4600e2989416b1d49c7fc701ec..5070f8950158a4d8165301b1ce931d6f554ab857 100644
+--- a/tests/probe/refused/probe12b_for_over_borrow_refused.npk
++++ b/tests/probe/refused/probe12b_for_over_borrow_refused.npk
+@@ -27,7 +27,7 @@ struct:Prog = { uint8:want; int64:calls; };
+ 
+ struct:Matches = {
+     Prog->:re;
+-    uint8[]:hay;
++    fixed uint8[]:hay;
+     int64:at;
+ };
+ 
+@@ -49,7 +49,7 @@ impl:Matches:Iterator = {
+ 
+ func:main = int32(cstring[]:_~argv) {
+     string:s = string_concat("abcaa", "bXbb");
+-    uint8[]:hay = string_bytes(s);
++    fixed uint8[]:hay = string_bytes(s);
+     Prog:p = Prog{ want: 97u8, calls: 0i64 };
+     Matches:it = Matches{ re: @p, hay: hay, at: 0i64 };
+ 
+diff --git a/tests/probe/refused/probe17_lent_field_drop.npk b/tests/probe/refused/probe17_lent_field_drop.npk
+index 2c42760bcf7e95fc97fbffc8e3dc26421a70aa29..531f2bf3e9abfc6ed029747a4c89503f734a25ff 100644
+--- a/tests/probe/refused/probe17_lent_field_drop.npk
++++ b/tests/probe/refused/probe17_lent_field_drop.npk
+@@ -39,7 +39,7 @@ func:overwrite = NIL(Box:b) never fails {
+ func:main = int32(cstring[]:_~argv) {
+     Box:b = Box{ s: string_concat("abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "c") };
+     drop overwrite(b);
+-    uint8[]:bs = string_bytes(b.s);
++    fixed uint8[]:bs = string_bytes(b.s);
+     if (bs[0i64] == 97u8) { exit 21i32; }
+     if (bs[0i64] == 170u8) { exit 70i32; }
+     exit 71i32;
+diff --git a/tests/unit/cursor_unit.npk b/tests/unit/cursor_unit.npk
+index 5b28d8be11fcd6471ea592f7ebeb3964b1fcd39a..38a383000d859acd271649868f87e9327500179b 100644
+--- a/tests/unit/cursor_unit.npk
++++ b/tests/unit/cursor_unit.npk
+@@ -20,7 +20,7 @@ mod:cursor_unit;
+ 
+ use "../../src/syntax/syntax.npk".*;
+ 
+-func:walk = int32(uint8[]:pat) never fails {
++func:walk = int32(fixed uint8[]:pat) never fails {
+     Cursor:c = raw cursor_init(pat);
+     if (raw cursor_at_end(@c))               { pass 10i32; }
+     if ((raw cursor_offset(@c)) != 0i64)     { pass 11i32; }
+@@ -43,7 +43,7 @@ func:walk = int32(uint8[]:pat) never fails {
+     pass 0i32;
+ };
+ 
+-func:empty = int32(uint8[]:pat) never fails {
++func:empty = int32(fixed uint8[]:pat) never fails {
+     Cursor:c = raw cursor_init(pat);
+     if (!(raw cursor_at_end(@c)))            { pass 30i32; }
+     if ((raw cursor_peek(@c)) != CURSOR_END) { pass 31i32; }
+diff --git a/tests/unit/hir_build.npk b/tests/unit/hir_build.npk
+index 142593693010bc3dd183538cff97af59f29572dd..1c3400ae8bb280323de18f0ba6cd467e64879cc8 100644
+--- a/tests/unit/hir_build.npk
++++ b/tests/unit/hir_build.npk
+@@ -34,7 +34,7 @@ use "../../src/syntax/syntax.npk".*;
+ use "../../src/hir/hir.npk".*;
+ 
+ // Whether `b` holds exactly the bytes of `want`.
+-func:same = bool(Bytes->:b, uint8[]:want) never fails {
++func:same = bool(Bytes->:b, fixed uint8[]:want) never fails {
+     if ((raw bytes_len(b)) != want.len) { pass false; }
+     int64:i = 0i64;
+     while (i < want.len) decreases want.len - i {
+@@ -46,7 +46,7 @@ func:same = bool(Bytes->:b, uint8[]:want) never fails {
+ 
+ // Whether the `n` bytes of `b` at `s` are the word `w`.
+ func:word_at = bool(Bytes->:b, int64:s, int64:n, string:w) never fails {
+-    uint8[]:wb = string_bytes(w);
++    fixed uint8[]:wb = string_bytes(w);
+     if (n != wb.len) { pass false; }
+     int64:k = 0i64;
+     while (k < n) decreases n - k {
+@@ -162,7 +162,7 @@ func:is_tree = bool(Hir->:h) never fails {
+ 
+ // `pattern` parses and builds, and its HIR is `want`: the dump byte for byte, every word H-15's,
+ // the arena the tree and nothing else, and the text read back and written the same.
+-func:built_bytes = bool(uint8[]:pat, uint8[]:want) never fails {
++func:built_bytes = bool(fixed uint8[]:pat, fixed uint8[]:want) never fails {
+     Ast:t = raw ast_init(8i64);
+     PatternError?:e = raw parse_pattern(pat, @t);
+     bool:ok = e == NIL;
+@@ -199,7 +199,7 @@ func:one_hir = bool(string:a, string:b, string:want) never fails {
+ 
+ // `pattern` parses, and its build stops at the node whose first byte is `at`, the root unset.
+ func:stops = bool(string:pattern, int64:at) never fails {
+-    uint8[]:pat = string_bytes(pattern);
++    fixed uint8[]:pat = string_bytes(pattern);
+     Ast:t = raw ast_init(8i64);
+     PatternError?:e = raw parse_pattern(pat, @t);
+     bool:ok = e == NIL;
+@@ -299,7 +299,7 @@ func:kinds = int32() never fails {
+     // a name, copied into the HIR
+     if ((!(raw built("(?<year>a)", "(group 1 year (literal 97))"))) || (!(raw built("(?<n>)", "(group 1 n (empty))")))) { pass 41i32; }
+     // the group table: group 0 the whole match, then the pattern's in number order, their names
+-    uint8[]:gp = string_bytes("(?<year>a)(b)(?<m_1>c)");
++    fixed uint8[]:gp = string_bytes("(?<year>a)(b)(?<m_1>c)");
+     Ast:gt = raw ast_init(8i64);
+     if ((raw parse_pattern(gp, @gt)) != NIL) { pass 42i32; }
+     Hir:gh = raw hir_init(8i64);
+diff --git a/tests/unit/hir_build_classes.npk b/tests/unit/hir_build_classes.npk
+index e0e1ee67d304fcc41c8e6d5cc0cb4d4dd4b4bfad..dec1f1bf118d636d479df8b88a800f93faa0eb47 100644
+--- a/tests/unit/hir_build_classes.npk
++++ b/tests/unit/hir_build_classes.npk
+@@ -25,7 +25,7 @@ use "../../src/syntax/syntax.npk".*;
+ use "../../src/hir/hir.npk".*;
+ 
+ // Whether `b` holds exactly the bytes of `want`.
+-func:same = bool(Bytes->:b, uint8[]:want) never fails {
++func:same = bool(Bytes->:b, fixed uint8[]:want) never fails {
+     if ((raw bytes_len(b)) != want.len) { pass false; }
+     int64:i = 0i64;
+     while (i < want.len) decreases want.len - i {
+@@ -38,7 +38,7 @@ func:same = bool(Bytes->:b, uint8[]:want) never fails {
+ // Builds `pattern` into `h`: 0 when the build completes and its dump reads back to the same text,
+ // 1 when it stops -- the one exit this unit is pending on -- and `c` for anything else.
+ func:build = int32(string:pattern, Hir->:h, int32:c) never fails {
+-    uint8[]:pat = string_bytes(pattern);
++    fixed uint8[]:pat = string_bytes(pattern);
+     Ast:t = raw ast_init(8i64);
+     PatternError?:e = raw parse_pattern(pat, @t);
+     int32:r = c;
+diff --git a/tests/unit/hir_build_fold.npk b/tests/unit/hir_build_fold.npk
+index 5c1100d73604eceb5a9a45514934d4f479288bbe..08f4db4b1209130eb2d356592c579d2c41c974e8 100644
+--- a/tests/unit/hir_build_fold.npk
++++ b/tests/unit/hir_build_fold.npk
+@@ -24,7 +24,7 @@ use "../../src/syntax/syntax.npk".*;
+ use "../../src/hir/hir.npk".*;
+ 
+ // Whether `b` holds exactly the bytes of `want`.
+-func:same = bool(Bytes->:b, uint8[]:want) never fails {
++func:same = bool(Bytes->:b, fixed uint8[]:want) never fails {
+     if ((raw bytes_len(b)) != want.len) { pass false; }
+     int64:i = 0i64;
+     while (i < want.len) decreases want.len - i {
+@@ -37,7 +37,7 @@ func:same = bool(Bytes->:b, uint8[]:want) never fails {
+ // Builds `pattern` into `h`: 0 when the build completes and its dump reads back to the same text,
+ // 1 when it stops -- the one exit this unit is pending on -- and `c` for anything else.
+ func:build = int32(string:pattern, Hir->:h, int32:c) never fails {
+-    uint8[]:pat = string_bytes(pattern);
++    fixed uint8[]:pat = string_bytes(pattern);
+     Ast:t = raw ast_init(8i64);
+     PatternError?:e = raw parse_pattern(pat, @t);
+     int32:r = c;
+diff --git a/tests/unit/hir_dump.npk b/tests/unit/hir_dump.npk
+index 1bbe1e583bf13b37930089a0c94b5c8dfdbdf410..b0bb554b10c892f5ac3e1ad463734a49880341ad 100644
+--- a/tests/unit/hir_dump.npk
++++ b/tests/unit/hir_dump.npk
+@@ -27,7 +27,7 @@ use "../../src/core/core.npk".*;
+ use "../../src/hir/hir.npk".*;
+ 
+ // Whether `b` holds exactly the bytes of `want`.
+-func:same = bool(Bytes->:b, uint8[]:want) never fails {
++func:same = bool(Bytes->:b, fixed uint8[]:want) never fails {
+     if ((raw bytes_len(b)) != want.len) { pass false; }
+     int64:i = 0i64;
+     while (i < want.len) decreases want.len - i {
+@@ -38,7 +38,7 @@ func:same = bool(Bytes->:b, uint8[]:want) never fails {
+ };
+ 
+ // `text` reads whole, writes back as itself, and its dump does the same.
+-func:round = bool(uint8[]:text) never fails {
++func:round = bool(fixed uint8[]:text) never fails {
+     Hir:h = raw hir_init(4i64);
+     int64:e = raw hir_read(text, @h);
+     Bytes:b = raw bytes_init(16i64);
+@@ -56,7 +56,7 @@ func:round = bool(uint8[]:text) never fails {
+ };
+ 
+ // `text` is refused at byte `at`, and the root stays unset.
+-func:refused = bool(uint8[]:text, int64:at) never fails {
++func:refused = bool(fixed uint8[]:text, int64:at) never fails {
+     Hir:h = raw hir_init(4i64);
+     int64:e = raw hir_read(text, @h);
+     bool:ok = (e == at) && (h.root == HIR_NONE);
+@@ -158,7 +158,7 @@ func:built = int32() never fails {
+     drop hir_set_root(@h, cat);
+     Bytes:b = raw bytes_init(16i64);
+     drop hir_dump(@h, @b);
+-    uint8[]:want = string_bytes("(concat (literal 97) (group 1 w (repeat lazy 0 - (class 97-122 48-57))) (wordboundary byte not))");
++    fixed uint8[]:want = string_bytes("(concat (literal 97) (group 1 w (repeat lazy 0 - (class 97-122 48-57))) (wordboundary byte not))");
+     if ((!(raw same(@b, want))) || (!(raw round(want)))) { pass 40i32; }
+     drop hir_free(@h);
+ 
+diff --git a/tests/unit/hir_unit.npk b/tests/unit/hir_unit.npk
+index b26cd403bdd5cf162fad1a1e2e3eff2f85d51b2b..be43ef5454ac9bfa60d0478a3785cea769f8ba91 100644
+--- a/tests/unit/hir_unit.npk
++++ b/tests/unit/hir_unit.npk
+@@ -40,7 +40,7 @@ func:ordinal = int64(HirKind:k) never fails {
+ 
+ // Whether `b` holds exactly the bytes of `want`.
+ func:same = bool(Bytes->:b, string:want) never fails {
+-    uint8[]:w = string_bytes(want);
++    fixed uint8[]:w = string_bytes(want);
+     if ((raw bytes_len(b)) != w.len) { pass false; }
+     int64:i = 0i64;
+     while (i < w.len) decreases w.len - i {
+diff --git a/tests/unit/parse_check_length.npk b/tests/unit/parse_check_length.npk
+index c05f83c5857ed48376c56bd2f42ed7813e71e2f7..38a5335840526d7e91d2e4bfdb1e8169a11f0994 100644
+--- a/tests/unit/parse_check_length.npk
++++ b/tests/unit/parse_check_length.npk
+@@ -17,12 +17,12 @@ mod:parse_check_length;
+ use "../../src/core/core.npk".*;
+ use "../../src/syntax/syntax.npk".*;
+ 
+-func:fits = bool(uint8[]:pat) never fails {
++func:fits = bool(fixed uint8[]:pat) never fails {
+     PatternError?:e = raw parse_check_length(pat);
+     pass e == NIL;
+ };
+ 
+-func:check_over = int32(uint8[]:pat, int32:base) never fails {
++func:check_over = int32(fixed uint8[]:pat, int32:base) never fails {
+     PatternError?:e = raw parse_check_length(pat);
+     if (e == NIL) { pass base; }
+     PatternError:got = e ?? raw pattern_error(PatternErrorKind.UnclosedGroup, 0i64, 0i64, 0u32);
+@@ -38,7 +38,7 @@ func:check_over = int32(uint8[]:pat, int32:base) never fails {
+     pass 0i32;
+ };
+ 
+-func:run = int32(uint8[]:v) never fails {
++func:run = int32(fixed uint8[]:v) never fails {
+     int64:bound = NREGEX_PATTERN_BYTES;
+     if (!(raw fits(v[0i64...0i64])))                   { pass 10i32; }
+     if (!(raw fits(v[0i64...1i64])))                   { pass 11i32; }
+@@ -59,7 +59,7 @@ func:main = int32(cstring[]:_~argv) {
+         i = i + 1i64;
+     }
+     string:s = raw bytes_copy_string(@b);
+-    uint8[]:v = string_bytes(s);
++    fixed uint8[]:v = string_bytes(s);
+     if (v.len != n) { exit 9i32; }
+     int32:r = raw run(v);
+     exit r;
+diff --git a/tests/unit/parse_classes.npk b/tests/unit/parse_classes.npk
+index 8834576c4e8ce6efefadb302105bb6f8625d68e1..834c815fbb8b78fcbf3d511e333daf17f94e3756 100644
+--- a/tests/unit/parse_classes.npk
++++ b/tests/unit/parse_classes.npk
+@@ -62,7 +62,7 @@ func:member = bool(AstKind:k) never fails {
+ };
+ 
+ // A node's list: `count` members from `first`, each dumped after a space.
+-func:list = NIL(uint8[]:pat, Ast:t, int64:first, int64:count, Bytes->:b, bool:spans, bool:inclass) never fails {
++func:list = NIL(fixed uint8[]:pat, Ast:t, int64:first, int64:count, Bytes->:b, bool:spans, bool:inclass) never fails {
+     int64:k = 0i64;
+     int64:m = first;
+     while (k < count) decreases count - k {
+@@ -81,7 +81,7 @@ func:list = NIL(uint8[]:pat, Ast:t, int64:first, int64:count, Bytes->:b, bool:sp
+ };
+ 
+ // A node an operator or a `Repeat` holds, which no list holds.
+-func:held = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
++func:held = NIL(fixed uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
+     drop put(b, " ");
+     AstNode:x = raw ast_get(t, i);
+     if (x.next != AST_NONE) { drop put(b, "!next"); }
+@@ -89,7 +89,7 @@ func:held = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails
+     pass NIL;
+ };
+ 
+-func:dump = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
++func:dump = NIL(fixed uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
+     AstNode:n = raw ast_get(t, i);
+     uint32:want = AST_FLAG_U;
+     if ((n.kind == AstKind.Repeat) && (n.flags == AST_FLAG_U + AST_FLAG_LAZY)) { want = n.flags; }
+@@ -168,7 +168,7 @@ func:dump = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails
+ };
+ 
+ func:same = bool(Bytes->:b, string:want) never fails {
+-    uint8[]:w = string_bytes(want);
++    fixed uint8[]:w = string_bytes(want);
+     if ((raw bytes_len(b)) != w.len) { pass false; }
+     int64:i = 0i64;
+     while (i < w.len) decreases w.len - i {
+@@ -180,7 +180,7 @@ func:same = bool(Bytes->:b, string:want) never fails {
+ 
+ // Parses `pattern`, dumps its tree, and compares the text with `want`.
+ func:tree = bool(string:pattern, string:want, bool:spans) never fails {
+-    uint8[]:pat = string_bytes(pattern);
++    fixed uint8[]:pat = string_bytes(pattern);
+     Ast:t = raw ast_init(8i64);
+     PatternError?:e = raw parse_pattern(pat, @t);
+     Bytes:b = raw bytes_init(64i64);
+diff --git a/tests/unit/parse_encoding.npk b/tests/unit/parse_encoding.npk
+index 1e06bca028c425cdde4634ffd4384e309842244d..633be4dce92a5752f33744660c50781cb730edcf 100644
+--- a/tests/unit/parse_encoding.npk
++++ b/tests/unit/parse_encoding.npk
+@@ -16,7 +16,7 @@ mod:parse_encoding;
+ use "../../src/core/core.npk".*;
+ use "../../src/syntax/syntax.npk".*;
+ 
+-func:bad = bool(uint8[]:pat, int64:off, int64:len, uint32:detail) never fails {
++func:bad = bool(fixed uint8[]:pat, int64:off, int64:len, uint32:detail) never fails {
+     Ast:t = raw ast_init(4i64);
+     PatternError?:r = raw parse_pattern(pat, @t);
+     drop ast_free(@t);
+@@ -29,7 +29,7 @@ func:bad = bool(uint8[]:pat, int64:off, int64:len, uint32:detail) never fails {
+ };
+ 
+ // One literal, the whole pattern, decoded to `cp`.
+-func:good = bool(uint8[]:pat, int64:cp) never fails {
++func:good = bool(fixed uint8[]:pat, int64:cp) never fails {
+     Ast:t = raw ast_init(4i64);
+     PatternError?:r = raw parse_pattern(pat, @t);
+     bool:ok = false;
+diff --git a/tests/unit/parse_escapes.npk b/tests/unit/parse_escapes.npk
+index f01c4d060acab7dc9599cb0e85004da6b684c3d5..9b3c61949c44463bbded2af800641f038fd36127 100644
+--- a/tests/unit/parse_escapes.npk
++++ b/tests/unit/parse_escapes.npk
+@@ -56,7 +56,7 @@ func:member = bool(AstKind:k) never fails {
+ };
+ 
+ // A node's list: `count` members from `first`, each dumped after a space.
+-func:list = NIL(uint8[]:pat, Ast:t, int64:first, int64:count, Bytes->:b, bool:spans, bool:inclass) never fails {
++func:list = NIL(fixed uint8[]:pat, Ast:t, int64:first, int64:count, Bytes->:b, bool:spans, bool:inclass) never fails {
+     int64:k = 0i64;
+     int64:m = first;
+     while (k < count) decreases count - k {
+@@ -75,7 +75,7 @@ func:list = NIL(uint8[]:pat, Ast:t, int64:first, int64:count, Bytes->:b, bool:sp
+ };
+ 
+ // A node an operator or a `Repeat` holds, which no list holds.
+-func:held = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
++func:held = NIL(fixed uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
+     drop put(b, " ");
+     AstNode:x = raw ast_get(t, i);
+     if (x.next != AST_NONE) { drop put(b, "!next"); }
+@@ -83,7 +83,7 @@ func:held = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails
+     pass NIL;
+ };
+ 
+-func:dump = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
++func:dump = NIL(fixed uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
+     AstNode:n = raw ast_get(t, i);
+     uint32:want = AST_FLAG_U;
+     if ((n.kind == AstKind.Repeat) && (n.flags == AST_FLAG_U + AST_FLAG_LAZY)) { want = n.flags; }
+@@ -176,7 +176,7 @@ func:dump = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails
+ };
+ 
+ func:same = bool(Bytes->:b, string:want) never fails {
+-    uint8[]:w = string_bytes(want);
++    fixed uint8[]:w = string_bytes(want);
+     if ((raw bytes_len(b)) != w.len) { pass false; }
+     int64:i = 0i64;
+     while (i < w.len) decreases w.len - i {
+@@ -188,7 +188,7 @@ func:same = bool(Bytes->:b, string:want) never fails {
+ 
+ // Parses `pattern`, dumps its tree, and compares the text with `want`.
+ func:tree = bool(string:pattern, string:want, bool:spans) never fails {
+-    uint8[]:pat = string_bytes(pattern);
++    fixed uint8[]:pat = string_bytes(pattern);
+     Ast:t = raw ast_init(8i64);
+     PatternError?:e = raw parse_pattern(pat, @t);
+     Bytes:b = raw bytes_init(64i64);
+diff --git a/tests/unit/parse_flags.npk b/tests/unit/parse_flags.npk
+index d0044a8e1d4cf0ef56810474b98414ada9ed4296..e0220897b4831bf5985b3d06dfa6b0141e0a8eae 100644
+--- a/tests/unit/parse_flags.npk
++++ b/tests/unit/parse_flags.npk
+@@ -70,7 +70,7 @@ func:negatable = bool(AstKind:k) never fails {
+ };
+ 
+ // A node's list: `count` members from `first`, each dumped after a space.
+-func:list = NIL(uint8[]:pat, Ast:t, int64:first, int64:count, Bytes->:b, bool:spans) never fails {
++func:list = NIL(fixed uint8[]:pat, Ast:t, int64:first, int64:count, Bytes->:b, bool:spans) never fails {
+     int64:k = 0i64;
+     int64:m = first;
+     while (k < count) decreases count - k {
+@@ -88,7 +88,7 @@ func:list = NIL(uint8[]:pat, Ast:t, int64:first, int64:count, Bytes->:b, bool:sp
+ };
+ 
+ // A node an operator, a `Repeat` or a `Group` holds, which no list holds.
+-func:held = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
++func:held = NIL(fixed uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
+     drop put(b, " ");
+     AstNode:x = raw ast_get(t, i);
+     if (x.next != AST_NONE) { drop put(b, "!next"); }
+@@ -96,7 +96,7 @@ func:held = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails
+     pass NIL;
+ };
+ 
+-func:dump = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
++func:dump = NIL(fixed uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
+     AstNode:n = raw ast_get(t, i);
+     uint32:kb = n.flags & ~31u32;
+     bool:fits = kb == 0u32;
+@@ -203,7 +203,7 @@ func:dump = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails
+ };
+ 
+ func:same = bool(Bytes->:b, string:want) never fails {
+-    uint8[]:w = string_bytes(want);
++    fixed uint8[]:w = string_bytes(want);
+     if ((raw bytes_len(b)) != w.len) { pass false; }
+     int64:i = 0i64;
+     while (i < w.len) decreases w.len - i {
+@@ -215,7 +215,7 @@ func:same = bool(Bytes->:b, string:want) never fails {
+ 
+ // Parses `pattern`, dumps its tree, and compares the text with `want`.
+ func:tree = bool(string:pattern, string:want, bool:spans) never fails {
+-    uint8[]:pat = string_bytes(pattern);
++    fixed uint8[]:pat = string_bytes(pattern);
+     Ast:t = raw ast_init(8i64);
+     PatternError?:e = raw parse_pattern(pat, @t);
+     Bytes:b = raw bytes_init(64i64);
+diff --git a/tests/unit/parse_grammar.npk b/tests/unit/parse_grammar.npk
+index 48c424987916b50e7c6401cd2bcfaa2491597e86..c6d3643549b2ee94299715035b627158d92fad84 100644
+--- a/tests/unit/parse_grammar.npk
++++ b/tests/unit/parse_grammar.npk
+@@ -40,7 +40,7 @@ func:span = NIL(Bytes->:b, AstNode:n, bool:spans) never fails {
+     pass NIL;
+ };
+ 
+-func:dump = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
++func:dump = NIL(fixed uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails {
+     AstNode:n = raw ast_get(t, i);
+     uint32:want = AST_FLAG_U;
+     if ((n.kind == AstKind.Repeat) && (n.flags == AST_FLAG_U + AST_FLAG_LAZY)) { want = n.flags; }
+@@ -113,7 +113,7 @@ func:dump = NIL(uint8[]:pat, Ast:t, int64:i, Bytes->:b, bool:spans) never fails
+ };
+ 
+ func:same = bool(Bytes->:b, string:want) never fails {
+-    uint8[]:w = string_bytes(want);
++    fixed uint8[]:w = string_bytes(want);
+     if ((raw bytes_len(b)) != w.len) { pass false; }
+     int64:i = 0i64;
+     while (i < w.len) decreases w.len - i {
+@@ -125,7 +125,7 @@ func:same = bool(Bytes->:b, string:want) never fails {
+ 
+ // Parses `pattern`, dumps its tree, and compares the text with `want`.
+ func:tree = bool(string:pattern, string:want, bool:spans) never fails {
+-    uint8[]:pat = string_bytes(pattern);
++    fixed uint8[]:pat = string_bytes(pattern);
+     Ast:t = raw ast_init(8i64);
+     PatternError?:e = raw parse_pattern(pat, @t);
+     Bytes:b = raw bytes_init(64i64);
+diff --git a/tests/unit/parse_nest_deep.npk b/tests/unit/parse_nest_deep.npk
+index b19ef279d733454cf928a74d41cdc8bbb742d50c..c839853a6ddcd88d46b0b4f137272608243c98f4 100644
+--- a/tests/unit/parse_nest_deep.npk
++++ b/tests/unit/parse_nest_deep.npk
+@@ -70,37 +70,37 @@ func:run = int32() never fails {
+     // 1. 10 000 levels, and their 10 000 closers
+     Bytes:a = raw pattern("(", 10000i64, ")", 10000i64);
+     string:sa = raw bytes_copy_string(@a);
+-    uint8[]:va = string_bytes(sa);
++    fixed uint8[]:va = string_bytes(sa);
+     if (va.len != 20000i64) { pass 1i32; }
+     if (!(raw refused_at(sa, 250i64))) { pass 2i32; }
+     // 2. the longest pattern there is, every byte a `(`
+     Bytes:b = raw pattern("(", 65536i64, "", 0i64);
+     string:sb = raw bytes_copy_string(@b);
+-    uint8[]:vb = string_bytes(sb);
++    fixed uint8[]:vb = string_bytes(sb);
+     if (vb.len != 65536i64) { pass 3i32; }
+     if (!(raw refused_at(sb, 250i64))) { pass 4i32; }
+     // 3. the longest pattern there is, nested without capturing
+     Bytes:c = raw pattern("(?:", 21845i64, "a", 1i64);
+     string:sc = raw bytes_copy_string(@c);
+-    uint8[]:vc = string_bytes(sc);
++    fixed uint8[]:vc = string_bytes(sc);
+     if (vc.len != 65536i64) { pass 5i32; }
+     if (!(raw refused_at(sc, 750i64))) { pass 6i32; }
+     // 4. 10 000 nested classes, and their 10 000 closers
+     Bytes:d = raw pattern("[", 10000i64, "]", 10000i64);
+     string:sd = raw bytes_copy_string(@d);
+-    uint8[]:vd = string_bytes(sd);
++    fixed uint8[]:vd = string_bytes(sd);
+     if (vd.len != 20000i64) { pass 7i32; }
+     if (!(raw refused_at(sd, 250i64))) { pass 8i32; }
+     // 5. the longest pattern there is, every byte a `[`
+     Bytes:f = raw pattern("[", 65536i64, "", 0i64);
+     string:sf = raw bytes_copy_string(@f);
+-    uint8[]:vf = string_bytes(sf);
++    fixed uint8[]:vf = string_bytes(sf);
+     if (vf.len != 65536i64) { pass 9i32; }
+     if (!(raw refused_at(sf, 250i64))) { pass 10i32; }
+     // 6. groups and classes together: 200 groups, then the 51st `[` is the 251st level
+     Bytes:g = raw pattern("(", 200i64, "[", 10000i64);
+     string:sg = raw bytes_copy_string(@g);
+-    uint8[]:vg = string_bytes(sg);
++    fixed uint8[]:vg = string_bytes(sg);
+     if (vg.len != 10200i64) { pass 11i32; }
+     if (!(raw refused_at(sg, 250i64))) { pass 12i32; }
+     pass 0i32;
+diff --git a/tests/unit/parse_refusals.npk b/tests/unit/parse_refusals.npk
+index 2235e177cc0793871b446ef99f76bf99e8b7bc58..86d42d7ce7a89faa547f8a4d813dee58eaf7bef3 100644
+--- a/tests/unit/parse_refusals.npk
++++ b/tests/unit/parse_refusals.npk
+@@ -37,7 +37,7 @@ func:refused = bool(string:pattern, PatternErrorKind:kind, int64:off, int64:len,
+ };
+ 
+ // The same, for a pattern a string literal cannot hold -- one with a NUL in it.
+-func:refused_bytes = bool(uint8[]:pat, PatternErrorKind:kind, int64:off, int64:len, uint32:detail) never fails {
++func:refused_bytes = bool(fixed uint8[]:pat, PatternErrorKind:kind, int64:off, int64:len, uint32:detail) never fails {
+     Ast:t = raw ast_init(8i64);
+     PatternError?:r = raw parse_pattern(pat, @t);
+     drop ast_free(@t);
+diff --git a/tests/unit/pattern_error_text.npk b/tests/unit/pattern_error_text.npk
+index 2a5ef93ee3e78d29920fd62834e15562d7b4d7bc..e69d43fa477a53634c73767cca0ef2cc7b365eb9 100644
+--- a/tests/unit/pattern_error_text.npk
++++ b/tests/unit/pattern_error_text.npk
+@@ -26,8 +26,8 @@ use "../../src/core/core.npk".*;
+ use "../../src/syntax/syntax.npk".*;
+ 
+ func:same = bool(string:got, string:want) never fails {
+-    uint8[]:g = string_bytes(got);
+-    uint8[]:w = string_bytes(want);
++    fixed uint8[]:g = string_bytes(got);
++    fixed uint8[]:w = string_bytes(want);
+     if (g.len != w.len) { pass false; }
+     int64:i = 0i64;
+     while (i < w.len) decreases w.len - i {
+@@ -62,8 +62,8 @@ func:says_kind = bool(string:pattern, PatternErrorKind:kind, int64:off, string:w
+ 
+ // Does `text` contain `part`?
+ func:has = bool(string:text, string:part) never fails {
+-    uint8[]:t = string_bytes(text);
+-    uint8[]:p = string_bytes(part);
++    fixed uint8[]:t = string_bytes(text);
++    fixed uint8[]:p = string_bytes(part);
+     int64:i = 0i64;
+     while ((i + p.len) <= t.len) decreases t.len - i {
+         int64:k = 0i64;
+diff --git a/tests/unit/regex_escape.npk b/tests/unit/regex_escape.npk
+index 7fbfcb4b795caa79fd78a6a5f4ac442083beb8de..73d7f518fdf239a2edcfe3b0a3ec64e896e227d1 100644
+--- a/tests/unit/regex_escape.npk
++++ b/tests/unit/regex_escape.npk
+@@ -29,7 +29,7 @@ fixed int64:IN_CLASS = 2i64;     // between `[` and `]`
+ fixed int64:EXT_CLASS = 3i64;    // between `(?x)[` and `]`
+ fixed int64:NESTED = 4i64;       // between `[[` and `]]`: a class nested in a class (RX-214)
+ 
+-func:same = bool(uint8[]:g, uint8[]:w) never fails {
++func:same = bool(fixed uint8[]:g, fixed uint8[]:w) never fails {
+     if (g.len != w.len) { pass false; }
+     int64:i = 0i64;
+     while (i < w.len) decreases w.len - i {
+@@ -46,7 +46,7 @@ func:escapes = bool(string:text, string:want) never fails {
+ };
+ 
+ // The same for a text a string literal cannot hold -- one that is not well-formed UTF-8.
+-func:escapes_bytes = bool(uint8[]:text, uint8[]:want) never fails {
++func:escapes_bytes = bool(fixed uint8[]:text, fixed uint8[]:want) never fails {
+     Bytes:t = raw bytes_init(8i64);
+     drop bytes_extend(@t, text);
+     string:s = raw bytes_copy_string(@t);
+@@ -63,7 +63,7 @@ func:seq_len = int64(int64:lead) never fails {
+     pass 4i64;
+ };
+ 
+-func:cp_at = int64(uint8[]:t, int64:i) never fails {
++func:cp_at = int64(fixed uint8[]:t, int64:i) never fails {
+     int64:lead = t[i] => int64;
+     int64:n = raw seq_len(lead);
+     int64:cp = lead;
+@@ -78,7 +78,7 @@ func:cp_at = int64(uint8[]:t, int64:i) never fails {
+     pass cp;
+ };
+ 
+-func:count_cps = int64(uint8[]:t) never fails {
++func:count_cps = int64(fixed uint8[]:t) never fails {
+     int64:i = 0i64;
+     int64:n = 0i64;
+     while (i < t.len) decreases t.len - i {
+@@ -90,7 +90,7 @@ func:count_cps = int64(uint8[]:t) never fails {
+ 
+ // The list from `first` holds exactly the codepoints of `text`, in order: each a `Literal` of it, or in
+ // a class a `ClassRange` from it to itself, and the last one's `next` is `AST_NONE`.
+-func:holds = bool(Ast:t, int64:first, uint8[]:text, bool:inclass) never fails {
++func:holds = bool(Ast:t, int64:first, fixed uint8[]:text, bool:inclass) never fails {
+     int64:m = first;
+     int64:i = 0i64;
+     while (i < text.len) decreases text.len - i {
+@@ -108,7 +108,7 @@ func:holds = bool(Ast:t, int64:first, uint8[]:text, bool:inclass) never fails {
+ };
+ 
+ // The tree parsed holds `text`'s codepoints as `place` puts them.
+-func:tree_holds = bool(Ast:t, uint8[]:text, int64:place) never fails {
++func:tree_holds = bool(Ast:t, fixed uint8[]:text, int64:place) never fails {
+     AstNode:r = raw ast_get(t, t.root);
+     int64:n = raw count_cps(text);
+     if (place == WHOLE) {
+@@ -141,7 +141,7 @@ func:tree_holds = bool(Ast:t, uint8[]:text, int64:place) never fails {
+ };
+ 
+ // `regex_escape(text)`, put where `place` says, parses, and its tree holds exactly `text`'s codepoints.
+-func:round_trip = bool(uint8[]:text, int64:place) never fails {
++func:round_trip = bool(fixed uint8[]:text, int64:place) never fails {
+     Bytes:tb = raw bytes_init(8i64);
+     drop bytes_extend(@tb, text);
+     string:s = raw bytes_copy_string(@tb);
+@@ -167,7 +167,7 @@ func:trip = bool(string:text, int64:place) never fails {
+ };
+ 
+ // `regex_escape(text)` is refused `InvalidPatternEncoding` at `off` when parsed.
+-func:ill_formed = bool(uint8[]:text, int64:off) never fails {
++func:ill_formed = bool(fixed uint8[]:text, int64:off) never fails {
+     Bytes:tb = raw bytes_init(8i64);
+     drop bytes_extend(@tb, text);
+     string:s = raw bytes_copy_string(@tb);
+diff --git a/tests/unit/syntax_skeleton.npk b/tests/unit/syntax_skeleton.npk
+index 57de06aa2214519e9d40ee2fc95b3e942a0ca338..702d85962838c6348389c8e6d6c1da0fd12d08c3 100644
+--- a/tests/unit/syntax_skeleton.npk
++++ b/tests/unit/syntax_skeleton.npk
+@@ -52,7 +52,7 @@ func:ordinal = int64(AstKind:k) never fails {
+     pass n;
+ };
+ 
+-func:skeleton = PatternError?(uint8[]:pat, Ast->:out) never fails {
++func:skeleton = PatternError?(fixed uint8[]:pat, Ast->:out) never fails {
+     PatternError?:long = raw parse_check_length(pat);
+     if (long != NIL) { pass long; }
+     Cursor:c = raw cursor_init(pat);
+@@ -174,7 +174,7 @@ func:case_ab_open = int32() never fails {
+     pass 0i32;
+ };
+ 
+-func:case_bound = int32(uint8[]:v) never fails {
++func:case_bound = int32(fixed uint8[]:v) never fails {
+     int64:bound = NREGEX_PATTERN_BYTES;
+     Ast:t = raw ast_init(4i64);
+     PatternError?:e = raw skeleton(v[0i64...bound], @t);
