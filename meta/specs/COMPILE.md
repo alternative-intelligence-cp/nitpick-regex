@@ -164,6 +164,9 @@ Emission walks the HIR, whose depth a pattern controls.
 which the HIR already checked (`HIR.md` H-8), so emission can expand without
 re-deriving the bound. `a{2,4}` becomes `aa(a(a)?)?` in instructions;
 `a{2,}` becomes `aa` followed by a `Split` loop.
+*(2026-10-10, cycle 0.2.2 — RX-232: what the HIR checked is a product of FACTORS, each the most copies of a `Repeat`'s
+body this rule may make — its maximum, or its minimum when it has none, `a{2,}`'s loop going back over its second `a`,
+and 1 for `{0}`, `*`, `+` and `?` — so emission makes no more copies than that, or the check bounds nothing.)*
 
 **Rule C-15 — an unanchored search gets a `.*?` prefix**, compiled as a
 `Split` loop over the "any byte" class, and its entry point is `start`. The

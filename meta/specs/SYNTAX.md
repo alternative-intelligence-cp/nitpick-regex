@@ -771,15 +771,17 @@ that parses a pattern names it, outside a `pattern_error(…)` it builds.)*
 
 | Kind no pattern reaches yet | Provoked from | Why the parser cannot |
 |---|---|---|
-| `RepeatProductTooLarge` | cycle 0.2.2 | `NREGEX_REPEAT_PRODUCT` bounds a product across nested repetitions, counted as the HIR is built (`SAFETY.md` §5) |
 | `EmptyClass` | cycle 0.3.4 | every class the parser builds holds a member (Y-36); whether a class that resolves to nothing is this kind is open question O-Y3 |
 | `ClassTooLarge` | cycle 0.3.4 | `NREGEX_CLASS_RANGES` counts a class's ranges after folding, where it is resolved (`SAFETY.md` §5) |
 | `ProgramTooLarge` | cycle 0.6.2 | `NREGEX_PROGRAM_INSTRUCTIONS` counts a compiled program's instructions (`SAFETY.md` §5) |
 
+*(2026-10-10, cycle 0.2.2 — RX-232: `RepeatProductTooLarge`'s row, *"cycle 0.2.2"*, is struck: the HIR's build raises it
+(`HIR.md` H-8) and `tests/unit/hir_build_product.npk` provokes it. Three rows are left.)*
+
 **What each refusal cycle 0.1.1 makes carries** — Y-10's offset and length, and the
 detail a message is built from (Y-29 … Y-32) *(and, since 2026-10-01, each cycle 0.1.3's classes make — Y-36 … Y-38,
 RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-204)* *(and, since 2026-10-02, each refusal of
-§8 an escape spells — Y-44, RX-209)*:
+§8 an escape spells — Y-44, RX-209)* *(and, since 2026-10-10, the one the HIR's build makes — `HIR.md` H-8, RX-232)*:
 
 | Kind | Raised when | Offset | Length | Detail |
 |---|---|---|---|---|
@@ -791,6 +793,7 @@ RX-197)* *(and, since 2026-10-01, each cycle 0.1.4's escapes make — Y-40, RX-2
 | `BadRepeatBounds` | a `{` that is no bounded repeat; a minimum above the maximum | the `{` | what was read | 0; 1 |
 | `BadRepeatBounds` (cycle 0.1.5, RX-213) | a `{` after `\b` or `\B` with an ASCII letter after it — *with no digit after it until cycle 0.1.6a (RX-215)* | the `{` | 1 | 2 |
 | `RepeatTooLarge` | a bound above `NREGEX_REPEAT_MAX` | its first digit | its digits | the bound |
+| `RepeatProductTooLarge` (cycle 0.2.2, RX-232) | a `Repeat` whose factor takes the product of the factors around it past `NREGEX_REPEAT_PRODUCT`, as the HIR is built (`HIR.md` H-8) | its quantifier's `{` | through the quantifier's last byte, a lazy `?` with it | the bound |
 | `TooManyCaptureGroups` | a group numbered past `NREGEX_CAPTURE_GROUPS` — *not one nested past `NREGEX_NEST_DEPTH`, which is `NestTooDeep` first (Y-35)* | its `(` | 1 | the bound |
 | `DuplicateGroupName` | a name already used | the second name | its length | the first group's number |
 | `BadGroupName` | an empty, malformed or unfinished name | the bad character; for an unfinished one the name | the character's bytes; what was read | its codepoint; 62 when empty; `NOT_A_CODEPOINT` when unfinished — *0 until cycle 0.1.4, U+0000's value too (RX-203)* |

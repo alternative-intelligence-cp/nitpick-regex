@@ -251,6 +251,7 @@ normalisation to a canonical form.
 **Gate:** structurally equal patterns produce byte-identical HIR dumps, and
 `NREGEX_REPEAT_PRODUCT` refuses `((a{1000}){1000}){1000}` at the third `{1000}`
 — before the memory is requested.
+*(2026-10-10, cycle 0.2.2 — RX-233: at its second `{1000}`, byte 10, where the product first passes the bound, 100 000.)*
 
 ### 0.3 — Unicode
 `tools/gen_unicode.py`, the committed tables, the regeneration check, the

@@ -184,6 +184,9 @@ a unit, `tests/unit/parse_fuzz.npk`: 120 000 patterns from three alphabets and a
 inside the pattern or a refusal whose offset and length lie inside it, with floors on what it accepts, refuses and
 meets. The pattern fuzzer above — structured, a hundred million patterns, the compiler's half too — is still cycle
 0.12.0's, and V-18 holds for what either finds.)*
+*(2026-10-10, cycle 0.2.2 — RX-232: and the HIR's build has its own, `tests/unit/hir_build_product_fuzz.npk`: twenty
+thousand seeded nests of groups and quantifiers, each build's verdict held to the products reckoned again from the root
+by index, every refusal a crossing `Repeat`'s `{` inside the pattern, with floors on what it builds and refuses.)*
 
 ---
 

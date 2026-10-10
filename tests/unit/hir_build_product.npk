@@ -1,0 +1,323 @@
+// expect-exit: 0
+//
+// THE REPETITION PRODUCT, REFUSED ON THE WAY DOWN AT THE QUANTIFIER THAT TAKES IT PAST THE BOUND.
+// Cycle 0.2.2, RX-232 and RX-233; `HIR.md` H-8, `SAFETY.md` S-13 (RX-015).
+//
+// WHAT IT PINS. Each case parses a pattern through `syntax.npk` and builds it through `hir.npk`.
+// `refused` asks the build to answer the `Repeat` whose quantifier begins at the byte named, the
+// root unset, and `hir_build_refusal` to make that `RepeatProductTooLarge` there, spanning the
+// quantifier, `NREGEX_REPEAT_PRODUCT` its detail; `built` asks the build to answer HIR_NONE, the
+// root set, no refusal, and the dump the text named -- every `Repeat` as written, nothing expanded
+// (H-7); `stopped` asks it to stop at the node named, which no refusal is.
+//
+// THE CASES. 1 … 3, the cycle README's pattern, `((a{1000}){1000}){1000}`: refused at its second
+// `{1000}`, byte 10, where the product first passes 100 000 -- second in the order written and on
+// the way down alike (RX-233) -- and its sentence to the letter (`SYNTAX.md` Y-34). 10 … 13, the
+// bound's edges: a product exactly on it built, one past it refused. 20 … 25, each form's factor:
+// `*`, `+` and `?` count 1, `{n,}` its minimum, `{n,m}` its maximum, `{0}` 1, and a lazy
+// quantifier's span holds its `?`. 30 … 33, the order: the first crossing in the walk, a list's
+// every member under the product around it, an alternative too, and the outer factor met first,
+// so `(a{1000}b{1000}){1000}` is refused at its first `{1000}`, not its last; the product is a
+// path's, so two nests each on the bound are built. 40, 41: under `x`, white space and a comment
+// between an atom and its quantifier, the offset still the `{`. 50 … 52, a refusal and a stop: the
+// first the walk meets is the answer, and a stop is no refusal. 60: 250 groups deep, each `{2}`,
+// refused at the seventeenth factor from the outside, 2^17. 70: an AST whose bound no pattern
+// can write -- 2^62, set by hand under a `{9}` -- refused with no multiply, so nothing overflows.
+// A case that differs exits with its number; the program exits 0 only after every `hir_free` and
+// `ast_free`, and D-151 traps a `wild` block still live at exit (96).
+mod:hir_build_product;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+use "../../src/hir/hir.npk".*;
+
+// Whether `b` holds exactly the bytes of `want`.
+func:same = bool(Bytes->:b, fixed uint8[]:want) never fails {
+    if ((raw bytes_len(b)) != want.len) { pass false; }
+    int64:i = 0i64;
+    while (i < want.len) decreases want.len - i {
+        if ((raw bytes_get(b, i)) != want[i]) { pass false; }
+        i = i + 1i64;
+    }
+    pass true;
+};
+
+// Whether the string `got` is `want`, byte for byte.
+func:same_text = bool(string:got, string:want) never fails {
+    fixed uint8[]:g = string_bytes(got);
+    fixed uint8[]:w = string_bytes(want);
+    if (g.len != w.len) { pass false; }
+    int64:i = 0i64;
+    while (i < w.len) decreases w.len - i {
+        if (g[i] != w[i]) { pass false; }
+        i = i + 1i64;
+    }
+    pass true;
+};
+
+// The refusal a build of `pat` makes: NIL when it parses and builds, or stops; and when the parse
+// refuses, NIL too -- a case below that wants a refusal says so by its kind.
+func:refusal_of = PatternError?(fixed uint8[]:pat) never fails {
+    Ast:t = raw ast_init(8i64);
+    PatternError?:pe = raw parse_pattern(pat, @t);
+    PatternError?:e = NIL;
+    if (pe == NIL) {
+        Hir:h = raw hir_init(8i64);
+        int64:r = raw hir_build(pat, t, @h);
+        if ((r != HIR_NONE) && (h.root == HIR_NONE)) {
+            AstNode:n = raw ast_get(t, r);
+            if (n.kind == AstKind.Repeat) { e = raw hir_build_refusal(pat, t, r); }
+        }
+        drop hir_free(@h);
+    }
+    drop ast_free(@t);
+    pass e;
+};
+
+// `pat` parses; its build answers the `Repeat` whose quantifier begins at `at`, the root unset; and
+// that is `RepeatProductTooLarge` at `at`, spanning `len` bytes, the bound its detail.
+func:refused_bytes = bool(fixed uint8[]:pat, int64:at, int64:len) never fails {
+    Ast:t = raw ast_init(8i64);
+    PatternError?:pe = raw parse_pattern(pat, @t);
+    bool:ok = pe == NIL;
+    if (ok) {
+        Hir:h = raw hir_init(8i64);
+        int64:r = raw hir_build(pat, t, @h);
+        ok = (r != HIR_NONE) && (h.root == HIR_NONE);
+        if (ok) {
+            AstNode:n = raw ast_get(t, r);
+            ok = (n.kind == AstKind.Repeat) && (n.pos <= at) && (at < (n.pos + n.len));
+        }
+        if (ok) {
+            PatternError?:re = raw hir_build_refusal(pat, t, r);
+            ok = re != NIL;
+            PatternError:e = re ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
+            ok = ok && (e.kind == PatternErrorKind.RepeatProductTooLarge) && (e.offset == at) && (e.span_len == len)
+                 && (e.detail == (NREGEX_REPEAT_PRODUCT =>! uint32));
+        }
+        drop hir_free(@h);
+    }
+    drop ast_free(@t);
+    pass ok;
+};
+
+func:refused = bool(string:pattern, int64:at, int64:len) never fails {
+    pass raw refused_bytes(string_bytes(pattern), at, len);
+};
+
+// `pattern` parses and builds, no refusal, and its HIR's dump is `want`.
+func:built = bool(string:pattern, string:want) never fails {
+    fixed uint8[]:pat = string_bytes(pattern);
+    Ast:t = raw ast_init(8i64);
+    PatternError?:pe = raw parse_pattern(pat, @t);
+    bool:ok = pe == NIL;
+    if (ok) {
+        Hir:h = raw hir_init(8i64);
+        int64:r = raw hir_build(pat, t, @h);
+        ok = (r == HIR_NONE) && (h.root != HIR_NONE) && ((raw hir_build_refusal(pat, t, r)) == NIL);
+        if (ok) {
+            Bytes:b = raw bytes_init(64i64);
+            drop hir_dump(@h, @b);
+            ok = raw same(@b, string_bytes(want));
+        }
+        drop hir_free(@h);
+    }
+    drop ast_free(@t);
+    pass ok;
+};
+
+// `pattern` parses, and its build stops at the node whose first byte is `at`, the root unset -- a
+// node no refusal is.
+func:stopped = bool(string:pattern, int64:at) never fails {
+    fixed uint8[]:pat = string_bytes(pattern);
+    Ast:t = raw ast_init(8i64);
+    PatternError?:pe = raw parse_pattern(pat, @t);
+    bool:ok = pe == NIL;
+    if (ok) {
+        Hir:h = raw hir_init(8i64);
+        int64:r = raw hir_build(pat, t, @h);
+        ok = (r != HIR_NONE) && (h.root == HIR_NONE);
+        if (ok) {
+            AstNode:n = raw ast_get(t, r);
+            ok = (n.pos == at) && (n.kind != AstKind.Repeat) && ((raw hir_build_refusal(pat, t, r)) == NIL);
+        }
+        drop hir_free(@h);
+    }
+    drop ast_free(@t);
+    pass ok;
+};
+
+func:readme = int32() never fails {
+    // the cycle README's pattern: 1 000 after its outer `{1000}`, 10^6 after the second -- byte 10
+    if (!(raw refused("((a{1000}){1000}){1000}", 10i64, 6i64))) { pass 1i32; }
+    // the node answered is the second `Repeat` on the way down, whose span runs from its atom, `(`
+    fixed uint8[]:pat = string_bytes("((a{1000}){1000}){1000}");
+    Ast:t = raw ast_init(8i64);
+    discard(raw parse_pattern(pat, @t));
+    Hir:h = raw hir_init(8i64);
+    int64:r = raw hir_build(pat, t, @h);
+    bool:second = false;
+    if (r != HIR_NONE) {
+        AstNode:n = raw ast_get(t, r);
+        second = (n.kind == AstKind.Repeat) && (n.pos == 1i64) && (n.len == 15i64);
+    }
+    drop hir_free(@h);
+    drop ast_free(@t);
+    if (!second) { pass 2i32; }
+    // the sentence, to the letter
+    PatternError?:re = raw refusal_of(string_bytes("((a{1000}){1000}){1000}"));
+    if (re == NIL) { pass 3i32; }
+    PatternError:e = re ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
+    if (!(raw same_text(raw pattern_error_text(e), "repetition too large at byte 10: nested repetitions multiply, and this one takes the product past 100000 (NREGEX_REPEAT_PRODUCT)."))) { pass 3i32; }
+    pass 0i32;
+};
+
+func:edges = int32() never fails {
+    // exactly on the bound, three factors, built and not expanded; one past it, refused at the inner `{100}`
+    if (!(raw built("((a{100}){100}){10}", "(repeat 10 10 (group 1 (repeat 100 100 (group 2 (repeat 100 100 (literal 97))))))"))) { pass 10i32; }
+    if (!(raw refused("((a{100}){100}){11}", 3i64, 5i64))) { pass 11i32; }
+    // exactly on it, two factors; one past it, refused at the inner `{1000}`
+    if (!(raw built("(?:a{1000}){100}", "(repeat 100 100 (repeat 1000 1000 (literal 97)))"))) { pass 12i32; }
+    if (!(raw refused("(?:a{1000}){101}", 4i64, 6i64))) { pass 13i32; }
+    pass 0i32;
+};
+
+func:factors = int32() never fails {
+    // `*`, `+` and `?` count 1: on the bound with three of them inside
+    if (!(raw built("(?:(?:(?:(?:a*)+)?){1000}){100}", "(repeat 100 100 (repeat 1000 1000 (repeat 0 1 (repeat 1 - (repeat 0 - (literal 97))))))"))) { pass 20i32; }
+    // `{n,}` counts its minimum: 100 on the bound, 101 past it
+    if (!(raw built("(?:a{100,}){1000}", "(repeat 1000 1000 (repeat 100 - (literal 97)))"))) { pass 21i32; }
+    if (!(raw refused("(?:a{101,}){1000}", 4i64, 6i64))) { pass 21i32; }
+    // `{n,m}` counts its maximum
+    if (!(raw built("(?:a{1,100}){1000}", "(repeat 1000 1000 (repeat 1 100 (literal 97)))"))) { pass 22i32; }
+    if (!(raw refused("(?:a{0,101}){1000}", 4i64, 7i64))) { pass 22i32; }
+    // `{0}` counts 1, so the nest under it is still counted
+    if (!(raw built("(?:a{1000}){0}", "(repeat 0 0 (repeat 1000 1000 (literal 97)))"))) { pass 23i32; }
+    if (!(raw refused("((a{1000}){1000}){0}", 3i64, 6i64))) { pass 24i32; }
+    // a lazy quantifier: the span runs through its `?`
+    if (!(raw refused("(a{1000}?){1000}?", 2i64, 7i64))) { pass 25i32; }
+    pass 0i32;
+};
+
+func:order = int32() never fails {
+    // a list's later member carries the product around the list: `a{2}` is 2 000, `b{1000}` 10^6
+    if (!(raw refused("(?:a{2}b{1000}){1000}", 8i64, 6i64))) { pass 30i32; }
+    // and an alternative
+    if (!(raw refused("(?:a|b{1000}){1000}", 6i64, 6i64))) { pass 31i32; }
+    // the outer factor is met first: refused at the first `{1000}`, byte 2, not the outer at 16
+    if (!(raw refused("(a{1000}b{1000}){1000}", 2i64, 6i64))) { pass 32i32; }
+    // the product is a path's: two nests side by side, each on the bound, are built
+    if (!(raw built("(?:a{1000}){100}(?:b{1000}){100}", "(concat (repeat 100 100 (repeat 1000 1000 (literal 97))) (repeat 100 100 (repeat 1000 1000 (literal 98))))"))) { pass 33i32; }
+    pass 0i32;
+};
+
+func:extended = int32() never fails {
+    // under `x`, white space between an atom and its quantifier: the offset is the `{`, byte 7, not the atom's end
+    if (!(raw refused("(?x)(a {1000}){1000}", 7i64, 6i64))) { pass 40i32; }
+    // and a comment
+    if (!(raw refused("(?x)(a#c\n{1000}){1000}", 9i64, 6i64))) { pass 41i32; }
+    pass 0i32;
+};
+
+func:stops = int32() never fails {
+    // a stop the walk meets first is the answer, and no refusal
+    if (!(raw stopped("\\d((a{1000}){1000}){1000}", 0i64))) { pass 50i32; }
+    // a refusal the walk meets first is
+    if (!(raw refused("((a{1000}){1000}){1000}\\d", 10i64, 6i64))) { pass 51i32; }
+    // the walk refuses as it ENTERS a `Repeat`, before the leaf beneath it it would stop at
+    if (!(raw refused("(\\d{1000}){1000}", 3i64, 6i64))) { pass 52i32; }
+    pass 0i32;
+};
+
+// 250 groups deep, each and the innermost `a` repeated twice: the product is 2^k after the k-th
+// factor from the outside, so the seventeenth, 131 072, is the first past the bound. Counting from
+// the inside, it is the 234th `){2}`, whose `{` is at 755 + 4 × 233.
+func:deep = int32() never fails {
+    Bytes:p = raw bytes_init(1800i64);
+    int64:i = 0i64;
+    while (i < 250i64) decreases 250i64 - i {
+        drop bytes_extend_str(@p, "(?:");
+        i = i + 1i64;
+    }
+    drop bytes_extend_str(@p, "a{2}");
+    i = 0i64;
+    while (i < 250i64) decreases 250i64 - i {
+        drop bytes_extend_str(@p, "){2}");
+        i = i + 1i64;
+    }
+    string:s = raw bytes_copy_string(@p);
+    if (!(raw refused(s, 755i64 + (4i64 * 233i64), 3i64))) { pass 60i32; }
+    pass 0i32;
+};
+
+// A bound no pattern can write -- the parser refuses any past `NREGEX_REPEAT_MAX` -- set by hand
+// on the inner `Repeat` of `(?:a{9}){9}`: its factor is past the bound, so the build refuses it
+// with no multiply, where 9 × 2^62 would overflow and trap (93).
+func:by_hand = int32() never fails {
+    fixed uint8[]:pat = string_bytes("(?:a{9}){9}");
+    Ast:t = raw ast_init(8i64);
+    discard(raw parse_pattern(pat, @t));
+    int64:inner = HIR_NONE;
+    int64:i = 0i64;
+    int64:n = raw ast_len(t);
+    while (i < n) decreases n - i {
+        AstNode:x = raw ast_get(t, i);
+        if ((x.kind == AstKind.Repeat) && (x.pos == 3i64)) { inner = i; }
+        i = i + 1i64;
+    }
+    bool:ok = inner != HIR_NONE;
+    if (ok) {
+        AstNode:x = raw ast_get(t, inner);
+        x.b = 4611686018427387904i64;
+        x.c = 4611686018427387904i64;
+        drop ast_set(@t, inner, x);
+        Hir:h = raw hir_init(8i64);
+        int64:r = raw hir_build(pat, t, @h);
+        ok = (r == inner) && (h.root == HIR_NONE);
+        if (ok) {
+            PatternError?:re = raw hir_build_refusal(pat, t, r);
+            PatternError:e = re ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
+            ok = (re != NIL) && (e.kind == PatternErrorKind.RepeatProductTooLarge) && (e.offset == 4i64) && (e.span_len == 3i64);
+        }
+        drop hir_free(@h);
+    }
+    drop ast_free(@t);
+    if (!ok) { pass 70i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:r = raw readme();
+    if (r != 0i32) { exit r; }
+    r = raw edges();
+    if (r != 0i32) { exit r; }
+    r = raw factors();
+    if (r != 0i32) { exit r; }
+    r = raw order();
+    if (r != 0i32) { exit r; }
+    r = raw extended();
+    if (r != 0i32) { exit r; }
+    r = raw stops();
+    if (r != 0i32) { exit r; }
+    r = raw deep();
+    if (r != 0i32) { exit r; }
+    exit raw by_hand();
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

@@ -139,6 +139,12 @@ expansion. This keeps HIR fixtures small and keeps `NREGEX_REPEAT_PRODUCT`
 **Rule H-8 — the repetition product is checked as the HIR is built**, by
 multiplying the enclosing factors on the way down. `((a{1000}){1000}){1000}` is
 refused at the third `{1000}`, before a billion instructions are requested.
+*(2026-10-10, cycle 0.2.2 — RX-232: built. `hir_build`'s walk carries the product of the factors of the `Repeat`s around
+each node, a `uint64` from 1 at the root; a `Repeat`'s factor is its maximum, or its minimum when it has none, and 1 where
+that is 0 — the most copies of its body `COMPILE.md` C-14 makes — and where the factor or the product passes
+`NREGEX_REPEAT_PRODUCT` the walk refuses as it enters that `Repeat`, before its body. RX-233: and at that bound, 100 000,
+the pattern above is refused at its SECOND `{1000}`, byte 10, where the product first passes it — 1 000, then 10^6 — not
+the third: *"the third"* is the arithmetic of a bound from 10^6 up. The bound stays.)*
 
 **Rule H-16 — the build** (RX-228). `hir_build(uint8[]:pat, Ast:t, Hir->:out) -> int64` builds the HIR of a pattern
 from its AST (`SYNTAX.md` Y-26, Y-27) into a `Hir` fresh from `hir_init`, each kind of AST node as this table says and
@@ -178,6 +184,13 @@ each must be the AST's number or the build stops `OutOfBounds`; an AST that is n
 *(2026-10-09, cycle 0.2.1a — RX-230: `hir_build(fixed uint8[]:pat, Ast:t, Hir->:out)` since compiler `7e91730`: the
 pattern is the READ-ONLY view `parse_pattern` reads (`SYNTAX.md` Y-33), and a group's name goes to `hir_add_group` as
 one; `hir_read` takes its text so too.)*
+*(2026-10-10, cycle 0.2.2 — RX-232: and it REFUSES. At the first `Repeat`, as the walk enters it, whose factor takes the
+product of the factors around it past `NREGEX_REPEAT_PRODUCT` (H-8), the build answers that `Repeat`'s index with the root
+unset, as it answers a stop; a `Repeat` is never where it stops, so the kind tells the two apart, and
+`hir_build_refusal(fixed uint8[]:pat, Ast:t, int64:at) -> PatternError?` is the refusal — `RepeatProductTooLarge` at the
+quantifier's `{`, spanning it through its last byte, the bound its detail (`SYNTAX.md` §9), or NIL for `HIR_NONE` and a
+stop. The walk answers whichever it meets first: a refusal as it enters a `Repeat`, a stop as it leaves a leaf.
+`tests/unit/hir_build_product.npk` and `hir_build_product_fuzz.npk` hold it.)*
 
 ---
 

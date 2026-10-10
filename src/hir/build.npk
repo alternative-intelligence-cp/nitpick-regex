@@ -1,5 +1,5 @@
 // `src/hir/build.npk` — THE DESUGARING: A PARSED PATTERN'S AST TO A HIR. Cycle 0.2.1, RX-228;
-// `meta/specs/HIR.md` rules H-5, H-6 and H-16.
+// `meta/specs/HIR.md` rules H-5, H-6 and H-16. And the repetition product, cycle 0.2.2, RX-232: H-8.
 //
 // EVERY REWRITE IS H-5'S TABLE, AND NOTHING ELSE HAPPENS. A quantifier is a `Repeat` with its
 // bounds in the AST already (`SYNTAX.md` Y-32), so it is copied as one; `.` becomes a `Class`; a
@@ -23,6 +23,15 @@
 // node that needs one, answering its index in the AST -- never a HIR that means something else.
 // `resolve_items` and `fold_ranges` are the hooks, and `tests/unit/hir_build_classes.npk` and
 // `hir_build_fold.npk` are the HIRs cycle 0.3.4 will build, pending until then (RX-229).
+//
+// THE REPETITION PRODUCT (H-8). Every step of the walk carries the product of the factors of the
+// `Repeat`s around its node, 1 at the root. Entering a `Repeat`, the walk multiplies in the
+// node's own -- `factor`, the most copies of its body emission makes (`COMPILE.md` C-14) -- and
+// where that passes `NREGEX_REPEAT_PRODUCT` the build REFUSES, before the body is entered: it
+// answers the `Repeat`'s index, the root unset, as it answers a stop. A `Repeat` is never where a
+// hook or `leaf` stops, so the kind tells the two apart, and `hir_build_refusal` is the refusal's
+// `PatternError`. Nothing is expanded here (H-7): the check is what lets emission expand without
+// counting (C-14).
 //
 // A TREE, AND NOTHING ELSE IN THE ARENA. A node is pushed only when the node that holds it is
 // built, so a HIR this file answers HIR_NONE for has every node reachable from its root, once --
@@ -54,6 +63,9 @@ fixed int64:AST_CARET = 0i64;
 fixed int64:AST_DOLLAR = 1i64;
 fixed int64:AST_END = 3i64;
 
+// A counted quantifier's first byte, `{` (`SYNTAX.md` Y-32): where the product's refusal points.
+fixed uint8:LBRACE = 123u8;
+
 // ---- the walk ----------------------------------------------------------------------------------
 
 // One step of the walk: a node to enter, or one whose children are built, to build.
@@ -62,11 +74,22 @@ struct:Step = {
     int64:node;          // the AST node
     int64:op;            // STEP_ONE, STEP_LIST or STEP_LEAVE
     int64:mark;          // for STEP_LEAVE: how many built nodes were waiting before its children
+    uint64:prod;         // the product of the factors of the `Repeat`s around the node, 1 at the root (H-8)
 };
 
 fixed int64:STEP_ONE = 0i64;       // enter the node
 fixed int64:STEP_LIST = 1i64;      // enter the node, then the rest of the list it heads
 fixed int64:STEP_LEAVE = 2i64;     // its children are built: build it
+
+// THE FACTOR OF A `Repeat` (H-8): the most copies of its body emission makes (`COMPILE.md` C-14) --
+// its maximum, or its minimum when it has none, `a{2,}` being `aa` and a loop back over the
+// second -- and 1 where that is 0, so the product never falls on the way down.
+func:factor = uint64(AstNode:n) never fails {
+    int64:k = n.c;
+    if (k == AST_NONE) { k = n.b; }
+    if (k < 1i64) { pass 1u64; }
+    pass k =>! uint64;       // `k` is at least 1 here, so the conversion loses nothing
+};
 
 // What `leaf` answers for a node a hook could not build, or one it asks no hook of: no index,
 // and not HIR_NONE, which is a `Flags` node's -- nothing to build.
@@ -231,23 +254,27 @@ func:held = int64(Hir->:out, Vec<int64>->:done) never fails {
 
 // obligation: never fails
 //
-// THE DESUGARING (H-5, H-6, H-16). Builds the HIR of the pattern `pat`, whose AST `t` is --
-// `parse_pattern`'s, the pattern kept for a group's name -- into `out`, a `Hir` fresh from
-// `hir_init`, sets its root and answers HIR_NONE; or answers the index in `t` of the first node,
-// in the order the pattern writes them, that a hook or `leaf` cannot build until cycle 0.3.4, and
-// leaves `out`'s root unset, its nodes partial, for the caller to free. Nothing for an `Ast` with
-// no root. A group's number is the AST's, and `hir_add_group` must answer it as the walk enters
-// the group, or the arena would name one group's text for another's: an `OutOfBounds` stop.
+// THE DESUGARING (H-5, H-6, H-16), AND THE REPETITION PRODUCT (H-8). Builds the HIR of the
+// pattern `pat`, whose AST `t` is -- `parse_pattern`'s, the pattern kept for a group's name --
+// into `out`, a `Hir` fresh from `hir_init`, sets its root and answers HIR_NONE; or answers the
+// index in `t` of the first node its walk cannot pass, and leaves `out`'s root unset, its nodes
+// partial, for the caller to free: a `Repeat` whose factor takes the product past
+// `NREGEX_REPEAT_PRODUCT`, met as the walk enters it -- the pattern's mistake, which
+// `hir_build_refusal` makes a `PatternError` -- or a node a hook or `leaf` cannot build until cycle
+// 0.3.4, met as the walk leaves it, in the order the pattern writes them. Nothing for an `Ast`
+// with no root. A group's number is the AST's, and `hir_add_group` must answer it as the walk
+// enters the group, or the arena would name one group's text for another's: an `OutOfBounds` stop.
 pub func:hir_build = int64(fixed uint8[]:pat, Ast:t, Hir->:out) never fails {
     if (t.root == AST_NONE) { pass HIR_NONE; }
     Vec<Step>:todo = raw vec_init::<Step>(16i64);
     Vec<int64>:done = raw vec_init::<int64>(16i64);
-    drop vec_push(@todo, Step{ node: t.root, op: STEP_ONE, mark: 0i64 });
+    drop vec_push(@todo, Step{ node: t.root, op: STEP_ONE, mark: 0i64, prod: 1u64 });
     // A `decreases` measure is checked as each step begins, so `2n - 1` admits `2n` steps: a
     // walk entering and leaving every node of the arena once, and not one more.
     int64:budget = 2i64 * (raw ast_len(t)) - 1i64;
     int64:steps = 0i64;
     int64:stuck = HIR_NONE;
+    uint64:bound = NREGEX_REPEAT_PRODUCT =>! uint64;    // positive, so the conversion loses nothing
     while ((stuck == HIR_NONE) && (todo.count > 0i64)) decreases budget - steps {
         steps = steps + 1i64;
         Step:s = raw vec_pop(@todo);
@@ -278,14 +305,22 @@ pub func:hir_build = int64(fixed uint8[]:pat, Ast:t, Hir->:out) never fails {
         }
         else {
             if (s.op == STEP_LIST) {
-                if (n.next != AST_NONE) { drop vec_push(@todo, Step{ node: n.next, op: STEP_LIST, mark: 0i64 }); }
+                if (n.next != AST_NONE) { drop vec_push(@todo, Step{ node: n.next, op: STEP_LIST, mark: 0i64, prod: s.prod }); }
             }
-            drop vec_push(@todo, Step{ node: s.node, op: STEP_LEAVE, mark: done.count });
+            drop vec_push(@todo, Step{ node: s.node, op: STEP_LEAVE, mark: done.count, prod: s.prod });
             if ((n.kind == AstKind.Concat) || (n.kind == AstKind.Alternate)) {
-                if (n.a != AST_NONE) { drop vec_push(@todo, Step{ node: n.a, op: STEP_LIST, mark: 0i64 }); }
+                if (n.a != AST_NONE) { drop vec_push(@todo, Step{ node: n.a, op: STEP_LIST, mark: 0i64, prod: s.prod }); }
             }
             else if (n.kind == AstKind.Repeat) {
-                drop vec_push(@todo, Step{ node: n.a, op: STEP_ONE, mark: 0i64 });
+                // H-8: the product around the node times its own factor. Both are at most the bound
+                // when they are multiplied -- a factor past it refuses with no multiply -- so the
+                // product is below 2^34 and cannot overflow. Past the bound the build refuses HERE,
+                // on the way down, before the body is entered.
+                uint64:f = raw factor(n);
+                uint64:p = f;
+                if (f <= bound) { p = s.prod * f; }
+                if (p > bound) { stuck = s.node; }
+                else { drop vec_push(@todo, Step{ node: n.a, op: STEP_ONE, mark: 0i64, prod: p }); }
             }
             else if (n.kind == AstKind.Group) {
                 if (n.b > 0i64) {
@@ -296,7 +331,7 @@ pub func:hir_build = int64(fixed uint8[]:pat, Ast:t, Hir->:out) never fails {
                     int64:k = raw hir_add_group(out, pat[at...at + n.c]);
                     if (k != n.b) { drop vec_oob(k); }
                 }
-                drop vec_push(@todo, Step{ node: n.a, op: STEP_ONE, mark: 0i64 });
+                drop vec_push(@todo, Step{ node: n.a, op: STEP_ONE, mark: 0i64, prod: s.prod });
             }
         }
     }
@@ -307,4 +342,30 @@ pub func:hir_build = int64(fixed uint8[]:pat, Ast:t, Hir->:out) never fails {
     drop vec_free(@todo);
     drop vec_free(@done);
     pass stuck;
+};
+
+// obligation: never fails
+//
+// THE REFUSAL A BUILD'S ANSWER STANDS FOR (H-8). `at` is what `hir_build` answered for the pattern
+// `pat` and its AST `t`. A `Repeat` is the product's refusal: `RepeatProductTooLarge` at its
+// quantifier's first byte, spanning the quantifier through its last byte -- a lazy `?` with it --
+// the bound its detail (`SYNTAX.md` §9). Anything else is no refusal, NIL: HIR_NONE, the HIR
+// built, and a node a hook or `leaf` stopped at, which is the library's unfinished work until
+// cycle 0.3.4 and not the pattern's mistake (H-16).
+//
+// WHERE THE QUANTIFIER IS. A HIR node holds no position (H-2), so the offset is the AST node's: a
+// `Repeat`'s span runs from its atom through its quantifier (Y-32), and only a counted one --
+// `{n}`, `{n,}` or `{n,m}` -- has a factor above 1, so the refused quantifier is the span's tail
+// and its one `{` the last in the span, read back from `pat` through the read-only view. Not the
+// atom's end: under `x`, white space and a comment may stand between the two (Y-42).
+pub func:hir_build_refusal = PatternError?(fixed uint8[]:pat, Ast:t, int64:at) never fails {
+    if (at == HIR_NONE) { pass NIL; }
+    AstNode:n = raw ast_get(t, at);
+    if (n.kind != AstKind.Repeat) { pass NIL; }
+    int64:qend = n.pos + n.len;
+    int64:q = qend - 1i64;
+    while (pat[q] != LBRACE) decreases q - n.pos {
+        q = q - 1i64;
+    }
+    pass raw pattern_error(PatternErrorKind.RepeatProductTooLarge, q, qend - q, NREGEX_REPEAT_PRODUCT =>! uint32);
 };

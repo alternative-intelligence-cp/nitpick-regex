@@ -408,6 +408,10 @@ by a timeout.
 nesting factors on the way down, so the refusal happens before the memory is
 requested rather than after. The multiply is a `uint64` widening with the
 narrow refused if it would exceed the bound, per D-210.
+*(2026-10-10, cycle 0.2.2 — RX-232: and it is, in `src/hir/build.npk`: the product is a `uint64`, each factor and the
+product compared with the bound before a multiply can pass it, so no multiply traps. RX-233: the pattern above is
+refused at its second `{1000}`, the first factor past 100 000, as `HIR.md` H-8 now says; and it is twenty-three bytes,
+not thirty.)*
 
 ### 5.2 The DFA cache
 

@@ -1,0 +1,246 @@
+// expect-exit: 0
+//
+// THE PRODUCT'S FUZZ PASS: THE WALK'S VERDICT AGAINST A SECOND RECKONING. Cycle 0.2.2, RX-232;
+// `HIR.md` H-8. The cycle README hands this cycle `tests/unit/parse_fuzz.npk` as the shape of a fuzz
+// pass over a layer, and Y-10's note says every refusal's offset lies inside the pattern.
+//
+// PATTERNS patterns, a fixed seed, each one or two nests of groups and quantifiers one to four deep
+// and nothing a hook stops at -- `pattern` below. For each the parser accepts, the build's answer
+// is held to a SECOND RECKONING made here, a different way: the AST is walked from its root by
+// index -- every node's children stand before it in the arena, which `ordered` checks -- and each
+// node is given the product of the factors around it, saturating past the bound. The build must
+// refuse exactly when some `Repeat`'s product passes `NREGEX_REPEAT_PRODUCT` (11); the node it
+// answers must be a `Repeat` (12) whose product passes it and whose surroundings' does not, a
+// crossing (14); and the refusal must point inside the pattern at that `Repeat`'s `{`, spanning
+// through its last byte (13). A HIR built has its root set, and one refused has it unset (10). And
+// FLOORS, so the pass cannot be green by looking nowhere: enough built (16) and enough refused (17).
+// A case that differs exits with its number.
+mod:hir_build_product_fuzz;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+use "../../src/hir/hir.npk".*;
+
+fixed int64:PATTERNS = 20000i64;
+fixed int64:NODES = 256i64;          // the most AST nodes a pattern here can make, well past its bytes
+fixed int64:BUILT_FLOOR = 10000i64;
+fixed int64:REFUSED_FLOOR = 5000i64;
+
+// xorshift64 (Marsaglia), as `parse_fuzz.npk` writes it.
+func:next_rng = uint64(uint64:s) never fails {
+    uint64:x = s;
+    x = x ^ (x << 13u64);
+    x = x ^ (x >> 7u64);
+    x = x ^ (x << 17u64);
+    pass x;
+};
+
+// One of sixteen quantifiers, a quarter of them none: every form, lazy and not, and factors from 1 to
+// 1 000 -- 2, 10, 50, 100, 300, 317 -- so a product past the bound takes two, three or four of them.
+func:quant = string(int64:i) never fails {
+    if (i < 4i64) { pass ""; }
+    if (i == 4i64) { pass "*"; }
+    if (i == 5i64) { pass "+?"; }
+    if (i == 6i64) { pass "?"; }
+    if (i == 7i64) { pass "{2}"; }
+    if (i == 8i64) { pass "{100}"; }
+    if (i == 9i64) { pass "{1000}"; }
+    if (i == 10i64) { pass "{1000}?"; }
+    if (i == 11i64) { pass "{50,}"; }
+    if (i == 12i64) { pass "{0,300}"; }
+    if (i == 13i64) { pass "{0}"; }
+    if (i == 14i64) { pass "{7,10}"; }
+    pass "{317}";
+};
+
+// What stands between an atom and its quantifier: nothing, or under `x` a space or a comment.
+func:gap = string(bool:x, int64:i) never fails {
+    if (!x) { pass ""; }
+    if (i == 0i64) { pass " "; }
+    if (i == 1i64) { pass "#c\n"; }
+    pass "";
+};
+
+// A pattern of one or two nests side by side, each `a` and its quantifier wrapped one to four times
+// in a group -- capturing or not, a `b` before the inner part or not, a `c{2}` or an alternative `|d`
+// after it or not -- with a quantifier after each; under `x` one time in eight. Each level's choices
+// are drawn inside out and written outside in.
+func:pattern = string(uint64:seed) never fails {
+    uint64:rng = seed;
+    bool:x = (rng & 7u64) == 0u64;
+    Bytes:out = raw bytes_init(256i64);
+    if (x) { drop bytes_extend_str(@out, "(?x)"); }
+    int64:nests = 1i64 + (((rng >> 3u64) & 1u64) =>! int64);
+    int64:k = 0i64;
+    while (k < nests) decreases nests - k {
+        rng = raw next_rng(rng);
+        int64:depth = 1i64 + (((rng >> 5u64) & 3u64) =>! int64);
+        uint64[4]:level = [0u64, 0u64, 0u64, 0u64];
+        int64:d = 0i64;
+        while (d < depth) decreases depth - d {
+            rng = raw next_rng(rng);
+            level[d] = rng;
+            d = d + 1i64;
+        }
+        d = depth;
+        while (d > 0i64) decreases d {
+            d = d - 1i64;
+            uint64:r = level[d];
+            if (((r >> 7u64) & 1u64) == 0u64) { drop bytes_extend_str(@out, "("); }
+            else { drop bytes_extend_str(@out, "(?:"); }
+            if (((r >> 8u64) & 3u64) == 0u64) { drop bytes_extend_str(@out, "b"); }
+        }
+        drop bytes_extend_str(@out, "a");
+        drop bytes_extend_str(@out, raw gap(x, ((rng >> 23u64) & 3u64) =>! int64));
+        drop bytes_extend_str(@out, raw quant(((rng >> 27u64) & 15u64) =>! int64));
+        d = 0i64;
+        while (d < depth) decreases depth - d {
+            uint64:r = level[d];
+            int64:after = ((r >> 10u64) & 3u64) =>! int64;
+            if (after == 0i64) { drop bytes_extend_str(@out, "c{2}"); }
+            else if (after == 1i64) { drop bytes_extend_str(@out, "|d"); }
+            drop bytes_extend_str(@out, ")");
+            drop bytes_extend_str(@out, raw gap(x, ((r >> 14u64) & 3u64) =>! int64));
+            drop bytes_extend_str(@out, raw quant(((r >> 17u64) & 15u64) =>! int64));
+            d = d + 1i64;
+        }
+        k = k + 1i64;
+    }
+    pass raw bytes_copy_string(@out);
+};
+
+// The factor H-8 gives a `Repeat`, reckoned again here: its maximum, else its minimum, at least 1.
+func:factor_of = int64(AstNode:n) never fails {
+    int64:k = n.c;
+    if (k == AST_NONE) { k = n.b; }
+    if (k < 1i64) { pass 1i64; }
+    pass k;
+};
+
+// Every child of every node stands before it in the arena -- a list's members each before the list,
+// linked forwards by `next` -- the order the parser pushes them, and the one the reckoning below walks
+// backwards.
+func:ordered = bool(Ast:t) never fails {
+    int64:n = raw ast_len(t);
+    int64:i = 0i64;
+    while (i < n) decreases n - i {
+        AstNode:x = raw ast_get(t, i);
+        if ((x.kind == AstKind.Concat) || (x.kind == AstKind.Alternate)) {
+            int64:m = x.a;
+            while (m != AST_NONE) decreases i - m {
+                if (m >= i) { pass false; }
+                AstNode:y = raw ast_get(t, m);
+                if ((y.next != AST_NONE) && (y.next <= m)) { pass false; }
+                m = y.next;
+            }
+        }
+        else if ((x.kind == AstKind.Repeat) || (x.kind == AstKind.Group)) {
+            if ((x.a != AST_NONE) && (x.a >= i)) { pass false; }
+        }
+        i = i + 1i64;
+    }
+    pass true;
+};
+
+func:run = int32() never fails {
+    uint64:rng = 88172645463325252u64;
+    int64:bound = NREGEX_REPEAT_PRODUCT;
+    Vec<int64>:around = raw vec_init_zeroed::<int64>(NODES);
+    Vec<int64>:own = raw vec_init_zeroed::<int64>(NODES);
+    int64:built = 0i64;
+    int64:refused = 0i64;
+    int64:k = 0i64;
+    while (k < PATTERNS) decreases PATTERNS - k {
+        rng = raw next_rng(rng);
+        string:s = raw pattern(rng);
+        fixed uint8[]:pat = string_bytes(s);
+        Ast:t = raw ast_init(8i64);
+        PatternError?:pe = raw parse_pattern(pat, @t);
+        if ((pe == NIL) && (t.root != AST_NONE)) {
+            int64:n = raw ast_len(t);
+            if ((n > NODES) || (!(raw ordered(t)))) { pass 15i32; }
+            // the reckoning: from the root down, by index, each node's product around it, and its own
+            int64:i = 0i64;
+            while (i < n) decreases n - i {
+                drop vec_set(@around, i, 0i64);
+                drop vec_set(@own, i, 0i64);
+                i = i + 1i64;
+            }
+            drop vec_set(@around, t.root, 1i64);
+            int64:most = 1i64;
+            int64:j = n;
+            while (j > 0i64) decreases j {
+                j = j - 1i64;
+                AstNode:x = raw ast_get(t, j);
+                int64:p = raw vec_get(around, j);
+                if (p > 0i64) {
+                    if (x.kind == AstKind.Repeat) {
+                        int64:f = raw factor_of(x);
+                        if (f > bound) { p = bound + 1i64; }
+                        else { p = p * f; }
+                        if (p > bound) { p = bound + 1i64; }
+                    }
+                    drop vec_set(@own, j, p);
+                    if (p > most) { most = p; }
+                    if ((x.kind == AstKind.Concat) || (x.kind == AstKind.Alternate)) {
+                        int64:m = x.a;
+                        while (m != AST_NONE) decreases j - m {
+                            drop vec_set(@around, m, p);
+                            AstNode:y = raw ast_get(t, m);
+                            m = y.next;
+                        }
+                    }
+                    else if (((x.kind == AstKind.Repeat) || (x.kind == AstKind.Group)) && (x.a != AST_NONE)) {
+                        drop vec_set(@around, x.a, p);
+                    }
+                }
+            }
+            Hir:h = raw hir_init(8i64);
+            int64:r = raw hir_build(pat, t, @h);
+            if ((r == HIR_NONE) != (h.root != HIR_NONE)) { pass 10i32; }
+            if ((r != HIR_NONE) != (most > bound)) { pass 11i32; }
+            if (r != HIR_NONE) {
+                AstNode:x = raw ast_get(t, r);
+                if (x.kind != AstKind.Repeat) { pass 12i32; }
+                if (((raw vec_get(own, r)) <= bound) || ((raw vec_get(around, r)) > bound)) { pass 14i32; }
+                PatternError?:re = raw hir_build_refusal(pat, t, r);
+                PatternError:e = re ?? raw pattern_error(PatternErrorKind.PatternTooLong, 0i64, 0i64, 0u32);
+                if ((re == NIL) || (e.kind != PatternErrorKind.RepeatProductTooLarge)) { pass 13i32; }
+                if ((e.offset < x.pos) || ((e.offset + e.span_len) != (x.pos + x.len)) || ((x.pos + x.len) > pat.len)) { pass 13i32; }
+                if (pat[e.offset] != 123u8) { pass 13i32; }
+                refused = refused + 1i64;
+            }
+            else { built = built + 1i64; }
+            drop hir_free(@h);
+        }
+        drop ast_free(@t);
+        k = k + 1i64;
+    }
+    drop vec_free(@around);
+    drop vec_free(@own);
+    if (built < BUILT_FLOOR) { pass 16i32; }
+    if (refused < REFUSED_FLOOR) { pass 17i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    exit raw run();
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

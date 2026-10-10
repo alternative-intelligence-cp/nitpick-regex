@@ -6113,3 +6113,71 @@ return re-spelled with RX-230** — its `fixed` would have meant nothing to `5fb
 not write where the old compiler reads it; **the self-check's row taken from the tree's manifest**, as `nitpick-time`'s
 self-check takes its own — the better shape, and not an adoption's: it changes how the runner writes its fixtures, all
 three of their pins with it, and wants its own decision and a case that holds the rows to the tree's.
+
+## The repetition product — cycle 0.2.2
+
+### RX-232 — the repetition product, checked on the way down: `hir_build` carries the product of the factors around each node in `uint64`, refuses at the first `Repeat` whose factor takes it past `NREGEX_REPEAT_PRODUCT`, and `hir_build_refusal` is the refusal
+**2026-10-10, cycle 0.2.2 (the plan's PD-107), at compiler `7e91730`** — RX-015, `HIR.md` H-7, H-8 and H-16, `SAFETY.md` S-12
+and S-13, `SYNTAX.md` Y-25, Y-32 and Y-34, `COMPILE.md` C-14, and the cycle README's 0.2.2 boxes. RX-015 and H-8 say the
+product is checked as the HIR is built, multiplying the enclosing factors on the way down, and S-13 that the multiply is a
+`uint64` widening; RX-219 lists `RepeatProductTooLarge` in Y-25's table for this subcycle; RX-223 says a refusal made while
+a HIR is built takes its offset from the AST node being read; and RX-228 left the shape of the build's answer for a refusal
+to this subcycle. None says what a `Repeat` that is not `{n}` contributes, which byte the refusal points at, or how a
+refusal is told from a stop at a hook.
+
+**The decision.** `hir_build`'s walk carries, on every step, the product of the factors of the `Repeat`s around its node —
+a `uint64`, 1 at the root. **A `Repeat`'s factor** is the most copies of its body C-14's emission makes: its maximum, or its
+minimum when it has none — `a{2,}` is `aa` and a loop back over the second — and 1 where that is 0, so the product never
+falls on the way down; `*`, `+` and `?` count 1. **Entering a `Repeat`** the walk multiplies in its factor, and where the
+factor or the product passes `NREGEX_REPEAT_PRODUCT` the build refuses there, before the body is entered: it answers that
+`Repeat`'s index in the AST with `out`'s root unset, as it answers a stop. The multiply cannot overflow — both operands are
+at most the bound when it is made, and a factor past the bound refuses with no multiply — and each conversion to `uint64`
+is of a value known to be positive. **`hir_build_refusal(fixed uint8[]:pat, Ast:t, int64:at) -> PatternError?`**,
+re-exported by `hir.npk`, is the refusal a build's answer stands for: for a `Repeat`, `RepeatProductTooLarge` at its
+quantifier's first byte, spanning the quantifier through its last byte, a lazy `?` with it, `NREGEX_REPEAT_PRODUCT` its
+detail — the quantifier read back from `pat` as the last `{` of the node's span, since only a counted quantifier has a
+factor above 1 and the span runs through it (Y-32); and NIL for `HIR_NONE` and for a node a hook or `leaf` stopped at,
+which a `Repeat` never is — the library's unfinished work, not the pattern's mistake. **The order**: the walk answers the
+first it meets, a refusal as it enters a `Repeat` and a stop as it leaves a leaf; a pattern the parser refuses never
+reaches the build. The single bound stays the parser's (RX-184), and the build checks none. Y-25's row for the kind is
+struck and §9's table of what each refusal carries gains its row; H-8, H-16, S-13 and C-14 are dated, and `limits.npk`'s
+comment.
+
+Units `tests/unit/hir_build_product.npk` — the cycle README's pattern and its sentence, the bound's edges, each form's
+factor, the order, `x`'s white space and comment, a stop met first and a refusal met first, 250 groups deep, and a bound
+past any pattern's set by hand — and `tests/unit/hir_build_product_fuzz.npk`: twenty thousand seeded nests, each build's
+verdict held to the products reckoned again from the root by index, every refusal a crossing `Repeat`'s `{` inside the
+pattern — 12 975 built and 7 025 refused at `7e91730`.
+
+*Alternatives declined:* **the build's answer made `PatternError?`, the stop in an out-parameter** — every caller and the
+five units that call it change for a stop cycle 0.3.4 retires, and a `Repeat` already tells the two apart; **a second
+walk for the product, before the build** — H-8 and RX-015 say as the HIR is built, two walks are two copies of one
+traversal, and a build could be called without its check; **the check in the parser, as each quantifier is read** —
+bottom-up: RX-015's *"on the way down"* decides it, and the parser would need a product for every node, which the AST's
+node has no field for (Y-26); **the check as a `Repeat` is left** — its body built first, the refusal at the end the
+cycle README calls worse; **the offset at the node's `pos`** — the atom's first byte, where the box asks for the
+quantifier's; **the quantifier found at the atom's end** — under `x`, white space and a comment may stand between
+(Y-42); **a factor of 0 for `{0}`** — C-14 does not say emission drops a body repeated no times, and the product does not
+assume it; **the minimum plus one for an unbounded repetition**, counting a loop's copy apart — C-14's `a{2,}` loops back
+over its second `a`, and `+` would count 2, so seventeen nested `+`, seventeen copies, would be refused; **a
+`limit<Rules>` on the product** — a trap, not a refusal, and `SAFETY.md` S-24 keeps `src/` free of one; **`int64`
+arithmetic** — S-13 says `uint64`, and nothing is lost either way: the product never passes 10^10.
+
+### RX-233 — the cycle README's acceptance amended: `((a{1000}){1000}){1000}` is refused at its second `{1000}`, byte 10, and `NREGEX_REPEAT_PRODUCT` stays 100 000
+**2026-10-10, cycle 0.2.2 (the plan's PD-108), at compiler `7e91730`** — H-8, `SAFETY.md` S-12 and S-13, the cycle
+README's 0.2.2 row, box and Gate, and `ROADMAP.md`'s cycle 0.2 Gate, each of which says the pattern is refused *"at the
+third `{1000}`"*. At the bound S-12's table gives, 100 000, the first factor that takes the product past it is the
+second: 1 000 after the outer `{1000}`, 10^6 after the middle one, which is second in the order written and second on the
+way down alike. *"The third"* holds only for a bound from 10^6 up to below 10^9: it is the arithmetic of the whole
+product, a billion, not of the bound.
+
+**The decision.** The bound stays, and the texts are amended, dated: the pattern is refused at its second `{1000}`, byte
+10, spanning `{1000}` — where the product first passes the bound, which is what the box asks to be asserted, *"because
+refusing at the end is a different and worse behaviour"*. A pattern refused at its third factor is a case too:
+`((a{100}){100}){11}`, at its inner `{100}`, byte 3, beside `((a{100}){100}){10}`, exactly on the bound, built.
+
+*Alternatives declined:* **the bound raised to 10^6**, so that the third is the crossing — the product's bound would then
+pass `NREGEX_PROGRAM_INSTRUCTIONS`, 100 000, so a product between the two would pass the build and be refused only when
+emission counts the program: the refusal at the end the box calls worse; **another pattern in the texts**, one that
+crosses at its third factor — the README's is the one every document names, and it is refused all the same; **"the
+third" read some other way** — no reading makes byte 10 the third.

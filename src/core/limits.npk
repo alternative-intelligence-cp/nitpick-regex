@@ -70,6 +70,9 @@ pub fixed int64:NREGEX_REPEAT_MAX = 1000i64;
 // would exceed this, per D-210 — because a plain `int64` multiply of two
 // nesting factors traps on overflow, and a trap is the wrong answer here: the
 // caller is owed a `PatternError`, not a dead process.
+// *(2026-10-10, cycle 0.2.2 -- RX-232: it is, since this subcycle, in `src/hir/build.npk`; until then this said
+// what was planned (the documents audit's RA-7). RX-233: the billion's pattern is refused at its SECOND `{1000}`,
+// where the product first passes this; and it is twenty-three characters, not thirty.)*
 pub fixed int64:NREGEX_REPEAT_PRODUCT = 100000i64;
 
 // SAFETY.md §5. Capture groups, named and numbered together. It bounds the
