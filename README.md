@@ -8,8 +8,8 @@ makes the guarantee below possible.
 > **The guarantee, in one sentence: a search takes time linear in the length of
 > the haystack, on every pattern, on every input, always.**
 
-> **Status: cycle 0.2, the HIR, is open, and its first part, the arena, is done; cycle 0.1, the pattern parser,
-> closed on 2026-10-08.** Cycle 0.0, the
+> **Status: cycle 0.2, the HIR, is open, and its first four parts — the arena, the desugaring, the adoption of
+> compiler `7e91730` and the repetition product — are done; cycle 0.1, the pattern parser, closed on 2026-10-08.** Cycle 0.0, the
 > foundations, closed on 2026-09-26 — the language probes, the test harness and
 > the storage primitives in `src/core/` are built and audited — and cycle 0.1.0
 > laid the parser's pieces in `src/syntax/`: the closed list of pattern errors,
@@ -37,7 +37,9 @@ makes the guarantee below possible.
 > every flag erased into what it means — and stops where cycle 0.3 must resolve or fold: a Perl
 > or POSIX class, a property, a class's `^` or operators, and `i`. Cycle 0.2.1a moved the pinned
 > compiler to `7e91730`, where a string's bytes are a read-only view: every slice the library
-> takes says so, and LLVM is 20.1.8. Nothing matches a pattern yet.
+> takes says so, and LLVM is 20.1.8. Cycle 0.2.2 refuses a pattern whose nested repetitions would multiply past
+> 100 000 copies — `((a{1000}){1000}){1000}` at its second `{1000}` — before any memory is asked for its expansion.
+> Nothing matches a pattern yet.
 > The specification set is in [`meta/specs/`](meta/specs/) and the plan in
 > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
 > discipline the compiler used — specs first, then a cycle map, then

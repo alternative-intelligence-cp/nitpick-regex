@@ -56,7 +56,7 @@ cycle 0.0.
 |---|---|---|
 | **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **DONE 2026-09-26, archived to [`done/0.0/`](done/0.0/README.md).** The sixth W-22 audit ACCEPTED the close at compiler `c970483`, after five refusals — three on 2026-09-06, two on 2026-09-25 — and two inserted subcycles, 0.0.4d (`Vec` move-only) and 0.0.4e (the re-pin that refused the loan). The close is [`done/0.0/0.0.5.md`](done/0.0/0.0.5.md) §13 | — |
 | **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **DONE 2026-10-08, archived to [`done/0.1/`](done/0.1/README.md).** Its audit ACCEPTED it once C1 was fixed — `regex_escape`'s text read as a POSIX class straight after a nested class's `[`, the one wrong answer, fixed first — and the close is [`done/0.1/0.1.6.md`](done/0.1/0.1.6.md), its §2 the audit's twenty-two findings, one row each | 0.0 |
-| **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction — **OPEN: [`0.2.0`](0.2/0.2.0.md), the arena, [`0.2.1`](0.2/0.2.1.md), the desugaring, and [`0.2.1a`](0.2/0.2.1a.md), the adoption of compiler `7e91730`, done; 0.2.2, the repetition product, next** | 0.1 |
+| **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction — **OPEN: [`0.2.0`](0.2/0.2.0.md), the arena, [`0.2.1`](0.2/0.2.1.md), the desugaring, [`0.2.1a`](0.2/0.2.1a.md), the adoption of compiler `7e91730`, and [`0.2.2`](0.2/0.2.2.md), the repetition product, done; 0.2.3, normalisation, next** | 0.1 |
 | **0.3** | **Unicode** — generated tables, properties, scripts, simple case folding | 0.0 |
 | **0.4** | **UTF-8 automata** — codepoint ranges to byte ranges, alphabet compression | 0.3 |
 | **0.5** | **The oracle** — the naive reference matcher, and the conformance corpus | 0.2, 0.3 |
@@ -210,6 +210,8 @@ each run as a program and swept as a root, and two pending until cycle 0.3.4, sw
 self-check of **35** cases, 31 live; decisions through RX-229.)*
 *(After cycle 0.2.1a, at compiler `7e91730`: **294** units, no file added — every slice the tree holds the
 read-only view, `fixed uint8[]`, and LLVM 20.1.8; decisions through RX-231.)*
+*(After cycle 0.2.2, the same compiler: **302** units — the repetition product's four unit programs, each swept by
+the parse stage too; two pending outside them; decisions through RX-234.)*
 
 **Two probes refuted their own hypothesis**, which is the cycle's best return:
 `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler

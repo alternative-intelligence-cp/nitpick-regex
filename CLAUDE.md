@@ -14,7 +14,10 @@ done — `hir_build` builds a HIR from a pattern's AST, `HIR.md` H-5's table and
 it means, and stops where cycle 0.3.4 must fill one of its two hooks or widen its `leaf`, the two tests of what it will
 build pending until then (RX-226 … RX-229, `meta/roadmap/0.2/0.2.1.md`); and its 0.2.1a, the adoption of compiler
 `7e91730`, is done — a string's bytes are a read-only view there, and every slice the library takes or holds says so,
-`fixed uint8[]`; LLVM is 20.1.8 (RX-230, RX-231, `meta/roadmap/0.2/0.2.1a.md`); 0.2.2, the repetition product, is next.
+`fixed uint8[]`; LLVM is 20.1.8 (RX-230, RX-231, `meta/roadmap/0.2/0.2.1a.md`); and its 0.2.2, the repetition product, is
+done — `hir_build` refuses a pattern whose nested repetitions multiply past `NREGEX_REPEAT_PRODUCT`, as its walk enters
+the repetition that takes the product past it, at that quantifier's `{`, and two units under one memory cap show the
+refusal comes before the request (RX-232 … RX-234, `meta/roadmap/0.2/0.2.2.md`); 0.2.3, normalisation, is next.
 Cycle 0.1's 0.1.0, 0.1.0b, 0.1.1, 0.1.1b, 0.1.2, 0.1.3, 0.1.4, 0.1.5, 0.1.6a, 0.1.6b and 0.1.6 are done** — the pieces the parser is written
 in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/done/0.1/0.1.0.md`); the adoption of
 compiler `5fbaf4a` (RX-176 … RX-180, `0.1.0b.md`); and the core grammar —
@@ -101,10 +104,11 @@ a fuzz pass**, `parse_fuzz`, holds it to its offsets over 120 000 seeded pattern
 holds the arena** (`HIR.md` H-2 … H-4a, H-15) — `repr.npk`, nine kinds of 40-byte node that own nothing behind
 accessors, and `dump.npk`, the HIR as one line of text and back — with nine unit programs and one refusal of its own,
 and `src/unicode/` holds `ClassRange`, written by hand, which a class's ranges are — **and since 0.2.1 the desugaring**,
-`build.npk` (`HIR.md` H-16), with six unit programs more, two of them pending until cycle 0.3.4. **No matching
+`build.npk` (`HIR.md` H-16), with six unit programs more, two of them pending until cycle 0.3.4 — **and since 0.2.2
+the repetition product** (`HIR.md` H-8), with four unit programs more, two of them a pair under one memory cap. **No matching
 happens yet**: `src/compile/`, `src/engine/` and `src/api/` are still one
 placeholder module each. A full green run at compiler `7e91730` is
-**294 units** (after cycle 0.2.1a, the adoption of that pin, two pending units outside them, as after cycle 0.2.1 at `5fbaf4a`; 283 after cycle 0.2.0; 260 after cycle 0.1.6b; 258 after cycle 0.1.6a, as after cycle 0.1.5; 254 after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus ten tree checks (nine until cycle 0.1.6b's `check_error_kinds_tested`, eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
+**302 units** (after cycle 0.2.2, the repetition product, two pending units outside them, as after cycle 0.2.1a; 294 after cycle 0.2.1a, the adoption of that pin, as after cycle 0.2.1 at `5fbaf4a`; 283 after cycle 0.2.0; 260 after cycle 0.1.6b; 258 after cycle 0.1.6a, as after cycle 0.1.5; 254 after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus ten tree checks (nine until cycle 0.1.6b's `check_error_kinds_tested`, eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
 summary rather than from here. **Nothing is PENDING any more**:
 `tests/unit/bytes_copy_string_empty.npk` was committed red under
 `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at

@@ -30,9 +30,12 @@ RX-015, RX-031. Settled. **No open questions.**
   (`SAFETY.md` S-19). *(2026-10-08, cycle 0.2.1 — RX-228: "carries them as they come" is read as the build stopping at
   each, answering the node, until cycle 0.3.4 fills the hook that resolves it, and widens `leaf` for a bare one.)*
 - **`RepeatProductTooLarge` is a row of `SYNTAX.md` Y-25's table naming 0.2.2**: the test that provokes it strikes the
-  row in its own commit, or `check_error_kinds_tested` fails the run (RX-219).
+  row in its own commit, or `check_error_kinds_tested` fails the run (RX-219). *(2026-10-10, cycle 0.2.2 — RX-232:
+  struck, in the commit of `tests/unit/hir_build_product.npk`, which provokes it.)*
 - **Every refusal's offset lies inside the pattern** (Y-10's note, RX-221), and the HIR's refusals keep it;
-  `tests/unit/parse_fuzz.npk` is the shape of a fuzz pass over a layer.
+  `tests/unit/parse_fuzz.npk` is the shape of a fuzz pass over a layer. *(2026-10-10, cycle 0.2.2 — RX-232: the
+  HIR's one refusal points at its quantifier's `{`, inside the pattern, and `tests/unit/hir_build_product_fuzz.npk` is
+  its pass: twenty thousand seeded nests, each verdict held to the products reckoned again.)*
 - **`regex_escape` is written**, and cycle 0.10.5 re-exports it from `src/lib.npk` (RX-211, RX-214).
 
 ## Subcycles

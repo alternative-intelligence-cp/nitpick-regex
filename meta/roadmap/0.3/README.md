@@ -61,7 +61,7 @@ design; recorded when chosen).
 - [ ] folding applied **at resolution**, so the engine never folds (U-13)
 - [ ] `NREGEX_CLASS_RANGES` enforced; `ClassTooLarge` *(2026-10-08 — cycle 0.1.6b, RX-219: a row of `SYNTAX.md` Y-25's table, struck by the test that provokes it)*
 - [ ] *(2026-10-08 — cycle 0.1.6b, RX-219)* open question O-Y3 decided — `EmptyClass` raised where a class resolves to nothing, or retired as `EmptyAlternate` was — and its row in `SYNTAX.md` Y-25's table struck either way
-- [ ] 0.2's `(?i:…)` hook filled, and its pending test now green *(2026-10-08, cycle 0.2.1 — RX-228, RX-229: the hook is `fold_ranges` in `src/hir/build.npk`, where the build stops until then at every literal, class and `.` under `i` that reaches it; the test is `tests/unit/hir_build_fold.npk`, pending on this subcycle with exit 1, and "now green" is the run going red to say its marker is stale and the marker and its line deleted)*
+- [ ] 0.2's `(?i:…)` hook filled, and its pending test now green *(2026-10-08, cycle 0.2.1 — RX-228, RX-229: the hook is `fold_ranges` in `src/hir/build.npk`, where the build stops until then at every literal, class and `.` under `i` that reaches it; the test is `tests/unit/hir_build_fold.npk`, pending on this subcycle with exit 1, and "now green" is the run going red to say its marker is stale and the marker and its line deleted)* *(2026-10-10, cycle 0.2.2 — RX-232: and once both hooks build and `leaf` is widened, the build stops nowhere: its answer is `HIR_NONE` or a `Repeat` the product refused, which `hir_build_refusal` makes a `PatternError`. Whether the build then answers `PatternError?` itself is this subcycle's to decide — RX-232 declined it while a stop remained)*
 
 ### 0.3.5 — close
 - [ ] both table checks live and green
