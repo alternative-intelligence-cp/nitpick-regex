@@ -39,7 +39,7 @@ RX-030, RX-031, RX-032. Settled. **No open questions.**
 ### 0.6.2 — repetition
 - [ ] `a{2,4}` expands to the documented shape; `a{2,}` to `aa` plus a `Split` loop
 - [ ] greedy and lazy differ **only** in `Split` operand order, and a test asserts the two programs are otherwise identical
-- [ ] `NREGEX_REPEAT_PRODUCT` already checked at the HIR (H-8), so emission expands without re-deriving — asserted by a test that the compiler does no product arithmetic
+- [ ] `NREGEX_REPEAT_PRODUCT` already checked at the HIR (H-8), so emission expands without re-deriving — asserted by a test that the compiler does no product arithmetic *(2026-10-10, cycle 0.2.2 — RX-232: and emission makes no more copies of a `Repeat`'s body than H-8's factor, `COMPILE.md` C-14's note; RX-234: `tests/unit/hir_build_product_capped.npk` stands in for emission's request — the product times 12 bytes — under a 64 MiB cap, and this subcycle puts the real emission in its place)*
 - [ ] `ProgramTooLarge` when `NREGEX_PROGRAM_INSTRUCTIONS` is exceeded *(2026-10-08 — cycle 0.1.6b, RX-219: a row of `SYNTAX.md` Y-25's table, struck by the test that provokes it)* *(2026-10-08, cycle 0.2.0 — RX-223: raised from the HIR, which holds no position, so its offset is the pattern's, `0` and its length, unless this cycle decides otherwise)*
 
 ### 0.6.3 — entry points

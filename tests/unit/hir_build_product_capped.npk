@@ -1,0 +1,86 @@
+// expect-exit: 0
+// mem-cap-mib: 64
+//
+// THE REFUSAL COMES BEFORE THE MEMORY -- ONE OF A PAIR UNDER ONE CAP, AND NEITHER HALF MEANS ANYTHING
+// ALONE. Cycle 0.2.2, RX-234; `HIR.md` H-8, `SAFETY.md` S-13 (RX-015), the cycle README's last 0.2.2
+// box and its Gate. The pair's shape is `bytes_copy_string_nonempty.npk`'s and the workbench
+// PLAYBOOK's: both halves run under the same 64 MiB address-space cap, which the harness proves
+// `/bin/true` passes first, and they must end differently. The cap is an `RLIMIT_AS`, which refuses
+// a REQUEST whether or not its pages are ever touched -- and the claim is "before the memory is
+// requested".
+//
+// THIS HALF IS THE PIPELINE IN MINIATURE: parse, build, and for every HIR the build accepts, the
+// request emission will make for it -- its product times `Inst`'s 12 bytes (probe 14), the copies
+// `COMPILE.md` C-14 expands at least -- stood in for here until cycle 0.6.2 writes the real one. The
+// cycle README's pattern (1) and the deepest nest the parser admits, 250 groups each `{1000}` (2),
+// are refused, so neither request is made; three patterns whose product is the bound (3 ... 5) are
+// built, and each request, 1.2 MB, is granted. A build that accepted either bomb would ask for
+// 12 GB and die `HeapOom`, 92. It exits 0. `hir_build_product_capped_control.npk` makes the bomb's
+// request FIRST, as a build that refused at the end would let it, and dies 92 under this cap.
+mod:hir_build_product_capped;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+use "../../src/hir/hir.npk".*;
+
+fixed int64:INST_BYTES = 12i64;    // `#size_of<Inst>`, probe 14's measurement
+
+// Parses and builds `pat`, and when the build accepts it requests what emission will --
+// `product` instructions of `INST_BYTES` -- and frees it. Answers whether the build accepted it.
+func:pipeline = bool(fixed uint8[]:pat, int64:product) never fails {
+    Ast:t = raw ast_init(8i64);
+    bool:accepted = false;
+    PatternError?:pe = raw parse_pattern(pat, @t);
+    if (pe == NIL) {
+        Hir:h = raw hir_init(8i64);
+        accepted = (raw hir_build(pat, t, @h)) == HIR_NONE;
+        if (accepted) {
+            Vec<uint8>:program = raw vec_init::<uint8>(product * INST_BYTES);
+            drop vec_free(@program);
+        }
+        drop hir_free(@h);
+    }
+    drop ast_free(@t);
+    pass accepted;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    if (raw pipeline(string_bytes("((a{1000}){1000}){1000}"), 1000000000i64)) { exit 1i32; }
+    Bytes:p = raw bytes_init(2600i64);
+    int64:i = 0i64;
+    while (i < 250i64) decreases 250i64 - i {
+        drop bytes_extend_str(@p, "(?:");
+        i = i + 1i64;
+    }
+    drop bytes_extend_str(@p, "a{1000}");
+    i = 0i64;
+    while (i < 250i64) decreases 250i64 - i {
+        drop bytes_extend_str(@p, "){1000}");
+        i = i + 1i64;
+    }
+    string:deep = raw bytes_copy_string(@p);
+    // its product is past any `int64`; the request stood in for is the README pattern's, at least
+    if (raw pipeline(string_bytes(deep), 1000000000i64)) { exit 2i32; }
+    if (!(raw pipeline(string_bytes("((a{100}){100}){10}"), 100000i64))) { exit 3i32; }
+    if (!(raw pipeline(string_bytes("(?:a{1000}){100}"), 100000i64))) { exit 4i32; }
+    if (!(raw pipeline(string_bytes("(?:a{100,}){1000}"), 100000i64))) { exit 5i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

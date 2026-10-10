@@ -1,0 +1,55 @@
+// expect-exit: 92
+// mem-cap-mib: 64
+//
+// THE CONTROL OF THE PAIR -- `hir_build_product_capped.npk` is the other half, and neither means
+// anything alone. Cycle 0.2.2, RX-234. The same cap, the same pipeline and the same request, made
+// FIRST: what emission would ask for the cycle README's pattern, 10^9 instructions of 12 bytes, before
+// the build -- the order a build that refused at the end would leave. `HeapOom`, 92: the cap the other
+// half finishes under is one the bomb's request cannot pass.
+mod:hir_build_product_capped_control;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+use "../../src/hir/hir.npk".*;
+
+fixed int64:INST_BYTES = 12i64;    // `#size_of<Inst>`, probe 14's measurement
+
+// The request emission would make for `product` instructions, made BEFORE `pat` is parsed and built.
+// Answers whether the build accepted it.
+func:pipeline = bool(fixed uint8[]:pat, int64:product) never fails {
+    Vec<uint8>:program = raw vec_init::<uint8>(product * INST_BYTES);
+    drop vec_free(@program);
+    Ast:t = raw ast_init(8i64);
+    bool:accepted = false;
+    PatternError?:pe = raw parse_pattern(pat, @t);
+    if (pe == NIL) {
+        Hir:h = raw hir_init(8i64);
+        accepted = (raw hir_build(pat, t, @h)) == HIR_NONE;
+        drop hir_free(@h);
+    }
+    drop ast_free(@t);
+    pass accepted;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    if (raw pipeline(string_bytes("((a{1000}){1000}){1000}"), 1000000000i64)) { exit 1i32; }
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

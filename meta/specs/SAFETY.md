@@ -412,6 +412,8 @@ narrow refused if it would exceed the bound, per D-210.
 product compared with the bound before a multiply can pass it, so no multiply traps. RX-233: the pattern above is
 refused at its second `{1000}`, the first factor past 100 000, as `HIR.md` H-8 now says; and it is twenty-three bytes,
 not thirty.)*
+*(2026-10-10, cycle 0.2.2 — RX-234: and before the request — `tests/unit/hir_build_product_capped.npk` and its control,
+under one 64 MiB cap, the request emission will make stood in for until cycle 0.6.2.)*
 
 ### 5.2 The DFA cache
 

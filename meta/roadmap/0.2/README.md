@@ -109,7 +109,7 @@ Structurally equal patterns produce byte-identical HIR dumps, and the
 repetition product refuses `((a{1000}){1000}){1000}` at the third `{1000}`
 before the memory is requested.
 *(2026-10-10, cycle 0.2.2 — RX-233: at its second `{1000}`, byte 10, the first factor that takes the product past
-`NREGEX_REPEAT_PRODUCT`.)*
+`NREGEX_REPEAT_PRODUCT`; RX-234: and two units under one 64 MiB cap show it comes before the request.)*
 
 ## Watch for
 

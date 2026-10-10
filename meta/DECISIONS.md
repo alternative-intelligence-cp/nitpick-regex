@@ -6181,3 +6181,26 @@ pass `NREGEX_PROGRAM_INSTRUCTIONS`, 100 000, so a product between the two would 
 emission counts the program: the refusal at the end the box calls worse; **another pattern in the texts**, one that
 crosses at its third factor — the README's is the one every document names, and it is refused all the same; **"the
 third" read some other way** — no reading makes byte 10 the third.
+
+### RX-234 — the refusal comes before the memory: two units under one 64 MiB cap, the request emission will make stood in for until cycle 0.6.2
+**2026-10-10, cycle 0.2.2 (the plan's PD-109), at compiler `7e91730`** — the cycle README's last 0.2.2 box, *"a test that
+the refusal happens before any large allocation, by bounding the process's peak memory"*, and its Gate, *"before the memory
+is requested"*; `BUILD.md` B-5b's `mem-cap-mib` (RX-146), and the workbench PLAYBOOK's lesson that an address-space bound
+needs `/bin/true` under the same cap and two halves with opposite outcomes. Nothing in the tree requests memory in
+proportion to a product — the HIR is the pattern's size (H-7), and the expansion is cycle 0.6.2's — so a cap over the
+build alone could not fail.
+
+**The decision.** `tests/unit/hir_build_product_capped.npk`, `// mem-cap-mib: 64`, exit 0, is the pipeline in miniature:
+parse, build, and for every HIR the build accepts the request emission will make for it — its product of `Inst`s at 12
+bytes (probe 14) — stood in for until cycle 0.6.2 writes the real one; over the cycle README's pattern and the deepest nest
+the parser admits, 250 groups each `{1000}`, each refused, and three patterns whose product is the bound, each built and
+its 1.2 MB granted. `tests/unit/hir_build_product_capped_control.npk`, the same cap, exit 92: the same pipeline with the
+bomb's request made first, as a build that refused at the end would leave it — `HeapOom`. The harness runs `/bin/true`
+under the cap first. So a build that accepted a bomb, or asked for memory in proportion to its product before refusing,
+dies 92 where the first half exits 0. The cap is an `RLIMIT_AS`, which refuses a request whether or not its pages are ever
+touched. The 0.6 README's 0.6.2 box is dated: the real emission takes the stand-in's place.
+
+*Alternatives declined:* **peak RSS** — it sees what is touched, and the claim is what is requested: an untouched 12 GB
+request leaves it flat; **a cap over the build alone, nothing stood in for** — nothing in the tree could make it fail;
+**one capped unit, no control** — a cap the bomb's request also passes says nothing, the PLAYBOOK's lesson; **the test
+pending until cycle 0.6.2** — the build's half is testable now, and a pending unit is outside the count.
