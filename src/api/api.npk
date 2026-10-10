@@ -27,6 +27,6 @@ mod:api;
 // depended on by nothing. `lib.npk` re-exports it instead.
 //
 // The detail rides in a `PatternError` value with a closed kind enum (S-9):
-// thirty ways for a pattern to be malformed, one identity, because a shutdown
-// handler does not care which syntax error it was.
+// a closed list of the ways a pattern can be malformed, one identity, because a
+// shutdown handler does not care which syntax error it was.
 pub error:ERegexPattern;

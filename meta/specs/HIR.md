@@ -76,6 +76,8 @@ This is the same reasoning the compiler applies to `Handle<T>` (D-017).
 `Class`, `Concat`, `Alternate`, `Repeat`, `Group`, `Anchor`, `WordBoundary`.
 Nine. A tree check asserts every kind is produced by the parser, consumed by
 the compiler, and handled by the oracle.
+*(2026-10-10, cycle 0.2.2 — the documents audit's RA-7: not yet. `check_hir_kinds_total` is cycle 0.2.6's, the cycle
+README's box for it, and `TESTING.md` lists it *"no — cycle 0.2"*; until it is live, no check asserts this.)*
 *(2026-10-08, cycle 0.2.0 — RX-223: a `Literal` is one codepoint, or under `(?-u)` one byte, `HIR_FLAG_BYTE` set
 (`SYNTAX.md` Y-13; the modes mix in one pattern, `UNICODE.md` U-19); a `Class` and a `WordBoundary` the same. Still
 nine kinds.)*

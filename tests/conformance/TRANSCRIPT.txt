@@ -1,3 +1,7 @@
+NOTE ADDED 2026-10-10 BY CYCLE 0.2.2 -- the roadmap file cited below as meta/roadmap/0.0/0.0.2.md
+moved to meta/roadmap/done/0.0/ when cycle 0.0 was archived (the documents audit's RA-8).
+Nothing below is edited.
+
 TRANSCRIPT — cycle 0.0.1, the skeleton
 ======================================
 

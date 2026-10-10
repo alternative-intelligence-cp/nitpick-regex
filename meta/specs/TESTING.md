@@ -20,6 +20,10 @@ nothing. This is `nregex`'s answer to both.
 | `corpus` | every committed pattern/haystack/expectation triple gives the expected answer **through every engine** |
 | `oracle` | the naive reference matcher and every real engine agree over a generated corpus |
 
+*(2026-10-10, cycle 0.2.2 — found by this subcycle's sweep, beside the documents audit's RA-1: `accept` is struck for
+this library (`BUILD.md` B-4a, RX-117), and its row's question is the conformance suite's, judged at `compile`,
+`positive`, as `nitpick.toml` declares it; and `corpus` and `oracle` are not stages yet, as `harness/README.md` says.)*
+
 ---
 
 ## 2. Everything is headless

@@ -17,9 +17,10 @@ nobody has ever seen pass.
 AND THE CONVERSE, WHICH IS THE HALF THAT BITES. A check that finds nothing
 because it LOOKED nowhere is indistinguishable in the output from one that
 found nothing because there was nothing to find. So every check here reports
-how many things it examined, not merely its verdict, and `check_layering` says
-in as many words that six of this library's eight `src/` files are reached by
-no suite at all -- which is the gap the `parse` stage (RX-124) exists to close.
+how many things it examined, not merely its verdict.
+*(2026-10-10, cycle 0.2.2 -- the documents audit's RA-2: this said `check_layering` names, in as many words,
+the `src/` files no suite reaches -- six of eight, then. It prints no such note; the `parse` stage (RX-124)
+sweeps every `.npk` in the tree.)*
 
 THE ONE THAT ONLY REPORTS. `check_specs_current` never fails the run
 (`0.0.3.md` §4). It reads every `meta/specs/*.md` citation in the tree and says

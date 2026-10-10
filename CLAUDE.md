@@ -154,7 +154,7 @@ what to do when a cross-stream gate is not ready yet.
 - **One public `error:` identity** (RX-060). REACH-002 makes every one a
   mandatory `pick` arm in every consuming program's `failsafe`. A second is a
   **major version**. Detail rides in a `PatternError` value with a closed kind
-  enum — thirty ways to be malformed, one identity.
+  enum — a closed list of the ways to be malformed, one identity.
   *(Sharper, measured at `5fbaf4a` by cycle 0.1.0b — the ecosystem audit's EC3,
   RX-179: the arm is owed for every identity a reachable `fail` raises, a PRIVATE
   one included, named by its module, and for no declaration nothing raises. So

@@ -34,6 +34,13 @@ cycle 0.2.1a, 2026-10-09 — RX-231: the compiler's D-349, which compiler `7e917
 | `baseline/rx120.sh` | **executable**: builds the floor and a syscaller at the pinned compiler and ASSERTS floor == 5, syscaller == 6, difference == `{npk_sys6}` (at `c3bdae2`, `c970483`, `5fbaf4a` and `7e91730`; 2 and 3 at `3d15ac9`); with `950bb1d` present it also asserts 29/29/identical, compiling the two programs without the two arms that compiler does not have (RX-148). A harness **build step** and its own CI step. It replaced a hand-copied transcript that recorded a command which could not have produced the output beside it (RX-142's neighbourhood; cycle 0.0 audit, adjudication (a)) |
 | `selfcheck/` | fixtures that must **fail**; `selfcheck.py` drives them |
 
+*(2026-10-10, cycle 0.2.2 — what a run leaves behind, both ignored by `../.gitignore`: `.internal/rx120/`,
+`baseline/rx120.sh`'s work, which it clears when it starts and not when it ends, so every full run leaves one; and
+`__pycache__/` here, these modules' bytecode, written by any run that imports them without `-B` — `python3
+harness/run.py` as `../CLAUDE.md` and CI spell it, and `rx120.sh`'s check of `irscan.py` — which
+`check_dated_measurements` prunes by name. Neither is a worker's: a plan's scratch is its own directory under
+`.internal/`, removed at its record.)*
+
 ## What a green run asserts
 
 - every **program** — each `program`-stage and `compile`/`positive` file — built

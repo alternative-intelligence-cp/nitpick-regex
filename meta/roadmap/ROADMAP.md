@@ -4,7 +4,9 @@ The specification set (`meta/specs/`) is written and the decisions it rests on
 are in `meta/DECISIONS.md`. This is the plan built on them.
 
 **One decision batch is settled** — RX-001 … RX-080, written with the
-specification set. What remains open in `../OPEN_QUESTIONS.md` is open *by
+specification set. *(2026-10-10, cycle 0.2.2 — the ecosystem audit's E2-10: that is the founding batch; every
+later one is appended whole under its own heading in `../DECISIONS.md`, which is where the count is.)* What remains
+open in `../OPEN_QUESTIONS.md` is open *by
 design*: two measurements taken in the cycles that can take them, one set of
 data, one item gated on the compiler's tooling, one feature kept open rather
 than closed, and four that are the compiler's rather than ours. **No cycle in
@@ -336,6 +338,8 @@ memchr against the scalar one (O-F1, O-G4), and the step counter's cost
 A real program in `examples/` — a `grep`-shaped tool (Q-2) — written against
 the library as a consumer, with every friction recorded and triaged as a
 defect, a gap, or an accepted cost.
+*(2026-10-10, cycle 0.2.2 — the ecosystem audit's E2-6: not in `examples/`. RX-101 puts `grep` in `nitpick-posix`, as
+the cycle's own README says.)*
 
 ### 1.0 — Release
 `docs/` written, the public API frozen and enumerated, the **one-arm

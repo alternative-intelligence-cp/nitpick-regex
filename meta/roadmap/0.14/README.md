@@ -8,6 +8,8 @@
 > description and topics are set in the same pass that creates it.
 
 **A real program, in `examples/`, written against the library as a consumer.**
+*(2026-10-10, cycle 0.2.2 — the ecosystem audit's E2-6: in `nitpick-posix`, as the note above says (RX-101), not in
+`examples/`.)*
 
 ## Why a cycle
 

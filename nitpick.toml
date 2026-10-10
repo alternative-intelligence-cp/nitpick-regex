@@ -147,7 +147,9 @@ recursive = true
 # the five `Vec` and `SparseSet` copies and `bytes_buf_ptr_write` since 0.0.4d,
 # and the six loan and pass-out pins and `vec_owning_get_moves_out` since 0.0.4e)
 # the `src/core/` modules they test, and since cycle 0.1.0 three the syntax
-# layer's entry, `src/syntax/syntax.npk` -- which makes them the standing
+# layer's entry, `src/syntax/syntax.npk`, and since cycle 0.2.0 one the HIR's,
+# `src/hir/hir.npk` (`hir_nodes_read`; the documents audit's RA-4, 2026-10-10)
+# -- which makes them the standing
 # instance of the B-7 hazard: a typo'd path exits 1 with RESOLVE-005, which is a
 # refusal, and only code-set equality tells it from the refusal the test is
 # about.
