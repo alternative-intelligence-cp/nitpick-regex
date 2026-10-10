@@ -1,0 +1,21 @@
+# 0.2.2's mutants of src/hir/build.npk -- each one rule of the product broken in a copy of a tree, the text matched exactly
+# ONCE or the row is a STOP; `mutants.py` builds every unit below that the tree holds, in the copy, at both legs -- a
+# capped unit under its cap -- and prints the units whose exits differ from the unchanged copy's. TAB-separated; `\n`
+# in a text is a newline. The first column is the block a row runs at: `2`, over the tree at step 2, where the product's
+# four units and the build's five are.
+# units: hir_build_product hir_build_product_fuzz hir_build_product_capped hir_build_product_capped_control hir_build hir_build_not_a_tree hir_build_misnumbered hir_build_classes hir_build_fold
+2	no-product-check	src/hir/build.npk	                if (p > bound) { stuck = s.node; }\n                else { drop vec_push(@todo, Step{ node: n.a, op: STEP_ONE, mark: 0i64, prod: p }); }	                drop vec_push(@todo, Step{ node: n.a, op: STEP_ONE, mark: 0i64, prod: p });
+2	bound-inclusive	src/hir/build.npk	                if (p > bound) { stuck = s.node; }	                if (p >= bound) { stuck = s.node; }
+2	factor-min-only	src/hir/build.npk	    int64:k = n.c;\n    if (k == AST_NONE) { k = n.b; }	    int64:k = n.b;
+2	factor-unbounded-plus-one	src/hir/build.npk	    if (k == AST_NONE) { k = n.b; }	    if (k == AST_NONE) { k = n.b + 1i64; }
+2	factor-zero-counts-zero	src/hir/build.npk	    if (k < 1i64) { pass 1u64; }	    if (k < 0i64) { pass 1u64; }
+2	list-rest-product-reset	src/hir/build.npk	{ node: n.next, op: STEP_LIST, mark: 0i64, prod: s.prod }	{ node: n.next, op: STEP_LIST, mark: 0i64, prod: 1u64 }
+2	list-head-product-reset	src/hir/build.npk	{ node: n.a, op: STEP_LIST, mark: 0i64, prod: s.prod }	{ node: n.a, op: STEP_LIST, mark: 0i64, prod: 1u64 }
+2	group-product-reset	src/hir/build.npk	                drop vec_push(@todo, Step{ node: n.a, op: STEP_ONE, mark: 0i64, prod: s.prod });	                drop vec_push(@todo, Step{ node: n.a, op: STEP_ONE, mark: 0i64, prod: 1u64 });
+2	repeat-child-unmultiplied	src/hir/build.npk	                else { drop vec_push(@todo, Step{ node: n.a, op: STEP_ONE, mark: 0i64, prod: p }); }	                else { drop vec_push(@todo, Step{ node: n.a, op: STEP_ONE, mark: 0i64, prod: s.prod }); }
+2	multiply-before-guard	src/hir/build.npk	                uint64:p = f;\n                if (f <= bound) { p = s.prod * f; }	                uint64:p = s.prod * f;
+2	refusal-at-atom	src/hir/build.npk	RepeatProductTooLarge, q, qend - q, NREGEX_REPEAT_PRODUCT	RepeatProductTooLarge, n.pos, qend - n.pos, NREGEX_REPEAT_PRODUCT
+2	quantifier-at-atom-end	src/hir/build.npk	    int64:q = qend - 1i64;\n    while (pat[q] != LBRACE) decreases q - n.pos {\n        q = q - 1i64;\n    }	    AstNode:body = raw ast_get(t, n.a);\n    int64:q = body.pos + body.len;
+2	span-drops-lazy	src/hir/build.npk	    int64:qend = n.pos + n.len;	    int64:qend = n.pos + n.len;\n    if ((n.flags & AST_FLAG_LAZY) != 0u32) { qend = qend - 1i64; }
+2	detail-single-bound	src/hir/build.npk	qend - q, NREGEX_REPEAT_PRODUCT =>! uint32);	qend - q, NREGEX_REPEAT_MAX =>! uint32);
+2	refusal-for-any-node	src/hir/build.npk	    if (n.kind != AstKind.Repeat) { pass NIL; }\n    int64:qend	    int64:qend

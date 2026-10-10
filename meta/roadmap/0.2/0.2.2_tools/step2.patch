@@ -1,0 +1,223 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 5cd4e228a8b7bfe7def23e926cb8424051bde1bc..dabd0b5cbe4897e015c58f3d0a604c8eb05af38b 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -6181,3 +6181,26 @@ pass `NREGEX_PROGRAM_INSTRUCTIONS`, 100 000, so a product between the two would
+ emission counts the program: the refusal at the end the box calls worse; **another pattern in the texts**, one that
+ crosses at its third factor — the README's is the one every document names, and it is refused all the same; **"the
+ third" read some other way** — no reading makes byte 10 the third.
++
++### RX-234 — the refusal comes before the memory: two units under one 64 MiB cap, the request emission will make stood in for until cycle 0.6.2
++**@@DATE022@@, cycle 0.2.2 (the plan's PD-109), at compiler `7e91730`** — the cycle README's last 0.2.2 box, *"a test that
++the refusal happens before any large allocation, by bounding the process's peak memory"*, and its Gate, *"before the memory
++is requested"*; `BUILD.md` B-5b's `mem-cap-mib` (RX-146), and the workbench PLAYBOOK's lesson that an address-space bound
++needs `/bin/true` under the same cap and two halves with opposite outcomes. Nothing in the tree requests memory in
++proportion to a product — the HIR is the pattern's size (H-7), and the expansion is cycle 0.6.2's — so a cap over the
++build alone could not fail.
++
++**The decision.** `tests/unit/hir_build_product_capped.npk`, `// mem-cap-mib: 64`, exit 0, is the pipeline in miniature:
++parse, build, and for every HIR the build accepts the request emission will make for it — its product of `Inst`s at 12
++bytes (probe 14) — stood in for until cycle 0.6.2 writes the real one; over the cycle README's pattern and the deepest nest
++the parser admits, 250 groups each `{1000}`, each refused, and three patterns whose product is the bound, each built and
++its 1.2 MB granted. `tests/unit/hir_build_product_capped_control.npk`, the same cap, exit 92: the same pipeline with the
++bomb's request made first, as a build that refused at the end would leave it — `HeapOom`. The harness runs `/bin/true`
++under the cap first. So a build that accepted a bomb, or asked for memory in proportion to its product before refusing,
++dies 92 where the first half exits 0. The cap is an `RLIMIT_AS`, which refuses a request whether or not its pages are ever
++touched. The 0.6 README's 0.6.2 box is dated: the real emission takes the stand-in's place.
++
++*Alternatives declined:* **peak RSS** — it sees what is touched, and the claim is what is requested: an untouched 12 GB
++request leaves it flat; **a cap over the build alone, nothing stood in for** — nothing in the tree could make it fail;
++**one capped unit, no control** — a cap the bomb's request also passes says nothing, the PLAYBOOK's lesson; **the test
++pending until cycle 0.6.2** — the build's half is testable now, and a pending unit is outside the count.
+diff --git a/meta/roadmap/0.2/README.md b/meta/roadmap/0.2/README.md
+index 282e567de2f485fbc05a8edf81be7c2ae404fa28..4283b9049e9dabf788af4f4a0efb9549ae272d25 100644
+--- a/meta/roadmap/0.2/README.md
++++ b/meta/roadmap/0.2/README.md
+@@ -109,7 +109,7 @@ Structurally equal patterns produce byte-identical HIR dumps, and the
+ repetition product refuses `((a{1000}){1000}){1000}` at the third `{1000}`
+ before the memory is requested.
+ *(@@DATE022@@, cycle 0.2.2 — RX-233: at its second `{1000}`, byte 10, the first factor that takes the product past
+-`NREGEX_REPEAT_PRODUCT`.)*
++`NREGEX_REPEAT_PRODUCT`; RX-234: and two units under one 64 MiB cap show it comes before the request.)*
+ 
+ ## Watch for
+ 
+diff --git a/meta/roadmap/0.6/README.md b/meta/roadmap/0.6/README.md
+index 69b01903dfd00bd793306e820234efb09a5ce519..7301b9a8c3c61cddd8dfcb5aae61f5a5f5775530 100644
+--- a/meta/roadmap/0.6/README.md
++++ b/meta/roadmap/0.6/README.md
+@@ -39,7 +39,7 @@ RX-030, RX-031, RX-032. Settled. **No open questions.**
+ ### 0.6.2 — repetition
+ - [ ] `a{2,4}` expands to the documented shape; `a{2,}` to `aa` plus a `Split` loop
+ - [ ] greedy and lazy differ **only** in `Split` operand order, and a test asserts the two programs are otherwise identical
+-- [ ] `NREGEX_REPEAT_PRODUCT` already checked at the HIR (H-8), so emission expands without re-deriving — asserted by a test that the compiler does no product arithmetic
++- [ ] `NREGEX_REPEAT_PRODUCT` already checked at the HIR (H-8), so emission expands without re-deriving — asserted by a test that the compiler does no product arithmetic *(@@DATE022@@, cycle 0.2.2 — RX-232: and emission makes no more copies of a `Repeat`'s body than H-8's factor, `COMPILE.md` C-14's note; RX-234: `tests/unit/hir_build_product_capped.npk` stands in for emission's request — the product times 12 bytes — under a 64 MiB cap, and this subcycle puts the real emission in its place)*
+ - [ ] `ProgramTooLarge` when `NREGEX_PROGRAM_INSTRUCTIONS` is exceeded *(2026-10-08 — cycle 0.1.6b, RX-219: a row of `SYNTAX.md` Y-25's table, struck by the test that provokes it)* *(2026-10-08, cycle 0.2.0 — RX-223: raised from the HIR, which holds no position, so its offset is the pattern's, `0` and its length, unless this cycle decides otherwise)*
+ 
+ ### 0.6.3 — entry points
+diff --git a/meta/specs/SAFETY.md b/meta/specs/SAFETY.md
+index 110272be6564d88ed6932f0efe8cc57dbf13061c..80b164248259287e953bef95cd3e9e70f6e7ada4 100644
+--- a/meta/specs/SAFETY.md
++++ b/meta/specs/SAFETY.md
+@@ -412,6 +412,8 @@ narrow refused if it would exceed the bound, per D-210.
+ product compared with the bound before a multiply can pass it, so no multiply traps. RX-233: the pattern above is
+ refused at its second `{1000}`, the first factor past 100 000, as `HIR.md` H-8 now says; and it is twenty-three bytes,
+ not thirty.)*
++*(@@DATE022@@, cycle 0.2.2 — RX-234: and before the request — `tests/unit/hir_build_product_capped.npk` and its control,
++under one 64 MiB cap, the request emission will make stood in for until cycle 0.6.2.)*
+ 
+ ### 5.2 The DFA cache
+ 
+diff --git a/tests/unit/hir_build_product_capped.npk b/tests/unit/hir_build_product_capped.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..5c3cb77e9a580538f5a875c4e71263a9b41c67e2
+--- /dev/null
++++ b/tests/unit/hir_build_product_capped.npk
+@@ -0,0 +1,86 @@
++// expect-exit: 0
++// mem-cap-mib: 64
++//
++// THE REFUSAL COMES BEFORE THE MEMORY -- ONE OF A PAIR UNDER ONE CAP, AND NEITHER HALF MEANS ANYTHING
++// ALONE. Cycle 0.2.2, RX-234; `HIR.md` H-8, `SAFETY.md` S-13 (RX-015), the cycle README's last 0.2.2
++// box and its Gate. The pair's shape is `bytes_copy_string_nonempty.npk`'s and the workbench
++// PLAYBOOK's: both halves run under the same 64 MiB address-space cap, which the harness proves
++// `/bin/true` passes first, and they must end differently. The cap is an `RLIMIT_AS`, which refuses
++// a REQUEST whether or not its pages are ever touched -- and the claim is "before the memory is
++// requested".
++//
++// THIS HALF IS THE PIPELINE IN MINIATURE: parse, build, and for every HIR the build accepts, the
++// request emission will make for it -- its product times `Inst`'s 12 bytes (probe 14), the copies
++// `COMPILE.md` C-14 expands at least -- stood in for here until cycle 0.6.2 writes the real one. The
++// cycle README's pattern (1) and the deepest nest the parser admits, 250 groups each `{1000}` (2),
++// are refused, so neither request is made; three patterns whose product is the bound (3 ... 5) are
++// built, and each request, 1.2 MB, is granted. A build that accepted either bomb would ask for
++// 12 GB and die `HeapOom`, 92. It exits 0. `hir_build_product_capped_control.npk` makes the bomb's
++// request FIRST, as a build that refused at the end would let it, and dies 92 under this cap.
++mod:hir_build_product_capped;
++
++use "../../src/core/core.npk".*;
++use "../../src/syntax/syntax.npk".*;
++use "../../src/hir/hir.npk".*;
++
++fixed int64:INST_BYTES = 12i64;    // `#size_of<Inst>`, probe 14's measurement
++
++// Parses and builds `pat`, and when the build accepts it requests what emission will --
++// `product` instructions of `INST_BYTES` -- and frees it. Answers whether the build accepted it.
++func:pipeline = bool(fixed uint8[]:pat, int64:product) never fails {
++    Ast:t = raw ast_init(8i64);
++    bool:accepted = false;
++    PatternError?:pe = raw parse_pattern(pat, @t);
++    if (pe == NIL) {
++        Hir:h = raw hir_init(8i64);
++        accepted = (raw hir_build(pat, t, @h)) == HIR_NONE;
++        if (accepted) {
++            Vec<uint8>:program = raw vec_init::<uint8>(product * INST_BYTES);
++            drop vec_free(@program);
++        }
++        drop hir_free(@h);
++    }
++    drop ast_free(@t);
++    pass accepted;
++};
++
++func:main = int32(cstring[]:_~argv) {
++    if (raw pipeline(string_bytes("((a{1000}){1000}){1000}"), 1000000000i64)) { exit 1i32; }
++    Bytes:p = raw bytes_init(2600i64);
++    int64:i = 0i64;
++    while (i < 250i64) decreases 250i64 - i {
++        drop bytes_extend_str(@p, "(?:");
++        i = i + 1i64;
++    }
++    drop bytes_extend_str(@p, "a{1000}");
++    i = 0i64;
++    while (i < 250i64) decreases 250i64 - i {
++        drop bytes_extend_str(@p, "){1000}");
++        i = i + 1i64;
++    }
++    string:deep = raw bytes_copy_string(@p);
++    // its product is past any `int64`; the request stood in for is the README pattern's, at least
++    if (raw pipeline(string_bytes(deep), 1000000000i64)) { exit 2i32; }
++    if (!(raw pipeline(string_bytes("((a{100}){100}){10}"), 100000i64))) { exit 3i32; }
++    if (!(raw pipeline(string_bytes("(?:a{1000}){100}"), 100000i64))) { exit 4i32; }
++    if (!(raw pipeline(string_bytes("(?:a{100,}){1000}"), 100000i64))) { exit 5i32; }
++    exit 0i32;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/hir_build_product_capped_control.npk b/tests/unit/hir_build_product_capped_control.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..b13476269ff9b0c5eb437b90cc248c2d2679b7e2
+--- /dev/null
++++ b/tests/unit/hir_build_product_capped_control.npk
+@@ -0,0 +1,55 @@
++// expect-exit: 92
++// mem-cap-mib: 64
++//
++// THE CONTROL OF THE PAIR -- `hir_build_product_capped.npk` is the other half, and neither means
++// anything alone. Cycle 0.2.2, RX-234. The same cap, the same pipeline and the same request, made
++// FIRST: what emission would ask for the cycle README's pattern, 10^9 instructions of 12 bytes, before
++// the build -- the order a build that refused at the end would leave. `HeapOom`, 92: the cap the other
++// half finishes under is one the bomb's request cannot pass.
++mod:hir_build_product_capped_control;
++
++use "../../src/core/core.npk".*;
++use "../../src/syntax/syntax.npk".*;
++use "../../src/hir/hir.npk".*;
++
++fixed int64:INST_BYTES = 12i64;    // `#size_of<Inst>`, probe 14's measurement
++
++// The request emission would make for `product` instructions, made BEFORE `pat` is parsed and built.
++// Answers whether the build accepted it.
++func:pipeline = bool(fixed uint8[]:pat, int64:product) never fails {
++    Vec<uint8>:program = raw vec_init::<uint8>(product * INST_BYTES);
++    drop vec_free(@program);
++    Ast:t = raw ast_init(8i64);
++    bool:accepted = false;
++    PatternError?:pe = raw parse_pattern(pat, @t);
++    if (pe == NIL) {
++        Hir:h = raw hir_init(8i64);
++        accepted = (raw hir_build(pat, t, @h)) == HIR_NONE;
++        drop hir_free(@h);
++    }
++    drop ast_free(@t);
++    pass accepted;
++};
++
++func:main = int32(cstring[]:_~argv) {
++    if (raw pipeline(string_bytes("((a{1000}){1000}){1000}"), 1000000000i64)) { exit 1i32; }
++    exit 0i32;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};

@@ -1,0 +1,16 @@
+# 0.2.2's omission sweep, block 5 -- one extended regular expression per line, each read by `sweep.py` line by line AND
+# across line breaks, case-insensitive: every statement steps 1 ... 4 make false, and every place a reader would look for
+# what they changed. The third `{1000}`; the kind no pattern reached; the product as work to come; the build that
+# refuses nothing; the run's count; the kinds' count; the bomb's length; the conformance stage; the dogfood consumer's
+# home; the founding batch as the only one; the cited 0.0 roadmap paths; and the HIR's kinds check as live.
+third .?\{1000\}|third factor|at the third
+repeatproducttoolarge|repeat_product|repetition product
+(build|hir_build|it) (refuses|refused) nothing|answers an ast index|no producer
+\b(294|302)\b.{0,20}(unit|/)
+thirty ways|thirty-eight ways|thirty kinds
+thirty characters|thirty bytes|twenty-three
+`accept`
+dogfood|examples/`
+rx-001 … rx-080|one decision batch
+meta/roadmap/0\.0/
+check_hir_kinds_total|produced by the parser

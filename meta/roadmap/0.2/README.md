@@ -11,9 +11,9 @@ extraction.** Everything decidable without knowing which engine will run.
 > the count, and in CI run 37858159348. 0.2.1a: RX-230 and RX-231 in four work commits, `90b7a3c` … `c160bb7` — every slice
 > the tree holds the read-only view, `fixed uint8[]`, with `5fbaf4a` seeing no difference, then LLVM 20.1.8, one
 > `NITPICK-TYPE-079` for a literal, probe 06b's return and CI at the new pin; 294/294 at `7e91730`, two pending outside the
-> count, and in CI run 37931590622 — **next, 0.2.2, the repetition product, whose plan no file holds yet.** *(Until
-> 0.2.1's record this banner named 0.2.0 alone as done, and 0.2.1 next; until 0.2.1a's plan, 0.2.2 next; until 0.2.1a's
-> record, 0.2.1a next.)*
+> count, and in CI run 37931590622 — **next, [`0.2.2`](0.2.2.md), the repetition product, planned.** *(Until 0.2.1's
+> record this banner named 0.2.0 alone as done, and 0.2.1 next; until 0.2.1a's plan, 0.2.2 next; until 0.2.1a's record,
+> 0.2.1a next; until 0.2.2's plan, 0.2.2 *"whose plan no file holds yet"*.)*
 
 ## Decisions in
 
@@ -42,7 +42,7 @@ RX-015, RX-031. Settled. **No open questions.**
 | 0.2.0 | **The arena** — the nine kinds, the flat POD representation, the dump — **[`0.2.0.md`](0.2.0.md)**, written at cycle 0.1's close and measured at `5fbaf4a`, then rehearsed in its real position at `5fbaf4a` by cycle 0.2's planner, three records first — the author's words for `README.md`'s price paragraph, four decisions' first paragraphs freed from their notes' blockquotes, and `ROADMAP.md`'s cycle 0.1 sentence dated; PD-66 … PD-69 accepted as RX-222 … RX-225 — **DONE (2026-10-08)**, 283/283 *(until 0.2.0's record this row said "PD-66 … PD-69 are the orchestrator's to accept")* | a HIR that round-trips through its text form |
 | 0.2.1 | **Desugaring** — `HIR.md` §3's table, exactly and nothing else — **[`0.2.1.md`](0.2.1.md)**, planned and rehearsed in its real position at `5fbaf4a` by cycle 0.2's planner, the instruments first — a `pending-until:` marker that names a subcycle, and a dump that shows every bit or stops — then the build and the two tests pending on it until cycle 0.3.4; PD-70 … PD-73 accepted as RX-226 … RX-229, with the orchestrator's correction made through the patches — the build stops in `leaf` too, before any hook — **DONE (2026-10-08)**, 294/294, two pending outside it *(until 0.2.1's record this row said "then the build and the two tests pending on its hooks; PD-70 … PD-73 are the orchestrator's to accept")* | every row tested; flags erased |
 | 0.2.1a | **The adoption of compiler `7e91730`** — landing 103, the libraries' one re-pin: `fixed uint8[]`, the read-only view, in every slice the tree holds, the old compiler seeing no difference; then the pin's own moves — LLVM 20.1.8, the compiler's DEF-165 at one rejection header, probe 06b's return, `rx120.sh`, B-4e's re-read — and CI's three rows — **[`0.2.1a.md`](0.2.1a.md)**, planned and rehearsed in its real position at both pins by cycle 0.2's planner; PD-103 and PD-104 accepted as RX-230 and RX-231 — **DONE (2026-10-09)**, 294/294 at `7e91730`, two pending outside it *(until 0.2.1a's record this row said "PD-103 and PD-104 are the orchestrator's to accept")* | the unchanged tree measured at both pins; `294/294` at `7e91730` |
-| 0.2.2 | **The repetition product** — the bound checked on the way down | `((a{1000}){1000}){1000}` refused at the third `{1000}` |
+| 0.2.2 | **The repetition product** — the bound checked on the way down — **[`0.2.2.md`](0.2.2.md)**, planned and rehearsed in its real position at `7e91730` by cycle 0.2's planner: the product carried in `uint64` on the way down and refused at the `{` that takes it past the bound, the acceptance's arithmetic amended, the refusal before the memory under one cap, then the documents audit's eight findings and the ecosystem audit's two; PD-107 … PD-109 are the orchestrator's to accept | `((a{1000}){1000}){1000}` refused at the third `{1000}` |
 | 0.2.3 | **Normalisation** — flattening, merging, canonical form | structurally equal patterns produce identical dumps |
 | 0.2.4 | **Computed properties** — the four flags in one bottom-up pass | each asserted against a hand-computed reference |
 | 0.2.5 | **Literal extraction** — prefix, first-byte set, inner literal | conservative, bounded, and never wrong in the unsafe direction |

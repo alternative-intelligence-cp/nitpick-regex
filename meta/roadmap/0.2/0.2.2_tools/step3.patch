@@ -1,0 +1,215 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+index a1bce5f4b978dc45a434ed8d175a27395e8cd6c9..097b376e3e448532850e45327ca44a50ed236b60 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -154,7 +154,7 @@ what to do when a cross-stream gate is not ready yet.
+ - **One public `error:` identity** (RX-060). REACH-002 makes every one a
+   mandatory `pick` arm in every consuming program's `failsafe`. A second is a
+   **major version**. Detail rides in a `PatternError` value with a closed kind
+-  enum — thirty ways to be malformed, one identity.
++  enum — a closed list of the ways to be malformed, one identity.
+   *(Sharper, measured at `5fbaf4a` by cycle 0.1.0b — the ecosystem audit's EC3,
+   RX-179: the arm is owed for every identity a reachable `fail` raises, a PRIVATE
+   one included, named by its module, and for no declaration nothing raises. So
+diff --git a/examples/README.md b/examples/README.md
+index f9312c88007a83de9a577b060138b2e572f1618e..f4791b398f0b80cac230ad71d927626c23f4510e 100644
+--- a/examples/README.md
++++ b/examples/README.md
+@@ -2,4 +2,5 @@
+ 
+ Runnable demonstrations, **built and run by the harness**, so a broken example
+ is a red run. Written at cycle 1.0.3; the dogfood consumer from cycle 0.14
+-lives here too.
++lives here too. *(@@DATE022@@, cycle 0.2.2 — the ecosystem audit's E2-6: it does not. RX-101 puts it, `grep`,
++in `nitpick-posix`.)*
+diff --git a/harness/README.md b/harness/README.md
+index 316e08e195a60e49d1a71a6eff7a8924ffc4d444..a4dc99c1c6163a9e72efc2ba6f7bd53ed6c5bbdf 100644
+--- a/harness/README.md
++++ b/harness/README.md
+@@ -34,6 +34,13 @@ cycle 0.2.1a, 2026-10-09 — RX-231: the compiler's D-349, which compiler `7e917
+ | `baseline/rx120.sh` | **executable**: builds the floor and a syscaller at the pinned compiler and ASSERTS floor == 5, syscaller == 6, difference == `{npk_sys6}` (at `c3bdae2`, `c970483`, `5fbaf4a` and `7e91730`; 2 and 3 at `3d15ac9`); with `950bb1d` present it also asserts 29/29/identical, compiling the two programs without the two arms that compiler does not have (RX-148). A harness **build step** and its own CI step. It replaced a hand-copied transcript that recorded a command which could not have produced the output beside it (RX-142's neighbourhood; cycle 0.0 audit, adjudication (a)) |
+ | `selfcheck/` | fixtures that must **fail**; `selfcheck.py` drives them |
+ 
++*(@@DATE022@@, cycle 0.2.2 — what a run leaves behind, both ignored by `../.gitignore`: `.internal/rx120/`,
++`baseline/rx120.sh`'s work, which it clears when it starts and not when it ends, so every full run leaves one; and
++`__pycache__/` here, these modules' bytecode, written by any run that imports them without `-B` — `python3
++harness/run.py` as `../CLAUDE.md` and CI spell it, and `rx120.sh`'s check of `irscan.py` — which
++`check_dated_measurements` prunes by name. Neither is a worker's: a plan's scratch is its own directory under
++`.internal/`, removed at its record.)*
++
+ ## What a green run asserts
+ 
+ - every **program** — each `program`-stage and `compile`/`positive` file — built
+diff --git a/harness/treecheck.py b/harness/treecheck.py
+index 7b8f632feba3362616fc1c30ce4b639daf7d0a70..050def3925f6c45c824942508d8f8c69e806fa1f 100644
+--- a/harness/treecheck.py
++++ b/harness/treecheck.py
+@@ -17,9 +17,10 @@ nobody has ever seen pass.
+ AND THE CONVERSE, WHICH IS THE HALF THAT BITES. A check that finds nothing
+ because it LOOKED nowhere is indistinguishable in the output from one that
+ found nothing because there was nothing to find. So every check here reports
+-how many things it examined, not merely its verdict, and `check_layering` says
+-in as many words that six of this library's eight `src/` files are reached by
+-no suite at all -- which is the gap the `parse` stage (RX-124) exists to close.
++how many things it examined, not merely its verdict.
++*(@@DATE022@@, cycle 0.2.2 -- the documents audit's RA-2: this said `check_layering` names, in as many words,
++the `src/` files no suite reaches -- six of eight, then. It prints no such note; the `parse` stage (RX-124)
++sweeps every `.npk` in the tree.)*
+ 
+ THE ONE THAT ONLY REPORTS. `check_specs_current` never fails the run
+ (`0.0.3.md` §4). It reads every `meta/specs/*.md` citation in the tree and says
+diff --git a/meta/OPEN_QUESTIONS.md b/meta/OPEN_QUESTIONS.md
+index 0ca596a36341d4a87ff459a74aa0c89a98776bf3..5f983c1aea7ca4ff9973c2a9c9b5168598105bd9 100644
+--- a/meta/OPEN_QUESTIONS.md
++++ b/meta/OPEN_QUESTIONS.md
+@@ -714,6 +714,11 @@ available. It is not. Measured at the compiler's 1.5.0, reading
+ - `fold_string_builtin` handles exactly four names — `string_concat`,
+   `string_equals`, `string_byte_length`, `string_is_empty`.
+ 
++*(@@DATE022@@, cycle 0.2.2 — the documents audit's RA-3, both re-read at compiler `7e91730`: `fold_expr` has twenty
++`ExprKind` arms there, and one is a member access since the compiler's D-338 — it folds a payload-less `Enum.Variant`,
++not a field of a value; there is still none for an index expression, an array literal or a struct literal, and
++`fold_string_builtin` still handles exactly the four. A pattern walker is still not expressible.)*
++
+ So a `comptime func:` can concatenate, compare and measure a pattern string and
+ **cannot look at a byte of it**. A pattern walker is not expressible.
+ 
+diff --git a/meta/roadmap/0.14/README.md b/meta/roadmap/0.14/README.md
+index 62aa241a714a61f5a7b4cb60016349fd9eb2d9a1..4e16e2abd7a412c4ceee747cdc4cdd7b8d74982c 100644
+--- a/meta/roadmap/0.14/README.md
++++ b/meta/roadmap/0.14/README.md
+@@ -8,6 +8,8 @@
+ > description and topics are set in the same pass that creates it.
+ 
+ **A real program, in `examples/`, written against the library as a consumer.**
++*(@@DATE022@@, cycle 0.2.2 — the ecosystem audit's E2-6: in `nitpick-posix`, as the note above says (RX-101), not in
++`examples/`.)*
+ 
+ ## Why a cycle
+ 
+diff --git a/meta/roadmap/ROADMAP.md b/meta/roadmap/ROADMAP.md
+index 49e35bc6b61bbeb75b26c912873385af0bba84e0..6dda0de38ffb313442a424342779c3675ef2fa9a 100644
+--- a/meta/roadmap/ROADMAP.md
++++ b/meta/roadmap/ROADMAP.md
+@@ -4,7 +4,9 @@ The specification set (`meta/specs/`) is written and the decisions it rests on
+ are in `meta/DECISIONS.md`. This is the plan built on them.
+ 
+ **One decision batch is settled** — RX-001 … RX-080, written with the
+-specification set. What remains open in `../OPEN_QUESTIONS.md` is open *by
++specification set. *(@@DATE022@@, cycle 0.2.2 — the ecosystem audit's E2-10: that is the founding batch; every
++later one is appended whole under its own heading in `../DECISIONS.md`, which is where the count is.)* What remains
++open in `../OPEN_QUESTIONS.md` is open *by
+ design*: two measurements taken in the cycles that can take them, one set of
+ data, one item gated on the compiler's tooling, one feature kept open rather
+ than closed, and four that are the compiler's rather than ours. **No cycle in
+@@ -336,6 +338,8 @@ memchr against the scalar one (O-F1, O-G4), and the step counter's cost
+ A real program in `examples/` — a `grep`-shaped tool (Q-2) — written against
+ the library as a consumer, with every friction recorded and triaged as a
+ defect, a gap, or an accepted cost.
++*(@@DATE022@@, cycle 0.2.2 — the ecosystem audit's E2-6: not in `examples/`. RX-101 puts `grep` in `nitpick-posix`, as
++the cycle's own README says.)*
+ 
+ ### 1.0 — Release
+ `docs/` written, the public API frozen and enumerated, the **one-arm
+diff --git a/meta/specs/HIR.md b/meta/specs/HIR.md
+index b23884a8a8167adf2660016ae0d989875178c2c4..57cd4961cb491726202bdf245723e7253e6eb227 100644
+--- a/meta/specs/HIR.md
++++ b/meta/specs/HIR.md
+@@ -76,6 +76,8 @@ This is the same reasoning the compiler applies to `Handle<T>` (D-017).
+ `Class`, `Concat`, `Alternate`, `Repeat`, `Group`, `Anchor`, `WordBoundary`.
+ Nine. A tree check asserts every kind is produced by the parser, consumed by
+ the compiler, and handled by the oracle.
++*(@@DATE022@@, cycle 0.2.2 — the documents audit's RA-7: not yet. `check_hir_kinds_total` is cycle 0.2.6's, the cycle
++README's box for it, and `TESTING.md` lists it *"no — cycle 0.2"*; until it is live, no check asserts this.)*
+ *(2026-10-08, cycle 0.2.0 — RX-223: a `Literal` is one codepoint, or under `(?-u)` one byte, `HIR_FLAG_BYTE` set
+ (`SYNTAX.md` Y-13; the modes mix in one pattern, `UNICODE.md` U-19); a `Class` and a `WordBoundary` the same. Still
+ nine kinds.)*
+diff --git a/meta/specs/TESTING.md b/meta/specs/TESTING.md
+index 9ff89a18d354c2860cf8f65375efa4fd8c8b8a97..b9166e2e8d8ab1cb3d4b081b43f82e1c4d534a39 100644
+--- a/meta/specs/TESTING.md
++++ b/meta/specs/TESTING.md
+@@ -20,6 +20,10 @@ nothing. This is `nregex`'s answer to both.
+ | `corpus` | every committed pattern/haystack/expectation triple gives the expected answer **through every engine** |
+ | `oracle` | the naive reference matcher and every real engine agree over a generated corpus |
+ 
++*(@@DATE022@@, cycle 0.2.2 — found by this subcycle's sweep, beside the documents audit's RA-1: `accept` is struck for
++this library (`BUILD.md` B-4a, RX-117), and its row's question is the conformance suite's, judged at `compile`,
++`positive`, as `nitpick.toml` declares it; and `corpus` and `oracle` are not stages yet, as `harness/README.md` says.)*
++
+ ---
+ 
+ ## 2. Everything is headless
+diff --git a/nitpick.toml b/nitpick.toml
+index 9ebb8c662a909c95356b227e55938757da213328..fd0fc1b51127d05d8064f3e730ac5645cb415da8 100644
+--- a/nitpick.toml
++++ b/nitpick.toml
+@@ -147,7 +147,9 @@ recursive = true
+ # the five `Vec` and `SparseSet` copies and `bytes_buf_ptr_write` since 0.0.4d,
+ # and the six loan and pass-out pins and `vec_owning_get_moves_out` since 0.0.4e)
+ # the `src/core/` modules they test, and since cycle 0.1.0 three the syntax
+-# layer's entry, `src/syntax/syntax.npk` -- which makes them the standing
++# layer's entry, `src/syntax/syntax.npk`, and since cycle 0.2.0 one the HIR's,
++# `src/hir/hir.npk` (`hir_nodes_read`; the documents audit's RA-4, @@DATE022@@)
++# -- which makes them the standing
+ # instance of the B-7 hazard: a typo'd path exits 1 with RESOLVE-005, which is a
+ # refusal, and only code-set equality tells it from the refusal the test is
+ # about.
+diff --git a/src/api/api.npk b/src/api/api.npk
+index 6a5534f595b1b4345bb49a4a77b351cfdcaab92f..fb5cf8085b680019634d306c6513c003b753c1e2 100644
+--- a/src/api/api.npk
++++ b/src/api/api.npk
+@@ -27,6 +27,6 @@ mod:api;
+ // depended on by nothing. `lib.npk` re-exports it instead.
+ //
+ // The detail rides in a `PatternError` value with a closed kind enum (S-9):
+-// thirty ways for a pattern to be malformed, one identity, because a shutdown
+-// handler does not care which syntax error it was.
++// a closed list of the ways a pattern can be malformed, one identity, because a
++// shutdown handler does not care which syntax error it was.
+ pub error:ERegexPattern;
+diff --git a/tests/README.md b/tests/README.md
+index 71467ae59187e92e9e2b4d30e7d87cfda439feee..9ba75710d2e1001944c5158aa418b7f76a3f36c2 100644
+--- a/tests/README.md
++++ b/tests/README.md
+@@ -3,10 +3,14 @@
+ | Directory | Stage | Contents |
+ |---|---|---|
+ | `probe/` | `program` | the cycle-0.0 language probes; **never deleted** |
+-| `conformance/` | `accept` | the public API compiles in a program that only imports it |
++| `conformance/` | `compile`, `positive` | the public API compiles, links and runs in a program that only imports it |
+ | `unit/` | `program` | behaviour, judged by exit code |
+-| `oracle/` | `program` | the naive reference matcher, and the cross-engine agreement runner |
++| `oracle/` | `program` — *not declared yet* | the naive reference matcher, and the cross-engine agreement runner |
+ | `rejection/` | `check` | programs the compiler must refuse, with exactly the expected codes |
+-| `fixtures/` | `fixture` | pattern/haystack/expectation triples, including everything the fuzzer found |
++| `fixtures/` | `fixture` — *not declared yet* | pattern/haystack/expectation triples, including everything the fuzzer found |
+ 
+ Expectations live in the test file. Governed by `../meta/specs/TESTING.md`.
++*(@@DATE022@@, cycle 0.2.2 — the documents audit's RA-1: `conformance/` is judged at `compile`, `positive`, as
++`../nitpick.toml` declares it — `accept` is not available to this library (`BUILD.md` B-4a, RX-117) — and `oracle/` and
++`fixtures/` are in no suite `nitpick.toml` declares yet: the cycles that fill them declare them. Until then this table
++named `accept`, and gave both stages as if declared.)*
+diff --git a/tests/conformance/TRANSCRIPT.txt b/tests/conformance/TRANSCRIPT.txt
+index d7e69943ae1e2cfb794435de43b137822e6cce88..42611d237a87e9683b4feb2e8439e9d16ff6a061 100644
+--- a/tests/conformance/TRANSCRIPT.txt
++++ b/tests/conformance/TRANSCRIPT.txt
+@@ -1,3 +1,7 @@
++NOTE ADDED @@DATE022@@ BY CYCLE 0.2.2 -- the roadmap file cited below as meta/roadmap/0.0/0.0.2.md
++moved to meta/roadmap/done/0.0/ when cycle 0.0 was archived (the documents audit's RA-8).
++Nothing below is edited.
++
+ TRANSCRIPT — cycle 0.0.1, the skeleton
+ ======================================
+ 
+diff --git a/tests/probe/TRANSCRIPT.txt b/tests/probe/TRANSCRIPT.txt
+index dbb9978f718e7d8e6bb0e4fd150d93fda864dad0..1deeb52741ce9fc0db307a55ec35fa98a6046f6b 100644
+--- a/tests/probe/TRANSCRIPT.txt
++++ b/tests/probe/TRANSCRIPT.txt
+@@ -1,3 +1,7 @@
++NOTE ADDED @@DATE022@@ BY CYCLE 0.2.2 -- the roadmap files cited below as meta/roadmap/0.0/*.md
++moved to meta/roadmap/done/0.0/ when cycle 0.0 was archived (the documents audit's RA-8).
++Nothing below is edited.
++
+ NOTE ADDED 2026-09-25 BY CYCLE 0.0.4b -- NOTHING BELOW IS EDITED, A FOURTH TIME.
+ Three further verdicts recorded below are NO LONGER THE COMPILER'S ANSWER. They
+ were correct against pin 950bb1d, which is what this transcript is a record of,
