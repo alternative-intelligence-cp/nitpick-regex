@@ -127,6 +127,11 @@ path  = "tests/probe/refused"      # the probes that are refused, each with its 
 # else, so SIX of the eight files in `src/` -- core, compile, engine, hir,
 # syntax, unicode -- are reached by no other suite in this manifest. They were
 # compiled once, at cycle 0.0.1, and nothing re-checked them until this entry.
+# *(2026-10-10, cycle 0.2.2 -- found by this subcycle's second sweep, the twin of
+# the documents audit's RA-2: "SIX of the eight" was cycle 0.0.3's count. `src/`
+# holds 21 files now, and the conformance, unit and rejection suites reach 19 of
+# them; `src/compile/compile.npk` and `src/engine/engine.npk`, one placeholder
+# each, are reached by no other suite.)*
 # `recursive = true` because "every .npk in the tree" is the rule, and these
 # three directories are the whole of it (measured: 37 files, 2026-09-04).
 [[test]]

@@ -840,6 +840,12 @@ the file was renamed and this citation was re-verified under the new name at pin
 - `fold_string_builtin` handles exactly four names — `string_concat`,
   `string_equals`, `string_byte_length`, `string_is_empty`.
 
+*(2026-10-10, cycle 0.2.2 — found by this subcycle's second sweep, the twin of the documents audit's RA-3:
+`OPEN_QUESTIONS.md`'s O-G1 states both claims too, and both were re-read at compiler `7e91730`. `fold_expr` has
+twenty `ExprKind` arms there, and one is a member access since the compiler's D-338 — it folds a payload-less
+`Enum.Variant`, not a field of a value; there is still none for an index expression, an array literal or a struct
+literal, and `fold_string_builtin` still handles exactly the four. A pattern walker is still not expressible.)*
+
 So a `comptime func:` can concatenate, compare and measure a pattern string,
 and cannot **look at a byte of it**. A pattern walker is not expressible, and
 therefore neither is compile-time validation.

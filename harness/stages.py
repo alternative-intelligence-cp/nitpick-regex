@@ -396,6 +396,11 @@ def parse_sweep(c, path, name, exp):
     `src/` files -- core, compile, engine, hir, syntax, unicode -- are reached
     by NO suite. They compiled at exit 0 once, at cycle 0.0.1, and nothing has
     re-checked them since. This sweep is what does.
+    *(2026-10-10, cycle 0.2.2 -- found by this subcycle's second sweep, the twin
+    of the documents audit's RA-2: "six of eight" was cycle 0.0.3's count. `src/`
+    holds 21 files now, and the conformance, unit and rejection suites reach 19 of
+    them; `src/compile/compile.npk` and `src/engine/engine.npk`, one placeholder
+    each, are reached by none but this sweep.)*
 
     EVERY FILE IS JUDGED AS A ROOT, including one another file imports: "each
     file once" means once AS ITSELF, and a file that only ever compiles as part

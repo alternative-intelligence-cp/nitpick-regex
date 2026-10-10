@@ -40,6 +40,22 @@ index 316e08e195a60e49d1a71a6eff7a8924ffc4d444..a4dc99c1c6163a9e72efc2ba6f7bd53e
  ## What a green run asserts
  
  - every **program** — each `program`-stage and `compile`/`positive` file — built
+diff --git a/harness/stages.py b/harness/stages.py
+index 82a9fcb0f55d42e9ba1064b67978962feb1ac928..3d1dbd28c27e4aabc213d6fedd3ec908a7d7907a 100644
+--- a/harness/stages.py
++++ b/harness/stages.py
+@@ -396,6 +396,11 @@ def parse_sweep(c, path, name, exp):
+     `src/` files -- core, compile, engine, hir, syntax, unicode -- are reached
+     by NO suite. They compiled at exit 0 once, at cycle 0.0.1, and nothing has
+     re-checked them since. This sweep is what does.
++    *(@@DATE022@@, cycle 0.2.2 -- found by this subcycle's second sweep, the twin
++    of the documents audit's RA-2: "six of eight" was cycle 0.0.3's count. `src/`
++    holds 21 files now, and the conformance, unit and rejection suites reach 19 of
++    them; `src/compile/compile.npk` and `src/engine/engine.npk`, one placeholder
++    each, are reached by none but this sweep.)*
+ 
+     EVERY FILE IS JUDGED AS A ROOT, including one another file imports: "each
+     file once" means once AS ITSELF, and a file that only ever compiles as part
 diff --git a/harness/treecheck.py b/harness/treecheck.py
 index 7b8f632feba3362616fc1c30ce4b639daf7d0a70..050def3925f6c45c824942508d8f8c69e806fa1f 100644
 --- a/harness/treecheck.py
@@ -124,6 +140,23 @@ index b23884a8a8167adf2660016ae0d989875178c2c4..57cd4961cb491726202bdf245723e725
  *(2026-10-08, cycle 0.2.0 — RX-223: a `Literal` is one codepoint, or under `(?-u)` one byte, `HIR_FLAG_BYTE` set
  (`SYNTAX.md` Y-13; the modes mix in one pattern, `UNICODE.md` U-19); a `Class` and a `WordBoundary` the same. Still
  nine kinds.)*
+diff --git a/meta/specs/SAFETY.md b/meta/specs/SAFETY.md
+index 80b164248259287e953bef95cd3e9e70f6e7ada4..a1cff2c46893f743f2bd023da5bf6b25b7f89be0 100644
+--- a/meta/specs/SAFETY.md
++++ b/meta/specs/SAFETY.md
+@@ -840,6 +840,12 @@ the file was renamed and this citation was re-verified under the new name at pin
+ - `fold_string_builtin` handles exactly four names — `string_concat`,
+   `string_equals`, `string_byte_length`, `string_is_empty`.
+ 
++*(@@DATE022@@, cycle 0.2.2 — found by this subcycle's second sweep, the twin of the documents audit's RA-3:
++`OPEN_QUESTIONS.md`'s O-G1 states both claims too, and both were re-read at compiler `7e91730`. `fold_expr` has
++twenty `ExprKind` arms there, and one is a member access since the compiler's D-338 — it folds a payload-less
++`Enum.Variant`, not a field of a value; there is still none for an index expression, an array literal or a struct
++literal, and `fold_string_builtin` still handles exactly the four. A pattern walker is still not expressible.)*
++
+ So a `comptime func:` can concatenate, compare and measure a pattern string,
+ and cannot **look at a byte of it**. A pattern walker is not expressible, and
+ therefore neither is compile-time validation.
 diff --git a/meta/specs/TESTING.md b/meta/specs/TESTING.md
 index 9ff89a18d354c2860cf8f65375efa4fd8c8b8a97..b9166e2e8d8ab1cb3d4b081b43f82e1c4d534a39 100644
 --- a/meta/specs/TESTING.md
@@ -140,10 +173,22 @@ index 9ff89a18d354c2860cf8f65375efa4fd8c8b8a97..b9166e2e8d8ab1cb3d4b081b43f82e1c
  
  ## 2. Everything is headless
 diff --git a/nitpick.toml b/nitpick.toml
-index 9ebb8c662a909c95356b227e55938757da213328..fd0fc1b51127d05d8064f3e730ac5645cb415da8 100644
+index 9ebb8c662a909c95356b227e55938757da213328..1253f3c4415bed853ae1ee3370f1531624f69f8c 100644
 --- a/nitpick.toml
 +++ b/nitpick.toml
-@@ -147,7 +147,9 @@ recursive = true
+@@ -127,6 +127,11 @@ path  = "tests/probe/refused"      # the probes that are refused, each with its
+ # else, so SIX of the eight files in `src/` -- core, compile, engine, hir,
+ # syntax, unicode -- are reached by no other suite in this manifest. They were
+ # compiled once, at cycle 0.0.1, and nothing re-checked them until this entry.
++# *(@@DATE022@@, cycle 0.2.2 -- found by this subcycle's second sweep, the twin of
++# the documents audit's RA-2: "SIX of the eight" was cycle 0.0.3's count. `src/`
++# holds 21 files now, and the conformance, unit and rejection suites reach 19 of
++# them; `src/compile/compile.npk` and `src/engine/engine.npk`, one placeholder
++# each, are reached by no other suite.)*
+ # `recursive = true` because "every .npk in the tree" is the rule, and these
+ # three directories are the whole of it (measured: 37 files, 2026-09-04).
+ [[test]]
+@@ -147,7 +152,9 @@ recursive = true
  # the five `Vec` and `SparseSet` copies and `bytes_buf_ptr_write` since 0.0.4d,
  # and the six loan and pass-out pins and `vec_owning_get_moves_out` since 0.0.4e)
  # the `src/core/` modules they test, and since cycle 0.1.0 three the syntax
