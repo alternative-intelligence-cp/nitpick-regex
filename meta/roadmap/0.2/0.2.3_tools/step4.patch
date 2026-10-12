@@ -1,0 +1,148 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 76a675523aa35b5425e6b948ce74f127c50c3cdb..abf0282f2b8fa6ddb4987b65dd728e8001f91670 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -17,7 +17,11 @@ build pending until then (RX-226 … RX-229, `meta/roadmap/0.2/0.2.1.md`); and i
+ `fixed uint8[]`; LLVM is 20.1.8 (RX-230, RX-231, `meta/roadmap/0.2/0.2.1a.md`); and its 0.2.2, the repetition product, is
+ done — `hir_build` refuses a pattern whose nested repetitions multiply past `NREGEX_REPEAT_PRODUCT`, as its walk enters
+ the repetition that takes the product past it, at that quantifier's `{`, and two units under one memory cap show the
+-refusal comes before the request (RX-232 … RX-234, `meta/roadmap/0.2/0.2.2.md`); 0.2.3, normalisation, is next.
++refusal comes before the request (RX-232 … RX-234, `meta/roadmap/0.2/0.2.2.md`); and its 0.2.3, normalisation, is done
++— `hir_normalise` writes a HIR's tree in its normal form into a fresh arena, a pass of its own after the build, where
++structurally equal patterns — equal up to `HIR.md` H-13's rewrites read as identities — are one tree and one dump; a
++generated corpus of pairs and its near misses is the Gate, and the oracle's test of both forms is pending until cycle
++0.5.5 (RX-235 … RX-237, `meta/roadmap/0.2/0.2.3.md`); 0.2.4, the computed properties, is next.
+ Cycle 0.1's 0.1.0, 0.1.0b, 0.1.1, 0.1.1b, 0.1.2, 0.1.3, 0.1.4, 0.1.5, 0.1.6a, 0.1.6b and 0.1.6 are done** — the pieces the parser is written
+ in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/done/0.1/0.1.0.md`); the adoption of
+ compiler `5fbaf4a` (RX-176 … RX-180, `0.1.0b.md`); and the core grammar —
+@@ -105,10 +109,12 @@ holds the arena** (`HIR.md` H-2 … H-4a, H-15) — `repr.npk`, nine kinds of 40
+ accessors, and `dump.npk`, the HIR as one line of text and back — with nine unit programs and one refusal of its own,
+ and `src/unicode/` holds `ClassRange`, written by hand, which a class's ranges are — **and since 0.2.1 the desugaring**,
+ `build.npk` (`HIR.md` H-16), with six unit programs more, two of them pending until cycle 0.3.4 — **and since 0.2.2
+-the repetition product** (`HIR.md` H-8), with four unit programs more, two of them a pair under one memory cap. **No matching
++the repetition product** (`HIR.md` H-8), with four unit programs more, two of them a pair under one memory cap — **and
++since 0.2.3 normalisation** (`HIR.md` H-13), `normal.npk`, with five unit programs more, one of them pending until cycle
++0.5.5. **No matching
+ happens yet**: `src/compile/`, `src/engine/` and `src/api/` are still one
+ placeholder module each. A full green run at compiler `7e91730` is
+-**302 units** (after cycle 0.2.2, the repetition product, two pending units outside them, as after cycle 0.2.1a; 294 after cycle 0.2.1a, the adoption of that pin, as after cycle 0.2.1 at `5fbaf4a`; 283 after cycle 0.2.0; 260 after cycle 0.1.6b; 258 after cycle 0.1.6a, as after cycle 0.1.5; 254 after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus ten tree checks (nine until cycle 0.1.6b's `check_error_kinds_tested`, eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
++**312 units** (after cycle 0.2.3, normalisation, three pending units outside them; 302 after cycle 0.2.2, the repetition product, two pending outside them, as after cycle 0.2.1a; 294 after cycle 0.2.1a, the adoption of that pin, as after cycle 0.2.1 at `5fbaf4a`; 283 after cycle 0.2.0; 260 after cycle 0.1.6b; 258 after cycle 0.1.6a, as after cycle 0.1.5; 254 after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus ten tree checks (nine until cycle 0.1.6b's `check_error_kinds_tested`, eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
+ summary rather than from here. **Nothing is PENDING any more**:
+ `tests/unit/bytes_copy_string_empty.npk` was committed red under
+ `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
+@@ -117,6 +123,8 @@ deleted (cycle 0.0.4b). *(2026-10-08, cycle 0.2.1 — RX-226, RX-229: two units
+ again, each on a subcycle of this library rather than a compiler —
+ `tests/unit/hir_build_classes.npk` and `hir_build_fold.npk`, until cycle 0.3.4 fills the
+ HIR build's hooks and widens its `leaf` — and the runner prints both, outside its count.)*
++*(@@DATE023@@, cycle 0.2.3 — RX-237: and a third, `tests/unit/hir_normalise_oracle.npk`, until cycle 0.5.5's oracle;
++the runner prints all three outside its count.)*
+ **This file said 98 and six in one paragraph and *four* tree checks 220 lines
+ lower**, and the cycle 0.0 audit found it (N-2) in the document every session is
+ told to read first. Two sections of one file disagreeing is the shape this
+diff --git a/README.md b/README.md
+index 1a588e66c47c45029b0b3573430c2696f963b782..cc3a2e656d30ba78612064fb87e7205581a097e7 100644
+--- a/README.md
++++ b/README.md
+@@ -8,8 +8,8 @@ makes the guarantee below possible.
+ > **The guarantee, in one sentence: a search takes time linear in the length of
+ > the haystack, on every pattern, on every input, always.**
+ 
+-> **Status: cycle 0.2, the HIR, is open, and its first four parts — the arena, the desugaring, the adoption of
+-> compiler `7e91730` and the repetition product — are done; cycle 0.1, the pattern parser, closed on 2026-10-08.** Cycle 0.0, the
++> **Status: cycle 0.2, the HIR, is open, and its first five parts — the arena, the desugaring, the adoption of
++> compiler `7e91730`, the repetition product and normalisation — are done; cycle 0.1, the pattern parser, closed on 2026-10-08.** Cycle 0.0, the
+ > foundations, closed on 2026-09-26 — the language probes, the test harness and
+ > the storage primitives in `src/core/` are built and audited — and cycle 0.1.0
+ > laid the parser's pieces in `src/syntax/`: the closed list of pattern errors,
+@@ -39,6 +39,8 @@ makes the guarantee below possible.
+ > compiler to `7e91730`, where a string's bytes are a read-only view: every slice the library
+ > takes says so, and LLVM is 20.1.8. Cycle 0.2.2 refuses a pattern whose nested repetitions would multiply past
+ > 100 000 copies — `((a{1000}){1000}){1000}` at its second `{1000}` — before any memory is asked for its expansion.
++> Cycle 0.2.3 writes a HIR in a normal form, so patterns that differ only in how they are written — `a(?:bc)` and `abc`,
++> `[ba]` and `[a-b]` — are one HIR and one line of text, while nothing that changes what a pattern matches is joined.
+ > Nothing matches a pattern yet.
+ > The specification set is in [`meta/specs/`](meta/specs/) and the plan in
+ > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
+diff --git a/meta/roadmap/0.10/README.md b/meta/roadmap/0.10/README.md
+index ec7bfc17372da3bfa853f697be307457aabdf31d..52c2366934580d0d5d493a67e06ba54fbacb352f 100644
+--- a/meta/roadmap/0.10/README.md
++++ b/meta/roadmap/0.10/README.md
+@@ -29,7 +29,7 @@ plans; recommendation: keep Y-12. Decide it before 0.10.2 writes `RegexOptions`.
+ ## Checklist
+ 
+ ### 0.10.0 — `Regex`, `Cache`, `Match`
+-- [ ] `regex_compile`, `regex_compile_opts`, `regex_escape`, `regex_cache` *(2026-10-02 — cycle 0.1.5, RX-211: `regex_escape` is written, in `src/syntax/parse.npk`; this cycle re-exports it, at 0.10.5)*
++- [ ] `regex_compile`, `regex_compile_opts`, `regex_escape`, `regex_cache` *(2026-10-02 — cycle 0.1.5, RX-211: `regex_escape` is written, in `src/syntax/parse.npk`; this cycle re-exports it, at 0.10.5)* *(@@DATE023@@, cycle 0.2.3 — RX-236: compiling parses, builds, then normalises — `hir_normalise`, into a fresh `Hir` — and every later stage reads the normal form)*
+ - [ ] `regex_is_match`, `regex_find`, `regex_find_at` — **none returning `Result`** (A-1, RX-061)
+ - [ ] `Match` is `{lo, hi}` (RX-050), and **the fields are `lo` and `hi`** by A-3 — *not* because `end` cannot be a field name, which RX-134 measured to be false at all three kept pins
+ - [ ] **`regex_find_at`'s `at` is where the search starts, not where the haystack starts** (A-5): `^` still means the start of `hay` and `\b` at `at` still looks at the byte before it. A test asserts searching `hay[at..]` gives a *different* answer, so the distinction is protected
+diff --git a/meta/roadmap/0.2/README.md b/meta/roadmap/0.2/README.md
+index 82cb7620e49949a27f2d2cc9a7ad585ff554031e..d251b4013019fa10ae5bb6987e0f92eb86b94cc4 100644
+--- a/meta/roadmap/0.2/README.md
++++ b/meta/roadmap/0.2/README.md
+@@ -101,14 +101,14 @@ RX-015, RX-031. Settled. **No open questions.**
+ - [ ] a test asserting no normalisation changes which strings match, by running the oracle over both forms — **pending until 0.5**, and written now as a pending case *(2026-10-08, cycle 0.2.1 — RX-226: a unit can be pending on a subcycle of this library now, `// pending-until: 0.5.N exit E`, with its line in `harness/baseline/PENDING.txt`)*
+ 
+ ### 0.2.4 — computed properties
+-- [ ] `CAN_MATCH_EMPTY`, `IS_ANCHORED_START`, `IS_ANCHORED_END`, `IS_ALTERNATION_LITERAL`
++- [ ] `CAN_MATCH_EMPTY`, `IS_ANCHORED_START`, `IS_ANCHORED_END`, `IS_ALTERNATION_LITERAL` *(@@DATE023@@, cycle 0.2.3 — RX-236: over the normal form `hir_normalise` writes, where `[a]|b` is an alternation of two `Literal`s; the build's tree holds `[a]` as a class)*
+ - [ ] computed in **one** bottom-up pass and cached (H-10) *(2026-10-08, cycle 0.2.1 — RX-227: the dump stops on a bit H-4a does not give a node's kind, so each bit this subcycle adds is refused there until it says how the dump shows it)*
+ - [ ] the query computes-or-returns; no caller remembers to compute first — D-227's precedent, and the compiler found four defects in that neighbourhood, none by a test of the thing that broke
+ - [ ] each flag asserted against a hand-computed reference over fifty patterns
+ 
+ ### 0.2.5 — literal extraction
+ - [ ] `Literal` shaped to own nothing, `Hir.literals` added and the dump given its section for them — moved here from 0.2.0 by RX-224, because its fields depend on the three roles H-11 names
+-- [ ] required prefix, first-byte set, inner required literal
++- [ ] required prefix, first-byte set, inner required literal *(@@DATE023@@, cycle 0.2.3 — RX-235, RX-236: over the normal form, where a literal run is the adjacent `Literal` pieces of one flat `Concat` and a class is sorted and merged)*
+ - [ ] bounded by `NREGEX_LITERAL_LIMIT` and `NREGEX_LITERAL_BYTES`
+ - [ ] **conservative**: a pattern that defeats the analysis gets an empty set, never a wrong one (H-12)
+ - [ ] a property test: for every corpus pattern and haystack, every position the real matcher finds is a position the first-byte set admits — **pending until 0.5**
+diff --git a/meta/roadmap/0.3/README.md b/meta/roadmap/0.3/README.md
+index 7e207973d75636c3314441cb05d1aadeb71c737e..affd5d2a058d6a5cc77d331a0e9ecd6a524e7c79 100644
+--- a/meta/roadmap/0.3/README.md
++++ b/meta/roadmap/0.3/README.md
+@@ -59,7 +59,7 @@ design; recorded when chosen).
+ - [ ] union, intersection (`&&`), difference (`--`), symmetric difference (`~~`) over sorted range lists, with Y-17's precedence *(2026-10-01, cycle 0.1.3 — RX-196 replaces Y-17's order: the three share one precedence and apply left to right, union tighter and negation last, and cycle 0.1.3's parser builds the tree in that order — this subcycle evaluates the tree as built)*
+ - [ ] negation within the correct universe
+ - [ ] folding applied **at resolution**, so the engine never folds (U-13)
+-- [ ] `NREGEX_CLASS_RANGES` enforced; `ClassTooLarge` *(2026-10-08 — cycle 0.1.6b, RX-219: a row of `SYNTAX.md` Y-25's table, struck by the test that provokes it)*
++- [ ] `NREGEX_CLASS_RANGES` enforced; `ClassTooLarge` *(2026-10-08 — cycle 0.1.6b, RX-219: a row of `SYNTAX.md` Y-25's table, struck by the test that provokes it)* *(@@DATE023@@, cycle 0.2.3 — RX-236: `hir_normalise` merges a class's overlapping and touching ranges, so a class's ranges in the normal form are never more than the build's; which count the bound reads is this box's to decide)*
+ - [ ] *(2026-10-08 — cycle 0.1.6b, RX-219)* open question O-Y3 decided — `EmptyClass` raised where a class resolves to nothing, or retired as `EmptyAlternate` was — and its row in `SYNTAX.md` Y-25's table struck either way
+ - [ ] 0.2's `(?i:…)` hook filled, and its pending test now green *(2026-10-08, cycle 0.2.1 — RX-228, RX-229: the hook is `fold_ranges` in `src/hir/build.npk`, where the build stops until then at every literal, class and `.` under `i` that reaches it; the test is `tests/unit/hir_build_fold.npk`, pending on this subcycle with exit 1, and "now green" is the run going red to say its marker is stale and the marker and its line deleted)* *(2026-10-10, cycle 0.2.2 — RX-232: and once both hooks build and `leaf` is widened, the build stops nowhere: its answer is `HIR_NONE` or a `Repeat` the product refused, which `hir_build_refusal` makes a `PatternError`. Whether the build then answers `PatternError?` itself is this subcycle's to decide — RX-232 declined it while a stop remained)*
+ 
+diff --git a/meta/roadmap/0.6/README.md b/meta/roadmap/0.6/README.md
+index fe59a29f79fd865e156fae2a5bd0dcd465eb8621..b6526723b0a69784b5b528244a71baf16907f7d2 100644
+--- a/meta/roadmap/0.6/README.md
++++ b/meta/roadmap/0.6/README.md
+@@ -31,7 +31,7 @@ RX-030, RX-031, RX-032. Settled. **No open questions.**
+   *(2026-10-01, cycle 0.1.2 — RX-192: the check exists already, `check_no_recursion`, and
+   reads every file under `src/` for a call cycle, `src/compile/` included; the explicit
+   stack stays this cycle's.)*
+-- [ ] every `HirKind` emitted
++- [ ] every `HirKind` emitted *(@@DATE023@@, cycle 0.2.3 — RX-236: from the normal form, `hir_normalise`'s; the build's tree is the desugared one)*
+ - [ ] `check_inst_kinds_total` live: every `InstKind` emitted by the compiler and handled by the oracle — the engines' half goes live per engine cycle
+ - [ ] `check_hir_kinds_total`'s compiler half now green
+ - [ ] **`Split` order is the semantics** (C-11): preferred branch first, and a test asserting that swapping it changes the answer, so the ordering is protected by something
+diff --git a/meta/roadmap/ROADMAP.md b/meta/roadmap/ROADMAP.md
+index 47ae4c63c2f01da3060932d257a5efa3f26f4abe..070e1c93a17ecb94d092854433663af758b753c8 100644
+--- a/meta/roadmap/ROADMAP.md
++++ b/meta/roadmap/ROADMAP.md
+@@ -56,7 +56,7 @@ cycle 0.0.
+ |---|---|---|
+ | **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **DONE 2026-09-26, archived to [`done/0.0/`](done/0.0/README.md).** The sixth W-22 audit ACCEPTED the close at compiler `c970483`, after five refusals — three on 2026-09-06, two on 2026-09-25 — and two inserted subcycles, 0.0.4d (`Vec` move-only) and 0.0.4e (the re-pin that refused the loan). The close is [`done/0.0/0.0.5.md`](done/0.0/0.0.5.md) §13 | — |
+ | **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **DONE 2026-10-08, archived to [`done/0.1/`](done/0.1/README.md).** Its audit ACCEPTED it once C1 was fixed — `regex_escape`'s text read as a POSIX class straight after a nested class's `[`, the one wrong answer, fixed first — and the close is [`done/0.1/0.1.6.md`](done/0.1/0.1.6.md), its §2 the audit's twenty-two findings, one row each | 0.0 |
+-| **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction — **OPEN: [`0.2.0`](0.2/0.2.0.md), the arena, [`0.2.1`](0.2/0.2.1.md), the desugaring, [`0.2.1a`](0.2/0.2.1a.md), the adoption of compiler `7e91730`, and [`0.2.2`](0.2/0.2.2.md), the repetition product, done; 0.2.3, normalisation, next** | 0.1 |
++| **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction — **OPEN: [`0.2.0`](0.2/0.2.0.md), the arena, [`0.2.1`](0.2/0.2.1.md), the desugaring, [`0.2.1a`](0.2/0.2.1a.md), the adoption of compiler `7e91730`, [`0.2.2`](0.2/0.2.2.md), the repetition product, and [`0.2.3`](0.2/0.2.3.md), normalisation, done; 0.2.4, the computed properties, next** | 0.1 |
+ | **0.3** | **Unicode** — generated tables, properties, scripts, simple case folding | 0.0 |
+ | **0.4** | **UTF-8 automata** — codepoint ranges to byte ranges, alphabet compression | 0.3 |
+ | **0.5** | **The oracle** — the naive reference matcher, and the conformance corpus | 0.2, 0.3 |
+@@ -212,6 +212,9 @@ self-check of **35** cases, 31 live; decisions through RX-229.)*
+ read-only view, `fixed uint8[]`, and LLVM 20.1.8; decisions through RX-231.)*
+ *(After cycle 0.2.2, the same compiler: **302** units — the repetition product's four unit programs, each swept by
+ the parse stage too; two pending outside them; decisions through RX-234.)*
++*(After cycle 0.2.3, the same compiler: **312** units — `src/hir/normal.npk` swept; normalisation's four unit programs, each
++run as a program and swept as a root, and its oracle test pending until cycle 0.5.5, swept and printed outside the count
++with the two before it; decisions through RX-237.)*
+ 
+ **Two probes refuted their own hypothesis**, which is the cycle's best return:
+ `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler

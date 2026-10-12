@@ -1,0 +1,20 @@
+# 0.2.3's omission sweep, block 5 -- one extended regular expression per line, each read by `sweep.py` line by line AND
+# across line breaks, case-insensitive: every statement steps 1 ... 4 make false, every claim a step dates in its own words
+# -- the twins a search for removed lines cannot see -- and every place a reader would look for what they changed. The
+# build that flattens nothing; normalisation as cycle 0.2.3's work to come; a class in the order written; a class sorted
+# and disjoint; H-13's rewrites in their own words; the run's count; the pending units' count; the subcycle that is next;
+# the status's parts; a literal run; what structurally equal is; the byte literal beside the codepoint; the bytecode a run
+# leaves, and the runs that leave it.
+flattened, merged|nothing (is )?flattened|not flattened|flattens nothing
+(cycle )?0\.2\.3'?s? (normalis|order|\(H-13\))|H-13 is cycle 0\.2\.3|\(cycle 0\.2\.3\)|0\.2\.3 normalises|after hir normalisation
+order (the pattern )?writes|in the order written|order written
+sorted (and )?disjoint|sorted, disjoint
+single.codepoint|empty concatenations?|adjacent (and|or) overlapping
+\b(302|312)\b.{0,20}(unit|/)
+two (units )?(are )?pending|two pending|two lines since|two files carry|two are pending|pending outside|prints both
+0\.2\.3.{0,40}\bnext\b|\bnext\b.{0,30}0\.2\.3|whose plan no file holds yet
+first (four|five) parts|(four|five) parts
+literal run|adjacent literals|merged into runs
+structurally equal
+literal byte 97
+__pycache__|without .?-b|python3 -b|python3 (- |harness/run\.py)|rx120\.sh.s check|check of .?irscan

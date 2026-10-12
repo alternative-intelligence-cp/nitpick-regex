@@ -1,0 +1,28 @@
+diff --git a/harness/README.md b/harness/README.md
+index c9b8c02651f035f96837b9e443455cdd79e60b31..7e2fd1a1eaf3c43e5d73bf6ccbcbabe2a4739925 100644
+--- a/harness/README.md
++++ b/harness/README.md
+@@ -40,6 +40,10 @@ cycle 0.2.1a, 2026-10-09 — RX-231: the compiler's D-349, which compiler `7e917
+ harness/run.py` as `../CLAUDE.md` and CI spell it, and `rx120.sh`'s check of `irscan.py` — which
+ `check_dated_measurements` prunes by name. Neither is a worker's: a plan's scratch is its own directory under
+ `.internal/`, removed at its record.)*
++*(@@DATE023@@, cycle 0.2.3 — and `__pycache__/` was there after a `python3 -B` run too, which cycle 0.2.2's work verifier found
++in a fresh clone: `rx120.sh`'s check of `irscan.py` started a `python3` of its own, which the runner's `-B` does not
++reach. It runs `python3 -B` since this subcycle, so a `python3 -B harness/run.py` run leaves no `__pycache__/` here; a
++run without `-B` still writes the runner's own, and `.internal/rx120/` is still every full run's.)*
+ 
+ ## What a green run asserts
+ 
+diff --git a/harness/baseline/rx120.sh b/harness/baseline/rx120.sh
+index 6699ba1d59a078776d6adaf87068d654562412fc..f1a97afd429724b945a63adafe65071b0494c82a 100755
+--- a/harness/baseline/rx120.sh
++++ b/harness/baseline/rx120.sh
+@@ -232,7 +232,7 @@ fi
+ # second layer is built on. RX120.txt named `kernel_call_edges` here, which has
+ # never existed; these two do, and the run asserts it rather than printing a
+ # list for a reader to compare by eye.
+-python3 - "$root" <<'PY'
++python3 -B - "$root" <<'PY'
+ import sys, importlib.util
+ root = sys.argv[1]
+ spec = importlib.util.spec_from_file_location("irscan", root + "/harness/irscan.py")

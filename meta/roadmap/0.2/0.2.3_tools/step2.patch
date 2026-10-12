@@ -1,0 +1,975 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 452f43a03047c438179097fe99f92180d7c90f65..0f7697f79666fbec0572de6a716767dc1355d456 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -20,6 +20,8 @@
+ # suite's count on every run; take the numbers from there. Two are PENDING since
+ # cycle 0.2.1 (none was from cycle 0.0.4b): the HIR's two hooks' tests, each on a
+ # subcycle of this library, 0.3.4, and on its exit 1 (RX-226, RX-229).
++# *(@@DATE023@@, cycle 0.2.3 -- RX-237: three since: and normalisation's oracle test, on cycle 0.5.5 and its
++# exit 1.)*
+ # *(LLVM is exactly 20.1.8 since cycle 0.2.1a, 2026-10-09 -- RX-231, the compiler's D-349.)*
+ # THE ONE THAT WAS PENDING, AND ALL THAT HAPPENED TO IT. Through cycle 0.0.5 a
+ # unit asserting against a compiler defect (DEF-25, fixed at `fe42dba`) was
+diff --git a/harness/baseline/PENDING.txt b/harness/baseline/PENDING.txt
+index 88f1a45a7bc76edb1701f658c81a76a32ef4b622..89f3e0e40b24ac9fc3ba41fe450d310d49a53b0d 100644
+--- a/harness/baseline/PENDING.txt
++++ b/harness/baseline/PENDING.txt
+@@ -43,6 +43,9 @@
+ # *(2026-10-08, cycle 0.2.1 -- RX-229: two lines since, the first pending on a subcycle of
+ # this library rather than a compiler: the tests of what cycle 0.3.4 builds at the HIR's two hooks
+ # and in `leaf`. Each unit exits 1 while the build stops, at its hook or in `leaf`.)*
++# *(@@DATE023@@, cycle 0.2.3 -- RX-237: three since, the third pending on cycle 0.5.5: the test that no
++# normalisation changes which strings match, which exits 1 while its hook meets no oracle.)*
+ 
+ tests/unit/hir_build_classes.npk	0.3.4	1	H-5's class row, and a class's negation and operators: the build stops at each until cycle 0.3.4 fills `resolve_items` and widens `leaf` (RX-229)
+ tests/unit/hir_build_fold.npk	0.3.4	1	H-5's `(?i:…)` row: the build stops at each until cycle 0.3.4 fills `fold_ranges` (RX-229)
++tests/unit/hir_normalise_oracle.npk	0.5.5	1	H-14: no normalisation changes which strings match, the oracle run over both forms; its hook answers no oracle until cycle 0.5.5 fills it (RX-237)
+diff --git a/harness/baseline/README.md b/harness/baseline/README.md
+index 0d95470b754cc9157e23604bee27bd4d69d834d7..45da4d6db3a912b403359f1e5c93590022bd9452 100644
+--- a/harness/baseline/README.md
++++ b/harness/baseline/README.md
+@@ -92,3 +92,4 @@ library, `0.3.4`, for a unit pending on what a later subcycle builds.)*
+ **Empty since cycle 0.0.4b**, when the one unit it would have listed started
+ passing at `c3bdae2`. *(2026-10-08, cycle 0.2.1 — RX-229: two lines since, the HIR's
+ two hooks' tests, pending on cycle 0.3.4.)*
++*(@@DATE023@@, cycle 0.2.3 — RX-237: three since, the third normalisation's oracle test, pending on cycle 0.5.5.)*
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index a518811355cf70c208877098e865bc67f02fdc6b..b94a585243fc9426848396d0eb0c672f35cdf5ea 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -6117,6 +6117,9 @@ three of their pins with it, and wants its own decision and a case that holds th
+ ## The repetition product — cycle 0.2.2
+ 
+ ### RX-232 — the repetition product, checked on the way down: `hir_build` carries the product of the factors around each node in `uint64`, refuses at the first `Repeat` whose factor takes it past `NREGEX_REPEAT_PRODUCT`, and `hir_build_refusal` is the refusal
++> **SUPERSEDED IN PART by RX-237 (@@DATE023@@)** — its list of what it dated: `TESTING.md`'s note on the fuzz pass too, which
++> its step wrote and its plan's row named. The decision stands.
++
+ **2026-10-10, cycle 0.2.2 (the plan's PD-107), at compiler `7e91730`** — RX-015, `HIR.md` H-7, H-8 and H-16, `SAFETY.md` S-12
+ and S-13, `SYNTAX.md` Y-25, Y-32 and Y-34, `COMPILE.md` C-14, and the cycle README's 0.2.2 boxes. RX-015 and H-8 say the
+ product is checked as the HIR is built, multiplying the enclosing factors on the way down, and S-13 that the multiply is a
+@@ -6288,3 +6291,48 @@ that `Alternate` is built: a node more than the tree, or a verb that pops the ar
+ reads** — H-15's round trip, `hir_dump(hir_read(t))` is `t`; **the table rebuilt from the tree's groups** — the copy is
+ the table as built, names and all, and no group moves; **an insertion sort** — `n²` over a class nothing bounds but the
+ pattern's length until cycle 0.3.4 counts `NREGEX_CLASS_RANGES`.
++
++### RX-237 — the Gate's corpus generated: trees in normal form written plain and noisy, each pattern's dump its tree's reckoned again, and near misses held apart; the oracle's test written now, pending until cycle 0.5.5 on a hook; and RX-232's list of what it dated completed
++**@@DATE023@@, cycle 0.2.3 (the plan's PD-122), at compiler `7e91730`** — RX-226 and RX-229, `BUILD.md` B-5b, `TESTING.md` §7
++and V-20, the cycle README's 0.2.3 Gate box, *"a generated corpus of pattern pairs that are structurally equal but
++textually different produces byte-identical dumps"*, and its last box, *"a test asserting no normalisation changes which
++strings match, by running the oracle over both forms — pending until 0.5, and written now as a pending case"*; and the
++0.5 README's 0.5.5 box, *"0.2's pending normalisation test now green — the oracle can run both forms"*. RX-235 says what
++structurally equal is, so a pair can be generated from it; and the oracle is cycle 0.5's.
++
++**The decision.** **`tests/unit/hir_normalise_gate.npk`**: three thousand seeded trees, each already in RX-235's normal
++form, each written as its expected dump — H-15's text, reckoned from the tree — as a plain pattern, and as a noisy one,
++RX-235's identities applied to its text: a run of pieces or of alternatives in a `(?:…)`, a `(?:)` among the pieces, a
++literal as a class or an escape, a class's members split, overlapped, doubled and reordered, a quantifier respelt, an
++anchor's other name, and the whole in a `(?:…)` where the draws changed nothing. Each pattern's normal dump must be its
++tree's, byte for byte, so a pair's is one text; and a floor counts the pairs whose BUILT dumps differ — the ones only
++normalisation joins. **The other half**: each tree mutated once outside the identities — two alternatives swapped, a
++literal's byte bit flipped, two pieces swapped, a laziness flipped — must dump apart from the tree, and as its own
++expected text. Floors on every kind of noise and mutation. **`tests/unit/hir_normalise_oracle.npk`**, pending under
++RX-226's marker, `pending-until: 0.5.5 exit 1`, its line in `PENDING.txt`: twenty-one patterns whose normal forms differ
++from their built trees, every rewrite of H-13 among them, each built and normalised on every run; over twelve haystacks
++the oracle's answer — the leftmost-first match's capture slots — over the built tree and over its normal form must agree
++slot for slot. Its hook, `oracle_find`, answers that there is no oracle until cycle 0.5.5 fills it with the oracle's own
++entry point; a unit whose comparisons all met no oracle exits 1, and one whose forms disagree exits its case's number,
++which the marker does not excuse. `TESTING.md` §7, H-13 and the 0.5 README's 0.5.5 box dated, and the four texts that
++count the pending units — `PENDING.txt`'s header, its README's, `SAFETY.md`'s note on the marker and CI's comment.
++**And RX-232's list** — *"H-8, H-16, S-13 and C-14 are dated, and `limits.npk`'s comment"* — leaves out `TESTING.md`'s
++note on the fuzz pass, which its plan's row named and its step wrote with the others: this decision supersedes RX-232 in
++that list alone, and RX-232's heading is marked.
++
++**Measured at `7e91730`.** `hir_normalise_gate` exits 0 at both legs: all 3 000 pairs textually different, 2 060 of them
++joined only by normalisation; noise applied — runs of pieces wrapped 1 716 times, runs of alternatives 1 308, a `(?:)`
++1 283, a literal as a class or an escape 4 001, a class respelt 3 078, a quantifier or an anchor 1 817; and mutations —
++alternatives swapped 251, a byte bit flipped 467, pieces swapped 267, a laziness flipped 288 — every one apart.
++`hir_normalise_oracle` exits 1 at both legs: every pattern builds and normalises, its two forms hold as many groups and
++dump apart, and every comparison meets the hook's answer that there is no oracle.
++
++*Alternatives declined:* **the corpus as committed text**, a generator in `tools/` writing pairs to a fixture — a
++generator and its regeneration check for a list a seed reproduces; this repository's fuzz passes (RX-221, RX-232) are its
++generated corpora, and units on every run; **pairs compared with each other alone, no expected dump** — a normaliser wrong
++the same way on both sides of a pair passes; **no near misses** — a normaliser that joins too much, alternatives sorted or
++the byte bit erased, passes every pair; **the hook as a stub oracle module in `tests/oracle/`** — it would shape cycle
++0.5.0's entry point from here; **the test left until cycle 0.5** — the box says written now, and RX-226 declined a test
++left out of the suites; **the label `0.5.0`, where the oracle is written** — the 0.5 README names this test in 0.5.5's
++box; **RX-232's list left as it is** — a list of what a decision dated is a claim about a set, and the set has one
++member more.
+diff --git a/meta/roadmap/0.5/README.md b/meta/roadmap/0.5/README.md
+index 1b54801a507a7529da0ebff421c3e419c6555ab1..131846365a82952e8c60232f18f44a9776425db6 100644
+--- a/meta/roadmap/0.5/README.md
++++ b/meta/roadmap/0.5/README.md
+@@ -67,7 +67,7 @@ RX-070, RX-071, RX-044. Settled. **No open questions.**
+ 
+ ### 0.5.5 — close
+ - [ ] self-check case 6 (a fixture off by one) live
+-- [ ] 0.2's pending normalisation test now green — the oracle can run both forms
++- [ ] 0.2's pending normalisation test now green — the oracle can run both forms *(@@DATE023@@, cycle 0.2.3 — RX-237: `tests/unit/hir_normalise_oracle.npk`, `pending-until: 0.5.5 exit 1`; fill its hook, `oracle_find`, with the oracle's own entry point — the leftmost-first match's capture slots, 1 for a match and 0 for none — and when every answer over both forms agrees the unit exits 0, the run goes red to say its marker is stale, and the marker and its line in `harness/baseline/PENDING.txt` go)*
+ - [ ] 0.2's pending literal-extraction property test now green
+ - [ ] findings written; `0.6.0.md` written; archived
+ 
+diff --git a/meta/specs/HIR.md b/meta/specs/HIR.md
+index 0a2ec8e1fa9c2f48a17f8de837e7bf99fc548514..65a789f082327530b0f8462c930f1d19b0b31ed4 100644
+--- a/meta/specs/HIR.md
++++ b/meta/specs/HIR.md
+@@ -265,6 +265,9 @@ group, a repetition's bounds and laziness, an anchor's or a boundary's kind, and
+ `(literal 97)`. RX-236: `hir_normalise(Hir->:h, Hir->:out)`, in `src/hir/normal.npk`, writes the normal form into a fresh
+ arena, a pass of its own after the build (H-16), so the oracle can run both forms; `tests/unit/hir_normalise.npk` holds
+ every rewrite, and what is kept apart.)*
++*(@@DATE023@@, cycle 0.2.3 — RX-237: the Gate's corpus is `tests/unit/hir_normalise_gate.npk` — trees in normal form written
++plain and noisy, each held to its dump reckoned again, and near misses held apart — and the oracle's test of both forms,
++`hir_normalise_oracle.npk`, is pending until cycle 0.5.5.)*
+ 
+ **Rule H-14 — nothing that changes which strings match is a normalisation.**
+ Reordering an alternation, hoisting a common prefix, or eliminating a `Repeat`
+diff --git a/meta/specs/SAFETY.md b/meta/specs/SAFETY.md
+index bc48ca22257d4d6330364c61dd4eaf1e90e525bf..74635b60b91bfd4c0c0c25e12a5c2fa8b86b4fb5 100644
+--- a/meta/specs/SAFETY.md
++++ b/meta/specs/SAFETY.md
+@@ -1008,6 +1008,8 @@ Three things worth keeping from it:
+   *(2026-10-08, cycle 0.2.1 — RX-226, RX-229: two files carry it again, each pending on
+   a subcycle of this library rather than a compiler — `tests/unit/hir_build_classes.npk`
+   and `hir_build_fold.npk`, on cycle 0.3.4, which fills the HIR's hooks.)*
++  *(@@DATE023@@, cycle 0.2.3 — RX-237: and a third, `tests/unit/hir_normalise_oracle.npk`, on cycle 0.5.5, whose oracle
++  its hook meets.)*
+ 
+ **The general form: a citation of `exit 0` in a comment about a managed body is
+ a defect in the comment, and it will be written again — it has now been written
+diff --git a/meta/specs/TESTING.md b/meta/specs/TESTING.md
+index c6e25639228b9cd445fc734fe3619f923d63d798..9078ed17f8a468a29d781bed41b0461594b4642f 100644
+--- a/meta/specs/TESTING.md
++++ b/meta/specs/TESTING.md
+@@ -191,6 +191,10 @@ meets. The pattern fuzzer above — structured, a hundred million patterns, the
+ *(2026-10-10, cycle 0.2.2 — RX-232: and the HIR's build has its own, `tests/unit/hir_build_product_fuzz.npk`: twenty
+ thousand seeded nests of groups and quantifiers, each build's verdict held to the products reckoned again from the root
+ by index, every refusal a crossing `Repeat`'s `{` inside the pattern, with floors on what it builds and refuses.)*
++*(@@DATE023@@, cycle 0.2.3 — RX-237: and normalisation's, `tests/unit/hir_normalise_gate.npk`, cycle 0.2's Gate as a generated
++corpus: three thousand seeded trees in normal form, each written plain and noisy and its dump held to the tree's,
++reckoned again, and each mutated once outside the identities and held apart, with floors on every kind of noise and
++mutation. RX-232's list of what it dated leaves out the note above, which its step wrote; RX-237 completes it.)*
+ 
+ ---
+ 
+diff --git a/tests/unit/hir_normalise_gate.npk b/tests/unit/hir_normalise_gate.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..1afa3eeacf9eb4f69ffa45fa69a44706a9eb7418
+--- /dev/null
++++ b/tests/unit/hir_normalise_gate.npk
+@@ -0,0 +1,644 @@
++// expect-exit: 0
++//
++// THE GATE: A GENERATED CORPUS OF PATTERN PAIRS, STRUCTURALLY EQUAL AND TEXTUALLY DIFFERENT, WHOSE
++// DUMPS ARE ONE TEXT BYTE FOR BYTE -- AND NEAR MISSES WHOSE DUMPS ARE NOT. Cycle 0.2.3, RX-235 …
++// RX-237; `HIR.md` H-13 and H-14, and the cycle README's Gate.
++//
++// WHAT IT GENERATES. TREES trees, a fixed seed, each a random tree ALREADY IN NORMAL FORM, as RX-235
++// defines it -- no `Concat` piece a `Concat` or an `Empty`, no alternative an `Alternate`, every class
++// of two members or more, in literals from `a` … `l` and `é`, classes over `a` … `l`, groups, named
++// or not, repetitions whose factors multiply to at most 81, anchors and boundaries, and a literal in
++// byte mode -- four deep at most. Each tree is written three ways: as its EXPECTED DUMP, H-15's text,
++// reckoned here from the tree; as a PLAIN pattern, one spelling for each node; and as a NOISY one, the
++// same tree with RX-235's identities applied to its text -- a run of pieces or of alternatives in a
++// `(?:…)`, a `(?:)` among the pieces, a literal as a class or an escape, a class's members split,
++// overlapped, doubled and reordered, a quantifier respelt, an anchor's other name. Each is parsed,
++// built and normalised, and its dump must be the expected text, byte for byte (11, 12): so the two
++// patterns of a pair -- textually different (13) -- produce one dump. A pair whose BUILT dumps differ
++// is one only normalisation could join; there must be many (16).
++//
++// AND THE OTHER HALF. Each tree is also mutated once outside the identities -- two alternatives
++// swapped, a literal's byte bit flipped, an `Empty` alternative dropped, a repetition's laziness
++// flipped -- and its normal dump must differ from the tree's (14) and be its own expected text (15):
++// a normaliser that reordered, merged a byte into a codepoint, or dropped what is not concatenation's
++// identity, joins what this half keeps apart. And FLOORS on every kind of noise and mutation, so the
++// pass cannot be green by looking nowhere (17).
++//
++// THE GENERATOR RECURSES, and so do its writers: their depth is the generator's own bound, four, not
++// an input's (`SAFETY.md` S-18), and `check_no_recursion` reads `src/`, not `tests/` (RX-192). A case
++// that differs exits with its number; the program exits 0 only after every `hir_free` and `ast_free`.
++mod:hir_normalise_gate;
++
++use "../../src/core/core.npk".*;
++use "../../src/syntax/syntax.npk".*;
++use "../../src/hir/hir.npk".*;
++
++fixed int64:TREES = 3000i64;
++fixed int64:DEPTH = 4i64;
++fixed int64:PAIRS_FLOOR = 3000i64;       // pairs whose two patterns differ as text: every one
++fixed int64:JOINED_FLOOR = 1500i64;      // pairs whose BUILT dumps differ: only normalisation joins them
++fixed int64:NOISE_FLOOR = 500i64;        // each kind of noise applied at least this often
++fixed int64:MUTANT_FLOOR = 100i64;       // each kind of mutation applied at least this often
++
++// The kinds of node a tree holds.
++fixed int64:G_LIT = 0i64;      // `val` the letter, 0 … 11 for `a` … `l`, 12 for `é`; `val2` 1 in byte mode
++fixed int64:G_CLS = 1i64;      // `val` the members over `a` … `l`, a mask, two at least
++fixed int64:G_CAT = 2i64;
++fixed int64:G_ALT = 3i64;
++fixed int64:G_REP = 4i64;      // `val` the minimum, `val2` the maximum or -1, `lazy` 1 when lazy
++fixed int64:G_GRP = 5i64;      // `val` 1 when named
++fixed int64:G_ANC = 6i64;      // `val` 0 `^`, 1 `$`
++fixed int64:G_WB = 7i64;       // `val` 0 `\b`, 1 `\B`
++fixed int64:G_EMPTY = 8i64;
++
++// Where a node stands, which decides what it may be (RX-235's normal form) and how it is written.
++fixed int64:AT_ANY = 0i64;     // the root, a group's body, inside a `(?:…)`: anything
++fixed int64:AT_PIECE = 1i64;   // a piece of a `Concat`: no `Concat`, no `Empty`
++fixed int64:AT_ALT = 2i64;     // an alternative: no `Alternate`
++fixed int64:AT_ATOM = 3i64;    // what a repetition holds: no `Empty`, anchor or boundary
++
++#[derive(Copy)]
++struct:GNode = {
++    int64:kind;
++    int64:val;
++    int64:val2;
++    int64:lazy;
++    int64:first;         // the first child
++    int64:next;          // the next sibling
++    int64:count;         // how many children
++};
++
++// The generator's state: the seed, the group numbering a writer walks, and what was applied.
++#[derive(Copy)]
++struct:Gen = {
++    uint64:rng;
++    int64:group;         // the last group number a writer gave
++    int64:wraps;         // noise: a run of pieces in a `(?:…)`
++    int64:altwraps;      // noise: a run of alternatives in a `(?:…)`
++    int64:empties;       // noise: a `(?:)` among the pieces, or for an `Empty`
++    int64:litcls;        // noise: a literal written as a class or an escape
++    int64:clsnoise;      // noise: a class's members split, overlapped, doubled or reordered
++    int64:quants;        // noise: a quantifier respelt, or an anchor's other name
++};
++
++// xorshift64 (Marsaglia), as `parse_fuzz.npk` writes it.
++func:next_rng = uint64(uint64:s) never fails {
++    uint64:x = s;
++    x = x ^ (x << 13u64);
++    x = x ^ (x >> 7u64);
++    x = x ^ (x << 17u64);
++    pass x;
++};
++
++// A draw below `n`, at most 64, by subtraction: a unit that divided would owe two arms more.
++func:roll = int64(Gen->:g, int64:n) never fails {
++    g.rng = raw next_rng(g.rng);
++    int64:v = ((g.rng >> 20u64) & 63u64) =>! int64;
++    while (v >= n) decreases v { v = v - n; }
++    pass v;
++};
++
++func:add = int64(Vec<GNode>->:t, int64:kind, int64:val, int64:val2) never fails {
++    drop vec_push(t, GNode{ kind: kind, val: val, val2: val2, lazy: 0i64, first: -1i64, next: -1i64, count: 0i64 });
++    pass t.count - 1i64;
++};
++
++// Appends `c` to `p`'s children.
++func:adopt = NIL(Vec<GNode>->:t, int64:p, int64:c) never fails {
++    GNode:x = raw vec_get(<-t, p);
++    if (x.first < 0i64) { x.first = c; }
++    else {
++        int64:m = x.first;
++        GNode:y = raw vec_get(<-t, m);
++        while (y.next >= 0i64) decreases t.count - m {
++            m = y.next;
++            y = raw vec_get(<-t, m);
++        }
++        y.next = c;
++        drop vec_set(t, m, y);
++    }
++    x.count = x.count + 1i64;
++    drop vec_set(t, p, x);
++    pass NIL;
++};
++
++func:popcount = int64(int64:mask) never fails {
++    int64:n = 0i64;
++    int64:i = 0i64;
++    while (i < 12i64) decreases 12i64 - i {
++        if (((mask >> i) & 1i64) != 0i64) { n = n + 1i64; }
++        i = i + 1i64;
++    }
++    pass n;
++};
++
++// A random node in normal form for where it stands, `depth` levels left.
++func:gen = int64(Vec<GNode>->:t, Gen->:g, int64:depth, int64:at) never fails {
++    int64:k = raw roll(g, 16i64);
++    if (depth <= 0i64) { k = 9i64 + (raw roll(g, 7i64)); }
++    if ((k < 3i64) && (at != AT_PIECE)) {                       // a concatenation of two or three pieces
++        int64:n = raw add(t, G_CAT, 0i64, 0i64);
++        int64:pieces = 2i64 + (raw roll(g, 2i64));
++        int64:i = 0i64;
++        while (i < pieces) decreases pieces - i {
++            drop adopt(t, n, raw gen(t, g, depth - 1i64, AT_PIECE));
++            i = i + 1i64;
++        }
++        pass n;
++    }
++    if ((k < 5i64) && (at != AT_ALT)) {                         // an alternation of two or three
++        int64:n = raw add(t, G_ALT, 0i64, 0i64);
++        int64:alts = 2i64 + (raw roll(g, 2i64));
++        int64:i = 0i64;
++        while (i < alts) decreases alts - i {
++            drop adopt(t, n, raw gen(t, g, depth - 1i64, AT_ALT));
++            i = i + 1i64;
++        }
++        pass n;
++    }
++    if (k < 7i64) {                                             // a repetition: `*`, `+`, `?`, `{2}`, `{2,}`, `{1,3}`
++        int64:q = raw roll(g, 6i64);
++        int64:lo = 0i64;
++        int64:hi = -1i64;
++        if (q == 1i64) { lo = 1i64; }
++        else if (q == 2i64) { hi = 1i64; }
++        else if (q == 3i64) { lo = 2i64; hi = 2i64; }
++        else if (q == 4i64) { lo = 2i64; }
++        else if (q == 5i64) { lo = 1i64; hi = 3i64; }
++        int64:n = raw add(t, G_REP, lo, hi);
++        GNode:x = raw vec_get(<-t, n);
++        x.lazy = raw roll(g, 2i64);
++        drop vec_set(t, n, x);
++        drop adopt(t, n, raw gen(t, g, depth - 1i64, AT_ATOM));
++        pass n;
++    }
++    if (k < 9i64) {                                             // a group, named or not
++        int64:n = raw add(t, G_GRP, raw roll(g, 2i64), 0i64);
++        drop adopt(t, n, raw gen(t, g, depth - 1i64, AT_ANY));
++        pass n;
++    }
++    if ((k == 9i64) && (at != AT_PIECE) && (at != AT_ATOM)) { pass raw add(t, G_EMPTY, 0i64, 0i64); }
++    if (((k == 10i64) || (k == 9i64)) && (at != AT_ATOM)) {
++        if ((raw roll(g, 2i64)) == 0i64) { pass raw add(t, G_ANC, raw roll(g, 2i64), 0i64); }
++        pass raw add(t, G_WB, raw roll(g, 2i64), 0i64);
++    }
++    if ((k == 11i64) || (k == 12i64)) {                         // a class of two members or more
++        g.rng = raw next_rng(g.rng);
++        int64:mask = ((g.rng >> 24u64) & 4095u64) =>! int64;
++        if ((raw popcount(mask)) < 2i64) { mask = mask | 3i64; }
++        pass raw add(t, G_CLS, mask, 0i64);
++    }
++    int64:c = raw roll(g, 13i64);
++    int64:byte = 0i64;
++    if ((c < 12i64) && ((raw roll(g, 8i64)) == 0i64)) { byte = 1i64; }
++    pass raw add(t, G_LIT, c, byte);
++};
++
++func:cp_of = int64(int64:c) never fails {
++    if (c == 12i64) { pass 233i64; }
++    pass 97i64 + c;
++};
++
++// Writes a codepoint of the alphabet as itself, UTF-8 for `é`.
++func:put_cp = NIL(Bytes->:b, int64:c) never fails {
++    if (c == 12i64) {
++        drop bytes_push(b, 195u8);
++        drop bytes_push(b, 169u8);
++        pass NIL;
++    }
++    drop bytes_push(b, (97i64 + c) =>! uint8);
++    pass NIL;
++};
++
++func:put_hex = NIL(Bytes->:b, int64:v) never fails {
++    int64:hi = (v >> 4i64) & 15i64;
++    int64:lo = v & 15i64;
++    if (hi < 10i64) { drop bytes_push(b, (48i64 + hi) =>! uint8); } else { drop bytes_push(b, (87i64 + hi) =>! uint8); }
++    if (lo < 10i64) { drop bytes_push(b, (48i64 + lo) =>! uint8); } else { drop bytes_push(b, (87i64 + lo) =>! uint8); }
++    pass NIL;
++};
++
++// A class's members over `a` … `l` as a pattern writes them: plain, its runs in order, `a-c` or
++// `a`; noisy, every member in some range, the ranges split, overlapped and doubled, in any order.
++func:put_class = NIL(Bytes->:b, Gen->:g, int64:mask, bool:noisy) never fails {
++    drop bytes_push(b, 91u8);
++    if (!noisy) {
++        int64:i = 0i64;
++        while (i < 12i64) decreases 12i64 - i {
++            if (((mask >> i) & 1i64) != 0i64) {
++                int64:j = i;
++                while ((j < 11i64) && (((mask >> (j + 1i64)) & 1i64) != 0i64)) decreases 11i64 - j { j = j + 1i64; }
++                drop put_cp(b, i);
++                if (j > i) { drop bytes_push(b, 45u8); drop put_cp(b, j); }
++                i = j;
++            }
++            i = i + 1i64;
++        }
++    }
++    else {
++        g.clsnoise = g.clsnoise + 1i64;
++        int64:left = mask;
++        int64:guard = 0i64;
++        while ((left != 0i64) && (guard < 64i64)) decreases 64i64 - guard {
++            guard = guard + 1i64;
++            int64:s = raw roll(g, 12i64);
++            if (((mask >> s) & 1i64) != 0i64) {
++                int64:e = s;
++                while ((e < 11i64) && (((mask >> (e + 1i64)) & 1i64) != 0i64) && ((raw roll(g, 3i64)) != 0i64))
++                      decreases 11i64 - e { e = e + 1i64; }
++                drop put_cp(b, s);
++                if (e > s) { drop bytes_push(b, 45u8); drop put_cp(b, e); }
++                int64:m = s;
++                while (m <= e) decreases e - m + 1i64 {
++                    left = left & (~(1i64 << m));
++                    m = m + 1i64;
++                }
++            }
++        }
++        // anything the draws missed, in order
++        int64:i = 0i64;
++        while (i < 12i64) decreases 12i64 - i {
++            if (((left >> i) & 1i64) != 0i64) { drop put_cp(b, i); }
++            i = i + 1i64;
++        }
++    }
++    drop bytes_push(b, 93u8);
++    pass NIL;
++};
++
++// Writes node `i` as a pattern, standing where `at` says.
++func:put_pat = NIL(Vec<GNode>->:t, Gen->:g, int64:i, int64:at, bool:noisy, Bytes->:b) never fails {
++    GNode:x = raw vec_get(<-t, i);
++    if (x.kind == G_LIT) {
++        if (x.val2 != 0i64) { drop bytes_extend_str(b, "(?-u:"); }
++        int64:how = 0i64;
++        if (noisy) { how = raw roll(g, 4i64); }
++        if (how == 1i64) { g.litcls = g.litcls + 1i64; drop bytes_push(b, 91u8); drop put_cp(b, x.val); drop bytes_push(b, 93u8); }
++        else if (how == 2i64) { g.litcls = g.litcls + 1i64; drop bytes_push(b, 91u8); drop put_cp(b, x.val); drop put_cp(b, x.val); drop bytes_push(b, 93u8); }
++        else if (how == 3i64) { g.litcls = g.litcls + 1i64; drop bytes_extend_str(b, "\\x"); drop put_hex(b, raw cp_of(x.val)); }
++        else { drop put_cp(b, x.val); }
++        if (x.val2 != 0i64) { drop bytes_push(b, 41u8); }
++        pass NIL;
++    }
++    if (x.kind == G_CLS) { drop put_class(b, g, x.val, noisy); pass NIL; }
++    if (x.kind == G_ANC) {
++        bool:other = noisy && ((raw roll(g, 2i64)) == 0i64);
++        if (other) { g.quants = g.quants + 1i64; }
++        if (x.val == 0i64) { if (other) { drop bytes_extend_str(b, "\\A"); } else { drop bytes_push(b, 94u8); } }
++        else { if (other) { drop bytes_extend_str(b, "\\z"); } else { drop bytes_push(b, 36u8); } }
++        pass NIL;
++    }
++    if (x.kind == G_WB) {
++        if (x.val == 0i64) { drop bytes_extend_str(b, "\\b"); } else { drop bytes_extend_str(b, "\\B"); }
++        pass NIL;
++    }
++    if (x.kind == G_EMPTY) {
++        if (noisy && ((raw roll(g, 2i64)) == 0i64)) { g.empties = g.empties + 1i64; drop bytes_extend_str(b, "(?:)"); }
++        pass NIL;
++    }
++    if (x.kind == G_GRP) {
++        g.group = g.group + 1i64;
++        if (x.val != 0i64) {
++            drop bytes_extend_str(b, "(?<g");
++            drop bytes_put_uint(b, g.group =>! uint64);
++            drop bytes_push(b, 62u8);
++        }
++        else { drop bytes_push(b, 40u8); }
++        drop put_pat(t, g, x.first, AT_ANY, noisy, b);
++        drop bytes_push(b, 41u8);
++        pass NIL;
++    }
++    if (x.kind == G_REP) {
++        GNode:c = raw vec_get(<-t, x.first);
++        bool:wrap = (c.kind == G_CAT) || (c.kind == G_ALT) || (c.kind == G_REP)
++                    || (noisy && ((raw roll(g, 4i64)) == 0i64));
++        if (wrap) { drop bytes_extend_str(b, "(?:"); }
++        drop put_pat(t, g, x.first, AT_ANY, noisy, b);
++        if (wrap) { drop bytes_push(b, 41u8); }
++        bool:other = noisy && ((raw roll(g, 2i64)) == 0i64);
++        if (other) { g.quants = g.quants + 1i64; }
++        if ((x.val == 0i64) && (x.val2 == -1i64) && (!other)) { drop bytes_push(b, 42u8); }
++        else if ((x.val == 1i64) && (x.val2 == -1i64) && (!other)) { drop bytes_push(b, 43u8); }
++        else if ((x.val == 0i64) && (x.val2 == 1i64) && (!other)) { drop bytes_push(b, 63u8); }
++        else {
++            drop bytes_push(b, 123u8);
++            drop bytes_put_uint(b, x.val =>! uint64);
++            if (x.val2 != x.val) {
++                drop bytes_push(b, 44u8);
++                if (x.val2 >= 0i64) { drop bytes_put_uint(b, x.val2 =>! uint64); }
++            }
++            else if (other) { drop bytes_push(b, 44u8); drop bytes_put_uint(b, x.val2 =>! uint64); }
++            drop bytes_push(b, 125u8);
++        }
++        if (x.lazy != 0i64) { drop bytes_push(b, 63u8); }
++        pass NIL;
++    }
++    if (x.kind == G_ALT) {
++        bool:paren = at == AT_PIECE;
++        if (paren) { drop bytes_extend_str(b, "(?:"); }
++        int64:ws = -1i64;
++        int64:we = -1i64;
++        if (noisy && ((raw roll(g, 2i64)) == 0i64)) {
++            g.altwraps = g.altwraps + 1i64;
++            ws = raw roll(g, x.count);
++            we = ws + (raw roll(g, x.count - ws));
++        }
++        int64:m = x.first;
++        int64:k = 0i64;
++        while (m >= 0i64) decreases x.count - k {
++            if (k > 0i64) { drop bytes_push(b, 124u8); }
++            if (k == ws) { drop bytes_extend_str(b, "(?:"); }
++            drop put_pat(t, g, m, AT_ALT, noisy, b);
++            if (k == we) { drop bytes_push(b, 41u8); }
++            GNode:y = raw vec_get(<-t, m);
++            m = y.next;
++            k = k + 1i64;
++        }
++        if (paren) { drop bytes_push(b, 41u8); }
++        pass NIL;
++    }
++    // a concatenation
++    int64:ws = -1i64;
++    int64:we = -1i64;
++    int64:ins = -1i64;
++    if (noisy && ((raw roll(g, 2i64)) == 0i64)) {
++        g.wraps = g.wraps + 1i64;
++        ws = raw roll(g, x.count);
++        we = ws + (raw roll(g, x.count - ws));
++    }
++    if (noisy && ((raw roll(g, 3i64)) == 0i64)) {
++        g.empties = g.empties + 1i64;
++        ins = raw roll(g, x.count + 1i64);
++    }
++    int64:m = x.first;
++    int64:k = 0i64;
++    while (m >= 0i64) decreases x.count - k {
++        if (k == ins) { drop bytes_extend_str(b, "(?:)"); }
++        if (k == ws) { drop bytes_extend_str(b, "(?:"); }
++        drop put_pat(t, g, m, AT_PIECE, noisy, b);
++        if (k == we) { drop bytes_push(b, 41u8); }
++        GNode:y = raw vec_get(<-t, m);
++        m = y.next;
++        k = k + 1i64;
++    }
++    if (ins == x.count) { drop bytes_extend_str(b, "(?:)"); }
++    pass NIL;
++};
++
++// Writes node `i`'s expected normal form as H-15's text: the tree is in normal form already.
++func:put_dump = NIL(Vec<GNode>->:t, Gen->:g, int64:i, Bytes->:b) never fails {
++    GNode:x = raw vec_get(<-t, i);
++    if (x.kind == G_LIT) {
++        drop bytes_extend_str(b, "(literal ");
++        if (x.val2 != 0i64) { drop bytes_extend_str(b, "byte "); }
++        drop bytes_put_uint(b, (raw cp_of(x.val)) =>! uint64);
++        drop bytes_push(b, 41u8);
++        pass NIL;
++    }
++    if (x.kind == G_CLS) {
++        drop bytes_extend_str(b, "(class");
++        int64:s = 0i64;
++        while (s < 12i64) decreases 12i64 - s {
++            if (((x.val >> s) & 1i64) != 0i64) {
++                int64:e = s;
++                while ((e < 11i64) && (((x.val >> (e + 1i64)) & 1i64) != 0i64)) decreases 11i64 - e { e = e + 1i64; }
++                drop bytes_push(b, 32u8);
++                drop bytes_put_uint(b, (97i64 + s) =>! uint64);
++                drop bytes_push(b, 45u8);
++                drop bytes_put_uint(b, (97i64 + e) =>! uint64);
++                s = e;
++            }
++            s = s + 1i64;
++        }
++        drop bytes_push(b, 41u8);
++        pass NIL;
++    }
++    if (x.kind == G_ANC) {
++        if (x.val == 0i64) { drop bytes_extend_str(b, "(anchor text-start)"); } else { drop bytes_extend_str(b, "(anchor text-end)"); }
++        pass NIL;
++    }
++    if (x.kind == G_WB) {
++        if (x.val == 0i64) { drop bytes_extend_str(b, "(wordboundary)"); } else { drop bytes_extend_str(b, "(wordboundary not)"); }
++        pass NIL;
++    }
++    if (x.kind == G_EMPTY) { drop bytes_extend_str(b, "(empty)"); pass NIL; }
++    if (x.kind == G_GRP) {
++        g.group = g.group + 1i64;
++        drop bytes_extend_str(b, "(group ");
++        drop bytes_put_uint(b, g.group =>! uint64);
++        if (x.val != 0i64) {
++            drop bytes_extend_str(b, " g");
++            drop bytes_put_uint(b, g.group =>! uint64);
++        }
++        drop bytes_push(b, 32u8);
++        drop put_dump(t, g, x.first, b);
++        drop bytes_push(b, 41u8);
++        pass NIL;
++    }
++    if (x.kind == G_REP) {
++        drop bytes_extend_str(b, "(repeat ");
++        if (x.lazy != 0i64) { drop bytes_extend_str(b, "lazy "); }
++        drop bytes_put_uint(b, x.val =>! uint64);
++        if (x.val2 < 0i64) { drop bytes_extend_str(b, " -"); }
++        else { drop bytes_push(b, 32u8); drop bytes_put_uint(b, x.val2 =>! uint64); }
++        drop bytes_push(b, 32u8);
++        drop put_dump(t, g, x.first, b);
++        drop bytes_push(b, 41u8);
++        pass NIL;
++    }
++    if (x.kind == G_ALT) { drop bytes_extend_str(b, "(alternate"); } else { drop bytes_extend_str(b, "(concat"); }
++    int64:m = x.first;
++    int64:k = 0i64;
++    while (m >= 0i64) decreases x.count - k {
++        drop bytes_push(b, 32u8);
++        drop put_dump(t, g, m, b);
++        GNode:y = raw vec_get(<-t, m);
++        m = y.next;
++        k = k + 1i64;
++    }
++    drop bytes_push(b, 41u8);
++    pass NIL;
++};
++
++// The text of a whole tree, as a pattern or as its expected dump; groups numbered from 1.
++func:pattern_of = string(Vec<GNode>->:t, Gen->:g, int64:root, bool:noisy) never fails {
++    Bytes:b = raw bytes_init(64i64);
++    g.group = 0i64;
++    drop put_pat(t, g, root, AT_ANY, noisy, @b);
++    pass raw bytes_copy_string(@b);
++};
++
++// The noisy text, never the plain one: when the draws leave a tree as it was -- a lone `\b` has no
++// other spelling -- the whole pattern goes in a `(?:…)`, which the build already erases.
++func:noisy_of = string(Vec<GNode>->:t, Gen->:g, int64:root, string:plain) never fails {
++    string:q = raw pattern_of(t, g, root, true);
++    if (!(string_equals(q, plain))) { pass q; }
++    g.wraps = g.wraps + 1i64;
++    pass string_concat(string_concat("(?:", q), ")");
++};
++
++func:dump_of = string(Vec<GNode>->:t, Gen->:g, int64:root) never fails {
++    Bytes:b = raw bytes_init(64i64);
++    g.group = 0i64;
++    drop put_dump(t, g, root, @b);
++    pass raw bytes_copy_string(@b);
++};
++
++// Parses, builds and normalises `pattern`, its normal dump into `nb` and its built one into `bb`:
++// 0, or the case's number when the pattern does not parse or build.
++func:normal_of = int32(string:pattern, Bytes->:nb, Bytes->:bb) never fails {
++    fixed uint8[]:pat = string_bytes(pattern);
++    Ast:t = raw ast_init(8i64);
++    int32:r = 0i32;
++    if ((raw parse_pattern(pat, @t)) != NIL) { r = 10i32; }
++    else {
++        Hir:h = raw hir_init(8i64);
++        if ((raw hir_build(pat, t, @h)) != HIR_NONE) { r = 10i32; }
++        else {
++            drop hir_dump(@h, bb);
++            Hir:n = raw hir_init(8i64);
++            drop hir_normalise(@h, @n);
++            drop hir_dump(@n, nb);
++            drop hir_free(@n);
++        }
++        drop hir_free(@h);
++    }
++    drop ast_free(@t);
++    pass r;
++};
++
++func:same_text = bool(Bytes->:b, string:s) never fails {
++    fixed uint8[]:w = string_bytes(s);
++    if ((raw bytes_len(b)) != w.len) { pass false; }
++    int64:i = 0i64;
++    while (i < w.len) decreases w.len - i {
++        if ((raw bytes_get(b, i)) != w[i]) { pass false; }
++        i = i + 1i64;
++    }
++    pass true;
++};
++
++func:same_bytes = bool(Bytes->:a, Bytes->:b) never fails {
++    int64:n = raw bytes_len(a);
++    if (n != (raw bytes_len(b))) { pass false; }
++    int64:i = 0i64;
++    while (i < n) decreases n - i {
++        if ((raw bytes_get(a, i)) != (raw bytes_get(b, i))) { pass false; }
++        i = i + 1i64;
++    }
++    pass true;
++};
++
++// One mutation outside the identities, of kind `kind`, at the first node it applies to; answers
++// whether one did. 0: an alternation's first two alternatives swapped, where their texts differ; 1: a
++// literal's byte bit flipped, `a` … `l` only; 2: a concatenation's first two pieces swapped, where
++// their texts differ; 3: a repetition's laziness flipped.
++func:mutate = bool(Vec<GNode>->:t, Gen->:g, int64:kind) never fails {
++    int64:i = 0i64;
++    while (i < t.count) decreases t.count - i {
++        GNode:x = raw vec_get(<-t, i);
++        if ((kind == 1i64) && (x.kind == G_LIT) && (x.val < 12i64)) {
++            x.val2 = 1i64 - x.val2;
++            drop vec_set(t, i, x);
++            pass true;
++        }
++        if ((kind == 3i64) && (x.kind == G_REP)) {
++            x.lazy = 1i64 - x.lazy;
++            drop vec_set(t, i, x);
++            pass true;
++        }
++        if (((kind == 0i64) && (x.kind == G_ALT)) || ((kind == 2i64) && (x.kind == G_CAT))) {
++            // the first two members swapped, by relinking, when their expected texts differ
++            int64:a = x.first;
++            GNode:ya = raw vec_get(<-t, a);
++            int64:c = ya.next;
++            GNode:yc = raw vec_get(<-t, c);
++            string:sa = raw dump_of(t, g, a);
++            string:sc = raw dump_of(t, g, c);
++            if (!(string_equals(sa, sc))) {
++                ya.next = yc.next;
++                yc.next = a;
++                drop vec_set(t, a, ya);
++                drop vec_set(t, c, yc);
++                x.first = c;
++                drop vec_set(t, i, x);
++                pass true;
++            }
++        }
++        i = i + 1i64;
++    }
++    pass false;
++};
++
++func:run = int32() never fails {
++    Gen:g = Gen{ rng: 1442695040888963407u64, group: 0i64, wraps: 0i64, altwraps: 0i64, empties: 0i64,
++                 litcls: 0i64, clsnoise: 0i64, quants: 0i64 };
++    int64:pairs = 0i64;
++    int64:joined = 0i64;
++    int64[4]:mutants = [0i64, 0i64, 0i64, 0i64];
++    int64:n = 0i64;
++    while (n < TREES) decreases TREES - n {
++        Vec<GNode>:t = raw vec_init::<GNode>(32i64);
++        int64:root = raw gen(@t, @g, DEPTH, AT_ANY);
++        string:want = raw dump_of(@t, @g, root);
++        string:plain = raw pattern_of(@t, @g, root, false);
++        string:noisy = raw noisy_of(@t, @g, root, plain);
++        Bytes:pn = raw bytes_init(64i64);
++        Bytes:pb = raw bytes_init(64i64);
++        Bytes:qn = raw bytes_init(64i64);
++        Bytes:qb = raw bytes_init(64i64);
++        int32:r = raw normal_of(plain, @pn, @pb);
++        if (r != 0i32) { pass r; }
++        if (!(raw same_text(@pn, want))) { pass 11i32; }
++        r = raw normal_of(noisy, @qn, @qb);
++        if (r != 0i32) { pass r; }
++        if (!(raw same_text(@qn, want))) { pass 12i32; }
++        if (!(string_equals(plain, noisy))) {
++            pairs = pairs + 1i64;
++            if (!(raw same_bytes(@pb, @qb))) { joined = joined + 1i64; }
++        }
++        // the other half: one mutation, its kind in turn
++        int64:kind = n & 3i64;
++        if (raw mutate(@t, @g, kind)) {
++            mutants[kind] = mutants[kind] + 1i64;
++            string:mwant = raw dump_of(@t, @g, root);
++            string:mpat = raw pattern_of(@t, @g, root, (n & 4i64) != 0i64);
++            Bytes:mn = raw bytes_init(64i64);
++            Bytes:mb = raw bytes_init(64i64);
++            r = raw normal_of(mpat, @mn, @mb);
++            if (r != 0i32) { pass r; }
++            if (raw same_bytes(@mn, @pn)) { pass 14i32; }
++            if (!(raw same_text(@mn, mwant))) { pass 15i32; }
++        }
++        drop vec_free(@t);
++        n = n + 1i64;
++    }
++    if (pairs < PAIRS_FLOOR) { pass 13i32; }
++    if (joined < JOINED_FLOOR) { pass 16i32; }
++    if ((g.wraps < NOISE_FLOOR) || (g.altwraps < NOISE_FLOOR) || (g.empties < NOISE_FLOOR) || (g.litcls < NOISE_FLOOR)
++        || (g.clsnoise < NOISE_FLOOR) || (g.quants < NOISE_FLOOR)) { pass 17i32; }
++    if ((mutants[0] < MUTANT_FLOOR) || (mutants[1] < MUTANT_FLOOR) || (mutants[2] < MUTANT_FLOOR) || (mutants[3] < MUTANT_FLOOR)) { pass 17i32; }
++    pass 0i32;
++};
++
++func:main = int32(cstring[]:_~argv) {
++    exit raw run();
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/hir_normalise_oracle.npk b/tests/unit/hir_normalise_oracle.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..9b739534d3f348b117aaed621e302199d869dd7c
+--- /dev/null
++++ b/tests/unit/hir_normalise_oracle.npk
+@@ -0,0 +1,165 @@
++// expect-exit: 0
++// pending-until: 0.5.5 exit 1
++//
++// NO NORMALISATION CHANGES WHICH STRINGS MATCH: THE ORACLE RUN OVER BOTH FORMS. Cycle 0.2.3, RX-237;
++// `HIR.md` H-13 and H-14, `TESTING.md` V-20, and the cycle README's last 0.2.3 box.
++//
++// PENDING UNTIL CYCLE 0.5.5, ON EXIT 1 ALONE (`BUILD.md` B-5b, RX-226). The oracle is cycle 0.5's --
++// the naive matcher over the HIR, `tests/oracle/`, which imports nothing from `src/` but `core` and
++// `hir` (V-4) -- and the 0.5 README's 0.5.5 box is the one that turns this unit green: *"the oracle can
++// run both forms"*. Until then the hook below answers NO_ORACLE, and a unit whose every comparison
++// met no oracle exits 1 -- that and nothing else. A case where both forms got an answer and the
++// answers differ exits with its number, 11 or 12, which the marker does not excuse: the run is red
++// then, not pending. The day every answer agrees the unit exits 0, the run goes red to say the marker
++// is stale, and the marker and its line in `harness/baseline/PENDING.txt` go.
++//
++// THE HOOK, `oracle_find`. The one place this unit meets the oracle, and the one line cycle 0.5.5
++// writes here: given a HIR and a haystack, the leftmost-first match's capture slots -- `2 x` the HIR's
++// group count, slots 0 and 1 the whole match (`COMPILE.md` C-16), `HIR_NONE` for a group that did
++// not take part -- answering 1 for a match and 0 for none. Its shape is this unit's, not the oracle's:
++// cycle 0.5.0 names the oracle's entry point and its answer, and the hook adapts it. Until then it
++// answers NO_ORACLE and writes nothing.
++//
++// WHAT IT ASKS. Every pattern below is one whose normal form differs from the tree the build made --
++// each rule of H-13 at least once: a concatenation flattened, an alternation flattened in order, an
++// `Empty` piece dropped and an `Empty` alternative kept, a class sorted, merged and made a `Literal`
++// -- and every one is built and normalised on every run, so a normalisation that trapped would be red
++// here too (any exit but 1). For each haystack, the oracle's answer over the built tree and over its
++// normal form must be the same, slot for slot (11, 12); the two forms hold as many groups (13), and
++// their dumps differ (14), so the oracle is asked about two trees, never one twice.
++mod:hir_normalise_oracle;
++
++use "../../src/core/core.npk".*;
++use "../../src/syntax/syntax.npk".*;
++use "../../src/hir/hir.npk".*;
++
++fixed int64:NO_ORACLE = -2i64;
++
++// THE HOOK -- cycle 0.5.5 fills it with a call to the oracle (see the header).
++func:oracle_find = int64(Hir->:h, fixed uint8[]:hay, Vec<int64>->:slots) never fails {
++    pass NO_ORACLE;
++};
++
++// The haystacks every pattern is run over.
++func:hay = string(int64:i) never fails {
++    if (i == 0i64) { pass ""; }
++    if (i == 1i64) { pass "a"; }
++    if (i == 2i64) { pass "ab"; }
++    if (i == 3i64) { pass "abc"; }
++    if (i == 4i64) { pass "abcd"; }
++    if (i == 5i64) { pass "ba"; }
++    if (i == 6i64) { pass "cab"; }
++    if (i == 7i64) { pass "aab"; }
++    if (i == 8i64) { pass "bbbc"; }
++    if (i == 9i64) { pass "xbcy"; }
++    if (i == 10i64) { pass "x ab y"; }
++    pass "dcba";
++};
++fixed int64:HAYS = 12i64;
++
++// The patterns, each one whose normal form is not the tree the build made.
++func:pattern = string(int64:i) never fails {
++    if (i == 0i64) { pass "a(?:bc)"; }
++    if (i == 1i64) { pass "(?:ab)c"; }
++    if (i == 2i64) { pass "a|(?:b|c)"; }
++    if (i == 3i64) { pass "(?:a|b)|c"; }
++    if (i == 4i64) { pass "c|(?:b|a)"; }
++    if (i == 5i64) { pass "a(?:)b"; }
++    if (i == 6i64) { pass "(?:)a"; }
++    if (i == 7i64) { pass "a|(?:|b)"; }
++    if (i == 8i64) { pass "[ba]"; }
++    if (i == 9i64) { pass "[aa]"; }
++    if (i == 10i64) { pass "[a-cb-d]"; }
++    if (i == 11i64) { pass "[a[b-c]d]"; }
++    if (i == 12i64) { pass "(a(?:bc))d"; }
++    if (i == 13i64) { pass "(?:a(?:bc))*"; }
++    if (i == 14i64) { pass "x(?:a|(?:b|c))y"; }
++    if (i == 15i64) { pass "\\b(?:)()"; }
++    if (i == 16i64) { pass "(a)(?:(?:b|c)|d)"; }
++    if (i == 17i64) { pass "((?:a|(?:b|c)))+"; }
++    if (i == 18i64) { pass "a(?:b(?:cd))*"; }
++    if (i == 19i64) { pass "[cab]"; }
++    pass "(?:[ab]|c)(?:)d";
++};
++fixed int64:PATTERNS = 21i64;
++
++func:same_bytes = bool(Bytes->:a, Bytes->:b) never fails {
++    int64:n = raw bytes_len(a);
++    if (n != (raw bytes_len(b))) { pass false; }
++    int64:i = 0i64;
++    while (i < n) decreases n - i {
++        if ((raw bytes_get(a, i)) != (raw bytes_get(b, i))) { pass false; }
++        i = i + 1i64;
++    }
++    pass true;
++};
++
++func:run = int32() never fails {
++    bool:none = false;
++    int64:p = 0i64;
++    while (p < PATTERNS) decreases PATTERNS - p {
++        string:s = raw pattern(p);
++        fixed uint8[]:pat = string_bytes(s);
++        Ast:t = raw ast_init(8i64);
++        if ((raw parse_pattern(pat, @t)) != NIL) { pass 10i32; }
++        Hir:h = raw hir_init(8i64);
++        if ((raw hir_build(pat, t, @h)) != HIR_NONE) { pass 10i32; }
++        Hir:n = raw hir_init(8i64);
++        drop hir_normalise(@h, @n);
++        int64:groups = raw hir_group_count(h);
++        if (groups != (raw hir_group_count(n))) { pass 13i32; }
++        Bytes:hb = raw bytes_init(64i64);
++        Bytes:nb = raw bytes_init(64i64);
++        drop hir_dump(@h, @hb);
++        drop hir_dump(@n, @nb);
++        if (raw same_bytes(@hb, @nb)) { pass 14i32; }
++        int64:k = 0i64;
++        while (k < HAYS) decreases HAYS - k {
++            string:y = raw hay(k);
++            Vec<int64>:a = raw vec_init_zeroed::<int64>(2i64 * groups);
++            Vec<int64>:b = raw vec_init_zeroed::<int64>(2i64 * groups);
++            int64:fa = raw oracle_find(@h, string_bytes(y), @a);
++            int64:fb = raw oracle_find(@n, string_bytes(y), @b);
++            if ((fa == NO_ORACLE) || (fb == NO_ORACLE)) { none = true; }
++            else {
++                if (fa != fb) { pass 11i32; }
++                int64:j = 0i64;
++                while (j < (2i64 * groups)) decreases 2i64 * groups - j {
++                    if ((raw vec_get(a, j)) != (raw vec_get(b, j))) { pass 12i32; }
++                    j = j + 1i64;
++                }
++            }
++            drop vec_free(@a);
++            drop vec_free(@b);
++            k = k + 1i64;
++        }
++        drop hir_free(@n);
++        drop hir_free(@h);
++        drop ast_free(@t);
++        p = p + 1i64;
++    }
++    if (none) { pass 1i32; }
++    pass 0i32;
++};
++
++func:main = int32(cstring[]:_~argv) {
++    exit raw run();
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};

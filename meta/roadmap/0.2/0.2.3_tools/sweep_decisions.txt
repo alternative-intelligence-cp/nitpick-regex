@@ -1,0 +1,3 @@
+# 0.2.3's sweep of the decision log alone: RX-232's list of what it dated, in its own words -- the claim step 2
+# completes, whose twins a search for removed lines cannot see.
+s-13 and c-14|h-16, s-13|limits\.npk.s comment
