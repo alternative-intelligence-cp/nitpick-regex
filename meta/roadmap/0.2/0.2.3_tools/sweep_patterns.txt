@@ -10,7 +10,7 @@ flattened, merged|nothing (is )?flattened|not flattened|flattens nothing
 order (the pattern )?writes|in the order written|order written
 sorted (and )?disjoint|sorted, disjoint
 single.codepoint|empty concatenations?|adjacent (and|or) overlapping
-\b(302|312)\b.{0,20}(unit|/)
+\b(302|314)\b.{0,20}(unit|/)
 two (units )?(are )?pending|two pending|two lines since|two files carry|two are pending|pending outside|prints both
 0\.2\.3.{0,40}\bnext\b|\bnext\b.{0,30}0\.2\.3|whose plan no file holds yet
 first (four|five) parts|(four|five) parts

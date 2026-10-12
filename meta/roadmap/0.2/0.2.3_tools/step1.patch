@@ -1,8 +1,8 @@
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index 6ef5fd2fbc3190924767b23999414367b71506f1..a518811355cf70c208877098e865bc67f02fdc6b 100644
+index 6ef5fd2fbc3190924767b23999414367b71506f1..71d5a2d4e5c1716ae7a18fe1f6a32d3004da9739 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
-@@ -6204,3 +6204,87 @@ touched. The 0.6 README's 0.6.2 box is dated: the real emission takes the stand-
+@@ -6204,3 +6204,96 @@ touched. The 0.6 README's 0.6.2 box is dated: the real emission takes the stand-
  request leaves it flat; **a cap over the build alone, nothing stood in for** — nothing in the tree could make it fail;
  **one capped unit, no control** — a cap the bomb's request also passes says nothing, the PLAYBOOK's lesson; **the test
  pending until cycle 0.6.2** — the build's half is testable now, and a pending unit is outside the count.
@@ -57,30 +57,39 @@ index 6ef5fd2fbc3190924767b23999414367b71506f1..a518811355cf70c208877098e865bc67
 +where normalisation runs, or what it makes of a text `hir_read` reads.
 +
 +**The decision.** `src/hir/normal.npk`: `hir_normalise(Hir->:h, Hir->:out)`, re-exported by `hir.npk`, writes the normal
-+form of `h`'s tree (RX-235) into `out`, which must be fresh from `hir_init` — anything else stops `OutOfBounds`, as a
-+misnumbered build does — and reads `h` without writing it. **The build stays the desugaring** (H-16), and normalisation
-+is a pass of its own after it, so both forms stand side by side. Every group and its name is copied unchanged —
-+normalisation removes and reorders no group — through a new accessor, `hir_copy_groups(Hir->:from, Hir->:to)` in
-+`repr.npk`, re-exported; `out` holds the tree and nothing else (H-16's arena), and its ranges are its classes' and nothing
-+else, each class's after the one before. **How**: a post-order walk on an explicit stack, bounded by twice the arena as
-+the build's and the dump's are (S-19), so an arena that is not a tree stops `DecreasesViolated`, builds each node's normal
-+form from its children's in a scratch arena of `normal.npk`'s own, marking each node it splices away or drops; then the
-+scratch's ranges and its live nodes go into `out` in their order, renumbered. A class's ranges are sorted bottom-up — runs
-+of one, two, four … merged — with no recursion and no division (S-25), `n log n` for a class of any length, and merged
-+reckoning in `int64`, so a range's end plus one never overflows. **Total over what `hir_read` reads** (H-15): a
-+`(concat)` is `Empty` and a `(concat X)` is `X`; a list of one alternative or of none, and a class of no range, stay as
-+read, since no identity rewrites them. **A fixed point**: a normal form normalised again is itself. P-6's site *"after
-+HIR normalisation"* is `leave_class`, a comment by P-1b until cycle 0.8. Units `hir_normalise` (0),
-+`hir_normalise_not_fresh` (94) and `hir_normalise_not_a_tree` (108); H-1, H-15, H-16, Y-15 and P-6 dated, and the
-+headers of `build.npk`, `dump.npk` and `class_range.npk`, `hir.npk`'s header and re-exports, and `src/hir/README.md`.
++form of `h`'s tree (RX-235) into `out`, which must be fresh from `hir_init` — no node, no range and group 0 alone, three
++counts that cover every field `repr.npk`'s verbs write, since a name is written only with its group and the root only to
++a node the arena holds; anything else stops `OutOfBounds`, as a misnumbered build does — and reads `h` without writing
++it. **The build stays the desugaring** (H-16), and normalisation is a pass of its own after it, so both forms stand side
++by side. Every group and its name is copied unchanged — normalisation removes and reorders no group — through a new
++accessor, `hir_copy_groups(Hir->:from, Hir->:to)` in `repr.npk`, re-exported; `out` holds the tree and nothing else
++(H-16's arena), and its ranges are its classes' and nothing else, each class's after the one before. **How**: a
++post-order walk on an explicit stack, bounded by twice the arena as the build's and the dump's are (S-19), so an arena
++that is not a tree stops `DecreasesViolated`, builds each node's normal form from its children's in a scratch arena of
++`normal.npk`'s own, marking each node it splices away or drops; then the scratch's ranges and its live nodes go into
++`out` in their order, renumbered. A class's ranges are sorted bottom-up — runs of one, two, four … merged — with no
++recursion and no division (S-25), `n log n` for a class of any length, and merged reckoning in `int64`, so a range's end
++plus one never overflows. **Total over what `hir_read` reads** (H-15): a `(concat)` is `Empty` and a `(concat X)` is
++`X`; a list of one alternative or of none, and a class of no range, stay as read, since no identity rewrites them. **A
++fixed point**: a normal form normalised again is itself. P-6's site *"after HIR normalisation"* is `leave_class`, a
++comment by P-1b until cycle 0.8. Units `hir_normalise` (0), `hir_normalise_not_fresh` (94), `hir_normalise_stray_range`
++(94) and `hir_normalise_not_a_tree` (108); H-1, H-15, H-16, Y-15 and P-6 dated, and the headers of `build.npk`,
++`dump.npk` and `class_range.npk`, `hir.npk`'s header and re-exports, and `src/hir/README.md`.
 +
-+**Measured at `7e91730`.** `hir_normalise` 0, `hir_normalise_not_fresh` 94 and `hir_normalise_not_a_tree` 108, at both
-+legs. Every normal form `hir_normalise.npk` makes leaves the tree read unchanged, dump for dump, holds its tree and its
-+classes' ranges and nothing else, copies every group name for name, and is its own normal form, normalised again and read
-+back; its 4 000 seeded classes — 3 240 of them merged or sorted, 143 left a `Literal` — each hold exactly the set their
-+ranges covered, and two classes of 17 000 members written backwards sort to one range and to 17 000.
++**Measured at `7e91730`.** `hir_normalise` 0, `hir_normalise_not_fresh` and `hir_normalise_stray_range` 94, and
++`hir_normalise_not_a_tree` 108, at both legs; without the stop's range count, `(class 97-99)` normalised into an `out`
++holding `5-7` and nothing else dumps `(class 5-7)` and does not stop, and `hir_normalise_stray_range` exits 2. Every
++normal form `hir_normalise.npk` makes leaves the tree read unchanged, dump for dump, holds its tree and its classes'
++ranges and nothing else, copies every group name for name, and is its own normal form, normalised again and read back;
++its 4 000 seeded classes — 3 240 of them merged or sorted, 143 left a `Literal` — each hold exactly the set their ranges
++covered, and two classes of 17 000 members written backwards sort to one range and to 17 000.
 +
-+*Alternatives declined:* **the build normalising its own output** — the oracle's test runs both forms, which the 0.5
++*Alternatives declined:* **an `out` held to its node and group counts alone** — the first cut's: a range is a field of
++the arena too, and the first class reads a range `out` held — `(class 97-99)` normalised into an `out` holding `5-7`
++dumps `(class 5-7)` and does not stop, which this plan's verifier found; **a fresh `Hir` made inside and handed back**,
++`hir_normalise(h)` answering one — fresh by construction, but `parse_pattern`, `hir_build` and `hir_read` each write
++into an arena its caller made and frees, and a normaliser alone allocating its caller's arena would be a second shape
++for one job; **the build normalising its own output** — the oracle's test runs both forms, which the 0.5
 +README's 0.5.5 box names, H-16's units hold the desugaring row by row, and the product's refusal and the stops answer
 +before any tree is finished; **normalising the AST before the build** — H-13 is the HIR's rule, and the AST's spans are
 +what the product's refusal reads (RX-232); **in place, in the build's arena** — what is spliced away or dropped would stay
@@ -239,10 +248,10 @@ index f0ddddc2492d60b824a5b3a7766081e348d2451e..390469fd8af1be0acd2e432fbce3de0c
 +pub use "./normal.npk".hir_normalise;
 diff --git a/src/hir/normal.npk b/src/hir/normal.npk
 new file mode 100644
-index 0000000000000000000000000000000000000000..ee35f3c8652af64a3df9e1aa55c5d9f8e57addab
+index 0000000000000000000000000000000000000000..c5fe37da05175b618e19b79a5092699f7b476ed4
 --- /dev/null
 +++ b/src/hir/normal.npk
-@@ -0,0 +1,313 @@
+@@ -0,0 +1,325 @@
 +// `src/hir/normal.npk` — NORMALISATION: A HIR'S TREE IN ITS NORMAL FORM. Cycle 0.2.3, RX-235 and
 +// RX-236; `meta/specs/HIR.md` rule H-13.
 +//
@@ -267,9 +276,9 @@ index 0000000000000000000000000000000000000000..ee35f3c8652af64a3df9e1aa55c5d9f8
 +// THE BUILD'S TREE STAYS AS IT WAS BUILT (RX-236). `hir_build` desugars (H-16) and this file
 +// normalises, so the oracle's test can run both forms (the cycle README's last 0.2.3 box) and the
 +// build's units hold H-5's table alone. The tree read is never written: the normal form goes into a
-+// `Hir` fresh from `hir_init` -- anything else stops `OutOfBounds`, as a misnumbered build does --
-+// every group and name copied unchanged, and that arena holds the tree and nothing else, its ranges
-+// its classes' and nothing else.
++// `Hir` fresh from `hir_init` -- no node, no range and group 0 alone, and anything else stops
++// `OutOfBounds`, as a misnumbered build does -- every group and name copied unchanged, and that arena
++// holds the tree and nothing else, its ranges its classes' and nothing else.
 +//
 +// HOW. A post-order walk on an explicit stack (`SAFETY.md` S-19) builds each node's normal form in a
 +// scratch arena of this file's own, from its children's -- splicing, dropping, sorting -- and marks
@@ -280,6 +289,13 @@ index 0000000000000000000000000000000000000000..ee35f3c8652af64a3df9e1aa55c5d9f8
 +// Every node is entered once and left once, so the walk is bounded by twice the arena, as the
 +// build's and the dump's are; a tree is what it reads (H-16), and an arena that is not one stops it
 +// `DecreasesViolated`.
++//
++// A CHAIN COSTS ITS DEPTH SQUARED (measured at `7e91730`, 2026-10-12). A member of its list's own kind
++// is spliced by copying its members into the list, so a `Concat` or an `Alternate` nested D deep in
++// its own kind copies each member once per level it rises, about D²/2 copies in all: a `Concat` chain
++// nested on the left took 5.5 s to normalise at 16 000 levels at -O0, four times 8 000's. A pattern
++// nests at most `NREGEX_NEST_DEPTH`, 250 (`SYNTAX.md` Y-35); a text `hir_read` reads is bounded by its
++// length alone.
 +//
 +// TOTAL OVER WHAT `hir_read` READS TOO (H-15): a `(concat)` is `Empty` and a `(concat X)` is `X`; a
 +// list of one alternative or of none, and a class of no range, stay as they are, since no identity
@@ -488,15 +504,20 @@ index 0000000000000000000000000000000000000000..ee35f3c8652af64a3df9e1aa55c5d9f8
 +    pass NIL;
 +};
 +
-+// obligation: never fails requires hir_len(out) == 0i64 && hir_group_count(out) == 1i64
++// obligation: never fails requires hir_len(out) == 0i64 && hir_group_count(out) == 1i64 && hir_range_count(out) == 0i64
 +//
 +// THE NORMAL FORM (H-13). Writes the normal form of the tree under `h`'s root into `out`, a `Hir`
 +// fresh from `hir_init` -- its groups and their names copied from `h` unchanged -- and sets `out`'s
 +// root; nothing for a `Hir` with no root but the groups. `h` is read and never written. An `out`
-+// that is not fresh stops `OutOfBounds`: its groups would be numbered past `h`'s, and every `group`
-+// would name another group's text.
++// that is not fresh stops `OutOfBounds`: a node it held would be more than the tree; a group it held
++// would number `h`'s past their own, and every `group` would name another group's text; and a range
++// it held would be read by the first class -- `(class 97-99)` normalised into an `out` holding `5-7`
++// would dump `(class 5-7)`. FRESH IS THREE COUNTS: no node, no range, and group 0 alone -- every
++// field `repr.npk`'s verbs write, since a name is written only with its group and the root only to a
++// node the arena holds.
 +pub func:hir_normalise = NIL(Hir->:h, Hir->:out) never fails {
-+    if (((raw hir_len(<-out)) != 0i64) || ((raw hir_group_count(<-out)) != 1i64)) { drop vec_oob(raw hir_len(<-out)); }
++    if (((raw hir_len(<-out)) != 0i64) || ((raw hir_group_count(<-out)) != 1i64)
++        || ((raw hir_range_count(<-out)) != 0i64)) { drop vec_oob(raw hir_len(<-out)); }
 +    drop hir_copy_groups(h, out);
 +    if (h.root == HIR_NONE) { pass NIL; }
 +    Vec<HirNode>:w = raw vec_init::<HirNode>(16i64);
@@ -627,7 +648,7 @@ index 1c3400ae8bb280323de18f0ba6cd467e64879cc8..3d48885ea7c6c45ae0a7b69342908b60
      if ((!(raw built("[]a]", "(class 93-93 97-97)"))) || (!(raw built("[a-]", "(class 97-97 45-45)")))) { pass 52i32; }
 diff --git a/tests/unit/hir_normalise.npk b/tests/unit/hir_normalise.npk
 new file mode 100644
-index 0000000000000000000000000000000000000000..0eb1cce68629fca1a3eed87909d74b1b1ab395fa
+index 0000000000000000000000000000000000000000..d499b4a8589fe4561c20b897ad62a1e1ec73f514
 --- /dev/null
 +++ b/tests/unit/hir_normalise.npk
 @@ -0,0 +1,570 @@
@@ -787,9 +808,9 @@ index 0000000000000000000000000000000000000000..0eb1cce68629fca1a3eed87909d74b1b
 +    else {
 +        Hir:r2 = raw hir_init(8i64);
 +        drop hir_normalise(@r, @r2);
-+        Bytes:read = raw bytes_init(64i64);
-+        drop hir_dump(@r2, @read);
-+        ok = ok && (raw same_bytes(out, @read));
++        Bytes:reread = raw bytes_init(64i64);
++        drop hir_dump(@r2, @reread);
++        ok = ok && (raw same_bytes(out, @reread));
 +        drop hir_free(@r2);
 +    }
 +    drop hir_free(@r);
@@ -1280,6 +1301,61 @@ index 0000000000000000000000000000000000000000..c8d9c4c0856b4f230c7ff839c79101a6
 +    drop hir_free(@out);
 +    drop hir_free(@h);
 +    exit 0i32;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/hir_normalise_stray_range.npk b/tests/unit/hir_normalise_stray_range.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..fa6f94e2f8390cce0e9aa3bb26fda5119279a1a7
+--- /dev/null
++++ b/tests/unit/hir_normalise_stray_range.npk
+@@ -0,0 +1,49 @@
++// expect-exit: 94
++//
++// AN ARENA HOLDING A RANGE AND NOTHING ELSE IS NOT FRESH, AND NORMALISING INTO IT STOPS. Cycle 0.2.3,
++// RX-236; `HIR.md` H-13 and H-16.
++//
++// `hir_normalise` copies the classes' ranges into `out` first and keeps each class's first index, so a
++// range `out` held already would be read by the first class: `(class 97-99)` normalised into an `out`
++// holding `5-7` would dump `(class 5-7)` -- a wrong class, and no stop. Here `out` holds that one range,
++// no node and group 0 alone: the node count and the group count are a fresh arena's, the range count is
++// not, and `hir_normalise` traps `OutOfBounds` (94) through `vec_oob`, as `hir_normalise_not_fresh.npk`
++// does for an arena read into before, before it writes anything. Were it not stopped, this unit would
++// exit 2 when the class read the stray range, and 3 when it did not.
++mod:hir_normalise_stray_range;
++
++use "../../src/core/core.npk".*;
++use "../../src/hir/hir.npk".*;
++
++func:main = int32(cstring[]:_~argv) {
++    Hir:h = raw hir_init(4i64);
++    discard(raw hir_read(string_bytes("(class 97-99)"), @h));
++    Hir:out = raw hir_init(4i64);
++    discard(raw hir_push_range(@out, ClassRange{ lo: 5u32, hi: 7u32 }));
++    drop hir_normalise(@h, @out);
++    HirNode:x = raw hir_get(out, out.root);
++    ClassRange:r = raw hir_range(out, x.a);
++    int32:e = 3i32;
++    if (r.lo == 5u32) { e = 2i32; }
++    drop hir_free(@out);
++    drop hir_free(@h);
++    exit e;
 +};
 +
 +func:failsafe = int32(Error:e) {

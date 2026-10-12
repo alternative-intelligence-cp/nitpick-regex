@@ -1,10 +1,10 @@
 # 0.2.3's mutants of src/hir/normal.npk, of repr.npk's group copy, and of the oracle unit's hook -- each one rule broken in
 # a copy of a tree, the text matched exactly ONCE or the row is a STOP; `mutants.py` builds every unit below that the tree
 # holds, in the copy, at both legs, and prints the units whose exits differ from the unchanged copy's. TAB-separated; `\n`
-# in a text is a newline. The first column is the block a row runs at: `2`, over the tree at step 2, where all five of
+# in a text is a newline. The first column is the block a row runs at: `2`, over the tree at step 2, where all six of
 # normalisation's units are. The build's and the arena's units are built too, and stay as they were: normalisation
 # touches neither.
-# units: hir_normalise hir_normalise_gate hir_normalise_oracle hir_normalise_not_fresh hir_normalise_not_a_tree hir_build hir_dump hir_unit
+# units: hir_normalise hir_normalise_gate hir_normalise_oracle hir_normalise_not_fresh hir_normalise_stray_range hir_normalise_not_a_tree hir_build hir_dump hir_unit
 2	no-concat-splice	src/hir/normal.npk	        if (x.kind == n.kind) {	        if ((x.kind == n.kind) && (n.kind == HirKind.Alternate)) {
 2	no-alternate-splice	src/hir/normal.npk	        if (x.kind == n.kind) {	        if ((x.kind == n.kind) && (n.kind == HirKind.Concat)) {
 2	splice-across-kinds	src/hir/normal.npk	        if (x.kind == n.kind) {	        if ((x.kind == HirKind.Concat) || (x.kind == HirKind.Alternate)) {
@@ -25,7 +25,8 @@
 2	class-drops-byte	src/hir/normal.npk	kind: HirKind.Class, flags: n.flags,	kind: HirKind.Class, flags: 0u32,
 2	groups-not-copied	src/hir/normal.npk	    drop hir_copy_groups(h, out);\n	
 2	names-not-copied	src/hir/repr.npk	        drop vec_push(@to.groups, GroupInfo{ off: off, len: g.len });	        drop vec_push(@to.groups, GroupInfo{ off: off, len: 0i64 });
-2	freshness-unchecked	src/hir/normal.npk	    if (((raw hir_len(<-out)) != 0i64) || ((raw hir_group_count(<-out)) != 1i64)) { drop vec_oob(raw hir_len(<-out)); }\n	
+2	freshness-unchecked	src/hir/normal.npk	    if (((raw hir_len(<-out)) != 0i64) || ((raw hir_group_count(<-out)) != 1i64)\n        || ((raw hir_range_count(<-out)) != 0i64)) { drop vec_oob(raw hir_len(<-out)); }\n	
+2	freshness-ranges-unchecked	src/hir/normal.npk	1i64)\n        || ((raw hir_range_count(<-out)) != 0i64)) { drop vec_oob	1i64)) { drop vec_oob
 2	literal-leaves-a-range	src/hir/normal.npk	        if ((wr.count == first) && (cur.lo == cur.hi)) {\n            pass raw push_w(	        if ((wr.count == first) && (cur.lo == cur.hi)) {\n            drop vec_push(wr, cur);\n            pass raw push_w(
 2	child-unmapped	src/hir/normal.npk	            if (holds && (y.a != HIR_NONE)) { y.a = raw vec_get(at, y.a); }\n	
 2	sibling-unmapped	src/hir/normal.npk	            if (y.next != HIR_NONE) { y.next = raw vec_get(at, y.next); }\n	

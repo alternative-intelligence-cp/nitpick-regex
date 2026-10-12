@@ -37,11 +37,12 @@ legs() {    # legs <src> <prefix> <name>=<argv words>...: build at both legs, th
 count() {   # count <copy's unit> <anchor line> <label>=<expression>...: a scratch copy of the unit per expression, the
             # anchor line preceded by an exit of the expression's low byte, then its high byte, each built and run at
             # both legs -- the counts a unit's floors stand on, read out of the unit itself, as 0.2.2's worker read the fuzz's
-  local src=$1 anchor=$2 e lab x part lo hi r0 r2; shift 2
+  local src=$1 anchor=$2 e lab x part lo hi r0 r2 zz; shift 2
+  zz=$(dirname "$src")/zz_count.npk
   for e in "$@"; do lab=${e%%=*}; x=${e#*=}
     for part in lo hi; do
       if [ "$part" = lo ]; then w="(($x) & 255i64)"; else w="((($x) >> 8i64) & 255i64)"; fi
-      python3 -B - "$src" "$(dirname "$src")/zz_count.npk" "$anchor" "    pass $w =>! int32;" <<'PY'
+      python3 -B - "$src" "$zz" "$anchor" "    pass $w =>! int32;" <<'PY'
 import re, sys
 s = open(sys.argv[1], encoding="utf-8").read()
 assert s.count(sys.argv[3]) == 1, "anchor"
@@ -49,13 +50,13 @@ s = s.replace(sys.argv[3], sys.argv[4] + "\n" + sys.argv[3])
 s = re.sub(r"^mod:[a-z_]+;", "mod:zz_count;", s, count=1, flags=re.M)
 open(sys.argv[2], "w", encoding="utf-8").write(s)
 PY
-      r0=$(legs "$(dirname "$src")/zz_count.npk" "x" "v=" | sed -E 's/.*: ([0-9]+) at -O0, ([0-9]+) after.*/\1 \2/')
+      r0=$(legs "$zz" "x" "v=" | sed -E 's/.*: ([0-9]+) at -O0, ([0-9]+) after.*/\1 \2/')
       [ "${r0% *}" = "${r0#* }" ] || echo "LEGS DIFFER: $lab $part $r0"
       eval "$part=${r0% *}"
     done
     echo "  $lab $((hi * 256 + lo))"
   done
-  rm -f "$(dirname "$src")/zz_count.npk"
+  rm -f "${zz:?}"
 }
 FAILSAFE='func:failsafe = int32(Error:e) {
     pick (e) {
@@ -78,18 +79,73 @@ FAILSAFE='func:failsafe = int32(Error:e) {
 rm -rf "${F:?}"; mkdir -p "$F/p"
 fresh head; fresh new 1 2 3 4
 
-# ---- §1.2 the names this plan gives, against the pin's keyword file, prelude and bare-name builtins; and `on`, reserved
-KW=$(git -C "$NPK_TREE" show $PIN:src/frontend/keywords.npk)
-PRE=$(git -C "$NPK_TREE" show $PIN:src/prelude/prelude.npk)
-BI=$(git -C "$NPK_TREE" show $PIN:src/frontend/builtins.npk)
-for n in normal hir_normalise hir_copy_groups Todo TODO_ONE TODO_LIST TODO_LEAVE push_w sort_ranges leave_class leave_list \
-         emit dead flat width mid left holds cur same_bytes is_tree ranges_exact same_groups normal_text pattern_normal \
-         normed normed_text one_form apart concats deep alternates empties classes put3 long_classes texts pairs rootless \
-         seeded bits merged literals CLASSES UNIVERSE MERGED_FLOOR LITERAL_FLOOR GNode Gen roll add adopt popcount gen cp_of \
-         put_cp put_hex put_class put_pat put_dump pattern_of noisy_of dump_of normal_of same_text mutate TREES DEPTH \
-         PAIRS_FLOOR JOINED_FLOOR NOISE_FLOOR MUTANT_FLOOR oracle_find NO_ORACLE hay HAYS PATTERNS on; do
-  echo "§1.2 \`$n\`: $(printf '%s' "$KW" | grep -c "\"$n\"") keyword line(s), $(printf '%s' "$PRE" | grep -cE "^pub [a-z]+:$n\b|^pub fixed [a-z0-9]+:$n\b") prelude declaration(s), $(printf '%s' "$BI" | grep -c "\"$n\"") builtin line(s)"
-done
+# ---- §1.2 every name the patches declare -- ENUMERATED from their added `.npk` lines, never chosen -- against the pin's
+#      keyword file, prelude and bare-name builtins. The enumeration proves itself first on a planted control holding every
+#      shape a declaration takes and three that are none, and the three lists on a name each holds: `on`, the reserved word
+#      a draft took (finding 11), `read`, a builtin's, and `Ordering`, the prelude's.
+git -C "$NPK_TREE" show $PIN:src/frontend/keywords.npk > "$F/p/keywords.txt"
+git -C "$NPK_TREE" show $PIN:src/prelude/prelude.npk > "$F/p/prelude.txt"
+git -C "$NPK_TREE" show $PIN:src/frontend/builtins.npk > "$F/p/builtins.txt"
+cat > "$F/p/names.npk.txt" <<'NPK'
+mod:zz_mod;
+#[derive(Copy)]
+struct:ZzStruct = {
+    int64:zz_field;
+};
+fixed int64:ZZ_CONST = 1i64;
+func:zz_func = int64(Hir->:zz_ptr, Vec<HirNode>->:zz_vec, fixed uint8[]:zz_view, int64[4]:zz_arr) never fails {
+    Bytes:zz_local = raw bytes_init(1i64);
+    drop vec_push(@zz_q, Todo{ node: zz_not_a_field, op: 1i64 });
+    Vec<int64>:zz_gen = raw vec_init::<int64>(16i64);
+    discard(string_bytes("int64:zz_not_in_a_string"));
+    pass 0i64;  // int64:zz_not_in_a_comment
+};
+func:main = int32(cstring[]:_~zz_argv) {
+    exit 0i32;
+};
+NPK
+python3 -B - "$T" "$F/p" <<'PY'
+import os, re, sys, textwrap
+T, P = sys.argv[1], sys.argv[2]
+def blank(s):
+    s = re.sub(r'"(?:\\.|[^"\\])*"', '""', s)
+    return s.split("//", 1)[0]
+DECL = re.compile(r"\b(?:func|struct|enum|mod|trait|impl):([A-Za-z_]\w*)")
+TYPED = re.compile(r"(?<![\w:])([A-Za-z_]\w*(?:<[^<>()]*>)?(?:\[\d*\])*(?:->)?):(?:_~)?([A-Za-z_]\w*)")
+KEYS = {"func", "struct", "enum", "mod", "trait", "impl", "use", "pub"}
+def declared(lines):
+    got = set()
+    for line in lines:
+        c = blank(line)
+        got.update(m.group(1) for m in DECL.finditer(c))
+        got.update(m.group(2) for m in TYPED.finditer(c) if m.group(1) not in KEYS)
+    return got
+kw, pre, bi = (open(os.path.join(P, f), encoding="utf-8").read().split("\n") for f in ("keywords.txt", "prelude.txt", "builtins.txt"))
+def lists(n):
+    return (sum(1 for l in kw if '"%s"' % n in l),
+            sum(1 for l in pre if re.match(r"^pub [a-z]+:%s\b|^pub fixed [a-z0-9]+:%s\b" % (n, n), l)),
+            sum(1 for l in bi if '"%s"' % n in l))
+planted = sorted(declared(open(os.path.join(P, "names.npk.txt"), encoding="utf-8")))
+print("§1.2 the enumeration over its planted control: %d name(s) -- %s" % (len(planted), " ".join(planted)))
+for n in ("on", "read", "Ordering"):
+    print("§1.2 the three lists over `%s`: %d keyword line(s), %d prelude declaration(s), %d builtin line(s)" % ((n,) + lists(n)))
+added = []
+for k in range(1, 5):
+    path = None
+    for line in open(os.path.join(T, "step%d.patch" % k), encoding="utf-8"):
+        if line.startswith("+++ b/"):
+            path = line[6:].strip()
+        elif line.startswith("+") and not line.startswith("+++") and path and path.endswith(".npk"):
+            added.append(line[1:])
+names = sorted(declared(added))
+hits = [(n,) + lists(n) for n in names if any(lists(n))]
+print("§1.2 the %d name(s) the patches' added `.npk` lines declare, comments and strings blanked: %d on a keyword line, "
+      "%d declared by the prelude, %d on a builtin line" % (len(names), sum(1 for h in hits if h[1]), sum(1 for h in hits if h[2]),
+                                                          sum(1 for h in hits if h[3])))
+for h in hits:
+    print("  HIT `%s`: %d keyword line(s), %d prelude declaration(s), %d builtin line(s)" % h)
+print(textwrap.fill(" ".join(names), width=118, initial_indent="  ", subsequent_indent="  ", break_on_hyphens=False))
+PY
 
 # ---- §1.3 the language the normaliser and its units are written in, asked of the pin
 printf 'mod:pa;\n\nfunc:main = int32(cstring[]:_~argv) {\n    int64:on = 1i64;\n    exit on =>! int32;\n};\n\n%s\n' "$FAILSAFE" > "$F/p/pa.npk"
@@ -109,9 +165,32 @@ echo "§1.5 after step 4:"; tchecks "$F/new"
 
 # ---- §1.6 the units in the patched copy, both legs
 echo "§1.6 after step 4:"
-for u in hir_normalise hir_normalise_not_fresh hir_normalise_not_a_tree hir_normalise_gate hir_normalise_oracle hir_build \
-         hir_dump hir_unit hir_build_classes hir_build_fold; do
+for u in hir_normalise hir_normalise_not_fresh hir_normalise_stray_range hir_normalise_not_a_tree hir_normalise_gate \
+         hir_normalise_oracle hir_build hir_dump hir_unit hir_build_classes hir_build_fold; do
   run4 "$F/new/tests/unit/$u.npk"; done | sed 's/^/  /'
+# and what FRESH covers: the fields of `Hir` each public verb of `repr.npk` writes, read from its text -- no other module
+# reads or writes a hidden field (`tests/rejection/hir_nodes_read.npk`) -- `hir_set_root`'s stops, and the counts
+# `hir_normalise`'s own stop reads
+python3 -B - "$F/new" <<'PY'
+import re, sys
+root = sys.argv[1]
+src = open(root + "/src/hir/repr.npk", encoding="utf-8").read()
+READS = ("bytes_len", "bytes_get")                 # a field lent by pointer to anything else is written
+FIELDS = ("nodes", "ranges", "names", "groups", "root")
+print("§1.6 the fields of `Hir` each public verb of `repr.npk` writes, after step 4:")
+for m in re.finditer(r"^pub func:(\w+) = [^\n]*\{\n(.*?)^\};", src, re.S | re.M):
+    body = m.group(2)
+    got = {f for v, f in re.findall(r"\b(\w+)\(@\w+\.(nodes|ranges|names|groups)\b", body) if v not in READS}
+    got |= set(re.findall(r"\b\w+\.(root|nodes|ranges|names|groups)(?:\.\w+)* = ", body))
+    if re.search(r"\bHir\{", body):
+        got |= set(FIELDS)
+    print("  %s: %s" % (m.group(1), " ".join(f for f in FIELDS if f in got) or "none"))
+body = re.search(r"^pub func:hir_set_root = [^\n]*\{\n(.*?)^\};", src, re.S | re.M).group(1)
+print("§1.6 `hir_set_root` stops before it writes: " + " | ".join(" ".join(l.split()) for l in body.split("\n") if "vec_oob" in l))
+normal = open(root + "/src/hir/normal.npk", encoding="utf-8").read()
+guard = re.search(r"^pub func:hir_normalise = [^\n]*\{\n(.*?)\{ drop vec_oob", normal, re.S | re.M).group(1)
+print("§1.6 the counts `hir_normalise`'s stop reads: " + " ".join(re.findall(r"\b(hir_\w+)\(<-out\)", guard)))
+PY
 
 # ---- §1.7 the counts the units' floors stand on, read out of the units in the patched copy
 echo "§1.7 hir_normalise's seeded classes:"
