@@ -31,7 +31,7 @@ RX-030, RX-031, RX-032. Settled. **No open questions.**
   *(2026-10-01, cycle 0.1.2 — RX-192: the check exists already, `check_no_recursion`, and
   reads every file under `src/` for a call cycle, `src/compile/` included; the explicit
   stack stays this cycle's.)*
-- [ ] every `HirKind` emitted
+- [ ] every `HirKind` emitted *(2026-10-12, cycle 0.2.3 — RX-236: from the normal form, `hir_normalise`'s; the build's tree is the desugared one)*
 - [ ] `check_inst_kinds_total` live: every `InstKind` emitted by the compiler and handled by the oracle — the engines' half goes live per engine cycle
 - [ ] `check_hir_kinds_total`'s compiler half now green
 - [ ] **`Split` order is the semantics** (C-11): preferred branch first, and a test asserting that swapping it changes the answer, so the ordering is protected by something

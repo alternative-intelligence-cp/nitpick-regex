@@ -101,14 +101,14 @@ RX-015, RX-031. Settled. **No open questions.**
 - [ ] a test asserting no normalisation changes which strings match, by running the oracle over both forms — **pending until 0.5**, and written now as a pending case *(2026-10-08, cycle 0.2.1 — RX-226: a unit can be pending on a subcycle of this library now, `// pending-until: 0.5.N exit E`, with its line in `harness/baseline/PENDING.txt`)*
 
 ### 0.2.4 — computed properties
-- [ ] `CAN_MATCH_EMPTY`, `IS_ANCHORED_START`, `IS_ANCHORED_END`, `IS_ALTERNATION_LITERAL`
+- [ ] `CAN_MATCH_EMPTY`, `IS_ANCHORED_START`, `IS_ANCHORED_END`, `IS_ALTERNATION_LITERAL` *(2026-10-12, cycle 0.2.3 — RX-236: over the normal form `hir_normalise` writes, where `[a]|b` is an alternation of two `Literal`s; the build's tree holds `[a]` as a class)*
 - [ ] computed in **one** bottom-up pass and cached (H-10) *(2026-10-08, cycle 0.2.1 — RX-227: the dump stops on a bit H-4a does not give a node's kind, so each bit this subcycle adds is refused there until it says how the dump shows it)*
 - [ ] the query computes-or-returns; no caller remembers to compute first — D-227's precedent, and the compiler found four defects in that neighbourhood, none by a test of the thing that broke
 - [ ] each flag asserted against a hand-computed reference over fifty patterns
 
 ### 0.2.5 — literal extraction
 - [ ] `Literal` shaped to own nothing, `Hir.literals` added and the dump given its section for them — moved here from 0.2.0 by RX-224, because its fields depend on the three roles H-11 names
-- [ ] required prefix, first-byte set, inner required literal
+- [ ] required prefix, first-byte set, inner required literal *(2026-10-12, cycle 0.2.3 — RX-235, RX-236: over the normal form, where a literal run is the adjacent `Literal` pieces of one flat `Concat` and a class is sorted and merged)*
 - [ ] bounded by `NREGEX_LITERAL_LIMIT` and `NREGEX_LITERAL_BYTES`
 - [ ] **conservative**: a pattern that defeats the analysis gets an empty set, never a wrong one (H-12)
 - [ ] a property test: for every corpus pattern and haystack, every position the real matcher finds is a position the first-byte set admits — **pending until 0.5**

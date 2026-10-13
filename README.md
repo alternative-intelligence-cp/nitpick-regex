@@ -8,8 +8,8 @@ makes the guarantee below possible.
 > **The guarantee, in one sentence: a search takes time linear in the length of
 > the haystack, on every pattern, on every input, always.**
 
-> **Status: cycle 0.2, the HIR, is open, and its first four parts — the arena, the desugaring, the adoption of
-> compiler `7e91730` and the repetition product — are done; cycle 0.1, the pattern parser, closed on 2026-10-08.** Cycle 0.0, the
+> **Status: cycle 0.2, the HIR, is open, and its first five parts — the arena, the desugaring, the adoption of
+> compiler `7e91730`, the repetition product and normalisation — are done; cycle 0.1, the pattern parser, closed on 2026-10-08.** Cycle 0.0, the
 > foundations, closed on 2026-09-26 — the language probes, the test harness and
 > the storage primitives in `src/core/` are built and audited — and cycle 0.1.0
 > laid the parser's pieces in `src/syntax/`: the closed list of pattern errors,
@@ -39,6 +39,8 @@ makes the guarantee below possible.
 > compiler to `7e91730`, where a string's bytes are a read-only view: every slice the library
 > takes says so, and LLVM is 20.1.8. Cycle 0.2.2 refuses a pattern whose nested repetitions would multiply past
 > 100 000 copies — `((a{1000}){1000}){1000}` at its second `{1000}` — before any memory is asked for its expansion.
+> Cycle 0.2.3 writes a HIR in a normal form, so patterns that differ only in how they are written — `a(?:bc)` and `abc`,
+> `[ba]` and `[a-b]` — are one HIR and one line of text, while nothing that changes what a pattern matches is joined.
 > Nothing matches a pattern yet.
 > The specification set is in [`meta/specs/`](meta/specs/) and the plan in
 > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
