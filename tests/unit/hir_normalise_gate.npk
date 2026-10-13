@@ -23,6 +23,10 @@
 // that reordered, merged a byte into a codepoint, or dropped a laziness, joins what this half keeps
 // apart. And FLOORS on every kind of noise and mutation, so the
 // pass cannot be green by looking nowhere (17).
+// *(2026-10-13, cycle 0.2.4 -- RX-240: *"FLOORS on every kind of noise"* was not true of a seventh kind, which
+// `put_pat` applied from the start and nothing counted: the atom a repetition holds, in a `(?:…)` it does not
+// need -- 476 times in 3 000 trees. It has a counter now, `repwraps`, and a floor of its own, `REPWRAP_FLOOR`:
+// it is rarer than the six above, and under their floor of 500.)*
 //
 // THE GENERATOR RECURSES, and so do its writers: their depth is the generator's own bound, four, not
 // an input's (`SAFETY.md` S-18), and `check_no_recursion` reads `src/`, not `tests/` (RX-192). A case
@@ -37,7 +41,8 @@ fixed int64:TREES = 3000i64;
 fixed int64:DEPTH = 4i64;
 fixed int64:PAIRS_FLOOR = 3000i64;       // pairs whose two patterns differ as text: every one
 fixed int64:JOINED_FLOOR = 1500i64;      // pairs whose BUILT dumps differ: only normalisation joins them
-fixed int64:NOISE_FLOOR = 500i64;        // each kind of noise applied at least this often
+fixed int64:NOISE_FLOOR = 500i64;        // each of six kinds of noise applied at least this often
+fixed int64:REPWRAP_FLOOR = 200i64;      // and the seventh, rarer (RX-240): a repetition's atom in a `(?:…)`
 fixed int64:MUTANT_FLOOR = 100i64;       // each kind of mutation applied at least this often
 
 // The kinds of node a tree holds.
@@ -79,6 +84,7 @@ struct:Gen = {
     int64:litcls;        // noise: a literal written as a class or an escape
     int64:clsnoise;      // noise: a class's members split, overlapped, doubled or reordered
     int64:quants;        // noise: a quantifier respelt, or an anchor's other name
+    int64:repwraps;      // noise: the atom a repetition holds in a `(?:…)` it does not need
 };
 
 // xorshift64 (Marsaglia), as `parse_fuzz.npk` writes it.
@@ -310,8 +316,10 @@ func:put_pat = NIL(Vec<GNode>->:t, Gen->:g, int64:i, int64:at, bool:noisy, Bytes
     }
     if (x.kind == G_REP) {
         GNode:c = raw vec_get(<-t, x.first);
-        bool:wrap = (c.kind == G_CAT) || (c.kind == G_ALT) || (c.kind == G_REP)
-                    || (noisy && ((raw roll(g, 4i64)) == 0i64));
+        bool:wrap = (c.kind == G_CAT) || (c.kind == G_ALT) || (c.kind == G_REP);
+        if ((!wrap) && noisy) {
+            if ((raw roll(g, 4i64)) == 0i64) { g.repwraps = g.repwraps + 1i64; wrap = true; }
+        }
         if (wrap) { drop bytes_extend_str(b, "(?:"); }
         drop put_pat(t, g, x.first, AT_ANY, noisy, b);
         if (wrap) { drop bytes_push(b, 41u8); }
@@ -572,7 +580,7 @@ func:mutate = bool(Vec<GNode>->:t, Gen->:g, int64:kind) never fails {
 
 func:run = int32() never fails {
     Gen:g = Gen{ rng: 1442695040888963407u64, group: 0i64, wraps: 0i64, altwraps: 0i64, empties: 0i64,
-                 litcls: 0i64, clsnoise: 0i64, quants: 0i64 };
+                 litcls: 0i64, clsnoise: 0i64, quants: 0i64, repwraps: 0i64 };
     int64:pairs = 0i64;
     int64:joined = 0i64;
     int64[4]:mutants = [0i64, 0i64, 0i64, 0i64];
@@ -616,7 +624,7 @@ func:run = int32() never fails {
     if (pairs < PAIRS_FLOOR) { pass 13i32; }
     if (joined < JOINED_FLOOR) { pass 16i32; }
     if ((g.wraps < NOISE_FLOOR) || (g.altwraps < NOISE_FLOOR) || (g.empties < NOISE_FLOOR) || (g.litcls < NOISE_FLOOR)
-        || (g.clsnoise < NOISE_FLOOR) || (g.quants < NOISE_FLOOR)) { pass 17i32; }
+        || (g.clsnoise < NOISE_FLOOR) || (g.quants < NOISE_FLOOR) || (g.repwraps < REPWRAP_FLOOR)) { pass 17i32; }
     if ((mutants[0] < MUTANT_FLOOR) || (mutants[1] < MUTANT_FLOOR) || (mutants[2] < MUTANT_FLOOR) || (mutants[3] < MUTANT_FLOOR)) { pass 17i32; }
     pass 0i32;
 };

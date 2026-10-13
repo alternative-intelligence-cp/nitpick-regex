@@ -6310,6 +6310,8 @@ the table as built, names and all, and no group moves; **an insertion sort** —
 pattern's length until cycle 0.3.4 counts `NREGEX_CLASS_RANGES`.
 
 ### RX-237 — the Gate's corpus generated: trees in normal form written plain and noisy, each pattern's dump its tree's reckoned again, and near misses held apart; the oracle's test written now, pending until cycle 0.5.5 on a hook; and RX-232's list of what it dated completed
+> **SUPERSEDED IN PART by RX-240 (2026-10-13)** — its *"Floors on every kind of noise and mutation"*: the gate applied a
+> seventh kind of noise, the atom a repetition holds in a `(?:…)` it does not need, and counted it nowhere. The decision stands.
 **2026-10-12, cycle 0.2.3 (the plan's PD-122), at compiler `7e91730`** — RX-226 and RX-229, `BUILD.md` B-5b, `TESTING.md` §7
 and V-20, the cycle README's 0.2.3 Gate box, *"a generated corpus of pattern pairs that are structurally equal but
 textually different produces byte-identical dumps"*, and its last box, *"a test asserting no normalisation changes which
@@ -6454,3 +6456,26 @@ a union of literals"*; **a write after the facts clearing them**, the pass run a
 every ancestor of a rewritten node holds a stale bit until the next query; **the dump writing the facts** — a tree would
 have a text before and another after, and `hir_read` would read a fact it must trust or check; **the dump refusing them**
 — every computed tree would be one the dump stops on.
+
+### RX-240 — the Gate's seventh kind of noise counted and floored: the atom a repetition holds, in a `(?:…)` it does not need, applied from the start and counted by nothing; and RX-237's list of the kinds it floors completed
+**2026-10-13, cycle 0.2.4 (the plan's PD-125), at compiler `7e91730`** — RX-237, `TESTING.md` §7, and the cycle README's 0.2.3
+Gate box. RX-237 says *"Floors on every kind of noise and mutation"*, and so do the gate's header, `TESTING.md`'s note and
+the box; the gate's `put_pat` applies a seventh kind of noise — a repetition's atom, a leaf or a group, written in a `(?:…)`
+it does not need — which no counter counts and no floor holds, as cycle 0.2.3's work verifier found (its finding 2).
+
+**The decision.** `tests/unit/hir_normalise_gate.npk` counts the seventh kind, `repwraps`, at the draw that applies it, and
+holds it to a floor of its own, `REPWRAP_FLOOR`, 200: it is applied 476 times in 3 000 trees, under the other six kinds'
+floor of 500, because it needs a noisy repetition of an atom. Every draw is the one it was, so every count RX-237 measured
+reads as it did. The gate's header, `TESTING.md`'s note and the cycle README's 0.2.3 Gate box each carry a dated note
+quoting the words it dates, and `NOISE_FLOOR`'s comment says six kinds; and this decision supersedes RX-237 in that list
+alone, its heading marked.
+
+**Measured at `7e91730`.** `hir_normalise_gate` exits 0 at both legs, and its counts, read out of the unit, are RX-237's —
+3 000 pairs textually different and 2 060 joined only by normalisation; the six kinds 1 716, 1 308, 1 283, 4 001, 3 078
+and 1 817 times; the four mutations 251, 467, 267 and 288 — and the seventh kind 476. With the draw kept and the noise never
+applied, the gate exits 17, its floors' exit (the plan's mutant `repwrap-never-applied`).
+
+*Alternatives declined:* **the seventh under the other kinds' floor of 500** — it is applied 476 times, and the gate would
+be red; **a dated note alone, no floor** — a gate that stopped applying the seventh kind would stay green, and the words
+would stay false; **the draw's odds raised to clear 500** — every count RX-237 measured would move, and the corpus with
+them; **RX-237's sentence rewritten** — a settled decision's text is never rewritten.

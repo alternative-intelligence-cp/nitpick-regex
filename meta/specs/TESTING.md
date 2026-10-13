@@ -195,6 +195,9 @@ by index, every refusal a crossing `Repeat`'s `{` inside the pattern, with floor
 corpus: three thousand seeded trees in normal form, each written plain and noisy and its dump held to the tree's,
 reckoned again, and each mutated once outside the identities and held apart, with floors on every kind of noise and
 mutation. RX-232's list of what it dated leaves out the note above, which its step wrote; RX-237 completes it.)*
+*(2026-10-13, cycle 0.2.4 — RX-240: *"with floors on every kind of noise"* was not true of a seventh kind, which the gate
+applied from the start and counted nowhere: the atom a repetition holds, written in a `(?:…)` it does not need. It has a
+counter now and a floor of its own, 200, under the other six kinds' 500; RX-240 completes RX-237's list.)*
 
 ---
 
