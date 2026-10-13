@@ -36,10 +36,10 @@ index 36d770b35e145f5391d7e6dc30808c06714d673d..80220fd86c3accd9ab53e60ee02a34c9
  *(2026-10-12, cycle 0.2.3 — RX-237: three since, the third normalisation's oracle test, pending on cycle 0.5.5.)*
 +*(@@DATE025@@, cycle 0.2.5 — RX-243: four since, the fourth literal extraction's property test, pending on cycle 0.5.5.)*
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index 42ed1b7b6d7157c2104c2cb845c4b40980257db5..e7215e23d71043a9e74c373ba2b710597ceb29c5 100644
+index 42ed1b7b6d7157c2104c2cb845c4b40980257db5..5c474c6aefcf66f46e50532be22286db1826be69 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
-@@ -6479,3 +6479,154 @@ applied, the gate exits 17, its floors' exit (the plan's mutant `repwrap-never-a
+@@ -6479,3 +6479,163 @@ applied, the gate exits 17, its floors' exit (the plan's mutant `repwrap-never-a
  be red; **a dated note alone, no floor** — a gate that stopped applying the seventh kind would stay green, and the words
  would stay false; **the draw's odds raised to clear 500** — every count RX-237 measured would move, and the corpus with
  them; **RX-237's sentence rewritten** — a settled decision's text is never rewritten.
@@ -83,12 +83,20 @@ index 42ed1b7b6d7157c2104c2cb845c4b40980257db5..e7215e23d71043a9e74c373ba2b71059
 +its normal form's literal section written by hand from H-19's table before the extraction first ran, and the first run
 +agreed with every row — literals and runs and their bytes, a byte's among them, alternations of plain literals, the empty
 +string and repetition, classes of codepoints of one to four bytes and of bytes, anchors and boundaries read through, and
-+byte twins, `(?-u)a` and `a`, with one set of literals. In the plan's mutant table every facet of H-19's words — a match's
-+bytes, a class's first bytes, the first-byte set's walk, the prefix and an alternation in it, the inner literal, each side
-+of their bounds and each walk's own bound — is broken by a row of its own, its edit made at that facet's code and nowhere
-+else, seventy rows, every one red at both legs: in the reference, in `tests/unit/hir_literal.npk` — the bounds' edges, and
-+the shapes only a text holds — or in RX-243's fuzz, which a row that writes a literal wrong the unsafe way reddens by a
-+string drawn from the tree. A list of no member is read by the same words, and `hir_literal`'s texts hold it.
++byte twins, `(?-u)a` and `a`, with one set of literals. In the plan's mutant table every facet of H-19 as the code
++implements it — a match's bytes, each length's range and count, each lead's place, mark and payload, a continuation's
++mark, six bits and order; a class's first bytes, each side of the ASCII edge; the first-byte set's walk; the prefix and
++an alternation in it, every alternative and every byte of each, its own and no more; the inner literal; the byte flag at
++each read, each side of every bound and each walk's own bound — is broken by a row of its own, its edit made at that
++facet's code and nowhere else, one hundred and five rows, every one red at both legs: in the reference, in
++`tests/unit/hir_literal.npk` — the bounds' edges, a codepoint past U+3FFFF, the ASCII edge, alternations and runs of
++multi-byte literals, and the shapes only a text holds — or in RX-243's fuzz, which a row that writes a literal wrong the
++unsafe way reddens by a string drawn from the tree. Beneath the facets, the plan's operator sweep mutates every operator,
++constant and statement of the extraction and of the section's reading once — 515 mutants — and every one is red in a
++unit but 44, each equivalent and each named in the plan: a first capacity, a measure's slack, a clamp or an edge that
++changes no byte, a step kind or a list's end no walk tells apart, an offset that is always 0, a value written before it
++is read, and a byte the caller has checked. A list of no member is read by the same words, and `hir_literal`'s texts
++hold it.
 +
 +*Alternatives declined:* **a set of prefix literals, Rust's shape** — every literal an alternation can begin with, for a
 +multi-literal prefilter `ENGINES.md` R-20 does not list at 1.0, where H-11 says *"the required literal prefix, if every
@@ -135,9 +143,9 @@ index 42ed1b7b6d7157c2104c2cb845c4b40980257db5..e7215e23d71043a9e74c373ba2b71059
 +**Measured at `7e91730`.** `tests/unit/hir_literal.npk` exits 0 at both legs, and `hir_literal_no_root`,
 +`hir_literal_not_extracted` and `hir_literal_frozen` 94 — a `Hir` with no root, an entry read before any is extracted, and
 +a write to a tree whose literals are; `hir_dump`, `hir_props` and the units before them as before. In the plan's mutant
-+table twenty-three rows break the query, the store, the section and its reading, a term each, and every one is red: an extraction that asks the root no fact leaves a `Literal`'s tree open, and `hir_literal_frozen` exits
++table twenty-four rows break the query, the store, the section and its reading, a term each, and every one is red: an extraction that asks the root no fact leaves a `Literal`'s tree open, and `hir_literal_frozen` exits
 +3; a query that extracts every time holds a second set of entries; a reader that takes a section as written accepts one
-+its tree does not give. `Literal` is 24 bytes, measured in `hir_literal`, and `check_vec_elements_own_nothing` clears
++its tree does not give; a reader that copies the tree's nodes and not its ranges stops on the first class it reads back. `Literal` is 24 bytes, measured in `hir_literal`, and `check_vec_elements_own_nothing` clears
 +`Vec<Literal>`.
 +
 +*Alternatives declined:* **the literals in a struct of their own, beside `Hir`** — H-2 draws `Vec<Literal>:literals` in
@@ -183,9 +191,10 @@ index 42ed1b7b6d7157c2104c2cb845c4b40980257db5..e7215e23d71043a9e74c373ba2b71059
 +keeping every claim; patterns whose literals hold a prefix 257, a whole match 1 341, a first-byte set 2 064, `anywhere` 936
 +and an inner literal 1 694, each over its floor of 150. `hir_literal_oracle` exits 1 at both legs: every pattern builds,
 +normalises and extracts, and every comparison meets the hook's answer that there is no oracle. In the plan's mutant table
-+a hook that finds no match makes it exit 0, and one that finds an empty match everywhere 13 — so its 1 is the hook's alone
-+— and the rows that write a literal wrong the unsafe way redden the fuzz at its claim's number; one that says nothing
-+reddens it at its floors, 17.
++a hook that finds no match makes it exit 0; one that finds an empty match everywhere, 13; and three that find a one-byte
++match where the first-byte set, the prefix or the inner literal does not admit it, 11, 12 and 14 — so its 1 is the
++hook's alone, and each claim can fire — and the rows that write a literal wrong the unsafe way redden the fuzz at its
++claim's number; one that says nothing reddens it at its floors, 17.
 +
 +*Alternatives declined:* **the property test alone, pending** — nothing would measure the safe direction until cycle
 +0.5.5; **a naive matcher in the test now** — the oracle's job, which cycle 0.5 writes first and tests against hand-written
@@ -1087,10 +1096,10 @@ index 1926097d78b87af99de1b78f6c2618e11bd4fb32..b1f4e9d4105310c32cbe2f03491f77a5
  };
 diff --git a/tests/unit/hir_literal.npk b/tests/unit/hir_literal.npk
 new file mode 100644
-index 0000000000000000000000000000000000000000..fe25f50ca6ccb7acb961b497ec672445a2354df6
+index 0000000000000000000000000000000000000000..77107b8c7707c26242b5b4fdf33d1669643cd572
 --- /dev/null
 +++ b/tests/unit/hir_literal.npk
-@@ -0,0 +1,383 @@
+@@ -0,0 +1,423 @@
 +// expect-exit: 0
 +//
 +// THE LITERALS: THE QUERY, THE STORE, THE DUMP'S SECTION AND ITS READING, THE BOUNDS' EDGES, AND THE TREE
@@ -1110,12 +1119,18 @@ index 0000000000000000000000000000000000000000..fe25f50ca6ccb7acb961b497ec672445
 +//   13 … 18  the query and the store: none before it, and no section; three entries, each role's bytes; a
 +//            second query extracts nothing; the facts computed first, every node, and `Literal` 24 bytes; the
 +//            dump's section, and the text with it read back to a Hir that holds them
-+//   20 … 26  the section read back: round trips, and every section that is not the tree's refused at its
-+//            first byte that differs, the root left unset and no literal written
++//   20 … 27  the section read back: round trips, and every section that is not the tree's refused at its
++//            first byte that differs, the root left unset and no literal written; and a class's ranges read
++//            back, of one range and of two
 +//   30 … 38  the bounds' edges: a prefix of exactly `NREGEX_LITERAL_BYTES` bytes and one past it, a codepoint
 +//            cut at the bound, an inner literal past it, a first-byte set of `NREGEX_LITERAL_LIMIT` bytes and one
 +//            of a byte more, an alternation's shared bytes cut at the bound, of two alternatives and of one, and a
 +//            prefix and a run each counted at the bound
++//   40 … 46  every byte and every member: a codepoint and a class of four bytes past U+3FFFF; a class across
++//            the ASCII edge; alternations -- the last alternative no plain literal, a literal of two bytes alone
++//            and in a run, three alternatives, and an alternative that is a literal shorter than the first, the
++//            alternatives after it holding what follows its bytes there; and runs of three bytes holding a
++//            literal of two bytes first and after
 +//
 +// A case that differs exits with its number; the program exits 0 only after every `hir_free` and
 +// `ast_free`. The stops are units of their own: `hir_literal_no_root`, `hir_literal_not_extracted` and
@@ -1339,7 +1354,7 @@ index 0000000000000000000000000000000000000000..fe25f50ca6ccb7acb961b497ec672445
 +};
 +
 +func:sections = int32() never fails {
-+    // ---- 20 … 26: the section read back
++    // ---- 20 … 27: the section read back
 +    if ((!(raw round("(literal 97) (literals (whole 97) (first 97) (inner 97))")))
 +        || (!(raw round("(class) (literals (first))")))
 +        || (!(raw round("(concat) (literals (anywhere))")))
@@ -1355,6 +1370,11 @@ index 0000000000000000000000000000000000000000..fe25f50ca6ccb7acb961b497ec672445
 +    if ((!(raw refused("(literal 97) (literals)", 22i64))) || (!(raw refused("(literal 97) (literals (anywhere))", 24i64)))) { pass 25i32; }
 +    if ((!(raw refused("(literal 97) x", 12i64))) || (!(raw refused("(literal 97) ", 12i64)))
 +        || (!(raw refused("(literal 97)  (literals (whole 97) (first 97) (inner 97))", 12i64)))) { pass 26i32; }      // no section begins
++    // a class's ranges read back, each one: round trips of one range and of two, and a byte short and a byte wrong
++    if ((!(raw round("(class 97-99) (literals (first 97 98 99))")))
++        || (!(raw round("(class 97-99 120-122) (literals (first 97 98 99 120 121 122))")))
++        || (!(raw refused("(class 97-99) (literals (first 97 98))", 36i64)))
++        || (!(raw refused("(class 97-99 120-122) (literals (first 97 98 99 120 121 123))", 58i64)))) { pass 27i32; }
 +    pass 0i32;
 +};
 +
@@ -1449,11 +1469,40 @@ index 0000000000000000000000000000000000000000..fe25f50ca6ccb7acb961b497ec672445
 +    pass 0i32;
 +};
 +
++func:edges = int32() never fails {
++    // ---- 40 … 46: a codepoint's lead past U+3FFFF, the ASCII edge, an alternation's every alternative and every
++    // byte, and a run's every byte
++    if ((!(raw text_has("(literal 1114111)", "(literals (whole 244 143 191 191) (first 244) (inner 244 143 191 191))")))
++        || (!(raw text_has("(class 131072-1114111)", "(literals (first 240 241 242 243 244))")))) { pass 40i32; }
++    // a class across the ASCII edge: `7F` its own byte, then `C2`, U+0080's lead, and nothing between
++    if (!(raw pattern_has(string_bytes("[\\x7F-\\x80]"), true, "(literals (first 127 194))"))) { pass 41i32; }
++    // the last alternative no plain literal: no prefix
++    if (!(raw text_has("(alternate (literal 0) (class 98-99))", "(literals (first 0 98 99))"))) { pass 42i32; }
++    // alternatives of a literal of two bytes, alone and in a run: every byte written and compared, the whole match
++    if ((!(raw pattern_has(string_bytes("é|é"), true, "(literals (whole 195 169) (first 195) (inner 195 169))")))
++        || (!(raw pattern_has(string_bytes("éa|éa"), true, "(literals (whole 195 169 97) (first 195) (inner 195 169 97))")))) { pass 43i32; }
++    // three alternatives: each the same bytes, its own and no more, the whole match
++    if (!(raw pattern_has(string_bytes("a|a|a"), true, "(literals (whole 97) (first 97) (inner 97))"))) { pass 44i32; }
++    // an alternative that is a literal, shorter than the first, the next alternatives what follows its bytes in
++    // the first: each compared alone
++    if (!(raw text_has("(alternate (concat (literal 97) (literal 98) (literal 99)) (literal 97) (literal 98) (literal 99))",
++                       "(literals (first 97 98 99))"))) { pass 45i32; }
++    // and followed by a `Concat` whose first piece is node 4 -- the reader numbers a node's children before it --
++    // and 4 the byte the first alternative holds next: no alternative's bytes are read past its own
++    if (!(raw text_has("(alternate (concat (literal 97) (literal 4)) (literal 97) (concat (literal 97) (literal 4)))",
++                       "(literals (prefix 97) (first 97) (inner 97))"))) { pass 45i32; }
++    // runs of three bytes, one holding a literal of two at its start or after it: as long as `abc`, and read first
++    if ((!(raw pattern_has(string_bytes("[0-9]éx[0-9]abc"), true, "(literals (first 48 49 50 51 52 53 54 55 56 57) (inner 195 169 120))")))
++        || (!(raw pattern_has(string_bytes("[0-9]xé[0-9]abc"), true, "(literals (first 48 49 50 51 52 53 54 55 56 57) (inner 120 195 169))")))) { pass 46i32; }
++    pass 0i32;
++};
++
 +func:main = int32(cstring[]:_~argv) {
 +    int32:r = raw texts();
 +    if (r == 0i32) { r = raw store(); }
 +    if (r == 0i32) { r = raw sections(); }
 +    if (r == 0i32) { r = raw bounds(); }
++    if (r == 0i32) { r = raw edges(); }
 +    exit r;
 +};
 +

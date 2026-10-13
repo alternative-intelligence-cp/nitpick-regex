@@ -1,0 +1,20 @@
+# 0.2.5's planted twins, read by `sweep.py control` beside the patches: for EVERY claim step 1 dates, the claim in other
+# words -- a twin a search for its own words cannot see (plan verification 1's finding 5). TAB-separated: where the claim
+# stands, the claim in its words, and the twin. The control prints each with the patterns that see it, or `NONE`, which
+# the plan's §5b names: a subject no pattern can catch without flooding the sweep, left to the worker's second sweep.
+HIR.md H-2	`Hir` holds no `literals` until cycle 0.2.5	A `Hir` is its nodes, its ranges, its names and its groups, and that is all it keeps.
+HIR.md H-11	bounded by `NREGEX_LITERAL_LIMIT` entries and `NREGEX_LITERAL_BYTES` each	The three hints are capped, the set by how many it may name and the other two by how long they may run.
+HIR.md H-12	its failure mode is "no literals" — an empty literal set	When the analysis gives up, the prefilter is handed nothing and the search is merely slower.
+HIR.md H-15	writes the tree under the root as one line	The dump's text is the tree and ends with the tree's last parenthesis.
+SAFETY.md S-23a	`Literal` is cycle 0.2.5's	`Literal` has no fields yet.
+vec.npk	`Literal` … will at cycle 0.2.5	`Literal` is declared with nothing in it, and a later cycle gives it its members.
+limits.npk	the most literals a prefilter will consider	How many single bytes a skip loop may look for at once.
+limits.npk	in total	The cap counts all the literals together.
+dump.npk header	`hir_dump` writes a HIR as one line of text	The dump's output is the tree's text and nothing else.
+dump.npk hir_dump	Appends the tree under `h`'s root	Writes every node the root reaches, then stops.
+dump.npk hir_read	Appends the nodes `text` describes to `out` … sets its root and answers HIR_NONE	Reads the text into the arena, roots it, and reports success.
+repr.npk hir_free	A node, a range and a group own nothing, so each block is its whole obligation	Freeing a `Hir` releases its nodes, its ranges and its groups, which is everything it owns.
+normal.npk	FRESH IS THREE COUNTS	An output is fresh when it has no node, no range and no group.
+PENDING.txt, its README, CI, SAFETY.md	three units are pending	Three tests wait for a later cycle to pass.
+TESTING.md	the fuzz units §7 lists, each with its floors	The library's fuzzers are the parser's and the builder's.
+the 0.5 README's 0.5.5 box	0.2's pending literal-extraction property test now green	Cycle 0.5.5 turns the literal test that waits on the oracle green.

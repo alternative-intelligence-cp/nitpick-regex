@@ -24,7 +24,10 @@ removed lines). `control` reads every `step<N>.patch` beside it and, for each hu
 lines the hunk REMOVES, joined -- the parent side -- and, for every dated note the hunk adds, the claim the note
 annotates: the unchanged lines just above it, and the words it quotes, `*"…"*`, which name a claim that stands higher up.
 Each prints with the numbers of the patterns that match it, or `NONE`: a hunk the sweep cannot see, which the plan names
-by its kind, or the pattern list grows.
+by its kind, or the pattern list grows. And THE TWINS (plan verification 1's finding 5): `sweep_twins.txt` beside the
+patches holds, for every claim step 1 dates, the claim written in other words, and each prints with the patterns that
+see it by its subject, or `NONE` -- a subject no pattern catches without flooding the sweep, which the plan's §5b names
+and leaves to the worker's second sweep by subject.
 """
 import bisect
 import os
@@ -107,6 +110,12 @@ def control(tools, patfile):
                 hunk.append(l)
         flush()
         n += 1
+    twins = os.path.join(tools, "sweep_twins.txt")
+    if os.path.exists(twins):
+        for l in open(twins, encoding="utf-8"):
+            if l.strip() and not l.startswith("#"):
+                site, _claim, twin = l.rstrip("\n").split("\t")
+                print("twin %s: %s" % (site, hits([twin])))
     return 0
 
 

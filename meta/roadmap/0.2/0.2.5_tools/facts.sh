@@ -395,7 +395,11 @@ gone = ["int64:limit", "2047i64", "65535i64", "U+07FF and U+FFFF", "(n.b != 1i64
         "six entries", "asked for no facts", "where it stands", "every term of the query", "drop vec_oob(h.root)",
         "by its place", "through `whole`", "(concat (literal 97) (literal 98))\"), @h)) != HIR_NONE) { exit 1i32; }",
         # and the measured texts' and the fuzz header's first words on what the reference and the fuzz hold
-        "of one to four, alternations", "every quantifier's shape", "`b`, `c` and `é`"]
+        "of one to four, alternations", "every quantifier's shape", "`b`, `c` and `é`",
+        # and plan verification 1's fix: the counts and words it replaced, and its own drafts' (§8)
+        "every facet of H-19's words", "seventy rows", "twenty-three rows", "everywhere 13", "20 … 26",
+        "a vector's first capacity", "one step to spare", "an edge's form that adds an empty span",
+        "mutated once by the plan's operator sweep", "node 6"]
 text = "".join(added)
 print("§1.12 the drafts' replaced words, in the patches' %d added lines: " % len(added) + "; ".join("%s %d" % (g, text.count(g)) for g in gone))
 PY

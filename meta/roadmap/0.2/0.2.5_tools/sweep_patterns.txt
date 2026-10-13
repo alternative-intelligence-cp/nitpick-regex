@@ -4,18 +4,22 @@
 # (0.2.4's worker's second sweep) -- and every place a reader would look for what they changed. `Literal` left to 0.2.5;
 # `Literal`'s shape and the fields; what the dump writes; what `hir_read` reads and sets; the two bounds; the three
 # literals by their names; H-12's "no literals"; `hir_free`'s blocks; normalisation's freshness; the run's count; the
-# subcycle that is next; the status's parts; the pending units; and the prefilters, which read the literals.
+# subcycle that is next; the status's parts; the pending units; and the prefilters, which read the literals. And BY
+# SUBJECT, for the twins `sweep_twins.txt` plants, one for every claim step 1 dates (plan verification 1's finding 5):
+# what a `Hir` holds and what `Literal` has; what the dump writes and what `hir_read` reads into; the caps, and how many
+# bytes a skip loop looks for; what freeing releases; what is fresh; the tests that wait; and the fuzzers, pattern 15.
 literals.? until (cycle )?0\.2\.5|holds no .?literals|Literal.? (is|will)[^.]{0,40}0\.2\.5|0\.2\.5's, (shaped|with the extraction)|left to (cycle )?0\.2\.5|the two left|left to shape
-\bLiteral\b[^.]{0,60}(shape|own nothing|offset)|Hir\.literals|Vec<Literal>|Hir\.lits
-appends the tree|writes the tree under|tree under .?h.?'s root|as one line|one line of text|a tree has one text|one text before
-sets its root and answers|reads exactly that|hir_dump\(hir_read|what .?hir_dump.? writes there
-in total|NREGEX_LITERAL_(LIMIT|BYTES)|entries and .?NREGEX
+\bLiteral\b[^.]{0,60}(shape|own nothing|offset)|Hir\.literals|Vec<Literal>|Hir\.lits|\bLiteral\b[^.]{0,30}\b(no|its|any|empty|without)\b[^.]{0,10}\b(fields?|members?)\b|\bLiteral\b[^.]{0,30}\bnothing in it\b|\bHir\b[^.]{0,30}\b(is|holds|keeps|carries|has)\b[^.]{0,40}\bnodes\b[^.]{0,40}\branges\b
+appends the tree|writes the tree under|tree under .?h.?'s root|as one line|one line of text|a tree has one text|one text before|\bdump('s)?\b[^.]{0,20}\b(text|output)\b[^.]{0,20}\b(is|ends)\b|\b(writes|appends|prints)\b[^.]{0,20}\b(every|each|all the) nodes?\b|\b(dump|hir_dump)\b[^.]{0,10}\b(writes|prints|emits|gives|outputs)\b[^.]{0,30}\b(tree|nothing|line|text)\b
+sets its root and answers|reads exactly that|hir_dump\(hir_read|what .?hir_dump.? writes there|\b(reads?|parses?)\b[^.]{0,30}\binto\b[^.]{0,30}\b(arena|hir|out)\b
+in total|NREGEX_LITERAL_(LIMIT|BYTES)|entries and .?NREGEX|\bhints?\b[^.]{0,30}\b(capped|bounded|limited)\b|\b(capped|bounded|limited)\b[^.]{0,30}\bhints?\b|\b(how many|most)\b[^.]{0,30}\b(bytes|literals)\b[^.]{0,40}\b(look|scan|search)(es|s)? for\b|\ball (the )?literals\b|\bliterals together\b|\baltogether\b
 literal prefix|required (literal )?prefix|first.byte set|inner (required )?literal|required literal|possible first bytes
 no literals|empty literal set|literal set|failure mode
-own nothing, so each block|a node, a range and a group
-three counts|every field .?repr\.npk.?'s verbs write|fresh is
+own nothing, so each block|a node, a range and a group|\b(free|frees|freeing|releases?)\b[^.]{0,40}\bnodes\b[^.]{0,30}\branges\b
+three counts|every field .?repr\.npk.?'s verbs write|fresh is|\bfresh\b[^.]{0,40}\b(no node|counts?|nodes?)\b
 \b(334|347)\b.{0,20}(unit|/)
 0\.2\.5.{0,40}\bnext\b|\bnext\b.{0,30}0\.2\.5|whose plan no file holds yet|0\.2\.6.{0,30}\bnext\b
 (six|seven) parts
-(three|four) (units )?(are )?pending|(three|four) pending|pending outside|all (three|four) outside|(three|four) since|(three|four) lines? on|and a (third|fourth)
+(three|four) (units )?(are )?pending|(three|four) pending|pending outside|all (three|four) outside|(three|four) since|(three|four) lines? on|and a (third|fourth)|\b(three|four)\b[^.]{0,20}\b(tests?|units?)\b[^.]{0,20}\bwait|\bwaits? on the oracle\b|0\.5\.5[^.]{0,60}\bgreen\b
 prefilter
+\bfuzzers?\b[^.]{0,30}\b(are|is)\b
