@@ -103,6 +103,8 @@ A list's members — a `Concat`'s pieces, an `Alternate`'s alternatives — are 
 `HIR_NONE`. `flags` holds the two bits above, and cycle 0.2.4's computed properties (H-9) take others. No pattern flag
 survives (H-6): `m` is an `Anchor`'s value, `s` a `.`'s class, `i` folded ranges, `x` the parser's, and `u` is
 `HIR_FLAG_BYTE`, which says what a node matches.
+*(2026-10-13, cycle 0.2.4 — RX-239: *"take others"* — the high half, `HIR_PROPS_COMPUTED` and H-9's four, `HIR_COMPUTED`'s five
+bits, which every kind takes, only `repr.npk`'s pass writes and the dump does not show (H-18).)*
 
 ---
 
@@ -214,11 +216,67 @@ each is a whole-subtree walk:
 | `IS_ANCHORED_END` | every match ends at the haystack end | reverse search |
 | `IS_ALTERNATION_LITERAL` | the subtree is a union of plain literals | the Aho-Corasick-style prefilter |
 
+*(2026-10-13, cycle 0.2.4 — RX-238: the four are `repr.npk`'s `HIR_CAN_MATCH_EMPTY`, `HIR_IS_ANCHORED_START`,
+`HIR_IS_ANCHORED_END` and `HIR_IS_ALTERNATION_LITERAL`, and H-17 says what each is, kind by kind. *"The subtree matches the
+empty string"* is that it MAY: false only where no match is empty, an assertion taken to hold. *"Every match begins at the
+haystack start"* and *"ends at the haystack end"* hold only where they are certain, and only the text's anchors make them:
+under `m`, `^` and `$` anchor neither end. *"A union of plain literals"* is a plain literal — a `Literal`, or a literal run —
+or an `Alternate` of plain literals.)*
+
 **Rule H-10 — these are computed once, in one bottom-up pass, and never
 recomputed.** The compiler's D-227 is the precedent and the reason: a memoised
 fact that is read before it is computed is a defect that presents as something
 else entirely, and the answer is that the query computes-or-returns rather than
 the caller remembering to.
+*(2026-10-13, cycle 0.2.4 — RX-239: the query is `hir_props`, and the one pass `repr.npk`'s, over the whole tree under the
+root; *"never recomputed"* holds because a tree whose facts are computed is finished — `hir_set` and `hir_set_root` stop on
+it — and the pass stops on a node it leaves twice (H-18).)*
+
+**Rule H-17 — the four facts, kind by kind** (RX-238). Each is a fact of a node's subtree, computed from its kind, its
+operands and its children's facts, and each errs one way only. `CAN_MATCH_EMPTY` is MAY match the empty string — an
+assertion is zero-width (`SYNTAX.md` Y-20) and is taken to hold — so a subtree without it never matches the empty string:
+the iterator's advance (Y-21) and the one-pass engine's eligibility are wrong only on a false *no*. `IS_ANCHORED_START`,
+`IS_ANCHORED_END` and `IS_ALTERNATION_LITERAL` hold only where they are certain: an anchored search skips the scan loop, a
+reverse search starts at the end, and the prefilter reads the literals, each wrong only on a false *yes*. A **plain
+literal** is a `Literal`, or a literal run — a `Concat` of one piece or more, every piece a `Literal` (RX-235).
+
+| Kind | `CAN_MATCH_EMPTY` | `IS_ANCHORED_START` | `IS_ANCHORED_END` | `IS_ALTERNATION_LITERAL` |
+|---|---|---|---|---|
+| `Empty` | yes | no | no | no |
+| `Literal` | no | no | no | yes |
+| `Class` | no | no | no | no |
+| `Concat` | every piece's | its first piece's | its last piece's | one piece or more, every one a `Literal` |
+| `Alternate` | some alternative's | one alternative or more, every one's | one alternative or more, every one's | one alternative or more, every one a plain literal |
+| `Repeat` | a minimum of 0, or its body's | a minimum of 1 or more, and its body's | a minimum of 1 or more, and its body's | no |
+| `Group` | its body's | its body's | its body's | no |
+| `Anchor` | yes | `HIR_TEXT_START` | `HIR_TEXT_END` | no |
+| `WordBoundary` | yes | no | no | no |
+
+**The anchors are the text's alone.** `^` and `\A` are `HIR_TEXT_START` and `$` and `\z` `HIR_TEXT_END` (H-16); under `m`,
+`^` and `$` are `HIR_LINE_START` and `HIR_LINE_END`, which hold after and before every `\n` too (`SYNTAX.md` §6, Y-19), and
+anchor neither end. A list of no member, which only a text `hir_read` reads holds, is read by the same words: a `Concat` of
+none may match the empty string, and an `Alternate` of none matches nothing and holds no other fact. **No fact reads
+`HIR_FLAG_BYTE`, `HIR_FLAG_LAZY` or a class's ranges**, so `(?-u)a` and `a` have one set of facts. **The facts are of the
+tree they are computed over**: over the normal form, which every later stage reads (H-1, RX-236), `[a]|b` and `a(?:bc)`
+are plain literals or a union of them and `(?:)^a` is anchored at the start; over the build's tree, where `[a]` is a
+class, `a(?:bc)` a `Concat` holding a `Concat` and `(?:)^a` begins with an `Empty`, none is.
+`tests/unit/hir_props_reference.npk` holds fifty patterns' facts, each written by hand from this table.
+
+**Rule H-18 — the cache, the query, and a finished tree** (RX-239). The facts live in the high half of a node's `flags`,
+where no AST flag is: `HIR_PROPS_COMPUTED`, 65 536, and H-9's four above it — `HIR_CAN_MATCH_EMPTY`,
+`HIR_IS_ANCHORED_START`, `HIR_IS_ANCHORED_END` and `HIR_IS_ALTERNATION_LITERAL` — the five together `HIR_COMPUTED`. A node
+without `HIR_PROPS_COMPUTED` holds no fact: the distinct "not yet computed" state, never `false`. **The query is
+`hir_props(Hir->:h, int64:i)`**, in `src/hir/repr.npk`, answering node `i`'s four bits: when the root holds no
+`HIR_PROPS_COMPUTED` it first runs the one pass, over the whole tree under the root, each node after its children, on an
+explicit stack bounded by twice the arena (`SAFETY.md` S-19); then it reads. A `Hir` with no root, and a node the root does
+not reach, have no facts, and the query stops `OutOfBounds` on each; the pass stops `OutOfBounds` on a node it leaves
+twice, and `DecreasesViolated` past its bound. **Only that pass writes the five bits**: `hir_push` and `hir_set` drop them
+from every node they are handed, so no builder writes a fact, and a node copied from a computed tree — `hir_normalise`
+copies a node's `flags` — carries none. **A tree whose facts are computed is finished**: `hir_set` and `hir_set_root` stop
+`OutOfBounds` on it, so a cached fact is never stale, and the pass never runs twice over one tree (H-10). **The dump shows
+none of them** (H-15): every kind takes the five, which the text does not write and `hir_read` never sets — they are the
+tree's facts, and the text shows the tree — so a tree has one text before its facts and after. `tests/unit/hir_props.npk`
+holds the query, the doors and the cache, and six units more each stop.
 
 ---
 
@@ -305,6 +363,10 @@ Bit column, `byte` on a `literal`, a `class` and a `wordboundary`, `lazy` on a `
 completes shows every bit its nodes hold and a dump compared with its expected text is a test of H-6. Five units trap
 now: `hir_dump_stray_bit.npk` is the fifth. A bit cycle 0.2.4 adds (H-9) is one this check refuses until that cycle
 says how the dump shows it.)*
+*(2026-10-13, cycle 0.2.4 — RX-239: *"until that cycle says how the dump shows it"* — it shows none: every kind takes
+`HIR_COMPUTED`'s five bits, the computed properties, which the text does not write and `hir_read` never sets (H-18). So
+*"a dump that completes shows every bit its nodes hold"* is every bit but those five, and a tree has one text before its
+facts are computed and after.)*
 *(2026-10-08, cycle 0.2.1 — RX-228: and `hir_build` builds one — every node it pushes is reached from the root once
 (H-16) — so the walk's bound is exact for every HIR it answers `HIR_NONE` for.)*
 *(2026-10-12, cycle 0.2.3 — RX-236: *"cycle 0.2.3's order"* is `hir_normalise`'s to make: a text's classes read as written,

@@ -1,0 +1,220 @@
+// expect-exit: 0
+//
+// THE COMPUTED PROPERTIES: THE QUERY, THE CACHE, THE DOORS AND THE TREE THEY ARE COMPUTED OVER. Cycle
+// 0.2.4, RX-238 and RX-239; `meta/specs/HIR.md` rules H-9, H-10, H-17 and H-18. The fifty-pattern
+// reference is `hir_props_reference.npk`; this unit asks what that one cannot:
+//
+//   1 … 9    every kind's facts, on texts `hir_read` reads, the lines' anchors among them, and the shapes
+//            the build never makes: a class of no range, a `Concat` or an `Alternate` of no member and of one
+//   10 … 12  the normal form against the build: `[a]|b`, `a(?:bc)` and `(?:)^a` each answer otherwise
+//            built and normalised, and the normal form is what a later stage reads (RX-236)
+//   13, 14   what no reference row asks: `\b\B`, which matches nothing, MAY match the empty string, each
+//            assertion taken to hold; and a lazy repetition has its greedy twin's facts -- no fact reads it
+//   15 … 19  compute-or-return: no node holds a fact before the first query, and asking a leaf computes
+//            every node of the tree; a second query answers the same and makes no second pass; each node
+//            answers its own facts; the dump is one text before and after; the query writes no range,
+//            group or name
+//   20 … 24  the doors and the freeze: a computed tree normalised, or a computed node copied with
+//            `hir_set` or `hir_push`, carries none of its facts into another arena; before its facts are
+//            computed a tree takes writes, and its facts are the rewritten tree's; `hir_free` after them
+//
+// A case that differs exits with its number; the program exits 0 only after every `hir_free` and
+// `ast_free`. The stops are units of their own: `hir_props_no_root`, `hir_props_not_in_tree`,
+// `hir_props_frozen_set`, `hir_props_frozen_root`, `hir_props_shared` and `hir_props_not_a_tree`.
+mod:hir_props;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+use "../../src/hir/hir.npk".*;
+
+// The facts a four-letter row names: `E`, `S`, `T` and `L` in their places, `-` for a fact that does not hold.
+func:want_of = uint32(string:row) never fails {
+    fixed uint8[]:w = string_bytes(row);
+    uint32:f = 0u32;
+    if (w[0i64] == 69u8) { f = f | HIR_CAN_MATCH_EMPTY; }
+    if (w[1i64] == 83u8) { f = f | HIR_IS_ANCHORED_START; }
+    if (w[2i64] == 84u8) { f = f | HIR_IS_ANCHORED_END; }
+    if (w[3i64] == 76u8) { f = f | HIR_IS_ALTERNATION_LITERAL; }
+    pass f;
+};
+
+// Whether the text `hir_read` reads has, at its root, exactly the facts `row` names.
+func:text_holds = bool(string:text, string:row) never fails {
+    Hir:h = raw hir_init(8i64);
+    bool:ok = false;
+    if ((raw hir_read(string_bytes(text), @h)) == HIR_NONE) {
+        int64:r = h.root;
+        ok = (raw hir_props(@h, r)) == (raw want_of(row));
+    }
+    drop hir_free(@h);
+    pass ok;
+};
+
+// Builds `pattern` into `h`, normalised into `n` when `norm`: true when it parses and builds.
+func:make = bool(string:pattern, bool:norm, Hir->:out) never fails {
+    fixed uint8[]:pat = string_bytes(pattern);
+    Ast:t = raw ast_init(8i64);
+    bool:ok = false;
+    if ((raw parse_pattern(pat, @t)) == NIL) {
+        if (!norm) { ok = (raw hir_build(pat, t, out)) == HIR_NONE; }
+        else {
+            Hir:h = raw hir_init(8i64);
+            if ((raw hir_build(pat, t, @h)) == HIR_NONE) {
+                drop hir_normalise(@h, out);
+                ok = true;
+            }
+            drop hir_free(@h);
+        }
+    }
+    drop ast_free(@t);
+    pass ok;
+};
+
+// Whether `pattern`, built -- and normalised when `norm` -- has at its root exactly the facts `row` names.
+func:pattern_holds = bool(string:pattern, bool:norm, string:row) never fails {
+    Hir:h = raw hir_init(8i64);
+    bool:ok = false;
+    if (raw make(pattern, norm, @h)) {
+        int64:r = h.root;
+        ok = (raw hir_props(@h, r)) == (raw want_of(row));
+    }
+    drop hir_free(@h);
+    pass ok;
+};
+
+// How many of `h`'s nodes hold a computed bit.
+func:computed_nodes = int64(Hir:h) never fails {
+    int64:k = 0i64;
+    int64:n = raw hir_len(h);
+    int64:i = 0i64;
+    while (i < n) decreases n - i {
+        HirNode:x = raw hir_get(h, i);
+        if ((x.flags & HIR_COMPUTED) != 0u32) { k = k + 1i64; }
+        i = i + 1i64;
+    }
+    pass k;
+};
+
+func:same_bytes = bool(Bytes->:a, Bytes->:b) never fails {
+    int64:n = raw bytes_len(a);
+    if (n != (raw bytes_len(b))) { pass false; }
+    int64:i = 0i64;
+    while (i < n) decreases n - i {
+        if ((raw bytes_get(a, i)) != (raw bytes_get(b, i))) { pass false; }
+        i = i + 1i64;
+    }
+    pass true;
+};
+
+func:run = int32() never fails {
+    // ---- 1 … 9: every kind, on texts `hir_read` reads
+    if (!(raw text_holds("(empty)", "E---")))                                    { pass 1i32; }
+    if ((!(raw text_holds("(literal 97)", "---L"))) || (!(raw text_holds("(literal byte 97)", "---L")))) { pass 2i32; }
+    if ((!(raw text_holds("(class 97-99)", "----"))) || (!(raw text_holds("(class)", "----"))))          { pass 3i32; }
+    if ((!(raw text_holds("(concat)", "E---"))) || (!(raw text_holds("(concat (literal 97))", "---L"))))  { pass 4i32; }
+    if ((!(raw text_holds("(alternate)", "----"))) || (!(raw text_holds("(alternate (literal 97))", "---L")))) { pass 5i32; }
+    if ((!(raw text_holds("(repeat 0 0 (class))", "E---")))
+        || (!(raw text_holds("(repeat 1 - (anchor text-start))", "ES--"))))    { pass 6i32; }
+    if (!(raw text_holds("(group 1 (anchor text-end))", "E-T-")))              { pass 7i32; }
+    if ((!(raw text_holds("(anchor line-start)", "E---"))) || (!(raw text_holds("(anchor line-end)", "E---")))) { pass 8i32; }
+    if (!(raw text_holds("(wordboundary byte not)", "E---")))                  { pass 9i32; }
+
+    // ---- 10 … 12: the normal form against the build
+    if ((!(raw pattern_holds("[a]|b", false, "----"))) || (!(raw pattern_holds("[a]|b", true, "---L"))))     { pass 10i32; }
+    if ((!(raw pattern_holds("a(?:bc)", false, "----"))) || (!(raw pattern_holds("a(?:bc)", true, "---L")))) { pass 11i32; }
+    if ((!(raw pattern_holds("(?:)^a", false, "----"))) || (!(raw pattern_holds("(?:)^a", true, "-S--"))))   { pass 12i32; }
+
+    // ---- 13, 14: an assertion taken to hold, and the laziness no fact reads
+    if (!(raw pattern_holds("\\b\\B", true, "E---")))                                                          { pass 13i32; }
+    if ((!(raw pattern_holds("(?:^a$)+?", true, "-ST-"))) || (!(raw pattern_holds("a*?", true, "E---")))
+        || (!(raw pattern_holds("(?:^a$)*?", true, "E---"))))                                                 { pass 14i32; }
+
+    // ---- 15 … 19: compute-or-return. The text's nodes, in the order `hir_read` closes them: `(anchor
+    // text-start)` 0, `(literal 97)` 1, the `concat` 2, `(literal 98)` 3, the `repeat` 4, the root 5.
+    Hir:h = raw hir_init(8i64);
+    if ((raw hir_read(string_bytes("(alternate (concat (anchor text-start) (literal 97)) (repeat 0 - (literal 98)))"), @h)) != HIR_NONE) { pass 15i32; }
+    Bytes:before = raw bytes_init(64i64);
+    drop hir_dump(@h, @before);
+    int64:ranges = raw hir_range_count(h);
+    int64:groups = raw hir_group_count(h);
+    int64:nodes = raw hir_len(h);
+    if ((raw computed_nodes(h)) != 0i64) { pass 15i32; }                     // no fact before the first query
+    if ((raw hir_props(@h, 1i64)) != (raw want_of("---L"))) { pass 15i32; }  // a leaf asked first ...
+    if ((raw computed_nodes(h)) != 6i64) { pass 15i32; }                     // ... and every node computed
+    if ((raw hir_props(@h, 1i64)) != (raw want_of("---L"))) { pass 16i32; }  // asked again: read, no second pass
+    if (((raw hir_props(@h, 0i64)) != (raw want_of("ES--"))) || ((raw hir_props(@h, 2i64)) != (raw want_of("-S--")))
+        || ((raw hir_props(@h, 3i64)) != (raw want_of("---L"))) || ((raw hir_props(@h, 4i64)) != (raw want_of("E---")))
+        || ((raw hir_props(@h, 5i64)) != (raw want_of("E---")))) { pass 17i32; }
+    Bytes:after = raw bytes_init(64i64);
+    drop hir_dump(@h, @after);
+    if (!(raw same_bytes(@before, @after))) { pass 18i32; }
+    if (((raw hir_range_count(h)) != ranges) || ((raw hir_group_count(h)) != groups) || ((raw hir_len(h)) != nodes)) { pass 19i32; }
+    drop hir_free(@h);
+
+    // ---- 20: a computed tree normalised: the normal form's facts are its own
+    Hir:b = raw hir_init(8i64);
+    if (!(raw make("[a]|b", false, @b))) { pass 20i32; }
+    int64:br = b.root;
+    if ((raw hir_props(@b, br)) != (raw want_of("----"))) { pass 20i32; }
+    Hir:n = raw hir_init(8i64);
+    drop hir_normalise(@b, @n);
+    if ((raw computed_nodes(n)) != 0i64) { pass 20i32; }
+    int64:nr = n.root;
+    if ((raw hir_props(@n, nr)) != (raw want_of("---L"))) { pass 20i32; }
+
+    // ---- 21: a computed node copied with `hir_set` into a tree not yet computed carries no fact: `b`'s
+    // root, an `Alternate` whose facts are `----`, made the root of `(alternate (literal 97) (literal 98))`
+    Hir:g = raw hir_init(8i64);
+    if ((raw hir_read(string_bytes("(alternate (literal 97) (literal 98))"), @g)) != HIR_NONE) { pass 21i32; }
+    HirNode:x = raw hir_get(b, br);
+    if ((x.flags & HIR_PROPS_COMPUTED) == 0u32) { pass 21i32; }
+    HirNode:y = raw hir_get(g, 2i64);
+    x.a = y.a;
+    x.b = y.b;
+    drop hir_set(@g, 2i64, x);
+    if ((raw hir_props(@g, 2i64)) != (raw want_of("---L"))) { pass 21i32; }
+
+    // ---- 22: and copied with `hir_push`
+    Hir:p = raw hir_init(8i64);
+    int64:pi = raw hir_push(@p, raw hir_get(b, br));
+    HirNode:z = raw hir_get(p, pi);
+    if ((z.flags & HIR_COMPUTED) != 0u32) { pass 22i32; }
+    drop hir_free(@p);
+    drop hir_free(@g);
+    drop hir_free(@n);
+    drop hir_free(@b);
+
+    // ---- 23: before its facts are computed a tree takes writes, and its facts are the rewritten tree's
+    Hir:w = raw hir_init(8i64);
+    if ((raw hir_read(string_bytes("(literal 97)"), @w)) != HIR_NONE) { pass 23i32; }
+    drop hir_set(@w, 0i64, HirNode{ kind: HirKind.Empty, flags: 0u32, a: 0i64, b: 0i64, c: 0i64, next: HIR_NONE });
+    drop hir_set_root(@w, 0i64);
+    if ((raw hir_props(@w, 0i64)) != (raw want_of("E---"))) { pass 23i32; }
+
+    // ---- 24: freed after its facts, with no stop
+    drop hir_free(@w);
+    if (w.root != HIR_NONE) { pass 24i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    exit raw run();
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

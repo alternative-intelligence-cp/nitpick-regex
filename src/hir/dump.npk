@@ -146,10 +146,13 @@ func:write_head = NIL(Hir->:h, HirNode:n, Bytes->:out) never fails {
 // The bits a node of kind `k` may hold (H-4a): `HIR_FLAG_BYTE` on a `Literal`, a `Class` and a
 // `WordBoundary`, `HIR_FLAG_LAZY` on a `Repeat`, none on any other (RX-227). The text shows each
 // where it may be and nowhere else, so any other bit is one the dump would drop in silence.
+// *(2026-10-13, cycle 0.2.4 -- RX-239: and every kind takes `HIR_COMPUTED`'s five, the computed
+// properties, which the text does not show: they are the tree's, which it shows, and only `repr.npk`'s
+// pass writes them. *"Any other bit"* is any bit but those.)*
 func:kind_bits = uint32(HirKind:k) never fails {
-    if ((k == HirKind.Literal) || (k == HirKind.Class) || (k == HirKind.WordBoundary)) { pass HIR_FLAG_BYTE; }
-    if (k == HirKind.Repeat) { pass HIR_FLAG_LAZY; }
-    pass 0u32;
+    if ((k == HirKind.Literal) || (k == HirKind.Class) || (k == HirKind.WordBoundary)) { pass HIR_FLAG_BYTE | HIR_COMPUTED; }
+    if (k == HirKind.Repeat) { pass HIR_FLAG_LAZY | HIR_COMPUTED; }
+    pass HIR_COMPUTED;
 };
 
 // Whether a list's chain -- its first member and each one's `next` -- holds exactly its count,
@@ -182,6 +185,9 @@ func:chain_holds = bool(Hir->:h, HirNode:n) never fails {
 // (beside a node nothing reaches the bound has room, and a shared node is written once for
 // each parent). Each is a defect in the code that built the arena, and a builder's unit finds
 // it by dumping.
+// *(2026-10-13, cycle 0.2.4 -- RX-239: *"the writer shows what the arena holds"*, and a dump that completes
+// *"shows every bit its nodes hold"* -- all but the computed properties' five, `HIR_COMPUTED`, which every
+// kind takes and the text does not show: they are the tree's facts, and a tree has one text before and after.)*
 pub func:hir_dump = NIL(Hir->:h, Bytes->:out) never fails {
     if (h.root == HIR_NONE) { pass NIL; }
     Vec<Visit>:todo = raw vec_init::<Visit>(16i64);

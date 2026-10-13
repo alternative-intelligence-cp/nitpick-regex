@@ -1,0 +1,37 @@
+// expect-exit: 94
+//
+// A TREE WHOSE FACTS ARE COMPUTED IS FINISHED: `hir_set_root` STOPS ON IT. Cycle 0.2.4, RX-239; `HIR.md`
+// H-10 and H-18. `(literal 97)` is read and its facts computed, and then its root is set again, to the
+// same node: `OutOfBounds`, since a root moved after the pass could name a node whose facts a write made
+// stale. Exit 2 says the root was set.
+mod:hir_props_frozen_root;
+
+use "../../src/core/core.npk".*;
+use "../../src/hir/hir.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Hir:h = raw hir_init(8i64);
+    if ((raw hir_read(string_bytes("(literal 97)"), @h)) != HIR_NONE) { exit 3i32; }
+    discard(raw hir_props(@h, 0i64));
+    drop hir_set_root(@h, 0i64);
+    drop hir_free(@h);
+    exit 2i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

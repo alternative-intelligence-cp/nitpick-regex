@@ -1,0 +1,36 @@
+// expect-exit: 94
+//
+// A `Hir` WITH NO ROOT HAS NO FACTS: `hir_props` STOPS. Cycle 0.2.4, RX-239; `HIR.md` H-18. An arena
+// nothing has been built into is asked for its root's facts, and the query stops `OutOfBounds` before
+// anything else -- never an answer of no bits, which would read "not computed" as "false" (the compiler's
+// D-227). The arena is empty, so without that stop the pass would end `DecreasesViolated`, 108, on a walk
+// of no node; exit 2 says the query answered.
+mod:hir_props_no_root;
+
+use "../../src/core/core.npk".*;
+use "../../src/hir/hir.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Hir:h = raw hir_init(8i64);
+    discard(raw hir_props(@h, 0i64));
+    drop hir_free(@h);
+    exit 2i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

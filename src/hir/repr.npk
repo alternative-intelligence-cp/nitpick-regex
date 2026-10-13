@@ -25,6 +25,16 @@
 // `(?:a)b`. A refusal made while the HIR is built takes its offset from the AST node it
 // is building from (cycle 0.2.2's `RepeatProductTooLarge`).
 //
+// THE COMPUTED PROPERTIES ARE THIS FILE'S TO WRITE (cycle 0.2.4, RX-238, RX-239; `HIR.md` H-9, H-10,
+// H-17 and H-18). Four facts of every node -- whether it may match the empty string, whether every
+// match begins at the haystack's start or ends at its end, and whether it is a plain literal or a union
+// of plain literals -- are cached in the high half of its `flags` by ONE bottom-up pass over the whole
+// tree, and `hir_props` is the query: it runs the pass when the tree's facts are not computed yet, and
+// then reads. `HIR_PROPS_COMPUTED` is the distinct "not yet computed" state, never `false`. `hir_push`
+// and `hir_set` drop those bits from every node they are handed, so no builder writes a fact and a node
+// copied from a computed tree carries none; and once the facts are computed the tree is finished --
+// `hir_set` and `hir_set_root` stop on it, so a cached fact is never stale.
+//
 // THE ARENA IS THE COMPILER'S TO GUARD. Every field of `Hir` but `root` is `hidden` (the
 // compiler's D-314): outside this file it cannot be read (NITPICK-TYPE-080,
 // `tests/rejection/hir_nodes_read.npk`), so every access goes through the functions below
@@ -49,6 +59,20 @@ pub fixed int64:HIR_NONE = -1i64;
 // a codepoint, never how to read anything at run time.
 pub fixed uint32:HIR_FLAG_LAZY = 1u32;   // a `Repeat` that prefers fewer iterations
 pub fixed uint32:HIR_FLAG_BYTE = 2u32;   // a `Literal` that is a byte, a `Class` of bytes, a `WordBoundary` over ASCII
+// *(2026-10-13, cycle 0.2.4 -- RX-239: *"bits above them"* are the high half, `HIR_PROPS_COMPUTED` and the
+// four facts below, where no AST flag is -- `ast.npk`'s are 1 … 1024 -- so no AST flag copied into a node
+// lands on one, and the dump refuses each it refused (RX-227).)*
+
+// THE COMPUTED PROPERTIES (H-9, H-17, H-18; RX-238, RX-239). A node whose `HIR_PROPS_COMPUTED` is clear
+// holds no fact -- the distinct "not yet computed" state -- and one whose bit is set holds its four.
+// Every kind takes all five; only this file's pass writes them, and the dump writes none (H-15).
+pub fixed uint32:HIR_PROPS_COMPUTED = 65536u32;            // the four bits above it are the node's facts
+pub fixed uint32:HIR_CAN_MATCH_EMPTY = 131072u32;          // the subtree may match the empty string
+pub fixed uint32:HIR_IS_ANCHORED_START = 262144u32;        // every match begins at the haystack's start
+pub fixed uint32:HIR_IS_ANCHORED_END = 524288u32;          // every match ends at the haystack's end
+pub fixed uint32:HIR_IS_ALTERNATION_LITERAL = 1048576u32;  // a plain literal, or a union of plain literals
+pub fixed uint32:HIR_PROPS = 1966080u32;                   // the four facts: what `hir_props` answers
+pub fixed uint32:HIR_COMPUTED = 2031616u32;                // the four and `HIR_PROPS_COMPUTED`: the pass's alone
 
 // An `Anchor`'s `a` (`SYNTAX.md` §6, `m` erased).
 pub fixed int64:HIR_TEXT_START = 0i64;   // the haystack's start: `^`, `\A`
@@ -122,9 +146,12 @@ pub func:hir_len = int64(Hir:h) never fails {
 
 // obligation: never fails ensures hir_len(h) == old(hir_len(h)) + 1i64 && result == hir_len(h) - 1i64
 //
-// Appends a node and answers its index.
+// Appends a node and answers its index -- its computed bits dropped: a fact is the pass's to write
+// (H-18), and a node copied from a computed tree would carry that tree's.
 pub func:hir_push = int64(Hir->:h, HirNode:n) never fails {
-    drop vec_push(@h.nodes, n);
+    HirNode:x = n;
+    x.flags = n.flags & (~HIR_COMPUTED);
+    drop vec_push(@h.nodes, x);
     pass h.nodes.count - 1i64;
 };
 
@@ -133,16 +160,32 @@ pub func:hir_get = HirNode(Hir:h, int64:i) never fails {
     pass raw vec_get(h.nodes, i);
 };
 
+// Whether `h`'s facts are computed: its root's -- the pass leaves the root last, after every node under it.
+func:facts_done = bool(Hir->:h) never fails {
+    if (h.root == HIR_NONE) { pass false; }
+    HirNode:r = raw vec_get(h.nodes, h.root);
+    pass (r.flags & HIR_PROPS_COMPUTED) != 0u32;
+};
+
 // obligation: never fails requires i >= 0i64 && i < hir_len(h)
+//
+// Rewrites a node, its computed bits dropped (H-18). A tree whose facts are computed is finished, and a
+// write to it stops `OutOfBounds`: a fact cached in it is never stale (H-10).
 pub func:hir_set = NIL(Hir->:h, int64:i, HirNode:n) never fails {
-    drop vec_set(@h.nodes, i, n);
+    if (raw facts_done(h)) { drop vec_oob(i); }
+    HirNode:x = n;
+    x.flags = n.flags & (~HIR_COMPUTED);
+    drop vec_set(@h.nodes, i, x);
     pass NIL;
 };
 
 // obligation: never fails requires i >= 0i64 && i < hir_len(h)
+//
+// Sets the root -- and stops `OutOfBounds` on a tree whose facts are computed (H-18), as `hir_set` does.
 pub func:hir_set_root = NIL(Hir->:h, int64:i) never fails {
     if (i < 0i64)           { drop vec_oob(i); }
     if (i >= h.nodes.count) { drop vec_oob(i); }
+    if (raw facts_done(h))  { drop vec_oob(i); }
     h.root = i;
     pass NIL;
 };
@@ -222,6 +265,149 @@ pub func:hir_put_name = NIL(Hir->:h, int64:k, Bytes->:out) never fails {
         i = i + 1i64;
     }
     pass NIL;
+};
+
+// ---- the computed properties (H-9, H-10, H-17, H-18; RX-238, RX-239) ----------------------------------
+
+// One step of the facts' walk: a node to enter, or one whose children are done, to leave.
+#[derive(Copy)]
+struct:FactStep = {
+    int64:node;          // the node
+    int64:op;            // FACT_ONE, FACT_LIST or FACT_LEAVE
+};
+
+fixed int64:FACT_ONE = 0i64;       // enter the node
+fixed int64:FACT_LIST = 1i64;      // enter the node, then the rest of the list it heads
+fixed int64:FACT_LEAVE = 2i64;     // its children are done: its facts
+
+// H-17, A `Concat` OR AN `Alternate`: from its members' facts, in the order its chain links them. A
+// `Concat` may match the empty string when every piece may, begins at the start when its first piece
+// does and ends at the end when its last does, and is a plain literal -- a literal run -- when it holds
+// a piece and every piece is a `Literal`. An `Alternate` may match the empty string when an alternative
+// may, and, holding one alternative or more, is anchored at either end when every alternative is, and a
+// union of plain literals when every alternative is a plain literal: a `Literal` or a literal run.
+func:list_facts = uint32(Hir->:h, HirNode:n) never fails {
+    bool:every_empty = true;
+    bool:some_empty = false;
+    bool:every_start = true;
+    bool:every_end = true;
+    bool:first_start = false;
+    bool:last_end = false;
+    bool:every_literal = true;
+    bool:every_plain = true;
+    int64:m = n.a;
+    int64:k = 0i64;
+    while ((m != HIR_NONE) && (k < n.b)) decreases n.b - k {
+        HirNode:x = raw vec_get(h.nodes, m);
+        bool:e = (x.flags & HIR_CAN_MATCH_EMPTY) != 0u32;
+        bool:s = (x.flags & HIR_IS_ANCHORED_START) != 0u32;
+        bool:t = (x.flags & HIR_IS_ANCHORED_END) != 0u32;
+        bool:lit = x.kind == HirKind.Literal;
+        bool:run = (x.kind == HirKind.Concat) && ((x.flags & HIR_IS_ALTERNATION_LITERAL) != 0u32);
+        every_empty = every_empty && e;
+        some_empty = some_empty || e;
+        every_start = every_start && s;
+        every_end = every_end && t;
+        if (k == 0i64) { first_start = s; }
+        last_end = t;
+        every_literal = every_literal && lit;
+        every_plain = every_plain && (lit || run);
+        m = x.next;
+        k = k + 1i64;
+    }
+    uint32:f = 0u32;
+    if (n.kind == HirKind.Concat) {
+        if (every_empty) { f = f | HIR_CAN_MATCH_EMPTY; }
+        if (first_start) { f = f | HIR_IS_ANCHORED_START; }
+        if (last_end) { f = f | HIR_IS_ANCHORED_END; }
+        if ((k > 0i64) && every_literal) { f = f | HIR_IS_ALTERNATION_LITERAL; }
+        pass f;
+    }
+    if (some_empty) { f = f | HIR_CAN_MATCH_EMPTY; }
+    if (k > 0i64) {
+        if (every_start) { f = f | HIR_IS_ANCHORED_START; }
+        if (every_end) { f = f | HIR_IS_ANCHORED_END; }
+        if (every_plain) { f = f | HIR_IS_ALTERNATION_LITERAL; }
+    }
+    pass f;
+};
+
+// H-17, ONE NODE: its four facts from its kind, its operands and its children's facts, which the walk
+// below has computed before it. No fact reads `HIR_FLAG_BYTE` or `HIR_FLAG_LAZY`, or a class's ranges.
+func:facts_of = uint32(Hir->:h, HirNode:n) never fails {
+    if (n.kind == HirKind.Empty)        { pass HIR_CAN_MATCH_EMPTY; }
+    if (n.kind == HirKind.Literal)      { pass HIR_IS_ALTERNATION_LITERAL; }
+    if (n.kind == HirKind.Class)        { pass 0u32; }
+    if (n.kind == HirKind.WordBoundary) { pass HIR_CAN_MATCH_EMPTY; }
+    if (n.kind == HirKind.Anchor) {
+        // `^` and `\A` are `HIR_TEXT_START`, `$` and `\z` `HIR_TEXT_END`; under `m`, `^` and `$` are the
+        // lines' anchors, which hold after and before every `\n` too (`SYNTAX.md` §6), and anchor nothing
+        uint32:f = HIR_CAN_MATCH_EMPTY;
+        if (n.a == HIR_TEXT_START) { f = f | HIR_IS_ANCHORED_START; }
+        if (n.a == HIR_TEXT_END)   { f = f | HIR_IS_ANCHORED_END; }
+        pass f;
+    }
+    if ((n.kind == HirKind.Repeat) || (n.kind == HirKind.Group)) {
+        // a `Group` is its body's, but no plain literal; a `Repeat` of minimum 0 may match the empty
+        // string and anchors nothing, and one of minimum 1 or more is its body's, and no plain literal
+        if ((n.kind == HirKind.Repeat) && (n.b == 0i64)) { pass HIR_CAN_MATCH_EMPTY; }
+        HirNode:c = raw vec_get(h.nodes, n.a);
+        pass c.flags & (HIR_CAN_MATCH_EMPTY | HIR_IS_ANCHORED_START | HIR_IS_ANCHORED_END);
+    }
+    pass raw list_facts(h, n);
+};
+
+// THE ONE PASS (H-10): every node of the tree under the root, each after its children, on an explicit
+// stack (`SAFETY.md` S-19) bounded by twice the arena, as the build's, the dump's and the normaliser's
+// walks are, so a node that holds itself stops it `DecreasesViolated`. Each node it leaves gets
+// `HIR_PROPS_COMPUTED` and its facts, the root last; a node it leaves computed already stops it
+// `OutOfBounds` -- a node with two parents, or a second pass over one tree, which `hir_props` never makes.
+func:compute_facts = NIL(Hir->:h) never fails {
+    Vec<FactStep>:todo = raw vec_init::<FactStep>(16i64);
+    drop vec_push(@todo, FactStep{ node: h.root, op: FACT_ONE });
+    // A `decreases` measure is checked as each step begins, so `2n - 1` admits `2n` steps: a walk
+    // entering and leaving every node of the arena once, and not one more.
+    int64:budget = 2i64 * h.nodes.count - 1i64;
+    int64:steps = 0i64;
+    while (todo.count > 0i64) decreases budget - steps {
+        steps = steps + 1i64;
+        FactStep:s = raw vec_pop(@todo);
+        HirNode:n = raw vec_get(h.nodes, s.node);
+        if (s.op == FACT_LEAVE) {
+            if ((n.flags & HIR_PROPS_COMPUTED) != 0u32) { drop vec_oob(s.node); }
+            n.flags = n.flags | HIR_PROPS_COMPUTED | (raw facts_of(h, n));
+            drop vec_set(@h.nodes, s.node, n);
+        }
+        else {
+            if ((s.op == FACT_LIST) && (n.next != HIR_NONE)) {
+                drop vec_push(@todo, FactStep{ node: n.next, op: FACT_LIST });
+            }
+            drop vec_push(@todo, FactStep{ node: s.node, op: FACT_LEAVE });
+            if ((n.kind == HirKind.Concat) || (n.kind == HirKind.Alternate)) {
+                if (n.a != HIR_NONE) { drop vec_push(@todo, FactStep{ node: n.a, op: FACT_LIST }); }
+            }
+            else if ((n.kind == HirKind.Repeat) || (n.kind == HirKind.Group)) {
+                drop vec_push(@todo, FactStep{ node: n.a, op: FACT_ONE });
+            }
+        }
+    }
+    drop vec_free(@todo);
+    pass NIL;
+};
+
+// obligation: never fails requires h.root != HIR_NONE && i >= 0i64 && i < hir_len(h) && i is reached from h.root
+//
+// THE QUERY (H-10, H-18): node `i`'s four facts, `HIR_PROPS`' bits -- computed first, by the one pass
+// over the whole tree, when the tree's are not; read once they are. NO CALLER COMPUTES FIRST (the
+// compiler's D-227: the query ensures, and the caller does not remember). A `Hir` with no root, and a node
+// the root does not reach, have no facts: each stops `OutOfBounds`, and neither is ever answered with no
+// bits, which would read "not computed" as "false".
+pub func:hir_props = uint32(Hir->:h, int64:i) never fails {
+    if (h.root == HIR_NONE) { drop vec_oob(i); }
+    if (!(raw facts_done(h))) { drop compute_facts(h); }
+    HirNode:n = raw vec_get(h.nodes, i);
+    if ((n.flags & HIR_PROPS_COMPUTED) == 0u32) { drop vec_oob(i); }
+    pass n.flags & HIR_PROPS;
 };
 
 // obligation: never fails ensures h.root == HIR_NONE

@@ -1,0 +1,41 @@
+// expect-exit: 94
+//
+// THE PASS COMPUTES A NODE ONCE: ONE WITH TWO PARENTS STOPS IT. Cycle 0.2.4, RX-239; `HIR.md` H-10 and
+// H-18. Built by hand: a `Concat` of two groups, both holding one `Literal` -- four nodes, so the walk's
+// bound admits eight steps, and the eighth leaves the literal a second time: `OutOfBounds`, since a node
+// left computed already is one the pass has seen. Without that stop the ninth step ends the walk
+// `DecreasesViolated`, 108; exit 2 says the pass finished.
+mod:hir_props_shared;
+
+use "../../src/core/core.npk".*;
+use "../../src/hir/hir.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Hir:h = raw hir_init(8i64);
+    int64:lit = raw hir_push(@h, HirNode{ kind: HirKind.Literal, flags: 0u32, a: 97i64, b: 0i64, c: 0i64, next: HIR_NONE });
+    int64:g2 = raw hir_push(@h, HirNode{ kind: HirKind.Group, flags: 0u32, a: lit, b: 2i64, c: 0i64, next: HIR_NONE });
+    int64:g1 = raw hir_push(@h, HirNode{ kind: HirKind.Group, flags: 0u32, a: lit, b: 1i64, c: 0i64, next: g2 });
+    int64:cat = raw hir_push(@h, HirNode{ kind: HirKind.Concat, flags: 0u32, a: g1, b: 2i64, c: 0i64, next: HIR_NONE });
+    drop hir_set_root(@h, cat);
+    discard(raw hir_props(@h, cat));
+    drop hir_free(@h);
+    exit 2i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

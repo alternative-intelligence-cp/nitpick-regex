@@ -11,6 +11,9 @@
 // nothing else, every node reached from the root once (`is_tree`, H-16); and the text reads back
 // and writes the same (H-15). `stops` asks a build that stops at a hook or in `leaf` until cycle
 // 0.3.4 to answer the node at the byte named and to leave the root unset.
+// *(2026-10-13, cycle 0.2.4 -- RX-239: *"a dump that completes shows every bit its nodes hold"* -- every
+// bit but the computed properties', which the dump does not show; a built tree holds none, since
+// `hir_push` and `hir_set` drop them, so the text is a test of H-6 still.)*
 //
 // THE CASES. 1 … 9 are H-5's six quantifier rows, their lazy forms, their bounds' edges and what
 // a quantifier may wrap; 10 … 14 the `.` row; 15 … 19 the `(?:…)` row; 20 … 23 the class row and

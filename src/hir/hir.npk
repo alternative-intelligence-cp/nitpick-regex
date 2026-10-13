@@ -15,7 +15,8 @@
 // `NREGEX_REPEAT_PRODUCT`, on the way down, and `hir_build_refusal` is the refusal (RX-232). SINCE
 // CYCLE 0.2.3 `normal.npk` WRITES A HIR'S TREE IN ITS NORMAL FORM, where structurally equal patterns
 // are one tree (RX-235), into a fresh arena -- `hir_normalise`, a pass of its own after the build
-// (RX-236).
+// (RX-236). SINCE CYCLE 0.2.4 `repr.npk` COMPUTES A TREE'S FOUR FACTS IN ONE PASS AND CACHES THEM, and
+// `hir_props` is the query, which computes them when they are not (RX-238, RX-239).
 //
 // EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1 and 3).
 //
@@ -37,6 +38,13 @@ pub use "./repr.npk".HIR_LINE_START;
 pub use "./repr.npk".HIR_LINE_END;
 pub use "./repr.npk".HIR_WORD;
 pub use "./repr.npk".HIR_NOT_WORD;
+pub use "./repr.npk".HIR_PROPS_COMPUTED;
+pub use "./repr.npk".HIR_CAN_MATCH_EMPTY;
+pub use "./repr.npk".HIR_IS_ANCHORED_START;
+pub use "./repr.npk".HIR_IS_ANCHORED_END;
+pub use "./repr.npk".HIR_IS_ALTERNATION_LITERAL;
+pub use "./repr.npk".HIR_PROPS;
+pub use "./repr.npk".HIR_COMPUTED;
 pub use "./repr.npk".HirKind;
 pub use "./repr.npk".HirNode;
 pub use "./repr.npk".GroupInfo;
@@ -56,6 +64,9 @@ pub use "./repr.npk".hir_group;
 pub use "./repr.npk".hir_put_name;
 pub use "./repr.npk".hir_copy_groups;
 pub use "./repr.npk".hir_free;
+
+// ---- the computed properties: the query (RX-238, RX-239) --------------------------------------
+pub use "./repr.npk".hir_props;
 
 // ---- the text, and back (RX-225) -------------------------------------------------------
 pub use "./dump.npk".hir_dump;

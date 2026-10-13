@@ -1,0 +1,38 @@
+// expect-exit: 108
+//
+// THE PASS IS BOUNDED BY TWICE THE ARENA: A NODE THAT HOLDS ITSELF STOPS IT. Cycle 0.2.4, RX-239;
+// `HIR.md` H-10 and H-18, `SAFETY.md` S-19. A `Group` whose body is itself: the walk enters it again
+// and again and never leaves it, and its bound, two steps for one node, ends it `DecreasesViolated`,
+// as the build's, the dump's and the normaliser's walks end on an arena that is not a tree. Exit 2 says
+// the pass finished.
+mod:hir_props_not_a_tree;
+
+use "../../src/core/core.npk".*;
+use "../../src/hir/hir.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Hir:h = raw hir_init(8i64);
+    int64:g = raw hir_push(@h, HirNode{ kind: HirKind.Group, flags: 0u32, a: 0i64, b: 1i64, c: 0i64, next: HIR_NONE });
+    drop hir_set_root(@h, g);
+    discard(raw hir_props(@h, g));
+    drop hir_free(@h);
+    exit 2i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

@@ -5919,6 +5919,9 @@ fills the hook** — *"how a defect gets forgotten between the day it is underst
 denominator, and every check B-5b holds the marker to written twice.
 
 ### RX-227 — the dump stops on a bit a node's kind does not take, so a dump that completes shows every bit and is a test of H-6
+> **SUPERSEDED IN PART by RX-239 (2026-10-13)** — its *"a dump that completes shows every bit its nodes hold"*: every bit
+> but the computed properties' five, `HIR_COMPUTED`, which every kind takes and the dump does not show; and its *"they store
+> what a builder hands them"*: but those five, which `hir_push` and `hir_set` drop. The decision stands.
 
 **2026-10-08, cycle 0.2.1 (the plan's PD-71), at compiler `5fbaf4a`** — `HIR.md` H-4a, H-6 and H-15, RX-225, and the cycle
 README's second 0.2.1 box: *"flags erased (H-6): nothing downstream knows what `i`, `s`, `m`, `u` or `x` meant. A test
@@ -6350,3 +6353,104 @@ the byte bit erased, passes every pair; **the hook as a stub oracle module in `t
 left out of the suites; **the label `0.5.0`, where the oracle is written** — the 0.5 README names this test in 0.5.5's
 box; **RX-232's list left as it is** — a list of what a decision dated is a claim about a set, and the set has one
 member more.
+
+
+## The computed properties — cycle 0.2.4
+
+### RX-238 — the four computed properties, kind by kind, a new rule H-17: each a fact of a node's subtree that errs one way only — `CAN_MATCH_EMPTY` is *may* match the empty string, and the two anchors and `IS_ALTERNATION_LITERAL` hold only where certain; the anchors the text's alone, `m`'s none; a plain literal a `Literal` or a literal run; no fact reads the byte bit
+**2026-10-13, cycle 0.2.4 (the plan's PD-123), at compiler `7e91730`** — `HIR.md` H-1, H-9, H-16 and H-17, `SYNTAX.md` §6,
+Y-19, Y-20 and Y-21, `API.md` A-14, `ENGINES.md` R-24, `COMPILE.md` C-15, RX-235 and RX-236, and the cycle README's first
+and fourth 0.2.4 boxes — *"`CAN_MATCH_EMPTY`, `IS_ANCHORED_START`, `IS_ANCHORED_END`, `IS_ALTERNATION_LITERAL`"*, with
+RX-236's note, *"over the normal form `hir_normalise` writes, where `[a]|b` is an alternation of two `Literal`s"*, and
+*"each flag asserted against a hand-computed reference over fifty patterns"*. H-9 gives each fact a meaning in a phrase,
+and no rule says what it is for each kind of node — a definition the reference needs independently of the pass it checks.
+
+**The decision.** H-17's table says each fact kind by kind, from the node's kind, its operands and its children's facts,
+and each fact errs one way only. **`CAN_MATCH_EMPTY` is MAY match the empty string**: an `Empty`, an `Anchor` and a
+`WordBoundary` may — an assertion is zero-width (Y-20) and is taken to hold — a `Literal` and a `Class` may not; a `Concat`
+may when every piece may, an `Alternate` when some alternative may, a `Repeat` when its minimum is 0 or its body may, a
+`Group` when its body may. A subtree without it never matches the empty string, so its readers — the iterator's advance
+(Y-21, A-14) and the one-pass engine's eligibility, *"conservative"* by the 0.11 README — are wrong only on a false *no*.
+**`IS_ANCHORED_START` and `IS_ANCHORED_END` hold only where every match begins at the haystack's start or ends at its
+end**: an `Anchor` that is `HIR_TEXT_START`, or `HIR_TEXT_END`; a `Concat` whose first piece, or whose last, does; an
+`Alternate` of one alternative or more, every one of which does; a `Repeat` of minimum 1 or more whose body does; a `Group`
+whose body does — since an anchored search skips the scan loop (R-24, C-15) and a reverse search starts at the end, each
+wrong only on a false *yes*. **The anchors are the text's alone**: `^` and `\A` are `HIR_TEXT_START`, `$` and `\z`
+`HIR_TEXT_END` (H-16); under `m`, `^` and `$` are `HIR_LINE_START` and `HIR_LINE_END`, which hold after and before every
+`\n` too (`SYNTAX.md` §6, Y-19), and anchor neither end. **`IS_ALTERNATION_LITERAL` holds only where the subtree is written
+as a plain literal or a union of them**: a `Literal`; a literal run, a `Concat` of one piece or more, every piece a
+`Literal` (RX-235); and an `Alternate` of one alternative or more, every one a plain literal. A list of no member, which only
+a text `hir_read` reads holds, is read by the same words. **No fact reads `HIR_FLAG_BYTE`, `HIR_FLAG_LAZY` or a class's
+ranges**: `(?-u)a` and `a` have one set of facts. **The facts are of the tree they are computed over**: over the normal
+form, which every later stage reads (H-1, RX-236), `[a]|b` and `a(?:bc)` are a union of plain literals and a plain literal
+and `(?:)^a` is anchored at the start; over the build's tree none is. H-9 is dated.
+
+**Measured at `7e91730`.** `tests/unit/hir_props_reference.npk` exits 0 at both legs: fifty patterns, each with its normal
+form's four facts written by hand from H-17's table before the pass first ran — plain literals and unions of them, the
+empty string, the anchors under `m` and not, and three pairs of a byte-mode pattern and its codepoint twin with one set of
+facts. Every facet of H-17 has a row of the plan's mutant table that breaks it alone in the pass — each of its thirty-six
+cells, each side of its three bounds, each of its two lists of no member and each of the three things it says no fact
+reads, forty-seven facets — among fifty-four rows that break the rule, and every row is red: in this unit, or, for the
+seven that no pattern of its fifty reaches — a list of no member or of one, and a lazy repetition — in `hir_props.npk`,
+cases 4, 5 and 14. Its case 13 holds `\b\B`, which matches nothing, to *may* match the empty string.
+
+*Alternatives declined:* **an anchor read through a zero-width prefix** — `\b^a` read as anchored, the assertions before
+the anchor skipped: a fifth fact, *"every match is empty"*, computed beside the four, for a shape an author rarely writes,
+where the miss costs a scan and never an answer; **`CAN_MATCH_EMPTY` exact** — `\b\B` matches
+nothing, and saying so needs the assertions' joint truth, where its readers lose only speed on a false *yes*; **the line
+anchors as anchors** — `(?m)^a` matches after every `\n`; **a byte literal as no plain literal** — the prefilter reads
+bytes, and `(?-u)a` is the byte `a` is; **a group around a plain literal as one** — the group is a capture, which a
+prefilter does not report; **an `Empty` alternative as a plain literal** — the empty string matches at every position, and
+is no literal to filter on; **a `Concat` holding literal runs as a run** — only the build's tree holds one, which the
+normal form flattens (RX-235); **the facts of the normal form alone** — the query answers over any tree, and the build's
+facts beside the normal form's show what normalisation gains.
+
+### RX-239 — the cache and the query, a new rule H-18: the facts in the high half of `flags` behind `HIR_PROPS_COMPUTED`, the distinct "not yet computed" state; `hir_props` computes-or-returns by one pass over the whole tree; only that pass writes the bits — `hir_push` and `hir_set` drop them; a computed tree is finished — `hir_set` and `hir_set_root` stop on it; and the dump shows none
+**2026-10-13, cycle 0.2.4 (the plan's PD-124), at compiler `7e91730`** — `HIR.md` H-4a, H-9, H-10, H-15 and H-18,
+`SAFETY.md` S-19, RX-225, RX-227 and RX-236, the compiler's D-227, the cycle README's second and third 0.2.4 boxes —
+*"computed in **one** bottom-up pass and cached (H-10)"*, with RX-227's note that each bit this subcycle adds is refused by
+the dump until it says how the dump shows it, and *"the query computes-or-returns; no caller remembers to compute first"*
+— and its *"Watch for"*: *"Use a distinct 'not yet computed' state or compute-on-query; do not use `false`."* H-10 says
+the facts are computed once and never recomputed and that the query computes-or-returns; no rule says where the bits are,
+who writes them, what a write after them does, or what the dump makes of them — and `hir_normalise` copies a node's
+`flags` into the normal form (RX-236).
+
+**The decision.** **The bits**: the high half of `flags`, where no AST flag is (`ast.npk`'s are 1 … 1024) —
+`HIR_PROPS_COMPUTED`, 65 536, then `HIR_CAN_MATCH_EMPTY`, `HIR_IS_ANCHORED_START`, `HIR_IS_ANCHORED_END` and
+`HIR_IS_ALTERNATION_LITERAL`, `HIR_PROPS` the four and `HIR_COMPUTED` the five. A node without `HIR_PROPS_COMPUTED` holds no
+fact: the distinct "not yet computed" state. **The query** is `hir_props(Hir->:h, int64:i)` in `src/hir/repr.npk`,
+re-exported, answering node `i`'s four bits: when the root holds no `HIR_PROPS_COMPUTED` it runs the one pass, over the
+whole tree under the root, each node after its children, on an explicit stack bounded by twice the arena (S-19), the root
+left last; then it reads. A `Hir` with no root, and a node the root does not reach, have no facts and stop it
+`OutOfBounds`; the pass stops `OutOfBounds` on a node it leaves twice — a node with two parents, or a second pass — and
+`DecreasesViolated` past its bound. **Only that pass writes the five bits**: `hir_push` and `hir_set` drop them from every
+node they are handed, so no builder writes a fact and a node copied from a computed tree carries none. **A computed tree
+is finished**: `hir_set` and `hir_set_root` stop `OutOfBounds` on a tree whose root holds `HIR_PROPS_COMPUTED`, so a cached
+fact is never stale. `repr.npk`'s other writers change no fact: `hir_push` appends a node the root does not reach,
+`hir_push_range`, `hir_add_group` and `hir_copy_groups` write what no fact reads — a class's ranges, a group's name — and
+`hir_free` ends the arena, its root `HIR_NONE`. **The dump shows none of them** (H-15): every kind takes the five, the text writes
+none and `hir_read` sets none — they are the tree's facts, and a tree has one text before and after. Units
+`hir_props` (0), `hir_props_reference` (RX-238's), `hir_props_no_root`, `hir_props_not_in_tree`, `hir_props_frozen_set`,
+`hir_props_frozen_root` and `hir_props_shared` (94), and `hir_props_not_a_tree` (108); H-4a, H-10 and H-15 dated, and the
+comments of `repr.npk` and `dump.npk` and the header of `hir_build.npk`; RX-227's heading marked.
+
+**Measured at `7e91730`.** The eight units at both legs, each at its exit. Asking a leaf first computes all six nodes of a
+tree, a second query answers the same, and the dump is one text before and after; `[a]|b` built and computed, then
+normalised, answers `IS_ALTERNATION_LITERAL` at the normal form's root, which the built root does not. In the plan's mutant
+table each guard's every term is dropped alone and red: without the root's check the empty `Hir`'s query ends 108, without
+the reached check a node outside the tree answers no bits and its unit exits 2, without either freeze the write is made and
+its unit exits 2, a freeze read from the root alone stops the writes `hir_props` makes before any fact, and without the
+pass's second-leave stop the shared node's walk ends 108; and the compiler's D-227 defect itself — the query reading an
+uncomputed node as no bits — is red in both units that answer and in five of the six that stop.
+
+*Alternatives declined:* **the facts in a table of their own in `Hir`** — H-9 says `flags`, and a field more is one
+`hir_normalise`'s freshness must count beside its three (RX-236); **`false` for not computed** — D-227's defect, and the
+cycle README's watch-for; **the caller computing first**, a pass every stage calls before it asks — D-227: a rule enforced
+where somebody remembered is sampled, not enforced; **the normal form born with its facts**, `hir_normalise` computing them
+— the query answers over any tree, built, read or normalised, so it computes on demand anyway; **the pass in a module of its
+own, beside a public verb that writes the bits** — any module could write a fact; **the doors keeping the bits** — a node
+copied from a computed tree carries that tree's facts, and a computed `[a]|b` normalised would answer the built tree's *"not
+a union of literals"*; **a write after the facts clearing them**, the pass run again — H-10's *"never recomputed"*, and
+every ancestor of a rewritten node holds a stale bit until the next query; **the dump writing the facts** — a tree would
+have a text before and another after, and `hir_read` would read a fact it must trust or check; **the dump refusing them**
+— every computed tree would be one the dump stops on.
