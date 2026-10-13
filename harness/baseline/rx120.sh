@@ -232,7 +232,7 @@ fi
 # second layer is built on. RX120.txt named `kernel_call_edges` here, which has
 # never existed; these two do, and the run asserts it rather than printing a
 # list for a reader to compare by eye.
-python3 - "$root" <<'PY'
+python3 -B - "$root" <<'PY'
 import sys, importlib.util
 root = sys.argv[1]
 spec = importlib.util.spec_from_file_location("irscan", root + "/harness/irscan.py")

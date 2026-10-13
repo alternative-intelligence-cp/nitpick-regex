@@ -40,6 +40,10 @@ cycle 0.2.1a, 2026-10-09 — RX-231: the compiler's D-349, which compiler `7e917
 harness/run.py` as `../CLAUDE.md` and CI spell it, and `rx120.sh`'s check of `irscan.py` — which
 `check_dated_measurements` prunes by name. Neither is a worker's: a plan's scratch is its own directory under
 `.internal/`, removed at its record.)*
+*(2026-10-12, cycle 0.2.3 — and `__pycache__/` was there after a `python3 -B` run too, which cycle 0.2.2's work verifier found
+in a fresh clone: `rx120.sh`'s check of `irscan.py` started a `python3` of its own, which the runner's `-B` does not
+reach. It runs `python3 -B` since this subcycle, so a `python3 -B harness/run.py` run leaves no `__pycache__/` here; a
+run without `-B` still writes the runner's own, and `.internal/rx120/` is still every full run's.)*
 
 ## What a green run asserts
 
