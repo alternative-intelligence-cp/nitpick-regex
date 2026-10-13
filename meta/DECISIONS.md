@@ -6117,6 +6117,9 @@ three of their pins with it, and wants its own decision and a case that holds th
 ## The repetition product — cycle 0.2.2
 
 ### RX-232 — the repetition product, checked on the way down: `hir_build` carries the product of the factors around each node in `uint64`, refuses at the first `Repeat` whose factor takes it past `NREGEX_REPEAT_PRODUCT`, and `hir_build_refusal` is the refusal
+> **SUPERSEDED IN PART by RX-237 (2026-10-12)** — its list of what it dated: `TESTING.md`'s note on the fuzz pass too, which
+> its step wrote and its plan's row named. The decision stands.
+
 **2026-10-10, cycle 0.2.2 (the plan's PD-107), at compiler `7e91730`** — RX-015, `HIR.md` H-7, H-8 and H-16, `SAFETY.md` S-12
 and S-13, `SYNTAX.md` Y-25, Y-32 and Y-34, `COMPILE.md` C-14, and the cycle README's 0.2.2 boxes. RX-015 and H-8 say the
 product is checked as the HIR is built, multiplying the enclosing factors on the way down, and S-13 that the multiply is a
@@ -6302,3 +6305,48 @@ that `Alternate` is built: a node more than the tree, or a verb that pops the ar
 reads** — H-15's round trip, `hir_dump(hir_read(t))` is `t`; **the table rebuilt from the tree's groups** — the copy is
 the table as built, names and all, and no group moves; **an insertion sort** — `n²` over a class nothing bounds but the
 pattern's length until cycle 0.3.4 counts `NREGEX_CLASS_RANGES`.
+
+### RX-237 — the Gate's corpus generated: trees in normal form written plain and noisy, each pattern's dump its tree's reckoned again, and near misses held apart; the oracle's test written now, pending until cycle 0.5.5 on a hook; and RX-232's list of what it dated completed
+**2026-10-12, cycle 0.2.3 (the plan's PD-122), at compiler `7e91730`** — RX-226 and RX-229, `BUILD.md` B-5b, `TESTING.md` §7
+and V-20, the cycle README's 0.2.3 Gate box, *"a generated corpus of pattern pairs that are structurally equal but
+textually different produces byte-identical dumps"*, and its last box, *"a test asserting no normalisation changes which
+strings match, by running the oracle over both forms — pending until 0.5, and written now as a pending case"*; and the
+0.5 README's 0.5.5 box, *"0.2's pending normalisation test now green — the oracle can run both forms"*. RX-235 says what
+structurally equal is, so a pair can be generated from it; and the oracle is cycle 0.5's.
+
+**The decision.** **`tests/unit/hir_normalise_gate.npk`**: three thousand seeded trees, each already in RX-235's normal
+form, each written as its expected dump — H-15's text, reckoned from the tree — as a plain pattern, and as a noisy one,
+RX-235's identities applied to its text: a run of pieces or of alternatives in a `(?:…)`, a `(?:)` among the pieces, a
+literal as a class or an escape, a class's members split, overlapped, doubled and reordered, a quantifier respelt, an
+anchor's other name, and the whole in a `(?:…)` where the draws changed nothing. Each pattern's normal dump must be its
+tree's, byte for byte, so a pair's is one text; and a floor counts the pairs whose BUILT dumps differ — the ones only
+normalisation joins. **The other half**: each tree mutated once outside the identities — two alternatives swapped, a
+literal's byte bit flipped, two pieces swapped, a laziness flipped — must dump apart from the tree, and as its own
+expected text. Floors on every kind of noise and mutation. **`tests/unit/hir_normalise_oracle.npk`**, pending under
+RX-226's marker, `pending-until: 0.5.5 exit 1`, its line in `PENDING.txt`: twenty-one patterns whose normal forms differ
+from their built trees, every rewrite of H-13 among them, each built and normalised on every run; over twelve haystacks
+the oracle's answer — the leftmost-first match's capture slots — over the built tree and over its normal form must agree
+slot for slot. Its hook, `oracle_find`, answers that there is no oracle until cycle 0.5.5 fills it with the oracle's own
+entry point; a unit whose comparisons all met no oracle exits 1, and one whose forms disagree exits its case's number,
+which the marker does not excuse. `TESTING.md` §7, H-13 and the 0.5 README's 0.5.5 box dated, and the four texts that
+count the pending units — `PENDING.txt`'s header, its README's, `SAFETY.md`'s note on the marker and CI's comment.
+**And RX-232's list** — *"H-8, H-16, S-13 and C-14 are dated, and `limits.npk`'s comment"* — leaves out `TESTING.md`'s
+note on the fuzz pass, which its plan's row named and its step wrote with the others: this decision supersedes RX-232 in
+that list alone, and RX-232's heading is marked.
+
+**Measured at `7e91730`.** `hir_normalise_gate` exits 0 at both legs: all 3 000 pairs textually different, 2 060 of them
+joined only by normalisation; noise applied — runs of pieces wrapped 1 716 times, runs of alternatives 1 308, a `(?:)`
+1 283, a literal as a class or an escape 4 001, a class respelt 3 078, a quantifier or an anchor 1 817; and mutations —
+alternatives swapped 251, a byte bit flipped 467, pieces swapped 267, a laziness flipped 288 — every one apart.
+`hir_normalise_oracle` exits 1 at both legs: every pattern builds and normalises, its two forms hold as many groups and
+dump apart, and every comparison meets the hook's answer that there is no oracle.
+
+*Alternatives declined:* **the corpus as committed text**, a generator in `tools/` writing pairs to a fixture — a
+generator and its regeneration check for a list a seed reproduces; this repository's fuzz passes (RX-221, RX-232) are its
+generated corpora, and units on every run; **pairs compared with each other alone, no expected dump** — a normaliser wrong
+the same way on both sides of a pair passes; **no near misses** — a normaliser that joins too much, alternatives sorted or
+the byte bit erased, passes every pair; **the hook as a stub oracle module in `tests/oracle/`** — it would shape cycle
+0.5.0's entry point from here; **the test left until cycle 0.5** — the box says written now, and RX-226 declined a test
+left out of the suites; **the label `0.5.0`, where the oracle is written** — the 0.5 README names this test in 0.5.5's
+box; **RX-232's list left as it is** — a list of what a decision dated is a claim about a set, and the set has one
+member more.

@@ -191,6 +191,10 @@ meets. The pattern fuzzer above — structured, a hundred million patterns, the 
 *(2026-10-10, cycle 0.2.2 — RX-232: and the HIR's build has its own, `tests/unit/hir_build_product_fuzz.npk`: twenty
 thousand seeded nests of groups and quantifiers, each build's verdict held to the products reckoned again from the root
 by index, every refusal a crossing `Repeat`'s `{` inside the pattern, with floors on what it builds and refuses.)*
+*(2026-10-12, cycle 0.2.3 — RX-237: and normalisation's, `tests/unit/hir_normalise_gate.npk`, cycle 0.2's Gate as a generated
+corpus: three thousand seeded trees in normal form, each written plain and noisy and its dump held to the tree's,
+reckoned again, and each mutated once outside the identities and held apart, with floors on every kind of noise and
+mutation. RX-232's list of what it dated leaves out the note above, which its step wrote; RX-237 completes it.)*
 
 ---
 

@@ -1,0 +1,165 @@
+// expect-exit: 0
+// pending-until: 0.5.5 exit 1
+//
+// NO NORMALISATION CHANGES WHICH STRINGS MATCH: THE ORACLE RUN OVER BOTH FORMS. Cycle 0.2.3, RX-237;
+// `HIR.md` H-13 and H-14, `TESTING.md` V-20, and the cycle README's last 0.2.3 box.
+//
+// PENDING UNTIL CYCLE 0.5.5, ON EXIT 1 ALONE (`BUILD.md` B-5b, RX-226). The oracle is cycle 0.5's --
+// the naive matcher over the HIR, `tests/oracle/`, which imports nothing from `src/` but `core` and
+// `hir` (V-4) -- and the 0.5 README's 0.5.5 box is the one that turns this unit green: *"the oracle can
+// run both forms"*. Until then the hook below answers NO_ORACLE, and a unit whose every comparison
+// met no oracle exits 1 -- that and nothing else. A case where both forms got an answer and the
+// answers differ exits with its number, 11 or 12, which the marker does not excuse: the run is red
+// then, not pending. The day every answer agrees the unit exits 0, the run goes red to say the marker
+// is stale, and the marker and its line in `harness/baseline/PENDING.txt` go.
+//
+// THE HOOK, `oracle_find`. The one place this unit meets the oracle, and the one line cycle 0.5.5
+// writes here: given a HIR and a haystack, the leftmost-first match's capture slots -- `2 x` the HIR's
+// group count, slots 0 and 1 the whole match (`COMPILE.md` C-16), `HIR_NONE` for a group that did
+// not take part -- answering 1 for a match and 0 for none. Its shape is this unit's, not the oracle's:
+// cycle 0.5.0 names the oracle's entry point and its answer, and the hook adapts it. Until then it
+// answers NO_ORACLE and writes nothing.
+//
+// WHAT IT ASKS. Every pattern below is one whose normal form differs from the tree the build made --
+// each rule of H-13 at least once: a concatenation flattened, an alternation flattened in order, an
+// `Empty` piece dropped and an `Empty` alternative kept, a class sorted, merged and made a `Literal`
+// -- and every one is built and normalised on every run, so a normalisation that trapped would be red
+// here too (any exit but 1). For each haystack, the oracle's answer over the built tree and over its
+// normal form must be the same, slot for slot (11, 12); the two forms hold as many groups (13), and
+// their dumps differ (14), so the oracle is asked about two trees, never one twice.
+mod:hir_normalise_oracle;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+use "../../src/hir/hir.npk".*;
+
+fixed int64:NO_ORACLE = -2i64;
+
+// THE HOOK -- cycle 0.5.5 fills it with a call to the oracle (see the header).
+func:oracle_find = int64(Hir->:h, fixed uint8[]:hay, Vec<int64>->:slots) never fails {
+    pass NO_ORACLE;
+};
+
+// The haystacks every pattern is run over.
+func:hay = string(int64:i) never fails {
+    if (i == 0i64) { pass ""; }
+    if (i == 1i64) { pass "a"; }
+    if (i == 2i64) { pass "ab"; }
+    if (i == 3i64) { pass "abc"; }
+    if (i == 4i64) { pass "abcd"; }
+    if (i == 5i64) { pass "ba"; }
+    if (i == 6i64) { pass "cab"; }
+    if (i == 7i64) { pass "aab"; }
+    if (i == 8i64) { pass "bbbc"; }
+    if (i == 9i64) { pass "xbcy"; }
+    if (i == 10i64) { pass "x ab y"; }
+    pass "dcba";
+};
+fixed int64:HAYS = 12i64;
+
+// The patterns, each one whose normal form is not the tree the build made.
+func:pattern = string(int64:i) never fails {
+    if (i == 0i64) { pass "a(?:bc)"; }
+    if (i == 1i64) { pass "(?:ab)c"; }
+    if (i == 2i64) { pass "a|(?:b|c)"; }
+    if (i == 3i64) { pass "(?:a|b)|c"; }
+    if (i == 4i64) { pass "c|(?:b|a)"; }
+    if (i == 5i64) { pass "a(?:)b"; }
+    if (i == 6i64) { pass "(?:)a"; }
+    if (i == 7i64) { pass "a|(?:|b)"; }
+    if (i == 8i64) { pass "[ba]"; }
+    if (i == 9i64) { pass "[aa]"; }
+    if (i == 10i64) { pass "[a-cb-d]"; }
+    if (i == 11i64) { pass "[a[b-c]d]"; }
+    if (i == 12i64) { pass "(a(?:bc))d"; }
+    if (i == 13i64) { pass "(?:a(?:bc))*"; }
+    if (i == 14i64) { pass "x(?:a|(?:b|c))y"; }
+    if (i == 15i64) { pass "\\b(?:)()"; }
+    if (i == 16i64) { pass "(a)(?:(?:b|c)|d)"; }
+    if (i == 17i64) { pass "((?:a|(?:b|c)))+"; }
+    if (i == 18i64) { pass "a(?:b(?:cd))*"; }
+    if (i == 19i64) { pass "[cab]"; }
+    pass "(?:[ab]|c)(?:)d";
+};
+fixed int64:PATTERNS = 21i64;
+
+func:same_bytes = bool(Bytes->:a, Bytes->:b) never fails {
+    int64:n = raw bytes_len(a);
+    if (n != (raw bytes_len(b))) { pass false; }
+    int64:i = 0i64;
+    while (i < n) decreases n - i {
+        if ((raw bytes_get(a, i)) != (raw bytes_get(b, i))) { pass false; }
+        i = i + 1i64;
+    }
+    pass true;
+};
+
+func:run = int32() never fails {
+    bool:none = false;
+    int64:p = 0i64;
+    while (p < PATTERNS) decreases PATTERNS - p {
+        string:s = raw pattern(p);
+        fixed uint8[]:pat = string_bytes(s);
+        Ast:t = raw ast_init(8i64);
+        if ((raw parse_pattern(pat, @t)) != NIL) { pass 10i32; }
+        Hir:h = raw hir_init(8i64);
+        if ((raw hir_build(pat, t, @h)) != HIR_NONE) { pass 10i32; }
+        Hir:n = raw hir_init(8i64);
+        drop hir_normalise(@h, @n);
+        int64:groups = raw hir_group_count(h);
+        if (groups != (raw hir_group_count(n))) { pass 13i32; }
+        Bytes:hb = raw bytes_init(64i64);
+        Bytes:nb = raw bytes_init(64i64);
+        drop hir_dump(@h, @hb);
+        drop hir_dump(@n, @nb);
+        if (raw same_bytes(@hb, @nb)) { pass 14i32; }
+        int64:k = 0i64;
+        while (k < HAYS) decreases HAYS - k {
+            string:y = raw hay(k);
+            Vec<int64>:a = raw vec_init_zeroed::<int64>(2i64 * groups);
+            Vec<int64>:b = raw vec_init_zeroed::<int64>(2i64 * groups);
+            int64:fa = raw oracle_find(@h, string_bytes(y), @a);
+            int64:fb = raw oracle_find(@n, string_bytes(y), @b);
+            if ((fa == NO_ORACLE) || (fb == NO_ORACLE)) { none = true; }
+            else {
+                if (fa != fb) { pass 11i32; }
+                int64:j = 0i64;
+                while (j < (2i64 * groups)) decreases 2i64 * groups - j {
+                    if ((raw vec_get(a, j)) != (raw vec_get(b, j))) { pass 12i32; }
+                    j = j + 1i64;
+                }
+            }
+            drop vec_free(@a);
+            drop vec_free(@b);
+            k = k + 1i64;
+        }
+        drop hir_free(@n);
+        drop hir_free(@h);
+        drop ast_free(@t);
+        p = p + 1i64;
+    }
+    if (none) { pass 1i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    exit raw run();
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

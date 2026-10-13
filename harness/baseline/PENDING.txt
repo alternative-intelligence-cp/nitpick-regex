@@ -43,6 +43,9 @@
 # *(2026-10-08, cycle 0.2.1 -- RX-229: two lines since, the first pending on a subcycle of
 # this library rather than a compiler: the tests of what cycle 0.3.4 builds at the HIR's two hooks
 # and in `leaf`. Each unit exits 1 while the build stops, at its hook or in `leaf`.)*
+# *(2026-10-12, cycle 0.2.3 -- RX-237: three since, the third pending on cycle 0.5.5: the test that no
+# normalisation changes which strings match, which exits 1 while its hook meets no oracle.)*
 
 tests/unit/hir_build_classes.npk	0.3.4	1	H-5's class row, and a class's negation and operators: the build stops at each until cycle 0.3.4 fills `resolve_items` and widens `leaf` (RX-229)
 tests/unit/hir_build_fold.npk	0.3.4	1	H-5's `(?i:…)` row: the build stops at each until cycle 0.3.4 fills `fold_ranges` (RX-229)
+tests/unit/hir_normalise_oracle.npk	0.5.5	1	H-14: no normalisation changes which strings match, the oracle run over both forms; its hook answers no oracle until cycle 0.5.5 fills it (RX-237)

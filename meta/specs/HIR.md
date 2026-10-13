@@ -265,6 +265,9 @@ group, a repetition's bounds and laziness, an anchor's or a boundary's kind, and
 `(literal 97)`. RX-236: `hir_normalise(Hir->:h, Hir->:out)`, in `src/hir/normal.npk`, writes the normal form into a fresh
 arena, a pass of its own after the build (H-16), so the oracle can run both forms; `tests/unit/hir_normalise.npk` holds
 every rewrite, and what is kept apart.)*
+*(2026-10-12, cycle 0.2.3 — RX-237: the Gate's corpus is `tests/unit/hir_normalise_gate.npk` — trees in normal form written
+plain and noisy, each held to its dump reckoned again, and near misses held apart — and the oracle's test of both forms,
+`hir_normalise_oracle.npk`, is pending until cycle 0.5.5.)*
 
 **Rule H-14 — nothing that changes which strings match is a normalisation.**
 Reordering an alternation, hoisting a common prefix, or eliminating a `Repeat`
