@@ -189,6 +189,27 @@ pub func:hir_group = GroupInfo(Hir:h, int64:k) never fails {
     pass raw vec_get(h.groups, k);
 };
 
+// obligation: never fails requires hir_group_count(to) == 1i64
+//
+// Copies `from`'s groups past group 0 into `to`, in number order, each one's name into `to`'s
+// names: the table a pass that keeps every group keeps (cycle 0.2.3's normalisation, H-13). Pass a
+// `to` fresh from `hir_init`.
+pub func:hir_copy_groups = NIL(Hir->:from, Hir->:to) never fails {
+    int64:k = 1i64;
+    while (k < from.groups.count) decreases from.groups.count - k {
+        GroupInfo:g = raw vec_get(from.groups, k);
+        int64:off = raw bytes_len(@to.names);
+        int64:i = 0i64;
+        while (i < g.len) decreases g.len - i {
+            drop bytes_push(@to.names, raw bytes_get(@from.names, g.off + i));
+            i = i + 1i64;
+        }
+        drop vec_push(@to.groups, GroupInfo{ off: off, len: g.len });
+        k = k + 1i64;
+    }
+    pass NIL;
+};
+
 // obligation: never fails requires k >= 0i64 && k < hir_group_count(h)
 //
 // Appends group `k`'s name to `out`: nothing for a group with none. The bytes are copied --

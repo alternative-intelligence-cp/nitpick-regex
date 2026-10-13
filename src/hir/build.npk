@@ -8,6 +8,8 @@
 // later node of its group carries (Y-41). Every other kind is the same kind. Nothing is
 // flattened, merged, sorted or reordered -- that is cycle 0.2.3's normalisation (H-13) -- and
 // nothing is expanded (H-7). H-16 is the table, kind by kind.
+// *(2026-10-12, cycle 0.2.3 -- RX-236: normalisation is `normal.npk`'s, `hir_normalise`, a pass of its own
+// after this one, so this file's tree stays the desugared one.)*
 //
 // NO PATTERN FLAG SURVIVES (H-6). A node's flags in force are read for what the node MEANS and
 // never copied: `m` makes `^` and `$` the lines' anchors, `s` gives `.` the `\n`, `u` cleared makes

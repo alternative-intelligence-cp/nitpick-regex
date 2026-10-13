@@ -507,6 +507,8 @@ before its code, the 0.3 README's item. `\b` and `\B` are `UNICODE.md` §5's, U-
 **Rule Y-15 — a class is a set of codepoints** (or of bytes, under `(?-u)`),
 computed at compile time into a sorted disjoint range list. Nothing about the
 source order survives.
+*(2026-10-12, cycle 0.2.3 — RX-235, RX-236: in the HIR's normal form, which `hir_normalise` writes; the build's tree keeps
+the order written until then, and two classes of one set are one normal form.)*
 
 ### 5.1 Perl and POSIX classes
 

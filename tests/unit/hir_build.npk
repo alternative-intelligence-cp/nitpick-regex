@@ -285,7 +285,8 @@ func:kinds = int32() never fails {
     // and a byte under `(?-u)`, `HIR_FLAG_BYTE`, beside a codepoint
     if ((!(raw built("(?-u)\\xFF", "(literal byte 255)"))) || (!(raw built("(?-u)a", "(literal byte 97)")))
         || (!(raw built("(?-u:\\xE9)é", "(concat (literal byte 233) (literal 233))")))) { pass 32i32; }
-    // `Concat`, in order, and not flattened (H-13 is cycle 0.2.3's)
+    // `Concat`, in order, and not flattened (H-13 is cycle 0.2.3's) -- `hir_normalise`'s since, a pass of its own, and
+    // `hir_normalise.npk` holds it (2026-10-12, RX-236)
     if ((!(raw built("abc", "(concat (literal 97) (literal 98) (literal 99))")))
         || (!(raw built("a(?:bc)", "(concat (literal 97) (concat (literal 98) (literal 99)))")))) { pass 33i32; }
     // `Alternate`, in order, and not reordered (H-14)
@@ -328,7 +329,8 @@ func:kinds = int32() never fails {
 // Classes built from their members, and the surrogates (C-3).
 func:classes = int32() never fails {
     if ((!(raw built("[a]", "(class 97-97)"))) || (!(raw built("[a-z]", "(class 97-122)")))) { pass 50i32; }
-    // in the order written: sorting and merging are cycle 0.2.3's (H-13)
+    // in the order written: sorting and merging are cycle 0.2.3's (H-13) -- `hir_normalise`'s since, and
+    // `hir_normalise.npk` holds them (2026-10-12, RX-236)
     if ((!(raw built("[ba]", "(class 98-98 97-97)"))) || (!(raw built("[a-z0-9_a]", "(class 97-122 48-57 95-95 97-97)")))) { pass 51i32; }
     // `]` and `-` where they are members (Y-36)
     if ((!(raw built("[]a]", "(class 93-93 97-97)"))) || (!(raw built("[a-]", "(class 97-97 45-45)")))) { pass 52i32; }

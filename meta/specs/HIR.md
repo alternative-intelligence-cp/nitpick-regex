@@ -11,6 +11,8 @@ knowing which engine will run is decided here, once.
 means. The parser produces `[a-zA-Z_]` as a class with three items; the HIR
 produces one sorted disjoint range list with the case folding already applied,
 and every later stage sees only that.
+*(2026-10-12, cycle 0.2.3 — RX-236: the normal form's, which `hir_normalise` writes; the build's tree keeps a class's
+ranges in the order the pattern writes them (H-16), and every later stage reads the normal form.)*
 
 Three things follow, and each is worth the stage:
 
@@ -193,6 +195,9 @@ unset, as it answers a stop; a `Repeat` is never where it stops, so the kind tel
 quantifier's `{`, spanning it through its last byte, the bound its detail (`SYNTAX.md` §9), or NIL for `HIR_NONE` and a
 stop. The walk answers whichever it meets first: a refusal as it enters a `Repeat`, a stop as it leaves a leaf.
 `tests/unit/hir_build_product.npk` and `hir_build_product_fuzz.npk` hold it.)*
+*(2026-10-12, cycle 0.2.3 — RX-236: *"nothing flattened, merged, sorted or reordered, which is cycle 0.2.3's"* stays true of
+the build: its tree is the desugared one, and normalisation is a pass of its own after it, `hir_normalise` (H-13), which
+writes the normal form into a fresh arena and leaves the build's tree as it was built.)*
 
 ---
 
@@ -250,6 +255,16 @@ test be a byte comparison:
 - empty concatenations become `Empty`;
 - a class with one single-codepoint range becomes a `Literal`;
 - class ranges are sorted and adjacent or overlapping ranges are merged.
+*(2026-10-12, cycle 0.2.3 — RX-235: STRUCTURALLY EQUAL is equal up to these six, each read as an identity, and H-16's
+`Concat` row's two — a `Concat` of no piece is `Empty`, of one that piece. So `Empty` is concatenation's identity, and
+a `Concat` drops an `Empty` piece; never alternation's — `a|` is not `a`, and an `Empty` alternative stays. A class is
+the set its ranges cover (`SYNTAX.md` Y-15), written sorted by first member, two that overlap or touch merged, and a
+class of one codepoint is that `Literal`, its byte bit kept. A literal run is the adjacent `Literal` pieces of one flat
+`Concat`, no node of its own: H-4's nine kinds stand. Nothing else is structure's to join — an alternative's place, a
+group, a repetition's bounds and laziness, an anchor's or a boundary's kind, and the byte bit: `(literal byte 97)` is not
+`(literal 97)`. RX-236: `hir_normalise(Hir->:h, Hir->:out)`, in `src/hir/normal.npk`, writes the normal form into a fresh
+arena, a pass of its own after the build (H-16), so the oracle can run both forms; `tests/unit/hir_normalise.npk` holds
+every rewrite, and what is kept apart.)*
 
 **Rule H-14 — nothing that changes which strings match is a normalisation.**
 Reordering an alternation, hoisting a common prefix, or eliminating a `Repeat`
@@ -289,6 +304,8 @@ now: `hir_dump_stray_bit.npk` is the fifth. A bit cycle 0.2.4 adds (H-9) is one 
 says how the dump shows it.)*
 *(2026-10-08, cycle 0.2.1 — RX-228: and `hir_build` builds one — every node it pushes is reached from the root once
 (H-16) — so the walk's bound is exact for every HIR it answers `HIR_NONE` for.)*
+*(2026-10-12, cycle 0.2.3 — RX-236: *"cycle 0.2.3's order"* is `hir_normalise`'s to make: a text's classes read as written,
+and `hir_normalise` sorts and merges them, total over every text `hir_read` reads.)*
 
 ---
 

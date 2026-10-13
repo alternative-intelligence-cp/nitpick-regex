@@ -1,0 +1,43 @@
+// expect-exit: 94
+//
+// A NORMAL FORM WRITTEN INTO AN ARENA THAT IS NOT FRESH STOPS. Cycle 0.2.3, RX-236; `HIR.md` H-13.
+//
+// `hir_normalise` copies the groups of the tree it reads into `out` past group 0, so a `group k`
+// of the normal form is `out`'s group `k`, its name there. Into an arena that already holds a
+// group, every group would land one number on and name another group's text -- and into one that
+// already holds a node, the arena would hold more than the tree. Here `out` has been read into
+// before: `hir_normalise` traps `OutOfBounds` (94) through `vec_oob`, as a misnumbered build
+// does (`hir_build_misnumbered.npk`), before it writes anything.
+mod:hir_normalise_not_fresh;
+
+use "../../src/core/core.npk".*;
+use "../../src/hir/hir.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Hir:h = raw hir_init(4i64);
+    discard(raw hir_read(string_bytes("(group 1 x (literal 97))"), @h));
+    Hir:out = raw hir_init(4i64);
+    discard(raw hir_read(string_bytes("(group 1 y (literal 98))"), @out));
+    drop hir_normalise(@h, @out);
+    drop hir_free(@out);
+    drop hir_free(@h);
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

@@ -22,6 +22,8 @@
 // does not hold what a builder must: surrogates out of a class (`COMPILE.md` C-3), a name
 // used twice (Y-8), sorted and disjoint ranges (cycle 0.2.3) -- a text that breaks one of
 // those reads as written.
+// *(2026-10-12, cycle 0.2.3 -- RX-236: and `hir_normalise` sorts and merges a read text's classes, total
+// over every text this file reads.)*
 //
 // NOTHING RECURSES (`SAFETY.md` S-19). The writer walks the tree on a `Vec<Visit>`, the
 // reader keeps its open nodes on a `Vec<ReadFrame>`. The writer's loop is bounded by twice

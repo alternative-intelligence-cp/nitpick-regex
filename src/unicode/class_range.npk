@@ -14,6 +14,8 @@
 // a HIR dump only has `lo <= hi`. Codepoints are `0 … 0x10FFFF`, surrogates excluded;
 // under `(?-u)` a class is over bytes, `0 … 255`, and its node says so (H-4a's
 // `HIR_FLAG_BYTE`), not the range.
+// *(2026-10-12, cycle 0.2.3 -- RX-236: *"sorted and disjoint once cycle 0.2.3 normalises it"* -- in the normal
+// form `hir_normalise` writes, `src/hir/normal.npk`; the build's tree keeps a class's ranges in the order written.)*
 //
 // It owns nothing, so a `Vec` holds it, and it derives `Copy`, which every `Vec`
 // element must (`Vec<T: Copy>`, RX-188).

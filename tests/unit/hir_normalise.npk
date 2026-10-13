@@ -1,0 +1,570 @@
+// expect-exit: 0
+//
+// NORMALISATION: EVERY RULE OF H-13, ON THE TREES THE BUILD BUILDS AND ON THE TEXTS THE READER READS,
+// AND WHAT IT LEAVES ALONE. Cycle 0.2.3, RX-235 and RX-236; `HIR.md` H-13 and H-14.
+//
+// WHAT IT PINS. Each case builds a pattern through `hir_build` -- or reads a text through `hir_read`
+// -- normalises it through `hir.npk`'s `hir_normalise`, and holds the normal form to a text. `normed`
+// asks six things of every one: its dump is the text, byte for byte; the tree it was made from is
+// unchanged, dump for dump, with as many groups; its arena holds the tree and nothing else, every node
+// reached from the root once (`is_tree`, H-16), and its ranges are its classes' and nothing else, each
+// class's after the one before it (`ranges_exact`); normalising it again changes nothing, and neither
+// does reading its text back and normalising that (the form is a fixed point); and the group table is
+// copied, name for name.
+//
+// THE CASES. 1 … 9 concatenations flattened, and a literal run the adjacent literals of one flat
+// `Concat`; 10 … 16 alternations flattened and never reordered; 20 … 23 an `Empty` piece dropped and
+// an empty concatenation `Empty`, an `Empty` alternative kept; 30 … 39 classes sorted and merged, and a
+// class of one codepoint a `Literal`, its byte bit kept; 50 … 54 the shapes only a text holds; 60 and
+// 61 what is NOT one structure -- H-14's three, the byte bit, and the rest -- and what is; 70 a `Hir`
+// with no root; 80 … 84 seeded classes, every one's normal form held to the set it covers. A case that
+// differs exits with its number; the program exits 0 only after every `hir_free` and `ast_free`, and
+// D-151 traps a `wild` block still live at exit (96).
+mod:hir_normalise;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+use "../../src/hir/hir.npk".*;
+
+fixed int64:CLASSES = 4000i64;          // the seeded classes, 80 … 84
+fixed int64:UNIVERSE = 320i64;          // their members are below this, past the bytes' 255
+fixed int64:MERGED_FLOOR = 1500i64;     // classes whose ranges were merged or sorted
+fixed int64:LITERAL_FLOOR = 80i64;      // classes left with one member, a `Literal`
+
+// Whether `b` holds exactly the bytes of `want`.
+func:same = bool(Bytes->:b, fixed uint8[]:want) never fails {
+    if ((raw bytes_len(b)) != want.len) { pass false; }
+    int64:i = 0i64;
+    while (i < want.len) decreases want.len - i {
+        if ((raw bytes_get(b, i)) != want[i]) { pass false; }
+        i = i + 1i64;
+    }
+    pass true;
+};
+
+// Whether two buffers hold the same bytes.
+func:same_bytes = bool(Bytes->:a, Bytes->:b) never fails {
+    int64:n = raw bytes_len(a);
+    if (n != (raw bytes_len(b))) { pass false; }
+    int64:i = 0i64;
+    while (i < n) decreases n - i {
+        if ((raw bytes_get(a, i)) != (raw bytes_get(b, i))) { pass false; }
+        i = i + 1i64;
+    }
+    pass true;
+};
+
+// Whether the arena holds the tree under the root and nothing else: every node reached from the
+// root once, and every node reached (H-16). A node reached twice ends the walk.
+func:is_tree = bool(Hir->:h) never fails {
+    int64:n = raw hir_len(<-h);
+    if (h.root == HIR_NONE) { pass n == 0i64; }
+    Bytes:seen = raw bytes_init(n + 1i64);
+    int64:i = 0i64;
+    while (i < n) decreases n - i {
+        drop bytes_push(@seen, 0u8);
+        i = i + 1i64;
+    }
+    Vec<int64>:todo = raw vec_init::<int64>(16i64);
+    drop vec_push(@todo, h.root);
+    int64:reached = 0i64;
+    int64:pops = 0i64;
+    bool:ok = true;
+    while (ok && (todo.count > 0i64)) decreases n + 1i64 - pops {
+        pops = pops + 1i64;
+        int64:m = raw vec_pop(@todo);
+        if ((raw bytes_get(@seen, m)) != 0u8) { ok = false; }
+        else {
+            drop bytes_set(@seen, m, 1u8);
+            reached = reached + 1i64;
+            HirNode:x = raw hir_get(<-h, m);
+            if ((x.kind == HirKind.Concat) || (x.kind == HirKind.Alternate)) {
+                int64:c = x.a;
+                int64:k = 0i64;
+                while ((c != HIR_NONE) && (k <= x.b)) decreases x.b + 1i64 - k {
+                    drop vec_push(@todo, c);
+                    HirNode:y = raw hir_get(<-h, c);
+                    c = y.next;
+                    k = k + 1i64;
+                }
+            }
+            else if ((x.kind == HirKind.Repeat) || (x.kind == HirKind.Group)) {
+                drop vec_push(@todo, x.a);
+            }
+        }
+    }
+    drop vec_free(@todo);
+    pass ok && (reached == n);
+};
+
+// Whether the arena's ranges are its classes' and nothing else: in node order, each class's ranges
+// begin where the one before it ended, and the last ends at the last range.
+func:ranges_exact = bool(Hir->:h) never fails {
+    int64:n = raw hir_len(<-h);
+    int64:at = 0i64;
+    int64:i = 0i64;
+    while (i < n) decreases n - i {
+        HirNode:x = raw hir_get(<-h, i);
+        if (x.kind == HirKind.Class) {
+            if (x.a != at) { pass false; }
+            at = at + x.b;
+        }
+        i = i + 1i64;
+    }
+    pass at == (raw hir_range_count(<-h));
+};
+
+// Whether two arenas hold the same groups: as many, each name the same.
+func:same_groups = bool(Hir->:a, Hir->:b) never fails {
+    int64:n = raw hir_group_count(<-a);
+    if (n != (raw hir_group_count(<-b))) { pass false; }
+    int64:k = 1i64;
+    while (k < n) decreases n - k {
+        Bytes:x = raw bytes_init(8i64);
+        Bytes:y = raw bytes_init(8i64);
+        drop hir_put_name(a, k, @x);
+        drop hir_put_name(b, k, @y);
+        if (!(raw same_bytes(@x, @y))) { pass false; }
+        k = k + 1i64;
+    }
+    pass true;
+};
+
+// The normal form of `h` into `out`'s text, holding it to the five things every normal form is: the
+// tree read unchanged, the groups copied, the arena the tree and its classes' ranges and nothing
+// else, and a fixed point -- normalised again, and read back and normalised, the same text.
+func:normal_text = bool(Hir->:h, Bytes->:out) never fails {
+    Bytes:before = raw bytes_init(64i64);
+    drop hir_dump(h, @before);
+    Hir:n = raw hir_init(8i64);
+    drop hir_normalise(h, @n);
+    drop hir_dump(@n, out);
+    Bytes:after = raw bytes_init(64i64);
+    drop hir_dump(h, @after);
+    bool:ok = (raw same_bytes(@before, @after)) && (raw same_groups(h, @n));
+    ok = ok && (raw is_tree(@n)) && (raw ranges_exact(@n));
+    Hir:n2 = raw hir_init(8i64);
+    drop hir_normalise(@n, @n2);
+    Bytes:again = raw bytes_init(64i64);
+    drop hir_dump(@n2, @again);
+    ok = ok && (raw same_bytes(out, @again)) && (raw same_groups(@n, @n2));
+    string:text = raw bytes_copy_string(out);
+    Hir:r = raw hir_init(8i64);
+    if ((raw hir_read(string_bytes(text), @r)) != HIR_NONE) { ok = false; }
+    else {
+        Hir:r2 = raw hir_init(8i64);
+        drop hir_normalise(@r, @r2);
+        Bytes:reread = raw bytes_init(64i64);
+        drop hir_dump(@r2, @reread);
+        ok = ok && (raw same_bytes(out, @reread));
+        drop hir_free(@r2);
+    }
+    drop hir_free(@r);
+    drop hir_free(@n2);
+    drop hir_free(@n);
+    pass ok;
+};
+
+// `pattern` parses and builds, and its normal form is held to everything above into `out`; false
+// when it does not parse, or its build does not complete.
+func:pattern_normal = bool(string:pattern, Bytes->:out) never fails {
+    fixed uint8[]:pat = string_bytes(pattern);
+    Ast:t = raw ast_init(8i64);
+    bool:ok = (raw parse_pattern(pat, @t)) == NIL;
+    if (ok) {
+        Hir:h = raw hir_init(8i64);
+        ok = ((raw hir_build(pat, t, @h)) == HIR_NONE) && (raw normal_text(@h, out));
+        drop hir_free(@h);
+    }
+    drop ast_free(@t);
+    pass ok;
+};
+
+// `pattern`'s normal form is `want`.
+func:normed = bool(string:pattern, string:want) never fails {
+    Bytes:b = raw bytes_init(64i64);
+    pass (raw pattern_normal(pattern, @b)) && (raw same(@b, string_bytes(want)));
+};
+
+// `text` reads, and its normal form is `want`.
+func:normed_text = bool(string:text, string:want) never fails {
+    Hir:h = raw hir_init(8i64);
+    bool:ok = (raw hir_read(string_bytes(text), @h)) == HIR_NONE;
+    Bytes:b = raw bytes_init(64i64);
+    ok = ok && (raw normal_text(@h, @b)) && (raw same(@b, string_bytes(want)));
+    drop hir_free(@h);
+    pass ok;
+};
+
+// `p` and `q` are one structure: their normal forms are one text.
+func:one_form = bool(string:p, string:q) never fails {
+    Bytes:a = raw bytes_init(64i64);
+    Bytes:b = raw bytes_init(64i64);
+    pass (raw pattern_normal(p, @a)) && (raw pattern_normal(q, @b)) && (raw same_bytes(@a, @b));
+};
+
+// `p` and `q` are not: both build, and their normal forms differ.
+func:apart = bool(string:p, string:q) never fails {
+    Bytes:a = raw bytes_init(64i64);
+    Bytes:b = raw bytes_init(64i64);
+    pass (raw pattern_normal(p, @a)) && (raw pattern_normal(q, @b)) && (!(raw same_bytes(@a, @b)));
+};
+
+// Concatenations flattened; a literal run.
+func:concats = int32() never fails {
+    if (!(raw normed("a(?:bc)", "(concat (literal 97) (literal 98) (literal 99))")))           { pass 1i32; }
+    if (!(raw normed("(?:ab)c", "(concat (literal 97) (literal 98) (literal 99))")))           { pass 2i32; }
+    if ((!(raw normed("(?:(?:a(?:b))c)", "(concat (literal 97) (literal 98) (literal 99))")))
+        || (!(raw normed("(?:a(?:b(?:c(?:d))))e", "(concat (literal 97) (literal 98) (literal 99) (literal 100) (literal 101))")))) { pass 3i32; }
+    // under a group the group stays, and its body is flattened
+    if (!(raw normed("(a(?:bc))d", "(concat (group 1 (concat (literal 97) (literal 98) (literal 99))) (literal 100))"))) { pass 4i32; }
+    // a `Concat` a `Repeat` holds is no piece of a `Concat`, and stays
+    if (!(raw normed("(?:a(?:bc))*", "(repeat 0 - (concat (literal 97) (literal 98) (literal 99)))"))) { pass 5i32; }
+    // nor is one an `Alternate` holds
+    if (!(raw normed("ab|c(?:de)", "(alternate (concat (literal 97) (literal 98)) (concat (literal 99) (literal 100) (literal 101)))"))) { pass 6i32; }
+    // the run: the adjacent literals of one flat `Concat`, however written, and a boundary between two runs
+    if ((!(raw normed("[a](?:b)\\x63", "(concat (literal 97) (literal 98) (literal 99))")))
+        || (!(raw normed("a(?:b\\b)c", "(concat (literal 97) (literal 98) (wordboundary) (literal 99))")))) { pass 7i32; }
+    // a codepoint and a byte in one run stay what each is
+    if ((!(raw normed("(?-u:\\xE9)(?:é)", "(concat (literal byte 233) (literal 233))")))
+        || (!(raw normed("(?-u:a(?u:b))", "(concat (literal byte 97) (literal 98))")))) { pass 9i32; }
+    pass 0i32;
+};
+
+// 250 wrappers deep, NREGEX_NEST_DEPTH, each a piece and a wrapper -- one flat `Concat` of 251.
+func:deep = int32() never fails {
+    Bytes:p = raw bytes_init(16i64);
+    Bytes:w = raw bytes_init(16i64);
+    drop bytes_extend_str(@w, "(concat");
+    int64:i = 0i64;
+    while (i < 250i64) decreases 250i64 - i {
+        drop bytes_extend_str(@p, "a(?:");
+        drop bytes_extend_str(@w, " (literal 97)");
+        i = i + 1i64;
+    }
+    drop bytes_extend_str(@p, "b");
+    drop bytes_extend_str(@w, " (literal 98))");
+    i = 0i64;
+    while (i < 250i64) decreases 250i64 - i {
+        drop bytes_push(@p, 41u8);
+        i = i + 1i64;
+    }
+    string:ps = raw bytes_copy_string(@p);
+    string:ws = raw bytes_copy_string(@w);
+    if (!(raw normed(ps, ws))) { pass 8i32; }
+    pass 0i32;
+};
+
+// Alternations flattened, in order.
+func:alternates = int32() never fails {
+    if (!(raw normed("a|(?:b|c)", "(alternate (literal 97) (literal 98) (literal 99))")))       { pass 10i32; }
+    if (!(raw normed("(?:a|b)|c", "(alternate (literal 97) (literal 98) (literal 99))")))       { pass 11i32; }
+    // never reordered (H-14; Y-3)
+    if ((!(raw normed("c|(?:b|a)", "(alternate (literal 99) (literal 98) (literal 97))")))
+        || (!(raw normed("b|a|c", "(alternate (literal 98) (literal 97) (literal 99))")))) { pass 12i32; }
+    // a group is not flattened across: it captures
+    if (!(raw normed("a|(b|c)", "(alternate (literal 97) (group 1 (alternate (literal 98) (literal 99))))"))) { pass 13i32; }
+    // an `Empty` alternative stays: `a|` is not `a`
+    if ((!(raw normed("a|(?:|b)", "(alternate (literal 97) (empty) (literal 98))")))
+        || (!(raw normed("a|", "(alternate (literal 97) (empty))")))
+        || (!(raw normed("|", "(alternate (empty) (empty))")))) { pass 14i32; }
+    // an `Alternate` in a `Concat` is a piece, flattened within
+    if (!(raw normed("x(?:a|(?:b|c))y", "(concat (literal 120) (alternate (literal 97) (literal 98) (literal 99)) (literal 121))"))) { pass 15i32; }
+    if (!(raw normed("a|(?:b|(?:c|(?:d|e)))", "(alternate (literal 97) (literal 98) (literal 99) (literal 100) (literal 101))"))) { pass 16i32; }
+    pass 0i32;
+};
+
+// An `Empty` piece dropped, an empty concatenation `Empty`, and an `Empty` where it is no piece kept.
+func:empties = int32() never fails {
+    if ((!(raw normed("(?:)", "(empty)"))) || (!(raw normed("", "(empty)")))) { pass 20i32; }
+    if ((!(raw normed("a(?:)b", "(concat (literal 97) (literal 98))"))) || (!(raw normed("(?:)a", "(literal 97)")))
+        || (!(raw normed("a(?:)", "(literal 97)"))) || (!(raw normed("(?:)(?:)", "(empty)")))) { pass 21i32; }
+    if ((!(raw normed("()", "(group 1 (empty))"))) || (!(raw normed("(?:)*", "(repeat 0 - (empty))")))
+        || (!(raw normed("(?:(?:)|a)", "(alternate (empty) (literal 97))")))) { pass 22i32; }
+    // what `hir_build.npk`'s case 27 builds, an `Empty` piece among three
+    if (!(raw normed("(?i)\\b(?:)()", "(concat (wordboundary) (group 1 (empty)))")))          { pass 23i32; }
+    pass 0i32;
+};
+
+// Classes: sorted, merged, and one codepoint a `Literal`.
+func:classes = int32() never fails {
+    if ((!(raw normed("[a]", "(literal 97)"))) || (!(raw normed("[aa]", "(literal 97)")))
+        || (!(raw normed("[a-a]", "(literal 97)")))) { pass 30i32; }
+    // its byte bit kept
+    if ((!(raw normed("(?-u)[a]", "(literal byte 97)"))) || (!(raw normed("(?-u)[\\xE9\\xE9]", "(literal byte 233)")))
+        || (!(raw normed("[\\x{1F600}]", "(literal 128512)")))) { pass 31i32; }
+    if ((!(raw normed("[ba]", "(class 97-98)"))) || (!(raw normed("[cba]", "(class 97-99)")))
+        || (!(raw normed("[db]", "(class 98-98 100-100)")))) { pass 32i32; }
+    // overlapping, and one inside another
+    if ((!(raw normed("[a-mk-z]", "(class 97-122)"))) || (!(raw normed("[a-za-c]", "(class 97-122)")))
+        || (!(raw normed("[c-ea-z]", "(class 97-122)")))) { pass 33i32; }
+    // touching, and one apart
+    if ((!(raw normed("[a-mn-z]", "(class 97-122)"))) || (!(raw normed("[a-ln-z]", "(class 97-108 110-122)")))) { pass 34i32; }
+    if ((!(raw normed("[a-z0-9_a]", "(class 48-57 95-95 97-122)"))) || (!(raw normed("[a[b-c]d]", "(class 97-100)")))) { pass 35i32; }
+    // the surrogates' gap is no adjacency (C-3)
+    if ((!(raw normed("[\\x{D7FF}\\x{E000}]", "(class 55295-55295 57344-57344)")))
+        || (!(raw normed("[\\x{D000}-\\x{E000}a]", "(class 97-97 53248-55295 57344-57344)")))) { pass 36i32; }
+    if ((!(raw normed("(?-u)[\\x80-\\xFF\\x00-\\x7F]", "(class byte 0-255)"))) || (!(raw normed("(?-u)[b-za]", "(class byte 97-122)")))) { pass 37i32; }
+    if (!(raw normed(".", "(class 0-9 11-55295 57344-1114111)")))                              { pass 38i32; }
+    pass 0i32;
+};
+
+// The UTF-8 bytes of the codepoint `cp`, U+0800 … U+FFFF, appended to `b`.
+func:put3 = NIL(Bytes->:b, int64:cp) never fails {
+    drop bytes_push(b, (224i64 + (cp >> 12i64)) =>! uint8);
+    drop bytes_push(b, (128i64 + ((cp >> 6i64) & 63i64)) =>! uint8);
+    drop bytes_push(b, (128i64 + (cp & 63i64)) =>! uint8);
+    pass NIL;
+};
+
+// The longest classes: 17 000 members written backwards, every codepoint and every other one, each
+// sorted in `n log n` -- one range, and 17 000 apart, every one below the surrogates.
+func:long_classes = int32() never fails {
+    fixed int64:base = 19968i64;
+    fixed int64:count = 17000i64;
+    int64:step = 1i64;
+    while (step <= 2i64) decreases 3i64 - step {
+        Bytes:p = raw bytes_init(16i64);
+        drop bytes_push(@p, 91u8);
+        int64:i = count;
+        while (i > 0i64) decreases i {
+            i = i - 1i64;
+            drop put3(@p, base + i * step);
+        }
+        drop bytes_push(@p, 93u8);
+        string:ps = raw bytes_copy_string(@p);
+        fixed uint8[]:pat = string_bytes(ps);
+        Ast:t = raw ast_init(8i64);
+        bool:ok = (raw parse_pattern(pat, @t)) == NIL;
+        if (ok) {
+            Hir:h = raw hir_init(8i64);
+            ok = (raw hir_build(pat, t, @h)) == HIR_NONE;
+            Hir:n = raw hir_init(8i64);
+            drop hir_normalise(@h, @n);
+            HirNode:x = raw hir_get(n, n.root);
+            int64:want = 1i64;
+            if (step == 2i64) { want = count; }
+            ok = ok && (x.kind == HirKind.Class) && (x.b == want) && (raw ranges_exact(@n));
+            int64:k = 0i64;
+            while (ok && (k < x.b)) decreases x.b - k {
+                ClassRange:r = raw hir_range(n, x.a + k);
+                int64:lo = base + k * step;
+                int64:hi = lo;
+                if (step == 1i64) { hi = base + count - 1i64; }
+                ok = ((r.lo => int64) == lo) && ((r.hi => int64) == hi);
+                k = k + 1i64;
+            }
+            drop hir_free(@n);
+            drop hir_free(@h);
+        }
+        drop ast_free(@t);
+        if (!ok) { pass 39i32; }
+        step = step + 1i64;
+    }
+    pass 0i32;
+};
+
+// The shapes only a text holds: no identity rewrites a list of one alternative or of none, or a
+// class of no range; every other one is as above.
+func:texts = int32() never fails {
+    if ((!(raw normed_text("(concat)", "(empty)"))) || (!(raw normed_text("(concat (literal 97))", "(literal 97)")))
+        || (!(raw normed_text("(concat (concat) (concat))", "(empty)")))
+        || (!(raw normed_text("(concat (literal 97) (concat) (literal 98))", "(concat (literal 97) (literal 98))")))
+        || (!(raw normed_text("(concat (literal 97) (empty) (literal 98))", "(concat (literal 97) (literal 98))")))) { pass 50i32; }
+    if ((!(raw normed_text("(alternate)", "(alternate)"))) || (!(raw normed_text("(alternate (empty))", "(alternate (empty))")))
+        || (!(raw normed_text("(alternate (literal 97) (alternate))", "(alternate (literal 97))")))
+        || (!(raw normed_text("(alternate (literal 97) (concat (alternate (literal 98) (literal 99))))", "(alternate (literal 97) (literal 98) (literal 99))")))) { pass 51i32; }
+    if ((!(raw normed_text("(class)", "(class)"))) || (!(raw normed_text("(class byte)", "(class byte)")))
+        || (!(raw normed_text("(class 99-100 97-98)", "(class 97-100)")))
+        || (!(raw normed_text("(class 97-97 97-97)", "(literal 97)")))) { pass 52i32; }
+    if ((!(raw normed_text("(group 1 (concat))", "(group 1 (empty))")))
+        || (!(raw normed_text("(repeat 0 1 (concat (literal 97)))", "(repeat 0 1 (literal 97))")))
+        || (!(raw normed_text("(repeat 0 123456789012345678 (empty))", "(repeat 0 123456789012345678 (empty))")))) { pass 53i32; }
+    if (!(raw normed_text("(concat (group 1 ab (concat (empty))) (group 2 (empty)))", "(concat (group 1 ab (empty)) (group 2 (empty)))"))) { pass 54i32; }
+    pass 0i32;
+};
+
+// What is not one structure (H-14), and what is.
+func:pairs = int32() never fails {
+    // H-14's three, and the rest: an order, a hoisted prefix, a `{1}`, a capture, the byte bit, a
+    // laziness, a nest of bounds, a boundary's and an anchor's kind, and a class against an alternation
+    if ((!(raw apart("a|b", "b|a"))) || (!(raw apart("ab|ac", "a(?:b|c)"))) || (!(raw apart("(a){1}", "(a)")))
+        || (!(raw apart("a{1}", "a"))) || (!(raw apart("(a)", "(?:a)"))) || (!(raw apart("(?-u)a", "a")))
+        || (!(raw apart("(?-u)[a-z]", "[a-z]"))) || (!(raw apart("a*", "a*?"))) || (!(raw apart("(?:a{2}){3}", "a{6}")))
+        || (!(raw apart("\\b", "(?-u)\\b"))) || (!(raw apart("^", "(?m)^"))) || (!(raw apart("[ab]", "a|b")))) { pass 60i32; }
+    if ((!(raw one_form("abc", "a(?:b)c"))) || (!(raw one_form("abc", "[a]b\\x63"))) || (!(raw one_form("abc", "(?:ab)(?:)c")))
+        || (!(raw one_form("a|b|c", "(?:a|b)|c"))) || (!(raw one_form("[a-c]", "[cba]"))) || (!(raw one_form("[a-c]", "[a-bb-c]")))) { pass 61i32; }
+    pass 0i32;
+};
+
+// A `Hir` with no root: no tree, and its one group.
+func:rootless = int32() never fails {
+    Hir:h = raw hir_init(1i64);
+    Hir:n = raw hir_init(1i64);
+    drop hir_normalise(@h, @n);
+    bool:ok = (n.root == HIR_NONE) && ((raw hir_len(n)) == 0i64) && ((raw hir_group_count(n)) == 1i64);
+    drop hir_free(@n);
+    drop hir_free(@h);
+    if (!ok) { pass 70i32; }
+    pass 0i32;
+};
+
+// xorshift64 (Marsaglia), as `parse_fuzz.npk` writes it.
+func:next_rng = uint64(uint64:s) never fails {
+    uint64:x = s;
+    x = x ^ (x << 13u64);
+    x = x ^ (x >> 7u64);
+    x = x ^ (x << 17u64);
+    pass x;
+};
+
+// CLASSES seeded classes, each up to seven ranges of up to forty members below UNIVERSE -- a byte
+// class's below 256 -- written in any order, read, and normalised; each normal form is held to the
+// set its ranges cover, reckoned again on a table: a class of one member is that `Literal` with the
+// class's bit (80); any other is a class with the same bit (81) whose ranges each begin past the end
+// of the one before it plus one (82) and cover exactly the set (83). And FLOORS, so the pass cannot
+// be green by looking nowhere (84).
+func:seeded = int32() never fails {
+    uint64:rng = 2463534242u64;
+    Bytes:bits = raw bytes_init(UNIVERSE);
+    int64:i = 0i64;
+    while (i < UNIVERSE) decreases UNIVERSE - i {
+        drop bytes_push(@bits, 0u8);
+        i = i + 1i64;
+    }
+    int64:merged = 0i64;
+    int64:literals = 0i64;
+    int64:k = 0i64;
+    while (k < CLASSES) decreases CLASSES - k {
+        rng = raw next_rng(rng);
+        bool:byte = (rng & 3u64) == 0u64;
+        int64:top = UNIVERSE;
+        if (byte) { top = 256i64; }
+        int64:ranges = 1i64 + (((rng >> 2u64) & 7u64) =>! int64);
+        if (ranges > 7i64) { ranges = 7i64; }
+        i = 0i64;
+        while (i < UNIVERSE) decreases UNIVERSE - i {
+            drop bytes_set(@bits, i, 0u8);
+            i = i + 1i64;
+        }
+        Bytes:t = raw bytes_init(64i64);
+        drop bytes_extend_str(@t, "(class");
+        if (byte) { drop bytes_extend_str(@t, " byte"); }
+        int64:j = 0i64;
+        while (j < ranges) decreases ranges - j {
+            rng = raw next_rng(rng);
+            int64:lo = (((rng >> 3u64) & 511u64) =>! int64);
+            while (lo >= top) decreases lo { lo = lo - top; }
+            int64:hi = lo + (((rng >> 13u64) & 31u64) =>! int64);
+            if (((rng >> 18u64) & 3u64) == 0u64) { hi = lo; }
+            if (hi >= top) { hi = top - 1i64; }
+            drop bytes_extend_str(@t, " ");
+            drop bytes_put_uint(@t, lo =>! uint64);
+            drop bytes_extend_str(@t, "-");
+            drop bytes_put_uint(@t, hi =>! uint64);
+            int64:m = lo;
+            while (m <= hi) decreases hi - m + 1i64 {
+                drop bytes_set(@bits, m, 1u8);
+                m = m + 1i64;
+            }
+            j = j + 1i64;
+        }
+        drop bytes_extend_str(@t, ")");
+        string:text = raw bytes_copy_string(@t);
+        Hir:h = raw hir_init(8i64);
+        if ((raw hir_read(string_bytes(text), @h)) != HIR_NONE) { pass 83i32; }
+        Hir:n = raw hir_init(8i64);
+        drop hir_normalise(@h, @n);
+        HirNode:x = raw hir_get(n, n.root);
+        HirNode:c = raw hir_get(h, h.root);
+        int64:members = 0i64;
+        i = 0i64;
+        while (i < top) decreases top - i {
+            if ((raw bytes_get(@bits, i)) != 0u8) { members = members + 1i64; }
+            i = i + 1i64;
+        }
+        if (members == 1i64) {
+            if ((x.kind != HirKind.Literal) || (x.flags != c.flags) || ((raw bytes_get(@bits, x.a)) == 0u8)) { pass 80i32; }
+            literals = literals + 1i64;
+        }
+        else {
+            if ((x.kind != HirKind.Class) || (x.flags != c.flags)) { pass 81i32; }
+            int64:covered = 0i64;
+            int64:prev = -2i64;
+            int64:r = 0i64;
+            while (r < x.b) decreases x.b - r {
+                ClassRange:g = raw hir_range(n, x.a + r);
+                int64:glo = g.lo => int64;
+                int64:ghi = g.hi => int64;
+                if ((glo > ghi) || (glo <= prev + 1i64)) { pass 82i32; }
+                int64:m = glo;
+                while (m <= ghi) decreases ghi - m + 1i64 {
+                    if ((m >= top) || ((raw bytes_get(@bits, m)) == 0u8)) { pass 83i32; }
+                    m = m + 1i64;
+                }
+                covered = covered + (ghi - glo + 1i64);
+                prev = ghi;
+                r = r + 1i64;
+            }
+            if (covered != members) { pass 83i32; }
+            if (x.b != c.b) { merged = merged + 1i64; }
+            else {
+                // as many ranges, but in another order: sorted
+                int64:s = 0i64;
+                bool:moved = false;
+                while (s < x.b) decreases x.b - s {
+                    ClassRange:p = raw hir_range(n, x.a + s);
+                    ClassRange:q = raw hir_range(h, c.a + s);
+                    if (p.lo != q.lo) { moved = true; }
+                    s = s + 1i64;
+                }
+                if (moved) { merged = merged + 1i64; }
+            }
+        }
+        drop hir_free(@n);
+        drop hir_free(@h);
+        k = k + 1i64;
+    }
+    if ((merged < MERGED_FLOOR) || (literals < LITERAL_FLOOR)) { pass 84i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    int32:r = raw concats();
+    if (r != 0i32) { exit r; }
+    r = raw deep();
+    if (r != 0i32) { exit r; }
+    r = raw alternates();
+    if (r != 0i32) { exit r; }
+    r = raw empties();
+    if (r != 0i32) { exit r; }
+    r = raw classes();
+    if (r != 0i32) { exit r; }
+    r = raw long_classes();
+    if (r != 0i32) { exit r; }
+    r = raw texts();
+    if (r != 0i32) { exit r; }
+    r = raw pairs();
+    if (r != 0i32) { exit r; }
+    r = raw rootless();
+    if (r != 0i32) { exit r; }
+    exit raw seeded();
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

@@ -6204,3 +6204,101 @@ touched. The 0.6 README's 0.6.2 box is dated: the real emission takes the stand-
 request leaves it flat; **a cap over the build alone, nothing stood in for** — nothing in the tree could make it fail;
 **one capped unit, no control** — a cap the bomb's request also passes says nothing, the PLAYBOOK's lesson; **the test
 pending until cycle 0.6.2** — the build's half is testable now, and a pending unit is outside the count.
+
+## Normalisation — cycle 0.2.3
+
+### RX-235 — what *"structurally equal"* is: equal up to H-13's rewrites, each read as an identity, and H-16's `Concat` row — so `Empty` is concatenation's identity and never alternation's, a class is the set it covers, a literal run is the adjacent literals of one flat `Concat`, and the byte bit is structure
+**2026-10-12, cycle 0.2.3 (the plan's PD-120), at compiler `7e91730`** — `HIR.md` H-4, H-13, H-14 and H-16, `SYNTAX.md` Y-3
+and Y-15, and the cycle README's 0.2.3 row, boxes and Gate, *"structurally equal patterns produce identical dumps"*. H-13
+makes structurally equal patterns literally equal and lists six rewrites, and no rule says what structurally equal IS — a
+definition the Gate's corpus needs independently of the normaliser it tests. H-13's second rewrite asks for a *"literal
+run"*, which H-4's nine kinds do not have (cycle 0.2.0's hand-on); and RX-228's note on the first 0.2.3 box leaves to this
+subcycle whether `(?-u)`'s `(literal byte 97)` and `a`'s `(literal 97)` are one HIR.
+
+**The decision.** Two patterns are **structurally equal** when the trees `hir_build` builds for them are equal up to
+H-13's rewrites, each read as an identity, and the two H-16's `Concat` row applies — a `Concat` of no piece is `Empty`,
+and of one piece that piece. So: a `Concat` inside a `Concat` is its pieces in its place, and since `Empty` is a `Concat`
+of none, **a `Concat`'s `Empty` piece goes** — `Empty` is concatenation's identity; an `Alternate` inside an `Alternate`
+is its alternatives in their place, in order (Y-3), and **an `Empty` alternative stays** — `Empty` is no identity of
+alternation: `a|` matches the empty string where `a` does not; a class is the set of codepoints, or of bytes, its ranges
+cover — Y-15, *"nothing about the source order survives"* — written as its ranges sorted by their first member, two that
+overlap or touch merged, and a class of one codepoint is that `Literal`, its byte bit kept; and **a literal run is the
+adjacent `Literal` pieces of one flat `Concat`**, no node of its own: H-4's nine kinds stand, and once concatenations are
+flat a run has one spelling. **Nothing else is structure's to join**: an alternative's place, a `Group`, its number and
+its name, a `Repeat`'s bounds, laziness and nesting, an anchor's or a boundary's kind, and the byte bit — **`(literal
+byte 97)` and `(literal 97)` are two HIRs**: the bit says what the node matches (H-4a), a byte, and two nodes are not one
+for matching the same byte. The normal form is the tree no identity can shorten: RX-236 writes it. H-13 is dated, and
+Y-15.
+
+**Measured at `7e91730`.** `tests/unit/hir_normalise.npk` exits 0 at both legs: each rewrite on the trees the build
+makes and on texts `hir_read` reads — concatenations flattened, 250 wrappers deep; alternations flattened in order; an
+`Empty` piece dropped and an `Empty` alternative kept; classes sorted and merged, a class of one codepoint a `Literal`
+with its bit, the surrogates' gap no adjacency — and twelve pairs kept apart: H-14's three, the byte bit, a laziness, a
+nest of bounds, a boundary's and an anchor's kind, and a class against an alternation.
+
+*Alternatives declined:* **a run as a node of its own** — a tenth kind, or a `Literal` of more than one codepoint: H-4's
+closed list, which RX-228 declined to open for the same reason, H-15's grammar and reader, and every exhaustive `pick`
+over the kinds; a flat `Concat` already holds a run once, in order; **the byte bit dropped below 128**, `(?-u)a` one HIR
+with `a` — the first identity that would read a value's encoding rather than the tree's shape: `a|b` and `[ab]` match the
+same strings too, and H-14 keeps them apart; nothing downstream gains, since emission and the oracle treat the two alike
+at match time; **`Empty` pieces kept**, only an empty concatenation `Empty` — two normal forms for one tree:
+`Concat[a, Concat[], b]` flattens to `Concat[a, b]` where `Concat[a, Empty, b]` would stay, though H-13's fourth rewrite
+makes the two inner nodes one; **`Empty` dropped from an alternation too** — `a|` is not `a`; **structural equality as
+whatever the normaliser joins** — circular: the Gate would test the normaliser against itself; **structural equality as
+matching the same strings** — an optimiser's equivalence, H-14's line, and it reaches reordering under leftmost-first and
+hoisting.
+
+### RX-236 — `hir_normalise`: normalisation a pass of its own after the build, writing the normal form into a fresh arena — the tree read unchanged, every group copied, the arena the tree and nothing else, and total over what `hir_read` reads
+**2026-10-12, cycle 0.2.3 (the plan's PD-121), at compiler `7e91730`** — `HIR.md` H-1, H-13, H-15 and H-16, `SAFETY.md` S-19
+and S-25, `VERIFICATION.md` P-1b and P-6, and the cycle README's 0.2.3 boxes, the last of which runs *"the oracle over
+both forms"*. H-16 says the build flattens, merges, sorts and reorders nothing, *"which is cycle 0.2.3's"*; no rule says
+where normalisation runs, or what it makes of a text `hir_read` reads.
+
+**The decision.** `src/hir/normal.npk`: `hir_normalise(Hir->:h, Hir->:out)`, re-exported by `hir.npk`, writes the normal
+form of `h`'s tree (RX-235) into `out`, which must be fresh from `hir_init` — no node, no range and group 0 alone, three
+counts that cover every field `repr.npk`'s verbs write, since a name is written only with its group and the root only to
+a node the arena holds; anything else stops `OutOfBounds`, as a misnumbered build does — and reads `h` without writing
+it. **The build stays the desugaring** (H-16), and normalisation is a pass of its own after it, so both forms stand side
+by side. Every group and its name is copied unchanged — normalisation removes and reorders no group — through a new
+accessor, `hir_copy_groups(Hir->:from, Hir->:to)` in `repr.npk`, re-exported; `out` holds the tree and nothing else
+(H-16's arena), and its ranges are its classes' and nothing else, each class's after the one before. **How**: a
+post-order walk on an explicit stack, bounded by twice the arena as the build's and the dump's are (S-19), so an arena
+that is not a tree stops `DecreasesViolated`, builds each node's normal form from its children's in a scratch arena of
+`normal.npk`'s own, marking each node it splices away or drops; then the scratch's ranges and its live nodes go into
+`out` in their order, renumbered. A class's ranges are sorted bottom-up — runs of one, two, four … merged — with no
+recursion and no division (S-25), `n log n` for a class of any length, and merged reckoning in `int64`, so a range's end
+plus one never overflows. **Total over what `hir_read` reads** (H-15): a `(concat)` is `Empty` and a `(concat X)` is
+`X`; a list of one alternative or of none, and a class of no range, stay as read, since no identity rewrites them. **A
+fixed point**: a normal form normalised again is itself. P-6's site *"after HIR normalisation"* is `leave_class`, a
+comment by P-1b until cycle 0.8. Units `hir_normalise` (0); `hir_normalise_not_fresh` (94), an arena read into before,
+and `hir_normalise_stray_node`, `hir_normalise_stray_group` and `hir_normalise_stray_range` (94), each an arena holding
+a node, a group or a range and nothing else, which trips one count alone; and `hir_normalise_not_a_tree` (108); H-1,
+H-15, H-16, Y-15 and P-6 dated, and the headers of `build.npk`, `dump.npk` and `class_range.npk`, `hir.npk`'s header and
+re-exports, and `src/hir/README.md`.
+
+**Measured at `7e91730`.** `hir_normalise` 0, the four freshness units 94 and `hir_normalise_not_a_tree` 108, at both
+legs; and each of the stop's three counts is the only one a unit trips: without the node count a stray node stays beside
+the tree and `hir_normalise_stray_node` exits 2, without the group count the normal form's group 1 is named with `out`'s
+text and `hir_normalise_stray_group` exits 2, and without the range count `(class 97-99)` normalised into an `out`
+holding `5-7` and nothing else dumps `(class 5-7)` and `hir_normalise_stray_range` exits 2 — `hir_normalise_not_fresh`
+stops at 94 under each, since its arena trips two. Every normal form `hir_normalise.npk` makes leaves the tree read
+unchanged, dump for dump, holds its tree and its classes' ranges and nothing else, copies every group name for name, and
+is its own normal form, normalised again and read back; its 4 000 seeded classes — 3 240 of them merged or sorted, 143
+left a `Literal` — each hold exactly the set their ranges covered, and two classes of 17 000 members written backwards
+sort to one range and to 17 000.
+
+*Alternatives declined:* **an `out` held to its node and group counts alone** — the first cut's: a range is a field of
+the arena too, and the first class reads a range `out` held — `(class 97-99)` normalised into an `out` holding `5-7`
+dumps `(class 5-7)` and does not stop, which this plan's verifier found; **a fresh `Hir` made inside and handed back**,
+`hir_normalise(h)` answering one — fresh by construction, but `parse_pattern`, `hir_build` and `hir_read` each write
+into an arena its caller made and frees, and a normaliser alone allocating its caller's arena would be a second shape
+for one job; **the build normalising its own output** — the oracle's test runs both forms, which the 0.5
+README's 0.5.5 box names, H-16's units hold the desugaring row by row, and the product's refusal and the stops answer
+before any tree is finished; **normalising the AST before the build** — H-13 is the HIR's rule, and the AST's spans are
+what the product's refusal reads (RX-232); **in place, in the build's arena** — what is spliced away or dropped would stay
+behind, more than the tree (H-16), and `repr.npk` has no verb that removes a node; **one pass straight into `out`** — a
+`Concat` of one piece that is an `Alternate`, standing in an `Alternate`, which only a text writes, is known only after
+that `Alternate` is built: a node more than the tree, or a verb that pops the arena; **`hir_read` normalising what it
+reads** — H-15's round trip, `hir_dump(hir_read(t))` is `t`; **the table rebuilt from the tree's groups** — the copy is
+the table as built, names and all, and no group moves; **an insertion sort** — `n²` over a class nothing bounds but the
+pattern's length until cycle 0.3.4 counts `NREGEX_CLASS_RANGES`.

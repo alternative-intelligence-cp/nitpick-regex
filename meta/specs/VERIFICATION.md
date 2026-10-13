@@ -252,6 +252,10 @@ expensive to lose:**
 | at each engine's return | `lo <= hi` and `hi <= hay.len` |
 | in the DFA | the cached transition's target is a live state |
 
+*(2026-10-12, cycle 0.2.3 — RX-236: the site *"after HIR normalisation"* is `leave_class` in `src/hir/normal.npk`, written as a
+comment by P-1b until cycle 0.8 runs the verified build, and stood in for by `tests/unit/hir_normalise.npk`'s seeded
+classes, each normal form held to the set its ranges cover.)*
+
 **Rule P-7 — the two that matter most.** "The thread set holds at most
 `program_size` entries" is the linear-time guarantee's local form: it is what
 makes the inner loop `O(m)` per byte, and everything in `SAFETY.md` §2 rests on

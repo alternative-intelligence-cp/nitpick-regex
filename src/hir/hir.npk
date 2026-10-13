@@ -12,7 +12,10 @@
 // with `ClassRange` from `unicode` (RX-222). SINCE CYCLE 0.2.1 `build.npk` BUILDS A HIR FROM A
 // PATTERN'S AST, H-5's table and nothing else, and stops at its hooks or in `leaf` until cycle
 // 0.3.4 (RX-228). SINCE CYCLE 0.2.2 IT REFUSES A PATTERN WHOSE NESTED REPETITIONS MULTIPLY PAST
-// `NREGEX_REPEAT_PRODUCT`, on the way down, and `hir_build_refusal` is the refusal (RX-232).
+// `NREGEX_REPEAT_PRODUCT`, on the way down, and `hir_build_refusal` is the refusal (RX-232). SINCE
+// CYCLE 0.2.3 `normal.npk` WRITES A HIR'S TREE IN ITS NORMAL FORM, where structurally equal patterns
+// are one tree (RX-235), into a fresh arena -- `hir_normalise`, a pass of its own after the build
+// (RX-236).
 //
 // EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1 and 3).
 //
@@ -51,6 +54,7 @@ pub use "./repr.npk".hir_group_count;
 pub use "./repr.npk".hir_add_group;
 pub use "./repr.npk".hir_group;
 pub use "./repr.npk".hir_put_name;
+pub use "./repr.npk".hir_copy_groups;
 pub use "./repr.npk".hir_free;
 
 // ---- the text, and back (RX-225) -------------------------------------------------------
@@ -60,3 +64,6 @@ pub use "./dump.npk".hir_read;
 // ---- the desugaring: an AST to a HIR (RX-228) ---------------------------------------------
 pub use "./build.npk".hir_build;
 pub use "./build.npk".hir_build_refusal;
+
+// ---- normalisation: a HIR's tree in its normal form (RX-235, RX-236) -------------------------
+pub use "./normal.npk".hir_normalise;

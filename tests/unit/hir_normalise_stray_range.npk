@@ -1,0 +1,50 @@
+// expect-exit: 94
+//
+// AN ARENA HOLDING A RANGE AND NOTHING ELSE IS NOT FRESH, AND NORMALISING INTO IT STOPS. Cycle 0.2.3,
+// RX-236; `HIR.md` H-13 and H-16.
+//
+// `hir_normalise` copies the classes' ranges into `out` first and keeps each class's first index, so a
+// range `out` held already would be read by the first class: `(class 97-99)` normalised into an `out`
+// holding `5-7` would dump `(class 5-7)` -- a wrong class, and no stop. Here `out` holds that one range,
+// no node and group 0 alone: the node count and the group count are a fresh arena's, the range count is
+// not, and `hir_normalise` traps `OutOfBounds` (94) through `vec_oob` before it writes anything -- the
+// stop's range count alone, as `hir_normalise_stray_node.npk` holds its node count and
+// `hir_normalise_stray_group.npk` its group count. Were it not stopped, this unit would exit 2 when the
+// class read the stray range, and 3 when it did not.
+mod:hir_normalise_stray_range;
+
+use "../../src/core/core.npk".*;
+use "../../src/hir/hir.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Hir:h = raw hir_init(4i64);
+    discard(raw hir_read(string_bytes("(class 97-99)"), @h));
+    Hir:out = raw hir_init(4i64);
+    discard(raw hir_push_range(@out, ClassRange{ lo: 5u32, hi: 7u32 }));
+    drop hir_normalise(@h, @out);
+    HirNode:x = raw hir_get(out, out.root);
+    ClassRange:r = raw hir_range(out, x.a);
+    int32:e = 3i32;
+    if (r.lo == 5u32) { e = 2i32; }
+    drop hir_free(@out);
+    drop hir_free(@h);
+    exit e;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

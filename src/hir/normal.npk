@@ -1,0 +1,325 @@
+// `src/hir/normal.npk` — NORMALISATION: A HIR'S TREE IN ITS NORMAL FORM. Cycle 0.2.3, RX-235 and
+// RX-236; `meta/specs/HIR.md` rule H-13.
+//
+// STRUCTURALLY EQUAL PATTERNS, ONE TREE (H-13, RX-235). `hir_normalise` writes the normal form of a
+// HIR's tree into a fresh arena, and two trees equal up to H-13's rewrites -- each read as an
+// identity -- get the same one, so the same dump, byte for byte. A `Concat` inside a `Concat` is its
+// pieces in its place, and an `Empty` piece is a `Concat` of none, so it goes; a `Concat` left with no
+// piece is `Empty`, and with one that piece (H-16's `Concat` row). An `Alternate` inside an
+// `Alternate` is its alternatives in their place, IN ORDER -- order is the semantics under
+// leftmost-first (`SYNTAX.md` Y-3) -- and an `Empty` alternative stays: `a|` is not `a`. A class is
+// the set its ranges cover: sorted by their first member, merged where two overlap or touch, and a
+// class left with one codepoint is that `Literal`, its byte bit kept. A literal run is the adjacent
+// `Literal` pieces of one flat `Concat`, and no node of its own: H-4's nine kinds stand.
+//
+// NOTHING ELSE (H-14). A `Repeat`'s bounds, laziness and nesting stay -- so the product cycle 0.2.2
+// checked is the normal form's too -- and so do a `Group`, its number and its name, an anchor's and a
+// boundary's kind, and every byte bit: `(literal byte 97)` stays apart from `(literal 97)`, because
+// the bit says what the node matches (H-4a), and two nodes are not one for matching one byte. No
+// alternative moves, no prefix is hoisted, no `{1}` is dropped: those are `compile/`'s, where they
+// can be turned off and cross-checked.
+//
+// THE BUILD'S TREE STAYS AS IT WAS BUILT (RX-236). `hir_build` desugars (H-16) and this file
+// normalises, so the oracle's test can run both forms (the cycle README's last 0.2.3 box) and the
+// build's units hold H-5's table alone. The tree read is never written: the normal form goes into a
+// `Hir` fresh from `hir_init` -- no node, no range and group 0 alone, and anything else stops
+// `OutOfBounds`, as a misnumbered build does -- every group and name copied unchanged, and that arena
+// holds the tree and nothing else, its ranges its classes' and nothing else.
+//
+// HOW. A post-order walk on an explicit stack (`SAFETY.md` S-19) builds each node's normal form in a
+// scratch arena of this file's own, from its children's -- splicing, dropping, sorting -- and marks
+// each node it splices away or drops; then the scratch's ranges go into `out`, and its live nodes in
+// their order, every child before the node that holds it, renumbered. A class's ranges are sorted
+// bottom-up, runs of one, two, four … merged: no recursion, no division (S-25), and `n log n` for a
+// class of any length, since until cycle 0.3.4 nothing bounds a class but the pattern's length.
+// Every node is entered once and left once, so the walk is bounded by twice the arena, as the
+// build's and the dump's are; a tree is what it reads (H-16), and an arena that is not one stops it
+// `DecreasesViolated`.
+//
+// A CHAIN COSTS ITS DEPTH SQUARED (measured at `7e91730`, 2026-10-12). A member of its list's own kind
+// is spliced by copying its members into the list, so a `Concat` or an `Alternate` nested D deep in
+// its own kind copies each member once per level it rises, about D²/2 copies in all: a `Concat` chain
+// nested on the left took 5.5 s to normalise at 16 000 levels at -O0, four times 8 000's. A pattern
+// nests at most `NREGEX_NEST_DEPTH`, 250 (`SYNTAX.md` Y-35); a text `hir_read` reads is bounded by its
+// length alone.
+//
+// TOTAL OVER WHAT `hir_read` READS TOO (H-15): a `(concat)` is `Empty` and a `(concat X)` is `X`; a
+// list of one alternative or of none, and a class of no range, stay as they are, since no identity
+// rewrites them; and an unsorted or overlapping class is sorted and merged.
+//
+// LAYERING (`BUILD.md` §6, B-16). Imports `core`, `unicode` for `ClassRange`, and the layer's
+// `repr.npk`; a program importing it owes `core`'s eleven arms.
+mod:normal;
+
+use "../core/core.npk".*;
+use "../unicode/unicode.npk".*;
+use "./repr.npk".*;
+
+// One step of the walk over the tree read: a node to enter, or one whose children are done, to leave.
+#[derive(Copy)]
+struct:Todo = {
+    int64:node;          // the node, in the tree read
+    int64:op;            // TODO_ONE, TODO_LIST or TODO_LEAVE
+    int64:mark;          // for TODO_LEAVE: how many results were waiting before its children
+};
+
+fixed int64:TODO_ONE = 0i64;       // enter the node
+fixed int64:TODO_LIST = 1i64;      // enter the node, then the rest of the list it heads
+fixed int64:TODO_LEAVE = 2i64;     // its children are done: build its normal form
+
+// The scratch arena: the normal forms built so far, and what each splices away or drops.
+func:push_w = int64(Vec<HirNode>->:w, Bytes->:dead, HirNode:x) never fails {
+    drop vec_push(w, x);
+    drop bytes_push(dead, 0u8);
+    pass w.count - 1i64;
+};
+
+// Sorts `v`'s ranges by their first member, stably, bottom-up -- runs of one, two, four … merged
+// into `tmp` and copied back -- with no recursion and no division, in `n log n` steps.
+func:sort_ranges = NIL(Vec<ClassRange>->:v, Vec<ClassRange>->:tmp) never fails {
+    int64:n = v.count;
+    drop vec_clear(tmp);
+    int64:i = 0i64;
+    while (i < n) decreases n - i {
+        drop vec_push(tmp, raw vec_get(<-v, i));
+        i = i + 1i64;
+    }
+    int64:width = 1i64;
+    while (width < n) decreases n - width {
+        int64:lo = 0i64;
+        while (lo < n) decreases n - lo {
+            int64:mid = lo + width;
+            if (mid > n) { mid = n; }
+            int64:hi = mid + width;
+            if (hi > n) { hi = n; }
+            int64:p = lo;
+            int64:q = mid;
+            int64:o = lo;
+            while (o < hi) decreases hi - o {
+                bool:left = q >= hi;
+                if ((!left) && (p < mid)) {
+                    ClassRange:x = raw vec_get(<-v, p);
+                    ClassRange:y = raw vec_get(<-v, q);
+                    left = x.lo <= y.lo;
+                }
+                if (left) {
+                    drop vec_set(tmp, o, raw vec_get(<-v, p));
+                    p = p + 1i64;
+                }
+                else {
+                    drop vec_set(tmp, o, raw vec_get(<-v, q));
+                    q = q + 1i64;
+                }
+                o = o + 1i64;
+            }
+            lo = hi;
+        }
+        i = 0i64;
+        while (i < n) decreases n - i {
+            drop vec_set(v, i, raw vec_get(<-tmp, i));
+            i = i + 1i64;
+        }
+        width = width + width;
+    }
+    pass NIL;
+};
+
+// A class left: its ranges sorted by their first member and merged where two overlap or touch, into
+// `wr` -- the class's node after them -- or, when one codepoint is left, that `Literal` and no range.
+//
+// P-6's site, `VERIFICATION.md` -- a comment by P-1b until cycle 0.8 runs the verified build: every
+// range pushed here begins past the end of the one before it plus one, and the ranges cover what the
+// class's did; `tests/unit/hir_normalise.npk`'s seeded classes stand in for the proof.
+func:leave_class = int64(Hir->:h, HirNode:n, Vec<HirNode>->:w, Vec<ClassRange>->:wr, Bytes->:dead,
+                         Vec<ClassRange>->:s1, Vec<ClassRange>->:s2) never fails {
+    drop vec_clear(s1);
+    int64:i = 0i64;
+    while (i < n.b) decreases n.b - i {
+        drop vec_push(s1, raw hir_range(<-h, n.a + i));
+        i = i + 1i64;
+    }
+    drop sort_ranges(s1, s2);
+    int64:first = wr.count;
+    if (s1.count > 0i64) {
+        ClassRange:cur = raw vec_get(<-s1, 0i64);
+        int64:j = 1i64;
+        while (j < s1.count) decreases s1.count - j {
+            ClassRange:r = raw vec_get(<-s1, j);
+            // in `int64`, so a range's end plus one never overflows its `uint32`
+            if ((r.lo => int64) <= (cur.hi => int64) + 1i64) {
+                if (r.hi > cur.hi) { cur.hi = r.hi; }
+            }
+            else {
+                drop vec_push(wr, cur);
+                cur = r;
+            }
+            j = j + 1i64;
+        }
+        if ((wr.count == first) && (cur.lo == cur.hi)) {
+            pass raw push_w(w, dead, HirNode{ kind: HirKind.Literal, flags: n.flags, a: cur.lo => int64,
+                                              b: 0i64, c: 0i64, next: HIR_NONE });
+        }
+        drop vec_push(wr, cur);
+    }
+    pass raw push_w(w, dead, HirNode{ kind: HirKind.Class, flags: n.flags, a: first, b: wr.count - first,
+                                      c: 0i64, next: HIR_NONE });
+};
+
+// A `Concat` or an `Alternate` left: what its members built, from `mark` on `done`, flattened -- a
+// member of its own kind is that member's members in its place -- and in a `Concat` every `Empty`
+// dropped; each node spliced away or dropped is marked dead. The members are linked in order. A
+// `Concat` left with no member is `Empty`, and with one that member; an `Alternate` keeps them all.
+func:leave_list = int64(HirNode:n, Vec<HirNode>->:w, Bytes->:dead, Vec<int64>->:done, int64:mark,
+                        Vec<int64>->:flat) never fails {
+    drop vec_clear(flat);
+    int64:k = mark;
+    while (k < done.count) decreases done.count - k {
+        int64:m = raw vec_get(<-done, k);
+        HirNode:x = raw vec_get(<-w, m);
+        if (x.kind == n.kind) {
+            int64:c = x.a;
+            int64:j = 0i64;
+            while ((c != HIR_NONE) && (j < x.b)) decreases x.b - j {
+                drop vec_push(flat, c);
+                HirNode:y = raw vec_get(<-w, c);
+                c = y.next;
+                j = j + 1i64;
+            }
+            drop bytes_set(dead, m, 1u8);
+        }
+        else if ((x.kind == HirKind.Empty) && (n.kind == HirKind.Concat)) {
+            drop bytes_set(dead, m, 1u8);
+        }
+        else { drop vec_push(flat, m); }
+        k = k + 1i64;
+    }
+    drop vec_truncate(done, mark);
+    int64:count = flat.count;
+    if ((n.kind == HirKind.Concat) && (count == 0i64)) {
+        pass raw push_w(w, dead, HirNode{ kind: HirKind.Empty, flags: 0u32, a: 0i64, b: 0i64, c: 0i64, next: HIR_NONE });
+    }
+    int64:j = 0i64;
+    while (j < count) decreases count - j {
+        int64:m = raw vec_get(<-flat, j);
+        HirNode:y = raw vec_get(<-w, m);
+        y.next = HIR_NONE;
+        if ((j + 1i64) < count) { y.next = raw vec_get(<-flat, j + 1i64); }
+        drop vec_set(w, m, y);
+        j = j + 1i64;
+    }
+    if ((n.kind == HirKind.Concat) && (count == 1i64)) { pass raw vec_get(<-flat, 0i64); }
+    int64:first = HIR_NONE;
+    if (count > 0i64) { first = raw vec_get(<-flat, 0i64); }
+    pass raw push_w(w, dead, HirNode{ kind: n.kind, flags: n.flags, a: first, b: count, c: 0i64, next: HIR_NONE });
+};
+
+// The live nodes of `w`, into `out` in their order -- every child before the node that holds it --
+// then every child and sibling renumbered, and the root set. The scratch's ranges are its classes'
+// and nothing else, in their order -- a class left a `Literal` pushes none, and no class is spliced
+// away or dropped -- so they go into `out` whole, first, and every class's first index stands.
+func:emit = NIL(Vec<HirNode>->:w, Vec<ClassRange>->:wr, Bytes->:dead, int64:root, Hir->:out) never fails {
+    int64:i = 0i64;
+    while (i < wr.count) decreases wr.count - i {
+        discard(raw hir_push_range(out, raw vec_get(<-wr, i)));
+        i = i + 1i64;
+    }
+    int64:n = w.count;
+    Vec<int64>:at = raw vec_init_zeroed::<int64>(n);     // where each live node of `w` lands in `out`
+    i = 0i64;
+    while (i < n) decreases n - i {
+        if ((raw bytes_get(dead, i)) == 0u8) {
+            drop vec_set(@at, i, raw hir_push(out, raw vec_get(<-w, i)));
+        }
+        i = i + 1i64;
+    }
+    i = 0i64;
+    while (i < n) decreases n - i {
+        if ((raw bytes_get(dead, i)) == 0u8) {
+            int64:k = raw vec_get(at, i);
+            HirNode:y = raw hir_get(<-out, k);
+            bool:holds = (y.kind == HirKind.Concat) || (y.kind == HirKind.Alternate)
+                         || (y.kind == HirKind.Repeat) || (y.kind == HirKind.Group);
+            if (holds && (y.a != HIR_NONE)) { y.a = raw vec_get(at, y.a); }
+            if (y.next != HIR_NONE) { y.next = raw vec_get(at, y.next); }
+            drop hir_set(out, k, y);
+        }
+        i = i + 1i64;
+    }
+    drop hir_set_root(out, raw vec_get(at, root));
+    drop vec_free(@at);
+    pass NIL;
+};
+
+// obligation: never fails requires hir_len(out) == 0i64 && hir_group_count(out) == 1i64 && hir_range_count(out) == 0i64
+//
+// THE NORMAL FORM (H-13). Writes the normal form of the tree under `h`'s root into `out`, a `Hir`
+// fresh from `hir_init` -- its groups and their names copied from `h` unchanged -- and sets `out`'s
+// root; nothing for a `Hir` with no root but the groups. `h` is read and never written. An `out`
+// that is not fresh stops `OutOfBounds`: a node it held would be more than the tree; a group it held
+// would number `h`'s past their own, and every `group` would name another group's text; and a range
+// it held would be read by the first class -- `(class 97-99)` normalised into an `out` holding `5-7`
+// would dump `(class 5-7)`. FRESH IS THREE COUNTS: no node, no range, and group 0 alone -- every
+// field `repr.npk`'s verbs write, since a name is written only with its group and the root only to a
+// node the arena holds.
+pub func:hir_normalise = NIL(Hir->:h, Hir->:out) never fails {
+    if (((raw hir_len(<-out)) != 0i64) || ((raw hir_group_count(<-out)) != 1i64)
+        || ((raw hir_range_count(<-out)) != 0i64)) { drop vec_oob(raw hir_len(<-out)); }
+    drop hir_copy_groups(h, out);
+    if (h.root == HIR_NONE) { pass NIL; }
+    Vec<HirNode>:w = raw vec_init::<HirNode>(16i64);
+    Vec<ClassRange>:wr = raw vec_init::<ClassRange>(16i64);
+    Bytes:dead = raw bytes_init(16i64);
+    Vec<Todo>:todo = raw vec_init::<Todo>(16i64);
+    Vec<int64>:done = raw vec_init::<int64>(16i64);        // what each node left built, in `w`
+    Vec<int64>:flat = raw vec_init::<int64>(16i64);
+    Vec<ClassRange>:s1 = raw vec_init::<ClassRange>(16i64);
+    Vec<ClassRange>:s2 = raw vec_init::<ClassRange>(16i64);
+    drop vec_push(@todo, Todo{ node: h.root, op: TODO_ONE, mark: 0i64 });
+    // A `decreases` measure is checked as each step begins, so `2n - 1` admits `2n` steps: a walk
+    // entering and leaving every node of the arena once, and not one more.
+    int64:budget = 2i64 * (raw hir_len(<-h)) - 1i64;
+    int64:steps = 0i64;
+    while (todo.count > 0i64) decreases budget - steps {
+        steps = steps + 1i64;
+        Todo:s = raw vec_pop(@todo);
+        HirNode:n = raw hir_get(<-h, s.node);
+        if (s.op == TODO_LEAVE) {
+            int64:r = HIR_NONE;
+            if ((n.kind == HirKind.Concat) || (n.kind == HirKind.Alternate)) {
+                r = raw leave_list(n, @w, @dead, @done, s.mark, @flat);
+            }
+            else if (n.kind == HirKind.Class) {
+                r = raw leave_class(h, n, @w, @wr, @dead, @s1, @s2);
+            }
+            else if ((n.kind == HirKind.Repeat) || (n.kind == HirKind.Group)) {
+                int64:c = raw vec_pop(@done);
+                r = raw push_w(@w, @dead, HirNode{ kind: n.kind, flags: n.flags, a: c, b: n.b, c: n.c, next: HIR_NONE });
+            }
+            else {
+                r = raw push_w(@w, @dead, HirNode{ kind: n.kind, flags: n.flags, a: n.a, b: n.b, c: n.c, next: HIR_NONE });
+            }
+            drop vec_push(@done, r);
+        }
+        else {
+            if ((s.op == TODO_LIST) && (n.next != HIR_NONE)) {
+                drop vec_push(@todo, Todo{ node: n.next, op: TODO_LIST, mark: 0i64 });
+            }
+            drop vec_push(@todo, Todo{ node: s.node, op: TODO_LEAVE, mark: done.count });
+            if ((n.kind == HirKind.Concat) || (n.kind == HirKind.Alternate)) {
+                if (n.a != HIR_NONE) { drop vec_push(@todo, Todo{ node: n.a, op: TODO_LIST, mark: 0i64 }); }
+            }
+            else if ((n.kind == HirKind.Repeat) || (n.kind == HirKind.Group)) {
+                drop vec_push(@todo, Todo{ node: n.a, op: TODO_ONE, mark: 0i64 });
+            }
+        }
+    }
+    drop emit(@w, @wr, @dead, raw vec_pop(@done), out);
+    drop vec_free(@w);
+    drop vec_free(@wr);
+    drop vec_free(@todo);
+    drop vec_free(@done);
+    drop vec_free(@flat);
+    drop vec_free(@s1);
+    drop vec_free(@s2);
+    pass NIL;
+};

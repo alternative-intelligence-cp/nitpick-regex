@@ -1,0 +1,50 @@
+// expect-exit: 94
+//
+// AN ARENA HOLDING A GROUP AND NOTHING ELSE IS NOT FRESH, AND NORMALISING INTO IT STOPS. Cycle 0.2.3,
+// RX-236; `HIR.md` H-13.
+//
+// `hir_normalise` copies the groups of the tree it reads into `out` past the ones `out` holds, so a
+// group `out` held already would take the first number: `h`'s group 1 would land at 2, and the normal
+// form's `(group 1 …)` would name `out`'s group 1 -- another group's text. Here `out` holds one group,
+// named `y`, and no node and no range: the node count and the range count are a fresh arena's, the group
+// count is not, and `hir_normalise` traps `OutOfBounds` (94) through `vec_oob` before it writes
+// anything -- the stop's group count alone, as `hir_normalise_stray_node.npk` holds its node count and
+// `hir_normalise_stray_range.npk` its range count. Were it not stopped, this unit would exit 2 when the
+// normal form's group 1 was named `y`, and 3 when it was not.
+mod:hir_normalise_stray_group;
+
+use "../../src/core/core.npk".*;
+use "../../src/hir/hir.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Hir:h = raw hir_init(4i64);
+    discard(raw hir_read(string_bytes("(group 1 x (literal 97))"), @h));
+    Hir:out = raw hir_init(4i64);
+    discard(raw hir_add_group(@out, string_bytes("y")));
+    drop hir_normalise(@h, @out);
+    Bytes:got = raw bytes_init(4i64);
+    drop hir_put_name(@out, 1i64, @got);
+    int32:e = 3i32;
+    if (((raw bytes_len(@got)) == 1i64) && ((raw bytes_get(@got, 0i64)) == 121u8)) { e = 2i32; }
+    drop hir_free(@out);
+    drop hir_free(@h);
+    exit e;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

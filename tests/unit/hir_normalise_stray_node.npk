@@ -1,0 +1,48 @@
+// expect-exit: 94
+//
+// AN ARENA HOLDING A NODE AND NOTHING ELSE IS NOT FRESH, AND NORMALISING INTO IT STOPS. Cycle 0.2.3,
+// RX-236; `HIR.md` H-13 and H-16.
+//
+// `hir_normalise` pushes the normal form's nodes after whatever `out` holds, so a node `out` held
+// already would stay in the arena beside the tree, reached from no root: the arena would hold more than
+// the tree (H-16). Here `out` holds one `Empty` node, no range and group 0 alone: the range count and the
+// group count are a fresh arena's, the node count is not, and `hir_normalise` traps `OutOfBounds` (94)
+// through `vec_oob` before it writes anything -- the stop's node count alone, as
+// `hir_normalise_stray_group.npk` holds its group count and `hir_normalise_stray_range.npk` its range
+// count. Were it not stopped, this unit would exit 2 when the stray node stayed beside the tree, and 3
+// when it did not.
+mod:hir_normalise_stray_node;
+
+use "../../src/core/core.npk".*;
+use "../../src/hir/hir.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Hir:h = raw hir_init(4i64);
+    discard(raw hir_read(string_bytes("(literal 97)"), @h));
+    Hir:out = raw hir_init(4i64);
+    discard(raw hir_push(@out, HirNode{ kind: HirKind.Empty, flags: 0u32, a: 0i64, b: 0i64, c: 0i64, next: HIR_NONE }));
+    drop hir_normalise(@h, @out);
+    int32:e = 3i32;
+    if ((raw hir_len(out)) == 2i64) { e = 2i32; }
+    drop hir_free(@out);
+    drop hir_free(@h);
+    exit e;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};
