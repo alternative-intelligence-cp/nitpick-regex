@@ -546,6 +546,22 @@ index cff97671ce0053ab2deb4c4d08a645300a7b4ac1..9966ebc94903c4aab70e517fa9290f1c
  //
  // THE CASES. 1 … 9 are H-5's six quantifier rows, their lazy forms, their bounds' edges and what
  // a quantifier may wrap; 10 … 14 the `.` row; 15 … 19 the `(?:…)` row; 20 … 23 the class row and
+diff --git a/tests/unit/hir_dump_stray_bit.npk b/tests/unit/hir_dump_stray_bit.npk
+index 149a522400f5581000d0d40dd6e8f5a04cb66e26..d7b2a7dc6f393a002ba91033fe0c42783fb207d5 100644
+--- a/tests/unit/hir_dump_stray_bit.npk
++++ b/tests/unit/hir_dump_stray_bit.npk
+@@ -8,6 +8,11 @@
+ // leave exactly that: `AST_FLAG_M` is 2, `HIR_FLAG_BYTE`'s value, on `(?m)^`. So the writer traps
+ // `OutOfBounds` (94) through `vec_oob`: here a line-start anchor carries `HIR_FLAG_BYTE`. That a
+ // node of each kind that takes a bit is written with it is `hir_dump.npk`'s, which exits 0.
++// *(@@DATE024@@, cycle 0.2.4 -- found by this subcycle's second sweep: *"no bit to any other kind"*
++// and *"each kind that takes a bit"* leave out `HIR_COMPUTED`'s five bits, the computed properties,
++// which every kind takes and the text does not show; only `repr.npk`'s pass writes them. This is the
++// twin of the comment on `dump.npk`'s `kind_bits` that RX-239 dates. Every other bit a kind does not
++// take is still refused by the writer, and this unit's `HIR_FLAG_BYTE` on a line-start anchor is one.)*
+ mod:hir_dump_stray_bit;
+ 
+ use "../../src/core/core.npk".*;
 diff --git a/tests/unit/hir_props.npk b/tests/unit/hir_props.npk
 new file mode 100644
 index 0000000000000000000000000000000000000000..64ae0a64f84bdc469f815cd5c03b04b8a0d3d91f

@@ -8,6 +8,11 @@
 // leave exactly that: `AST_FLAG_M` is 2, `HIR_FLAG_BYTE`'s value, on `(?m)^`. So the writer traps
 // `OutOfBounds` (94) through `vec_oob`: here a line-start anchor carries `HIR_FLAG_BYTE`. That a
 // node of each kind that takes a bit is written with it is `hir_dump.npk`'s, which exits 0.
+// *(2026-10-13, cycle 0.2.4 -- found by this subcycle's second sweep: *"no bit to any other kind"*
+// and *"each kind that takes a bit"* leave out `HIR_COMPUTED`'s five bits, the computed properties,
+// which every kind takes and the text does not show; only `repr.npk`'s pass writes them. This is the
+// twin of the comment on `dump.npk`'s `kind_bits` that RX-239 dates. Every other bit a kind does not
+// take is still refused by the writer, and this unit's `HIR_FLAG_BYTE` on a line-start anchor is one.)*
 mod:hir_dump_stray_bit;
 
 use "../../src/core/core.npk".*;
