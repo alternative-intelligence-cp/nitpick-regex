@@ -369,7 +369,8 @@ PY
 echo "§1.11 D-227 at the pin: $(grep -E '^## D-227 ' "$F/p/compiler_decisions.md" | cut -c1-110)"
 
 # ---- §1.12 what the drafts wrote and replaced (0.2.3's record, "To the planner of 0.2.4": a comment its drafts replaced
-#      passed every gate): each replaced phrase, in the lines the patches add -- none survives
+#      passed every gate), and what the fix round replaced: each replaced phrase, in the lines the patches add -- none
+#      survives. The query's obligation line's "i is reached from h.root" is not among them: the fix round restored it.
 python3 -B - "$T" <<'PY'
 import os, sys
 T = sys.argv[1]
@@ -380,7 +381,9 @@ for k in range(1, 4):
             added.append(line[1:])
 gone = ["the table was written first", "are each red here (the plan", "the shapes the build never makes among them",
         "regex-syntax", "change no node of the", "but the seventh", "still stops the dump", "an arena that is not a tree stops it",
-        "i is reached from h.root", "each kind of noise applied at least this often"]
+        "each kind of noise applied at least this often",
+        # and the fix round's, at the plan verifier's PASS: the reference's and RX-238's account of the mutants
+        "one rule of H-17 broken at a time", "Each of H-17's rules broken alone", "twenty-five rows"]
 text = "".join(added)
 print("§1.12 the drafts' replaced words, in the patches' %d added lines: " % len(added) + "; ".join("%s %d" % (g, text.count(g)) for g in gone))
 PY

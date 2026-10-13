@@ -1,5 +1,5 @@
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index 58f34d035e5d3f2e5536e38a87f3cd0240c3be3d..248679da8a277ed28272566297a2da40bbeab6e5 100644
+index 899100657ccd5d8db594c7482ac904916d53983e..87d353c74fe1395749bfb1285f5c33c01fedc634 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
 @@ -6310,6 +6310,8 @@ the table as built, names and all, and no group moves; **an insertion sort** —
@@ -11,7 +11,7 @@ index 58f34d035e5d3f2e5536e38a87f3cd0240c3be3d..248679da8a277ed28272566297a2da40
  **2026-10-12, cycle 0.2.3 (the plan's PD-122), at compiler `7e91730`** — RX-226 and RX-229, `BUILD.md` B-5b, `TESTING.md` §7
  and V-20, the cycle README's 0.2.3 Gate box, *"a generated corpus of pattern pairs that are structurally equal but
  textually different produces byte-identical dumps"*, and its last box, *"a test asserting no normalisation changes which
-@@ -6451,3 +6453,26 @@ a union of literals"*; **a write after the facts clearing them**, the pass run a
+@@ -6454,3 +6456,26 @@ a union of literals"*; **a write after the facts clearing them**, the pass run a
  every ancestor of a rewritten node holds a stale bit until the next query; **the dump writing the facts** — a tree would
  have a text before and another after, and `hir_read` would read a fact it must trust or check; **the dump refusing them**
  — every computed tree would be one the dump stops on.

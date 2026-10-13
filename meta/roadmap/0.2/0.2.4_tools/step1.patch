@@ -1,5 +1,5 @@
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index 76c917da78d3ed7e4b50f1a799ca0a1f7e3c4533..58f34d035e5d3f2e5536e38a87f3cd0240c3be3d 100644
+index 76c917da78d3ed7e4b50f1a799ca0a1f7e3c4533..899100657ccd5d8db594c7482ac904916d53983e 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
 @@ -5919,6 +5919,9 @@ fills the hook** — *"how a defect gets forgotten between the day it is underst
@@ -12,7 +12,7 @@ index 76c917da78d3ed7e4b50f1a799ca0a1f7e3c4533..58f34d035e5d3f2e5536e38a87f3cd02
  
  **2026-10-08, cycle 0.2.1 (the plan's PD-71), at compiler `5fbaf4a`** — `HIR.md` H-4a, H-6 and H-15, RX-225, and the cycle
  README's second 0.2.1 box: *"flags erased (H-6): nothing downstream knows what `i`, `s`, `m`, `u` or `x` meant. A test
-@@ -6350,3 +6353,101 @@ the byte bit erased, passes every pair; **the hook as a stub oracle module in `t
+@@ -6350,3 +6353,104 @@ the byte bit erased, passes every pair; **the hook as a stub oracle module in `t
  left out of the suites; **the label `0.5.0`, where the oracle is written** — the 0.5 README names this test in 0.5.5's
  box; **RX-232's list left as it is** — a list of what a decision dated is a claim about a set, and the set has one
  member more.
@@ -51,8 +51,11 @@ index 76c917da78d3ed7e4b50f1a799ca0a1f7e3c4533..58f34d035e5d3f2e5536e38a87f3cd02
 +**Measured at `7e91730`.** `tests/unit/hir_props_reference.npk` exits 0 at both legs: fifty patterns, each with its normal
 +form's four facts written by hand from H-17's table before the pass first ran — plain literals and unions of them, the
 +empty string, the anchors under `m` and not, and three pairs of a byte-mode pattern and its codepoint twin with one set of
-+facts. Each of H-17's rules broken alone in the pass is red: twenty-five rows of the plan's mutant table, twenty-three of
-+them in this unit and the two that read a list of no member, which no pattern makes, in `hir_props.npk`, cases 4 and 5.
++facts. Every facet of H-17 has a row of the plan's mutant table that breaks it alone in the pass — each of its thirty-six
++cells, each side of its three bounds, each of its two lists of no member and each of the three things it says no fact
++reads, forty-seven facets — among fifty-four rows that break the rule, and every row is red: in this unit, or, for the
++seven that no pattern of its fifty reaches — a list of no member or of one, and a lazy repetition — in `hir_props.npk`,
++cases 4, 5 and 14. Its case 13 holds `\b\B`, which matches nothing, to *may* match the empty string.
 +
 +*Alternatives declined:* **an anchor read through a zero-width prefix** — `\b^a` read as anchored, the assertions before
 +the anchor skipped: a fifth fact, *"every match is empty"*, computed beside the four, for a shape an author rarely writes,
@@ -289,7 +292,7 @@ index 390469fd8af1be0acd2e432fbce3de0c60ad64ba..d7e7f7d614f735316f2e7c04178d9600
  pub use "./dump.npk".hir_dump;
  pub use "./dump.npk".hir_read;
 diff --git a/src/hir/repr.npk b/src/hir/repr.npk
-index 6f17065db4eb6b93468f1c56cf97e82a624b22c1..eab0b7fd15c268f74180f7352ecddc94017ba3ca 100644
+index 6f17065db4eb6b93468f1c56cf97e82a624b22c1..8ea088ac50aa96d8a172145131ca611175b5df92 100644
 --- a/src/hir/repr.npk
 +++ b/src/hir/repr.npk
 @@ -25,6 +25,16 @@
@@ -511,7 +514,7 @@ index 6f17065db4eb6b93468f1c56cf97e82a624b22c1..eab0b7fd15c268f74180f7352ecddc94
 +    pass NIL;
 +};
 +
-+// obligation: never fails requires h.root != HIR_NONE && i >= 0i64 && i < hir_len(h)
++// obligation: never fails requires h.root != HIR_NONE && i >= 0i64 && i < hir_len(h) && i is reached from h.root
 +//
 +// THE QUERY (H-10, H-18): node `i`'s four facts, `HIR_PROPS`' bits -- computed first, by the one pass
 +// over the whole tree, when the tree's are not; read once they are. NO CALLER COMPUTES FIRST (the
@@ -545,10 +548,10 @@ index cff97671ce0053ab2deb4c4d08a645300a7b4ac1..9966ebc94903c4aab70e517fa9290f1c
  // a quantifier may wrap; 10 … 14 the `.` row; 15 … 19 the `(?:…)` row; 20 … 23 the class row and
 diff --git a/tests/unit/hir_props.npk b/tests/unit/hir_props.npk
 new file mode 100644
-index 0000000000000000000000000000000000000000..fbefe19168ff17f9976475ea977e2bcb105c9768
+index 0000000000000000000000000000000000000000..64ae0a64f84bdc469f815cd5c03b04b8a0d3d91f
 --- /dev/null
 +++ b/tests/unit/hir_props.npk
-@@ -0,0 +1,213 @@
+@@ -0,0 +1,220 @@
 +// expect-exit: 0
 +//
 +// THE COMPUTED PROPERTIES: THE QUERY, THE CACHE, THE DOORS AND THE TREE THEY ARE COMPUTED OVER. Cycle
@@ -559,6 +562,8 @@ index 0000000000000000000000000000000000000000..fbefe19168ff17f9976475ea977e2bcb
 +//            the build never makes: a class of no range, a `Concat` or an `Alternate` of no member and of one
 +//   10 … 12  the normal form against the build: `[a]|b`, `a(?:bc)` and `(?:)^a` each answer otherwise
 +//            built and normalised, and the normal form is what a later stage reads (RX-236)
++//   13, 14   what no reference row asks: `\b\B`, which matches nothing, MAY match the empty string, each
++//            assertion taken to hold; and a lazy repetition has its greedy twin's facts -- no fact reads it
 +//   15 … 19  compute-or-return: no node holds a fact before the first query, and asking a leaf computes
 +//            every node of the tree; a second query answers the same and makes no second pass; each node
 +//            answers its own facts; the dump is one text before and after; the query writes no range,
@@ -672,6 +677,11 @@ index 0000000000000000000000000000000000000000..fbefe19168ff17f9976475ea977e2bcb
 +    if ((!(raw pattern_holds("[a]|b", false, "----"))) || (!(raw pattern_holds("[a]|b", true, "---L"))))     { pass 10i32; }
 +    if ((!(raw pattern_holds("a(?:bc)", false, "----"))) || (!(raw pattern_holds("a(?:bc)", true, "---L")))) { pass 11i32; }
 +    if ((!(raw pattern_holds("(?:)^a", false, "----"))) || (!(raw pattern_holds("(?:)^a", true, "-S--"))))   { pass 12i32; }
++
++    // ---- 13, 14: an assertion taken to hold, and the laziness no fact reads
++    if (!(raw pattern_holds("\\b\\B", true, "E---")))                                                          { pass 13i32; }
++    if ((!(raw pattern_holds("(?:^a$)+?", true, "-ST-"))) || (!(raw pattern_holds("a*?", true, "E---")))
++        || (!(raw pattern_holds("(?:^a$)*?", true, "E---"))))                                                 { pass 14i32; }
 +
 +    // ---- 15 … 19: compute-or-return. The text's nodes, in the order `hir_read` closes them: `(anchor
 +    // text-start)` 0, `(literal 97)` 1, the `concat` 2, `(literal 98)` 3, the `repeat` 4, the root 5.
@@ -980,10 +990,10 @@ index 0000000000000000000000000000000000000000..31d8cf14325cdc5fd2708fcf4f024ef8
 +};
 diff --git a/tests/unit/hir_props_reference.npk b/tests/unit/hir_props_reference.npk
 new file mode 100644
-index 0000000000000000000000000000000000000000..fe49aa2dee3753dd40de67dcaf87037e50cdda0b
+index 0000000000000000000000000000000000000000..3fa67d212a01f144617cf141a29106fe8d3d221b
 --- /dev/null
 +++ b/tests/unit/hir_props_reference.npk
-@@ -0,0 +1,133 @@
+@@ -0,0 +1,134 @@
 +// expect-exit: 0
 +//
 +// THE COMPUTED PROPERTIES AGAINST A HAND-COMPUTED REFERENCE: FIFTY PATTERNS. Cycle 0.2.4, RX-238 and
@@ -995,8 +1005,9 @@ index 0000000000000000000000000000000000000000..fe49aa2dee3753dd40de67dcaf87037e
 +// literals, `-` where a fact does not hold -- with the reading that gives them beside it. No value was
 +// printed by the code and copied here: every row was written from the rule's text before the pass first
 +// ran, and a row the pass disagrees with is read against H-17 again -- never changed to the pass's
-+// answer. The mutants of the pass, one rule of H-17 broken at a time, are each red here but the two
-+// that read a list of no member, which no pattern makes and `hir_props.npk` asks (the plan's block 2m).
++// answer. The mutants of the pass that break H-17 -- every facet of it alone, by a row of its own -- are
++// each red here but the seven that no row reaches: a list of no member or of one, and a lazy repetition,
++// which `hir_props.npk` asks (the plan's block 2m).
 +//
 +// EVERY ROW ASKS THE NORMAL FORM (RX-236): each pattern is parsed, built, normalised, and the normal
 +// form's root asked through `hir_props`, the query a later stage will call. A row that differs, or a
@@ -1072,7 +1083,7 @@ index 0000000000000000000000000000000000000000..fe49aa2dee3753dd40de67dcaf87037e
 +    if (!(raw holds("a*b*", "E---")))           { pass 28i32; }   // every piece can
 +    if (!(raw holds("\\b", "E---")))            { pass 29i32; }   // an assertion is zero-width (Y-20)
 +    if (!(raw holds("(?-u)\\b", "E---")))       { pass 30i32; }   // the byte bit read by none, so as `\b`
-+    if (!(raw holds("\\B", "E---")))            { pass 31i32; }
++    if (!(raw holds("\\B", "E---")))            { pass 31i32; }   // not a boundary: an assertion, zero-width too
 +    if (!(raw holds("[a-z]", "----")))          { pass 32i32; }   // a class matches one codepoint
 +    if (!(raw holds("(?-u)[a-z]", "----")))     { pass 33i32; }   // or one byte, so as `[a-z]`
 +    if (!(raw holds("(?s).", "----")))          { pass 34i32; }   // `.` is a class
