@@ -402,7 +402,12 @@ gone = ["int64:limit", "2047i64", "65535i64", "U+07FF and U+FFFF", "(n.b != 1i64
         "mutated once by the plan's operator sweep", "node 6",
         # and plan verification 2's fix: the claims it narrowed, and the counts it moved
         "is broken by a row of its own", "one hundred and five rows", "mutates every operator, constant and statement",
-        "Beneath the facets", "twenty-four rows", "every node, and `Literal` 24 bytes"]
+        "Beneath the facets", "twenty-four rows", "every node, and `Literal` 24 bytes",
+        # and its second commit, after a reading of `opsweep.py` against the claims
+        "each integer literal one up and one down", "each assignment, `drop` and `discard` removed",
+        "the plan names those that have none", "which a row that writes a literal wrong the unsafe way reddens",
+        "mutates the extraction and the section's reading in these ways alone",
+        "the rows that write a literal wrong the unsafe way redden the fuzz"]
 text = "".join(added)
 print("§1.12 the drafts' replaced words, in the patches' %d added lines: " % len(added) + "; ".join("%s %d" % (g, text.count(g)) for g in gone))
 PY

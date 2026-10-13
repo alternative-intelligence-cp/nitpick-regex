@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 """0.2.5 -- THE OPERATOR SWEEP, the planner's sweep beneath the mutant table (§4.1), over these mutations and no others:
 each relational operator written between spaces replaced by one other (`<` and `<=`, `>` and `>=`, `==` and `!=`, each
-by its partner); each `&&`, `||`, `+`, `-`, `|` and `&` between spaces by its counterpart; each typed integer literal
-one up and, above 0, one down; each `!` before a name or a `(` dropped; each `true` and `false` flipped; and each
-statement that assigns, `drop`s or `discard`s removed -- in the literals' code: `repr.npk` from its `---- the literals`
-section to `hir_literal_byte`, `hir_free`'s two lines, and `dump.npk`'s `write_literals`, `read_literals`, `read_run`'s
-tail and `hir_dump`'s call -- each ONCE, in a copy of <tree>, built at -O0 and run against the eight units of
-`mutants.tsv`'s `# units:` line in that order, stopping at the first whose exit differs from the unchanged copy's.
-Mutations of other kinds -- a relational operator's other replacements, `*`, a named constant, a call's argument, a
-field read for another, a condition forced, a variable for another -- it does not make; §4.1 says what lies there.
+by its partner); each `&&`, `||`, `+`, `-`, `|` and `&` between spaces by its counterpart; each integer literal typed
+`i64`, `i32`, `u64`, `u32` or `u8` one up and, above 0, one down; each `!` before a name or a `(` dropped; each `true`
+and `false` flipped; and each assignment to a name or a field, each `drop` and each `discard` that is a line of its own
+and holds no brace, removed -- in the literals' code: `repr.npk` from its `---- the literals` section to
+`hir_literal_byte`, `hir_free`'s two lines, and `dump.npk`'s `write_literals`, `read_literals`, `read_run`'s tail and
+`hir_dump`'s call -- each ONCE, in a copy of <tree>, built at -O0 and run against the eight units of `mutants.tsv`'s
+`# units:` line in that order, stopping at the first whose exit differs from the unchanged copy's. Of its own kinds it
+leaves a literal of 0 one down, and an assignment, `drop` or `discard` inside a one-line block or on a line that holds a
+brace, as a struct literal does; and it makes no mutation of another kind -- a relational operator's other
+replacements, `*`, a shift, a constant set to 0 or to 1, a named constant's value, a call's argument, a field read for
+another, a condition forced, a statement of another kind removed, a kind or a role swapped, a variable for another.
+§4.1 says what lies there.
 
     python3 -B opsweep.py <tree> [<jobs>]
 

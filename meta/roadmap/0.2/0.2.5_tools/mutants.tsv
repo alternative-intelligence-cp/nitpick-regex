@@ -1,14 +1,15 @@
 # 0.2.5's mutants of the literals -- `src/hir/repr.npk`'s extraction, each row one edit at one site breaking a facet of
-# H-19 (a match's bytes, each length's range and count, each lead's place, mark and payload, a continuation's mark, six
-# bits and order; a class's first bytes and each side of the ASCII edge; the first-byte set's walk, its guards and its
-# entry; the prefix and an alternation in it, every alternative and every byte of each, its own and no more; the inner
-# literal; the byte flag where a row reads it; each walk's bound), though not every facet has a row of its own -- the
-# plan's §4.1 names those that have none; H-20's store, query and roles' values, and `src/hir/dump.npk`'s section and
-# its reading; and of step 1's pending test, its hook, each of its four claims: each one rule broken in a copy of a
-# tree, the text matched exactly ONCE or the row is a STOP; `mutants.py` builds every unit below that the tree holds, in
-# the copy, at both legs, and prints the units whose exits differ from the unchanged copy's. TAB-separated; `\n` in a
-# text is a newline. The first column is the step a row runs at: `1`, over the tree at step 1's commit, where all eight
-# of the literals' units are (block 1m).
+# H-19 (a match's bytes, each length's count and the edges between the lengths, the one byte's value, each lead's place,
+# mark and payload, a continuation's mark, six bits and order; a class's first bytes and each side of the ASCII edge;
+# the first-byte set's walk, its guards and its entry; the prefix and an alternation in it, every alternative and every
+# byte of each, its own and no more; the inner literal; the literals' bounds; the byte flag where a row reads it; each
+# walk's bound), though not every facet has a row of its own -- the plan's §4.1 names those plan verification 2 found;
+# H-20's store, query and roles' values, and `src/hir/dump.npk`'s section and its reading; and of step 1's pending test,
+# its hook: each of the five answers its claims can give. Each one rule broken in a copy of a tree, the text matched
+# exactly ONCE or the row is a STOP; `mutants.py` builds every unit below that the tree holds, in the copy, at both
+# legs, and prints the units whose exits differ from the unchanged copy's. TAB-separated; `\n` in a text is a newline.
+# The first column is the step a row runs at: `1`, over the tree at step 1's commit, where the seven literals' units and
+# `hir_dump` are (block 1m).
 # units: hir_literal hir_literal_reference hir_literal_no_root hir_literal_not_extracted hir_literal_frozen hir_literal_fuzz hir_literal_oracle hir_dump
 1	enc-byte-as-codepoint	src/hir/repr.npk	    if (byte) { pass 1i64; }\n    if ((cp >> 7i64) == 0i64) { pass 1i64; }	    if ((cp >> 7i64) == 0i64) { pass 1i64; }
 1	enc-ascii-as-two	src/hir/repr.npk	    if ((cp >> 7i64) == 0i64) { pass 1i64; }	    if ((cp >> 7i64) == 0i64) { pass 2i64; }

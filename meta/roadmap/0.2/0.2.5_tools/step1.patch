@@ -36,10 +36,10 @@ index 36d770b35e145f5391d7e6dc30808c06714d673d..80220fd86c3accd9ab53e60ee02a34c9
  *(2026-10-12, cycle 0.2.3 — RX-237: three since, the third normalisation's oracle test, pending on cycle 0.5.5.)*
 +*(@@DATE025@@, cycle 0.2.5 — RX-243: four since, the fourth literal extraction's property test, pending on cycle 0.5.5.)*
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index 42ed1b7b6d7157c2104c2cb845c4b40980257db5..c6e64bd1a0ca83c8e568892f69fccd5c0c9cce54 100644
+index 42ed1b7b6d7157c2104c2cb845c4b40980257db5..77e6ac196af9b25ced64e1dd4c2b146eb8df9c3b 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
-@@ -6479,3 +6479,163 @@ applied, the gate exits 17, its floors' exit (the plan's mutant `repwrap-never-a
+@@ -6479,3 +6479,165 @@ applied, the gate exits 17, its floors' exit (the plan's mutant `repwrap-never-a
  be red; **a dated note alone, no floor** — a gate that stopped applying the seventh kind would stay green, and the words
  would stay false; **the draw's odds raised to clear 500** — every count RX-237 measured would move, and the corpus with
  them; **RX-237's sentence rewritten** — a settled decision's text is never rewritten.
@@ -87,15 +87,17 @@ index 42ed1b7b6d7157c2104c2cb845c4b40980257db5..c6e64bd1a0ca83c8e568892f69fccd5c
 +H-19, each by one edit at one site of the extraction, and every one is red at both legs: in the reference, in
 +`tests/unit/hir_literal.npk` — the bounds' edges, a codepoint past U+3FFFF, the ASCII edge, alternations and runs of
 +multi-byte literals and of bytes past 127, the walks' guards and budgets, and the shapes only a text holds — or in
-+RX-243's fuzz, which a row that writes a literal wrong the unsafe way reddens by a string drawn from the tree. Not every
-+facet of H-19 has a row of its own, and the plan names those that have none. Beneath the rows, the plan's operator sweep
-+mutates the extraction and the section's reading in these ways alone: each relational operator replaced by one other,
-+`&&`, `||`, `+`, `-`, `|` and `&` each by its counterpart, each integer literal one up and one down, each negation
-+dropped, each boolean flipped, and each assignment, `drop` and `discard` removed — 515 mutants — and every one is red in
-+a unit but 44, each equivalent and each named in the plan: a first capacity, a measure's slack, a clamp or an edge that
-+changes no byte, a step kind or a list's end no walk tells apart, an offset that is always 0, a value written before it
-+is read, and a byte the caller has checked. Mutants of other kinds lie outside it, and the plan says which; fourteen of
-+them that no unit reddened before — a walk's guard, a byte flag dropped or never read, a budget, a clamp and a count —
++RX-243's fuzz. Not every facet of H-19 has a row of its own, and the plan names those its second verification found.
++Beneath the rows, the plan's operator sweep mutates the literals' code in `repr.npk` — `hir_free`'s two lines among it —
++and the section's writing and reading in `dump.npk` in these ways alone: each relational operator replaced by one other;
++`&&`, `||`, `+`, `-`, `|` and `&` each by its counterpart; each typed integer literal one up and, above 0, one down; each
++negation dropped; each boolean flipped; and each assignment to a declared name or a field, each `drop` and each
++`discard` that is a line of its own and holds no brace, removed — 515 mutants — and every one is red in a unit but 44,
++each equivalent and each named in the plan: a first capacity, a measure's slack, a clamp or an edge that changes no
++byte, a step kind or a list's end no walk tells apart, an offset that is always 0, a value written before it is read,
++and a byte the caller has checked. Outside it lie mutants of other kinds and, of its own kinds, a literal of 0 one down
++and a statement inside a one-line block or holding a struct literal, and the plan says which; fourteen mutants of other
++kinds that no unit reddened before — a walk's guard, a byte flag dropped or never read, a budget, a clamp and a count —
 +each have a case and a row. A list of no member is read by the same words, and `hir_literal`'s texts hold it.
 +
 +*Alternatives declined:* **a set of prefix literals, Rust's shape** — every literal an alternation can begin with, for a
@@ -193,8 +195,8 @@ index 42ed1b7b6d7157c2104c2cb845c4b40980257db5..c6e64bd1a0ca83c8e568892f69fccd5c
 +normalises and extracts, and every comparison meets the hook's answer that there is no oracle. In the plan's mutant table
 +a hook that finds no match makes it exit 0; one that finds an empty match everywhere, 13; and three that find a one-byte
 +match where the first-byte set, the prefix or the inner literal does not admit it, 11, 12 and 14 — so its 1 is the
-+hook's alone, and each claim can fire — and the rows that write a literal wrong the unsafe way redden the fuzz at its
-+claim's number; one that says nothing reddens it at its floors, 17.
++hook's alone, and each claim can fire — and a row that writes a literal wrong the unsafe way, where a string the fuzz
++draws shows it, reddens the fuzz at that claim's number; one that says nothing reddens it at its floors, 17.
 +
 +*Alternatives declined:* **the property test alone, pending** — nothing would measure the safe direction until cycle
 +0.5.5; **a naive matcher in the test now** — the oracle's job, which cycle 0.5 writes first and tests against hand-written
