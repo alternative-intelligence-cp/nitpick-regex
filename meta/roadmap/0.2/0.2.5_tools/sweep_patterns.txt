@@ -1,0 +1,21 @@
+# 0.2.5's omission sweep, block 3 -- one extended regular expression per line, each read by `sweep.py` line by line AND
+# across line breaks, case-insensitive: every statement steps 1 and 2 make false, every claim a step dates in its own
+# words AND by its subject -- the twins a search for removed lines cannot see, and the ones written in other words
+# (0.2.4's worker's second sweep) -- and every place a reader would look for what they changed. `Literal` left to 0.2.5;
+# `Literal`'s shape and the fields; what the dump writes; what `hir_read` reads and sets; the two bounds; the three
+# literals by their names; H-12's "no literals"; `hir_free`'s blocks; normalisation's freshness; the run's count; the
+# subcycle that is next; the status's parts; the pending units; and the prefilters, which read the literals.
+literals.? until (cycle )?0\.2\.5|holds no .?literals|Literal.? (is|will)[^.]{0,40}0\.2\.5|0\.2\.5's, (shaped|with the extraction)|left to (cycle )?0\.2\.5|the two left|left to shape
+\bLiteral\b[^.]{0,60}(shape|own nothing|offset)|Hir\.literals|Vec<Literal>|Hir\.lits
+appends the tree|writes the tree under|tree under .?h.?'s root|as one line|one line of text|a tree has one text|one text before
+sets its root and answers|reads exactly that|hir_dump\(hir_read|what .?hir_dump.? writes there
+in total|NREGEX_LITERAL_(LIMIT|BYTES)|entries and .?NREGEX
+literal prefix|required (literal )?prefix|first.byte set|inner (required )?literal|required literal|possible first bytes
+no literals|empty literal set|literal set|failure mode
+own nothing, so each block|a node, a range and a group
+three counts|every field .?repr\.npk.?'s verbs write|fresh is
+\b(334|347)\b.{0,20}(unit|/)
+0\.2\.5.{0,40}\bnext\b|\bnext\b.{0,30}0\.2\.5|whose plan no file holds yet|0\.2\.6.{0,30}\bnext\b
+(six|seven) parts
+(three|four) (units )?(are )?pending|(three|four) pending|pending outside|all (three|four) outside|(three|four) since|(three|four) lines? on|and a (third|fourth)
+prefilter

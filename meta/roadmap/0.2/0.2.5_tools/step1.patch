@@ -1,0 +1,2330 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index fa06e6ea3293f5a605ee7e492fd3fa59b84ea149..db6e93a8814baaed3395bb54e78e3919d3b40e32 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -22,6 +22,8 @@
+ # subcycle of this library, 0.3.4, and on its exit 1 (RX-226, RX-229).
+ # *(2026-10-12, cycle 0.2.3 -- RX-237: three since: and normalisation's oracle test, on cycle 0.5.5 and its
+ # exit 1.)*
++# *(@@DATE025@@, cycle 0.2.5 -- RX-243: four since: and literal extraction's property test, on cycle 0.5.5 and
++# its exit 1.)*
+ # *(LLVM is exactly 20.1.8 since cycle 0.2.1a, 2026-10-09 -- RX-231, the compiler's D-349.)*
+ # THE ONE THAT WAS PENDING, AND ALL THAT HAPPENED TO IT. Through cycle 0.0.5 a
+ # unit asserting against a compiler defect (DEF-25, fixed at `fe42dba`) was
+diff --git a/harness/baseline/PENDING.txt b/harness/baseline/PENDING.txt
+index 9587ca19efd25075b70c87d6c9d854926caa2e25..24ffb11aed26970233ff02523c0c3b73883c5028 100644
+--- a/harness/baseline/PENDING.txt
++++ b/harness/baseline/PENDING.txt
+@@ -45,7 +45,10 @@
+ # and in `leaf`. Each unit exits 1 while the build stops, at its hook or in `leaf`.)*
+ # *(2026-10-12, cycle 0.2.3 -- RX-237: three since, the third pending on cycle 0.5.5: the test that no
+ # normalisation changes which strings match, which exits 1 while its hook meets no oracle.)*
++# *(@@DATE025@@, cycle 0.2.5 -- RX-243: four since, the fourth pending on cycle 0.5.5 too: the property test that
++# every match the oracle finds is one its literals admit, which exits 1 while its hook meets no oracle.)*
+ 
+ tests/unit/hir_build_classes.npk	0.3.4	1	H-5's class row, and a class's negation and operators: the build stops at each until cycle 0.3.4 fills `resolve_items` and widens `leaf` (RX-229)
+ tests/unit/hir_build_fold.npk	0.3.4	1	H-5's `(?i:…)` row: the build stops at each until cycle 0.3.4 fills `fold_ranges` (RX-229)
+ tests/unit/hir_normalise_oracle.npk	0.5.5	1	H-14: no normalisation changes which strings match, the oracle run over both forms; its hook answers no oracle until cycle 0.5.5 fills it (RX-237)
++tests/unit/hir_literal_oracle.npk	0.5.5	1	H-19: every match the oracle finds is one its literals admit -- the prefix, the whole match, the first-byte set, the inner literal; its hook answers no oracle until cycle 0.5.5 fills it (RX-243)
+diff --git a/harness/baseline/README.md b/harness/baseline/README.md
+index 36d770b35e145f5391d7e6dc30808c06714d673d..80220fd86c3accd9ab53e60ee02a34c9f2b2cd6d 100644
+--- a/harness/baseline/README.md
++++ b/harness/baseline/README.md
+@@ -93,3 +93,4 @@ library, `0.3.4`, for a unit pending on what a later subcycle builds.)*
+ passing at `c3bdae2`. *(2026-10-08, cycle 0.2.1 — RX-229: two lines since, the HIR's
+ two hooks' tests, pending on cycle 0.3.4.)*
+ *(2026-10-12, cycle 0.2.3 — RX-237: three since, the third normalisation's oracle test, pending on cycle 0.5.5.)*
++*(@@DATE025@@, cycle 0.2.5 — RX-243: four since, the fourth literal extraction's property test, pending on cycle 0.5.5.)*
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 42ed1b7b6d7157c2104c2cb845c4b40980257db5..e7215e23d71043a9e74c373ba2b710597ceb29c5 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -6479,3 +6479,154 @@ applied, the gate exits 17, its floors' exit (the plan's mutant `repwrap-never-a
+ be red; **a dated note alone, no floor** — a gate that stopped applying the seventh kind would stay green, and the words
+ would stay false; **the draw's odds raised to clear 500** — every count RX-237 measured would move, and the corpus with
+ them; **RX-237's sentence rewritten** — a settled decision's text is never rewritten.
++
++
++## Literal extraction — cycle 0.2.5
++
++### RX-241 — the three literals, kind by kind, a new rule H-19: the prefix, the first-byte set and the inner literal, each a fact of every match that errs towards saying less, read over a match's bytes — a codepoint its UTF-8, a byte itself; the bounds read as each literal's bytes and the first-byte set's members; and the facts read for `CAN_MATCH_EMPTY` and `IS_ALTERNATION_LITERAL` alone
++**@@DATE025@@, cycle 0.2.5 (the plan's PD-126), at compiler `7e91730`** — `HIR.md` H-1, H-11, H-12, H-17 and H-19,
++`ENGINES.md` R-3, R-19 and R-20, `UNICODE.md` U-18 and U-19, `COMPILE.md` C-2 and C-3, `SYNTAX.md` Y-20, RX-224, RX-235,
++RX-236 and RX-238, and the cycle README's 0.2.5 row — *"Literal extraction — prefix, first-byte set, inner literal"*,
++ending *"conservative, bounded, and never wrong in the unsafe direction"* — and its second, third and fourth boxes. H-11
++names the three in a phrase each and their bounds in one sentence, and no rule says what each is for each kind of node,
++which way each may be wrong, what bytes a codepoint is, or what *"`NREGEX_LITERAL_LIMIT` entries and
++`NREGEX_LITERAL_BYTES` each"* bounds — where `limits.npk`'s comment calls the second *"literal text extracted in total"*.
++The hand-computed reference needs a definition independent of the extraction it checks.
++
++**The decision.** H-19's table says each literal kind by kind, each a fact of every match of the tree it is extracted
++from, erring one way only — towards saying less — since every prefilter confirms its candidates (R-19) and a literal
++wrong the other way loses a match. **A match's bytes**: a `Literal`'s codepoint's UTF-8 encoding, or under
++`HIR_FLAG_BYTE` the byte — a Unicode-mode node matches its well-formed encoding alone (U-18, U-19) — and an assertion
++none, taken to hold (Y-20, H-17). **The prefix** is read down from the root while every match of what is read is the
++same bytes — a `Group` its body's, a `Concat` its pieces' in order, a `Repeat` of minimum 1 or more its body's once, read
++on only at `{1}`, an `Alternate` of plain literals the bytes they all begin with, read on only when they are all the same
++— and stops at a `Class`, a `Repeat` of minimum 0, any other `Alternate`, and the byte past `NREGEX_LITERAL_BYTES`; read
++to the tree's end it is a whole match, RX-224's *"whether an entry is a whole match or a prefix"*. **The first-byte set**
++is none — every position, the haystack's end included — when the root may match the empty string, or when it holds more
++than `NREGEX_LITERAL_LIMIT` bytes; otherwise the first bytes a match can begin with, a `Concat`'s pieces' up to the first
++that cannot match the empty string, a class's members' — an ASCII codepoint its own byte, and past U+007F the lead bytes,
++which run on unbroken from one length to the next. **The inner literal** is the longest of the prefix and the literal
++runs the tree requires (RX-235) — never one under an `Alternate` or a `Repeat` of minimum 0 — counting
++`NREGEX_LITERAL_BYTES` bytes at most, its first that many; of two as long, the prefix, then the run read first. **The
++bounds**: H-11's *"`NREGEX_LITERAL_BYTES` each"* is each literal's bytes, the prefix's and the inner's, and
++*"`NREGEX_LITERAL_LIMIT` entries"* the first-byte set's members, the one-byte literals a first-byte prefilter scans for;
++`limits.npk`'s two comments are dated. **The facts read**: `CAN_MATCH_EMPTY`, which says *may* and so errs the
++first-byte set's way, and `IS_ALTERNATION_LITERAL`, which says an alternative's shape, never its bytes — no anchor, since
++`^abc`'s literals are `abc`'s and an anchored search is the meta-engine's to choose (R-24). The literals are of the tree
++they are extracted from, the normal form's for every later stage (H-1, RX-236). H-11 and H-12 are dated.
++
++**Measured at `7e91730`.** `tests/unit/hir_literal_reference.npk` exits 0 at both legs: fifty-five patterns, each with
++its normal form's literal section written by hand from H-19's table before the extraction first ran, and the first run
++agreed with every row — literals and runs and their bytes, a byte's among them, alternations of plain literals, the empty
++string and repetition, classes of codepoints of one to four bytes and of bytes, anchors and boundaries read through, and
++byte twins, `(?-u)a` and `a`, with one set of literals. In the plan's mutant table every facet of H-19's words — a match's
++bytes, a class's first bytes, the first-byte set's walk, the prefix and an alternation in it, the inner literal, each side
++of their bounds and each walk's own bound — is broken by a row of its own, its edit made at that facet's code and nowhere
++else, seventy rows, every one red at both legs: in the reference, in `tests/unit/hir_literal.npk` — the bounds' edges, and
++the shapes only a text holds — or in RX-243's fuzz, which a row that writes a literal wrong the unsafe way reddens by a
++string drawn from the tree. A list of no member is read by the same words, and `hir_literal`'s texts hold it.
++
++*Alternatives declined:* **a set of prefix literals, Rust's shape** — every literal an alternation can begin with, for a
++multi-literal prefilter `ENGINES.md` R-20 does not list at 1.0, where H-11 says *"the required literal prefix, if every
++match starts with the same bytes"*; **an alternative's own prefix read through, whatever it is** — `(?:ab+|ac)` shares
++`a`, and the read would branch, each alternative's bytes a buffer of its own, for a shape whose miss costs a scan;
++**a `Repeat`'s body read `min` times** — `a{3}` is `aaa`, a read that multiplies with H-8's product for bytes the first
++copy already begins; **a first-byte set past `NREGEX_LITERAL_LIMIT` kept** — a prefilter scanning for more than 64 bytes
++scans for most of a text's, and *"the most literals a prefilter will consider"* is that constant's own comment;
++**`NREGEX_LITERAL_BYTES` in total, the three together** — H-11 says *"each"*, and a long prefix would starve the inner
++literal; **a run read across a zero-width piece**, `foo\bbar`'s `foobar` — a run is RX-235's, adjacent `Literal`s;
++**the anchors read** — `^abc` and `abc` begin alike, and the meta-engine reads `IS_ANCHORED_START` itself; **the empty
++string's facts reckoned again here** — a fact with two homes drifts, and the facts are there to read through `hir_props`
++(0.2.4's hand-on); **`IS_ALTERNATION_LITERAL` taken for the literals** — it says a shape, never which bytes.
++
++### RX-242 — `Literal` shaped and `Hir.literals` added, a new rule H-20: a role and an offset and a length in `Hir.lits`, written in H-11's order by the extraction alone, the first-byte set's entry always, so a `Hir` that holds none has not had them extracted; `hir_literals` extracts on demand, after the facts, over a finished tree; and the dump's section, read back by holding it to the extraction
++**@@DATE025@@, cycle 0.2.5 (the plan's PD-127), at compiler `7e91730`** — `HIR.md` H-2, H-10, H-11, H-15, H-18 and H-20,
++`SAFETY.md` S-19 and S-23a, RX-224, RX-225, RX-227, RX-236 and RX-239, the compiler's D-227, the cycle README's first
++0.2.5 box — *"`Literal` shaped to own nothing, `Hir.literals` added and the dump given its section for them"*, moved here
++from 0.2.0 by RX-224 *"because its fields depend on the three roles H-11 names"* — and 0.2.4's hand-on: *"to any later
++stage that writes a HIR: compute its facts last; a computed tree is finished"*.
++
++**The decision.** **`Literal`** is `{ int64:role; int64:off; int64:len; }`, deriving `Copy` and owning nothing: its bytes
++are `len` from `off` in `Hir.lits`, a `Vec<uint8>` of every literal's, as a group's name is an offset and a length in
++`Hir.names` (S-23a). Its roles: `HIR_LITERAL_PREFIX` 0, `HIR_LITERAL_WHOLE` 1, `HIR_LITERAL_FIRST` 2 — the set's members,
++ascending — `HIR_LITERAL_ANYWHERE` 3, no bytes, and `HIR_LITERAL_INNER` 4. **`Hir.literals`** and `Hir.lits` are `hidden`
++fields of `Hir`, written only by `repr.npk`'s extraction, which writes H-11's three in its order — the prefix when it has a
++byte, the first-byte set always, the inner literal when it has a byte — so **a `Hir` that holds none has not had its
++literals extracted**: the distinct "not yet extracted" state, never "no literal". **The query is `hir_literals(Hir->:h)`**,
++re-exported: it extracts them when the `Hir` holds none and answers how many it holds, one to three; `hir_literal_count`
++answers how many and extracts nothing, `hir_literal` an entry and `hir_literal_byte` a byte, each stopping `OutOfBounds`
++past what is held. **The extraction asks `hir_props` first**, so the facts are computed — one pass, which stops on an arena
++that is not a tree — and the tree is finished (H-18) before a literal is written: `hir_set` and `hir_set_root` stop on it,
++and no literal can describe a tree it was not extracted from; `hir_push`, `hir_push_range`, `hir_add_group` and
++`hir_copy_groups` write nothing the literals read, and `hir_free` frees them. A node copied from an extracted tree carries
++no literal, and the normal form of one holds none until it is asked; `hir_normalise`'s three counts read the two fields
++too, since a literal is written only over a tree. **The dump's section**: after the tree, when the `Hir` holds its
++literals, ` (literals`, each entry — `(prefix B …)`, `(whole B …)`, `(first B …)`, `(anywhere)`, `(inner B …)`, bytes in
++decimal — and `)`; nothing when it holds none, so every text written before is the text it was. **`hir_read` reads a
++section back by extracting the literals of the tree it read**, in a scratch arena, holding the text to what the dump
++writes for them byte for byte — refusing at the first byte that is not, the root unset and no literal written — and then
++extracts them into the `Hir` it reads into, so `hir_dump(hir_read(t))` is `t`, with a section or without. H-2 and H-15
++dated, `SAFETY.md` S-23a, `vec.npk`'s two notes, and the comments of `repr.npk`, `dump.npk`, `normal.npk` and `hir.npk`.
++
++**Measured at `7e91730`.** `tests/unit/hir_literal.npk` exits 0 at both legs, and `hir_literal_no_root`,
++`hir_literal_not_extracted` and `hir_literal_frozen` 94 — a `Hir` with no root, an entry read before any is extracted, and
++a write to a tree whose literals are; `hir_dump`, `hir_props` and the units before them as before. In the plan's mutant
++table twenty-three rows break the query, the store, the section and its reading, a term each, and every one is red: an extraction that asks the root no fact leaves a `Literal`'s tree open, and `hir_literal_frozen` exits
++3; a query that extracts every time holds a second set of entries; a reader that takes a section as written accepts one
++its tree does not give. `Literal` is 24 bytes, measured in `hir_literal`, and `check_vec_elements_own_nothing` clears
++`Vec<Literal>`.
++
++*Alternatives declined:* **the literals in a struct of their own, beside `Hir`** — H-2 draws `Vec<Literal>:literals` in
++`Hir`, and the box asks for `Hir.literals`; **their bytes in `Hir.names`** — a name is written only with its group, which
++`hir_normalise`'s freshness rests on (RX-236); **an entry for each role always, an empty one for none** — a `first` with
++no byte is the set of a pattern that matches nothing, where none means every position; **"not yet extracted" as a field
++of its own** — one more thing `hir_normalise`'s freshness would count, where the first-byte set's entry, always written,
++already tells the two states apart; **the caller extracting first** — D-227, as RX-239 declined it; **a public verb that
++writes a literal** — any module could write one its tree does not give; **the extraction before the facts** — a write
++after it would leave a literal no stop guards; **the dump showing no literal, as it shows no fact** (RX-239) — the box asks
++for a section, a fixture's diff then shows the bytes a prefilter will scan for, and a tree's text without one is the text
++it was; **`hir_read` taking a section as written** — a fixture could carry a literal its tree does not give, which a
++prefilter would trust; **`hir_read` extracting into its own `Hir` before it holds the section** — a refused text would leave
++the root set and the tree finished, where H-15 leaves a refusal's root unset (RX-225); **the dump extracting what it
++writes** — every dump would finish the tree it wrote.
++
++### RX-243 — never wrong in the unsafe direction, measured now and held to the oracle later: `hir_literal_fuzz` holds 3 000 seeded trees' literals to strings drawn from each tree, and the property test is written now, pending until cycle 0.5.5 on a hook
++**@@DATE025@@, cycle 0.2.5 (the plan's PD-128), at compiler `7e91730`** — RX-226 and RX-237, `BUILD.md` B-5b, `TESTING.md`
++§7 and V-20, `ENGINES.md` R-19, the cycle README's 0.2.5 row, *"never wrong in the unsafe direction"*, and its last box —
++*"a property test: for every corpus pattern and haystack, every position the real matcher finds is a position the
++first-byte set admits — pending until 0.5"* — and the 0.5 README's 0.5.5 box, *"0.2's pending literal-extraction property
++test now green"*. The oracle is cycle 0.5's and the reference holds fifty-five patterns, so nothing would measure the
++safe direction over many trees for two cycles.
++
++**The decision.** **`tests/unit/hir_literal_fuzz.npk`**: three thousand seeded patterns, three deep — literals of one
++byte and of two and a byte, runs, classes of codepoints and of bytes, the anchors and boundaries, `(?:)`, concatenations,
++alternations with an empty alternative among them, groups and seven quantifiers — each parsed, built, normalised
++and its literals extracted, then sixteen strings drawn at random from its normal form's tree, a class's member at its
++ends or near its first and each assertion taken to hold, each held to every claim: it begins with the prefix, is the
++whole match, begins with a byte of the first-byte set — so is no empty string — and holds the inner literal; and the
++entries stand in H-11's order, `anywhere` where the root may match the empty string. Its own UTF-8 encoder, not the
++library's. Floors on every role and on the strings drawn, so an extraction that says nothing fails. **And the box's
++property test, written now**: `tests/unit/hir_literal_oracle.npk`, pending under RX-226's marker, `pending-until: 0.5.5 exit
++1`, its line in `PENDING.txt` — twenty-one patterns, each H-19 rule and each role among them, built, normalised and
++extracted on every run, over ten haystacks; from every position, the oracle's leftmost-first match must begin with a byte
++of the first-byte set, begin with the prefix, be the whole match and hold the inner literal. Its hook, `oracle_find`,
++answers that there is no oracle until cycle 0.5.5 fills it; a unit whose comparisons all met no oracle exits 1, and a
++match its literals do not admit exits its claim's number, which the marker does not excuse. The corpus is cycle 0.5's: the
++0.5.5 box carries the property over the corpus's patterns and haystacks too, by the corpus stage (0.5.3). `TESTING.md`
++§7, H-11 and the 0.5 README's 0.5.5 box dated, and the four texts that count the pending units.
++
++**Measured at `7e91730`.** `hir_literal_fuzz` exits 0 at both legs: 48 000 strings drawn from 3 000 trees, every one
++keeping every claim; patterns whose literals hold a prefix 257, a whole match 1 341, a first-byte set 2 064, `anywhere` 936
++and an inner literal 1 694, each over its floor of 150. `hir_literal_oracle` exits 1 at both legs: every pattern builds,
++normalises and extracts, and every comparison meets the hook's answer that there is no oracle. In the plan's mutant table
++a hook that finds no match makes it exit 0, and one that finds an empty match everywhere 13 — so its 1 is the hook's alone
++— and the rows that write a literal wrong the unsafe way redden the fuzz at its claim's number; one that says nothing
++reddens it at its floors, 17.
++
++*Alternatives declined:* **the property test alone, pending** — nothing would measure the safe direction until cycle
++0.5.5; **a naive matcher in the test now** — the oracle's job, which cycle 0.5 writes first and tests against hand-written
++cases, an instrument written twice; **every match enumerated, not drawn** — a language bounded by a length is still
++exponential in an alternation under a repetition; **the corpus now** — cycle 0.5.4's, fetched by pinned revision; **the
++property test over the first-byte set alone, as the box words it** — the prefix and the inner literal are as wrong the
++unsafe way as a byte too few, and the same match shows it; **the fuzz's strings drawn from the build's tree** — the
++literals are the normal form's, which every later stage reads.
+diff --git a/meta/roadmap/0.5/README.md b/meta/roadmap/0.5/README.md
+index 8cc652298825985b8ca93031427dfc1b45456135..36654596ea4f3285a96bb4f82ab611278d46b0d2 100644
+--- a/meta/roadmap/0.5/README.md
++++ b/meta/roadmap/0.5/README.md
+@@ -68,7 +68,7 @@ RX-070, RX-071, RX-044. Settled. **No open questions.**
+ ### 0.5.5 — close
+ - [ ] self-check case 6 (a fixture off by one) live
+ - [ ] 0.2's pending normalisation test now green — the oracle can run both forms *(2026-10-12, cycle 0.2.3 — RX-237: `tests/unit/hir_normalise_oracle.npk`, `pending-until: 0.5.5 exit 1`; fill its hook, `oracle_find`, with the oracle's own entry point — the leftmost-first match's capture slots, 1 for a match and 0 for none — and when every answer over both forms agrees the unit exits 0, the run goes red to say its marker is stale, and the marker and its line in `harness/baseline/PENDING.txt` go)*
+-- [ ] 0.2's pending literal-extraction property test now green
++- [ ] 0.2's pending literal-extraction property test now green *(@@DATE025@@, cycle 0.2.5 — RX-243: `tests/unit/hir_literal_oracle.npk`, `pending-until: 0.5.5 exit 1`; fill its hook, `oracle_find`, with the oracle's own entry point — the leftmost-first match from a position, its start and end in slots 0 and 1, 1 for a match and 0 for none — and when every match it finds is one its literals admit the unit exits 0, the run goes red to say its marker is stale, and the marker and its line in `harness/baseline/PENDING.txt` go; and the box's *"every corpus pattern and haystack"* is this subcycle's to carry, the same property over the corpus's cases, by the corpus stage of 0.5.3)*
+ - [ ] findings written; `0.6.0.md` written; archived
+ 
+ ## Gate
+diff --git a/meta/specs/HIR.md b/meta/specs/HIR.md
+index c8c9172b51d0e6c3aa60ed03cdbf3ea604c47d9a..e59908d44e1c684f51bcf1d297ccffe598f73970 100644
+--- a/meta/specs/HIR.md
++++ b/meta/specs/HIR.md
+@@ -68,6 +68,9 @@ says what each kind's operands hold. `Hir`'s fields are `hidden` but `root`, whi
+ access goes through `repr.npk`'s accessors. `Hir` holds no `literals` until cycle 0.2.5, which shapes `Literal` with
+ the extraction that fills it; `groups[k]` is group `k`, group 0 the whole match with no name (`COMPILE.md` C-16), each
+ a `GroupInfo` — its name's offset and length in `names`.)*
++*(@@DATE025@@, cycle 0.2.5 — RX-242: *"`Hir` holds no `literals` until cycle 0.2.5"* — it holds them since: `Hir.literals`,
++H-11's three once they are extracted, each a `Literal` — a role, and an offset and a length in `Hir.lits`, a `Vec<uint8>`
++of every literal's bytes, beside it (H-20). Both are `hidden`, and only the extraction writes them.)*
+ 
+ **Rule H-3 — children are found by index, never by pointer.** The language
+ would allow a pointer tree, and it would be worse: a `Vec<HirNode>` reallocates
+@@ -292,11 +295,69 @@ All three are computed here, bounded by `NREGEX_LITERAL_LIMIT` entries and
+ `NREGEX_LITERAL_BYTES` each, and all three are **hints**: an engine may ignore
+ them and must produce the same answer either way (`ENGINES.md` R-3).
+ 
++*(@@DATE025@@, cycle 0.2.5 — RX-241: H-19 says what each of the three is, kind by kind, and which way each errs; and
++*"bounded by `NREGEX_LITERAL_LIMIT` entries and `NREGEX_LITERAL_BYTES` each"* is read so — the prefix and the inner
++literal are at most `NREGEX_LITERAL_BYTES` bytes each, and the first-byte set, whose members are the one-byte literals a
++prefilter scans for, at most `NREGEX_LITERAL_LIMIT` of them, a set of more being none. RX-242: they are `Hir.literals`,
++H-20.)*
++
+ **Rule H-12 — extraction is conservative and its failure mode is "no
+ literals".** A pattern whose structure defeats the analysis gets an empty
+ literal set and a slower search, never a wrong one. There is no case where a
+ missed literal is a correctness problem, which is what makes this analysis safe
+ to improve later without re-verifying the engines.
++*(@@DATE025@@, cycle 0.2.5 — RX-241: *"an empty literal set"* is no prefix, no inner literal, and a first-byte set that
++admits every position — `anywhere`. RX-242: an extraction always writes that much, the first-byte set's entry, so a `Hir`
++that holds no literal is one whose literals are not extracted yet, never one with none (H-20).)*
++
++**Rule H-19 — the three literals, kind by kind** (RX-241). Each is a fact of every match of the tree it is extracted
++from, and each errs one way only — towards saying less — since a prefilter that reads it (`ENGINES.md` R-20) confirms
++every candidate (R-19), and a literal wrong the other way loses a match: R-19's *"too few"*. A match's bytes are what
++its nodes match, read over the haystack's bytes (`UNICODE.md` U-18): a `Literal` its codepoint's UTF-8 encoding — a
++Unicode-mode node matches its well-formed encoding alone (U-19) — or under `HIR_FLAG_BYTE` the byte; an `Empty`, an
++`Anchor` and a `WordBoundary` none, zero-width (`SYNTAX.md` Y-20), each assertion taken to hold, as H-17 takes it.
++
++| Literal | It says | Wrong the unsafe way | It is read |
++|---|---|---|---|
++| **the prefix** | every match begins with its bytes — and, `whole`, is them | a byte some match does not begin with; `whole` where some match is more | down from the root while every match of what is read is the same bytes: a `Literal` its bytes; an `Empty`, an `Anchor` and a `WordBoundary` none; a `Group` its body's; a `Concat` its pieces' in order; a `Repeat` of minimum 1 or more its body's once, read on only when its maximum is 1 — `{1}`; an `Alternate` whose every alternative is a plain literal (H-17) the bytes they all begin with, read on only when every one is the same bytes. The read stops at a `Class`, a `Repeat` of minimum 0, any other `Alternate`, and the byte past `NREGEX_LITERAL_BYTES`; read to the tree's end, every match is the prefix, a whole match (RX-224) |
++| **the first-byte set** | every match begins with one of its bytes | a byte too few; a set at all where a match may be empty — it begins with no byte, and at the haystack's end there is none | none, `anywhere`, when the root may match the empty string (H-17's `CAN_MATCH_EMPTY`) or the set holds more than `NREGEX_LITERAL_LIMIT` bytes; else the first bytes over the tree: a `Literal` its first byte; a `Class` each member's; a `Group` and a `Repeat` their body's; an `Alternate` every alternative's; a `Concat` its pieces' up to the first that cannot match the empty string, that one's included |
++| **the inner literal** | every match holds its bytes | bytes some match does not hold | of the prefix and every literal run the tree requires, the longest, counting `NREGEX_LITERAL_BYTES` bytes at most, its first that many; of two as long, the prefix, then the run read first, a `Concat`'s pieces in order. A run is the adjacent `Literal` pieces of one `Concat` (RX-235), or a required `Literal` alone; the root is required, and a `Group`'s body, a `Repeat`'s of minimum 1 or more, and a `Concat`'s every piece — never an `Alternate`'s alternative, nor a `Repeat`'s of minimum 0 |
++
++The extraction reads two of the computed facts and no other: `CAN_MATCH_EMPTY`, which says MAY, and so errs the first-byte
++set's way — a byte more, never one fewer — and `IS_ALTERNATION_LITERAL`, which says an alternative is written as a plain
++literal, never which, so its bytes are read from the tree. **The literals are of the tree they are extracted from**: over
++the normal form, which every later stage reads (H-1, RX-236), `[a]bc` is the whole match `abc`; over the build's tree,
++where `[a]` is a class, it has no prefix. **No literal reads the byte bit but for what a node's bytes are**, so `(?-u)a` and
++`a`, each the byte 97, have one set of literals, and `(?-u:\xE9)`, the byte 233, and `é`, the bytes 195 169, have two.
++`tests/unit/hir_literal_reference.npk` holds fifty-five patterns' literals, each written by hand from this table.
++
++**Rule H-20 — `Literal`, `Hir.literals`, the query and the dump's section** (RX-242). `Literal` is `{ int64:role;
++int64:off; int64:len; }`, deriving `Copy` and owning nothing: its bytes are `len` from `off` in `Hir.lits`, one
++`Vec<uint8>` holding every literal's, as a group's name is an offset and a length into `Hir.names` (`SAFETY.md` S-23a).
++Its role is `HIR_LITERAL_PREFIX` 0, `HIR_LITERAL_WHOLE` 1, `HIR_LITERAL_FIRST` 2 — its bytes the set's members, ascending
++— `HIR_LITERAL_ANYWHERE` 3, with none, or `HIR_LITERAL_INNER` 4. **`Hir.literals` holds them in H-11's order once they are
++extracted**: the prefix when it has a byte, `WHOLE` or `PREFIX`; the first-byte set always, `FIRST` or `ANYWHERE`; and the
++inner literal when it has a byte. So a `Hir` that holds none has not had
++its literals extracted — **the distinct "not yet extracted" state**, never "no literal" (the compiler's D-227). **The query
++is `hir_literals(Hir->:h)`**, in `src/hir/repr.npk`: when the `Hir` holds none it extracts them, and then it answers how
++many it holds, one to three; a `Hir` with no root has no tree to extract from, and stops it `OutOfBounds`.
++`hir_literal_count(Hir:h)` answers how many it holds and extracts nothing; `hir_literal(Hir:h, int64:k)` is entry `k` and
++`hir_literal_byte(Hir:h, int64:at)` a byte of `Hir.lits`, each stopping `OutOfBounds` past what it holds, so an entry never
++extracted is never read as none. **Only the extraction writes the two fields**, and it asks `hir_props` first: the facts
++are computed — one pass, which stops on an arena that is not a tree — and the tree is finished (H-18) before a literal is
++written, so no write can leave a literal describing a tree it was not extracted from. A node copied from an extracted tree
++carries no literal, and the normal form of one holds none until it is asked. **The dump's section**: after the tree, when
++the `Hir` holds its literals, ` (literals`, each entry in order — `(prefix B …)`, `(whole B …)`, `(first B …)`,
++`(anywhere)`, `(inner B …)`, each byte in decimal — and `)`; nothing when it holds none, so every text written before this
++rule is the text it was. **`hir_read` reads a section back by extracting the literals of the tree it has read**, in a
++scratch arena, and holding the section to what the dump writes for them, byte for byte — refusing at the first byte that
++is not, its root left unset and no literal written — and then extracts them into the `Hir` it reads into: a text never
++carries a literal its tree does not give, and `hir_dump(hir_read(t))` is `t`, with a section or without.
++`tests/unit/hir_literal.npk` holds the query, the store, the section and its reading, and the bounds' edges, and three
++units more each stop.
++*(@@DATE025@@, cycle 0.2.5 — RX-243: never wrong in the unsafe direction is measured by `tests/unit/hir_literal_fuzz.npk` —
++three thousand seeded trees, each tree's literals held to strings drawn from it — and the property test over the oracle,
++`hir_literal_oracle.npk`, is pending until cycle 0.5.5.)*
+ 
+ ---
+ 
+@@ -371,6 +432,9 @@ facts are computed and after.)*
+ (H-16) — so the walk's bound is exact for every HIR it answers `HIR_NONE` for.)*
+ *(2026-10-12, cycle 0.2.3 — RX-236: *"cycle 0.2.3's order"* is `hir_normalise`'s to make: a text's classes read as written,
+ and `hir_normalise` sorts and merges them, total over every text `hir_read` reads.)*
++*(@@DATE025@@, cycle 0.2.5 — RX-242: *"writes the tree under the root as one line"* — and after it, when the `Hir` holds its
++literals, their section, which `hir_read` reads back by extracting them itself and holding the text to them (H-20); a tree
++whose literals are not extracted has none, so every text written before is the text it was.)*
+ 
+ ---
+ 
+diff --git a/meta/specs/SAFETY.md b/meta/specs/SAFETY.md
+index 02349a7bd2648d38e302c0562336f71f2f1a2141..32cb61b3b4c7ac344303f12f842c7f638748c90f 100644
+--- a/meta/specs/SAFETY.md
++++ b/meta/specs/SAFETY.md
+@@ -721,6 +721,8 @@ compiler now, at the type; and each of those two derives `Copy`.)*
+ *(2026-10-08, cycle 0.2.0 — RX-224: `GroupInfo` is shaped — a group name's offset and length in `Hir.names`, two
+ `int64`s, deriving `Copy` — and `check_vec_elements_own_nothing` clears `Vec<GroupInfo>`, as it clears `Vec<HirNode>`
+ and `Vec<ClassRange>` (RX-223, RX-222); `Literal` is cycle 0.2.5's, shaped with the extraction that fills it.)*
++*(@@DATE025@@, cycle 0.2.5 — RX-242: `Literal` is shaped — a role, and its bytes' offset and length in `Hir.lits`, three
++`int64`s, deriving `Copy` — and the check clears `Vec<Literal>`: the last of the three types this rule left to shape.)*
+ 
+ *A cycle that needs an owning element lifts S-23a by a decision*, and the
+ compiler's own `List<T>` at `c3bdae2` is the shape it would take: removals that
+@@ -1010,6 +1012,8 @@ Three things worth keeping from it:
+   and `hir_build_fold.npk`, on cycle 0.3.4, which fills the HIR's hooks.)*
+   *(2026-10-12, cycle 0.2.3 — RX-237: and a third, `tests/unit/hir_normalise_oracle.npk`, on cycle 0.5.5, whose oracle
+   its hook meets.)*
++  *(@@DATE025@@, cycle 0.2.5 — RX-243: and a fourth, `tests/unit/hir_literal_oracle.npk`, on cycle 0.5.5 too, the property
++  test of the literals over the oracle.)*
+ 
+ **The general form: a citation of `exit 0` in a comment about a managed body is
+ a defect in the comment, and it will be written again — it has now been written
+diff --git a/meta/specs/TESTING.md b/meta/specs/TESTING.md
+index 9dd6acebe688ef32d67c3304ec8c03567e23dc15..86539451d2449ec5f6ec67ed25b7c7bdc053fd03 100644
+--- a/meta/specs/TESTING.md
++++ b/meta/specs/TESTING.md
+@@ -198,6 +198,11 @@ mutation. RX-232's list of what it dated leaves out the note above, which its st
+ *(2026-10-13, cycle 0.2.4 — RX-240: *"with floors on every kind of noise"* was not true of a seventh kind, which the gate
+ applied from the start and counted nowhere: the atom a repetition holds, written in a `(?:…)` it does not need. It has a
+ counter now and a floor of its own, 200, under the other six kinds' 500; RX-240 completes RX-237's list.)*
++*(@@DATE025@@, cycle 0.2.5 — RX-243: and literal extraction's, `tests/unit/hir_literal_fuzz.npk`: three thousand seeded
++patterns, each tree's literals held to sixteen strings drawn from the tree — every one begins with the prefix, is the
++whole match, begins with a byte of the first-byte set and holds the inner literal — with floors on every role. The box's
++property test, every match the oracle finds admitted by its literals, is `hir_literal_oracle.npk`, pending until cycle
++0.5.5.)*
+ 
+ ---
+ 
+diff --git a/src/core/limits.npk b/src/core/limits.npk
+index e5416718397daa3ad154eaa045d74af48df6a821..c59ed3c8b236cbb8f401ad53732f4f67b9d3c548 100644
+--- a/src/core/limits.npk
++++ b/src/core/limits.npk
+@@ -110,8 +110,12 @@ pub fixed int64:NREGEX_DFA_MIN_STATES = 32i64;
+ // `check_constants_named` diffs against and these are not rows in it.
+ 
+ // The most literals a prefilter will consider from one pattern.
++// *(@@DATE025@@, cycle 0.2.5 -- RX-241: the first-byte set's members, each a one-byte literal a first-byte
++// prefilter scans for: a set of more is none, and a match may begin anywhere (`HIR.md` H-19).)*
+ pub fixed int64:NREGEX_LITERAL_LIMIT = 64i64;
+ 
+ // The most bytes of literal text extracted in total. A prefilter that has to
+ // scan for more than this stops being a prefilter.
++// *(@@DATE025@@, cycle 0.2.5 -- RX-241: *"in total"* -- each literal's, as `HIR.md` H-11 says, *"each"*: the
++// prefix's and the inner literal's bytes, each its first this many (H-19).)*
+ pub fixed int64:NREGEX_LITERAL_BYTES = 1024i64;
+diff --git a/src/core/vec.npk b/src/core/vec.npk
+index c627b61fd3bb4f84b77166d8bc9714f6f9d36ff6..838dc48c2c9dfb68cc4e9333b75664fccfa609e8 100644
+--- a/src/core/vec.npk
++++ b/src/core/vec.npk
+@@ -316,6 +316,8 @@
+ // the check clears both. `Literal` and `GroupInfo` are the two left, at cycle 0.2.)*
+ // *(2026-10-08, cycle 0.2.0 -- RX-224: `GroupInfo` is shaped, a name's offset and length in
+ // `Hir.names`; `Literal` is cycle 0.2.5's, with the extraction that fills it.)*
++// *(@@DATE025@@, cycle 0.2.5 -- RX-242: and `Literal` is shaped, a role and its bytes' offset and length in
++// `Hir.lits`; the check clears `Vec<Literal>`.)*
+ // *(2026-09-28, cycle 0.1.1b -- RX-188. THE COMPILER SAYS IT NOW, AT THE TYPE: `Vec` is
+ // `Vec<T: Copy>`, so at an owning `T` the table above cannot be written -- every row
+ // is NITPICK-TYPE-017, at the type and at the verb -- and the units that measured it
+@@ -324,6 +326,7 @@
+ // will.)*
+ // *(2026-10-08, cycle 0.2.0 -- RX-223, RX-224: `HirNode` and `GroupInfo` do, and `ClassRange`
+ // (RX-222); `Literal` will at cycle 0.2.5.)*
++// *(@@DATE025@@, cycle 0.2.5 -- RX-242: and `Literal` does.)*
+ //
+ // LAYERING (`BUILD.md` §6, B-16). `core` imports nothing outside `core`. This
+ // file imports nothing at all.
+diff --git a/src/hir/README.md b/src/hir/README.md
+index 1768b1ca7323c23de965c91d348eee224135d7e7..861988c80b38e12f186c7e445fd74c38d30fba29 100644
+--- a/src/hir/README.md
++++ b/src/hir/README.md
+@@ -14,7 +14,7 @@ this layer's.)*
+ | File | Holds | Since |
+ |---|---|---|
+ | `hir.npk` | the layer's entry: one `pub use` per name it offers | 0.2.0 |
+-| `repr.npk` | the arena — `HirKind`, `HirNode`, `GroupInfo`, `Hir` — and its accessors (H-2 … H-4a); the group table's copy, for normalisation; the computed properties, cached in each node's `flags` by one pass, and `hir_props`, the query (H-9, H-10, H-17, H-18) | 0.2.0; 0.2.3; 0.2.4 |
+-| `dump.npk` | the HIR as one line of text, and back (H-15) | 0.2.0 |
++| `repr.npk` | the arena — `HirKind`, `HirNode`, `GroupInfo`, `Hir` — and its accessors (H-2 … H-4a); the group table's copy, for normalisation; the computed properties, cached in each node's `flags` by one pass, and `hir_props`, the query (H-9, H-10, H-17, H-18); the literals, `Literal` and `Hir.literals`, extracted after the facts, and `hir_literals`, the query (H-11, H-12, H-19, H-20) | 0.2.0; 0.2.3; 0.2.4; 0.2.5 |
++| `dump.npk` | the HIR as one line of text, and back (H-15); the literals' section, read back by holding it to the extraction (H-20) | 0.2.0; 0.2.5 |
+ | `build.npk` | the desugaring: a pattern's AST to a HIR, and the two hooks cycle 0.3.4 fills (H-5, H-6, H-16); the repetition product, refused on the way down, and its `PatternError` (H-8) | 0.2.1; 0.2.2 |
+ | `normal.npk` | normalisation: a HIR's tree in its normal form, where structurally equal patterns are one tree, into a fresh arena (H-13) | 0.2.3 |
+diff --git a/src/hir/dump.npk b/src/hir/dump.npk
+index 72de63cc4590a0fcdb20508bb79e5496034887db..a46ec474066dfc2be96f1c884b2bc7d7a9704004 100644
+--- a/src/hir/dump.npk
++++ b/src/hir/dump.npk
+@@ -6,6 +6,11 @@
+ // its children `)`; `hir_read` reads that text back into an arena. A test commits the text
+ // and compares bytes, a reviewer reads a diff of it, and a later stage -- the oracle at
+ // cycle 0.5, the compiler at 0.6 -- can start from a HIR nobody had to parse a pattern for.
++// *(@@DATE025@@, cycle 0.2.5 -- RX-242: *"`hir_dump` writes a HIR as one line of text, a node at a time from the
++// root"* -- and on that line, after the tree, the literals' section when the `Hir` holds them, ` (literals …)`,
++// which `hir_read` reads back by extracting the literals of the tree it read and holding the text to them byte
++// for byte; a `Hir` whose literals are not extracted has none, so every text written before is the text it was
++// (H-20).)*
+ //
+ // THE ROUND TRIP IS THE CONTRACT. For every text `hir_dump` writes from a HIR the library
+ // builds, `hir_read` builds a HIR whose dump is the same text, byte for byte; and every
+@@ -168,6 +173,36 @@ func:chain_holds = bool(Hir->:h, HirNode:n) never fails {
+     pass (k == n.b) && (m == HIR_NONE);
+ };
+ 
++// THE LITERALS' SECTION (H-20): ` (literals`, then each literal the Hir holds, in its order -- ` (`, its role's
++// word, each of its bytes in decimal after a space, `)` -- and `)`; nothing when the Hir holds none, whose
++// literals are not extracted. A role the text has no word for is written as its number, which `hir_read`
++// refuses: the writer shows what the Hir holds.
++func:write_literals = NIL(Hir->:h, Bytes->:out) never fails {
++    int64:n = raw hir_literal_count(<-h);
++    if (n == 0i64) { pass NIL; }
++    drop put(out, " (literals");
++    int64:k = 0i64;
++    while (k < n) decreases n - k {
++        Literal:l = raw hir_literal(<-h, k);
++        if (l.role == HIR_LITERAL_PREFIX) { drop put(out, " (prefix"); }
++        else if (l.role == HIR_LITERAL_WHOLE) { drop put(out, " (whole"); }
++        else if (l.role == HIR_LITERAL_FIRST) { drop put(out, " (first"); }
++        else if (l.role == HIR_LITERAL_ANYWHERE) { drop put(out, " (anywhere"); }
++        else if (l.role == HIR_LITERAL_INNER) { drop put(out, " (inner"); }
++        else { drop put(out, " ("); drop num(out, l.role); }
++        int64:i = 0i64;
++        while (i < l.len) decreases l.len - i {
++            drop put(out, " ");
++            drop num(out, (raw hir_literal_byte(<-h, l.off + i)) => int64);
++            i = i + 1i64;
++        }
++        drop put(out, ")");
++        k = k + 1i64;
++    }
++    drop put(out, ")");
++    pass NIL;
++};
++
+ // obligation: never fails
+ //
+ // THE DUMP (H-15). Appends the tree under `h`'s root to `out`, as one line with no line
+@@ -188,6 +223,9 @@ func:chain_holds = bool(Hir->:h, HirNode:n) never fails {
+ // *(2026-10-13, cycle 0.2.4 -- RX-239: *"the writer shows what the arena holds"*, and a dump that completes
+ // *"shows every bit its nodes hold"* -- all but the computed properties' five, `HIR_COMPUTED`, which every
+ // kind takes and the text does not show: they are the tree's facts, and a tree has one text before and after.)*
++// *(@@DATE025@@, cycle 0.2.5 -- RX-242: *"Appends the tree under `h`'s root to `out`"* -- and after it, on the same
++// line, the literals' section when the `Hir` holds them (`write_literals`), which their extraction writes and the
++// facts alone do not: a tree's text gains the section when its literals are extracted, and nothing else.)*
+ pub func:hir_dump = NIL(Hir->:h, Bytes->:out) never fails {
+     if (h.root == HIR_NONE) { pass NIL; }
+     Vec<Visit>:todo = raw vec_init::<Visit>(16i64);
+@@ -225,6 +263,7 @@ pub func:hir_dump = NIL(Hir->:h, Bytes->:out) never fails {
+         }
+     }
+     drop vec_free(@todo);
++    drop write_literals(h, out);
+     pass NIL;
+ };
+ 
+@@ -532,6 +571,40 @@ func:close_node = int64(Hir->:out, ReadState->:r, int64:at) never fails {
+     pass HIR_NONE;
+ };
+ 
++// THE SECTION READ BACK (H-20): the tree `out` holds, rooted at `top`, copied into a scratch arena and rooted
++// there, its literals extracted and written as the dump writes them -- and `text` from `at` must be that, byte for
++// byte. Answers HIR_NONE, or the offset of the first byte that is not, the text's length when it ends early; `out`
++// is left as it was, its root unset and no literal in it, so a text never carries a literal its tree does not give.
++func:read_literals = int64(fixed uint8[]:text, Hir->:out, int64:top, int64:at) never fails {
++    Hir:s = raw hir_init(8i64);
++    int64:n = raw hir_len(<-out);
++    int64:i = 0i64;
++    while (i < n) decreases n - i {
++        discard(raw hir_push(@s, raw hir_get(<-out, i)));
++        i = i + 1i64;
++    }
++    int64:r = raw hir_range_count(<-out);
++    i = 0i64;
++    while (i < r) decreases r - i {
++        discard(raw hir_push_range(@s, raw hir_range(<-out, i)));
++        i = i + 1i64;
++    }
++    drop hir_set_root(@s, top);
++    discard(raw hir_literals(@s));
++    Bytes:want = raw bytes_init(64i64);
++    drop write_literals(@s, @want);
++    drop hir_free(@s);
++    int64:w = raw bytes_len(@want);
++    int64:k = 0i64;
++    while (k < w) decreases w - k {
++        if ((at + k) >= text.len) { pass text.len; }
++        if (text[at + k] != (raw bytes_get(@want, k))) { pass at + k; }
++        k = k + 1i64;
++    }
++    if ((at + w) < text.len) { pass at + w; }
++    pass HIR_NONE;
++};
++
+ func:read_run = int64(fixed uint8[]:text, Hir->:out, ReadState->:r) never fails {
+     if (!(raw eat(text, r, CH_LPAREN))) { pass r.pos; }
+     int64:e = raw read_head(text, out, r);
+@@ -552,7 +625,15 @@ func:read_run = int64(fixed uint8[]:text, Hir->:out, ReadState->:r) never fails
+         else { pass r.pos; }
+         if (e != HIR_NONE) { pass e; }
+     }
+-    if (r.pos < text.len) { pass r.pos; }
++    if (r.pos < text.len) {
++        // what the dump writes after a tree is the literals' section, which begins ` (`, and nothing else
++        if (((raw byte_at(text, r.pos)) != CH_SPACE) || ((raw byte_at(text, r.pos + 1i64)) != CH_LPAREN)) { pass r.pos; }
++        int64:e2 = raw read_literals(text, out, r.top, r.pos);
++        if (e2 != HIR_NONE) { pass e2; }
++        drop hir_set_root(out, r.top);
++        discard(raw hir_literals(out));
++        pass HIR_NONE;
++    }
+     drop hir_set_root(out, r.top);
+     pass HIR_NONE;
+ };
+@@ -564,6 +645,9 @@ func:read_run = int64(fixed uint8[]:text, Hir->:out, ReadState->:r) never fails
+ // that is not what `hir_dump` writes there -- the text's length when it ends early -- and
+ // leaves `out`'s root as it was, its nodes partial, for the caller to free. Pass a `Hir`
+ // fresh from `hir_init`: its groups are numbered from the count it already holds.
++// *(@@DATE025@@, cycle 0.2.5 -- RX-242: and when the tree's text is followed by a literals' section, it holds the
++// section to the literals of the tree it read (`read_literals`) and, the section accepted, extracts them into
++// `out` -- whose tree is then finished; a refused section leaves `out`'s root unset and no literal in it.)*
+ pub func:hir_read = int64(fixed uint8[]:text, Hir->:out) never fails {
+     ReadState:r = ReadState{ pos: 0i64, next_group: raw hir_group_count(<-out), top: HIR_NONE,
+                              open: raw vec_init::<ReadFrame>(8i64) };
+diff --git a/src/hir/hir.npk b/src/hir/hir.npk
+index d7e7f7d614f735316f2e7c04178d9600fa624cd5..4e19d7e899cf4aa667e6a8e7cca7436908beadff 100644
+--- a/src/hir/hir.npk
++++ b/src/hir/hir.npk
+@@ -16,7 +16,9 @@
+ // CYCLE 0.2.3 `normal.npk` WRITES A HIR'S TREE IN ITS NORMAL FORM, where structurally equal patterns
+ // are one tree (RX-235), into a fresh arena -- `hir_normalise`, a pass of its own after the build
+ // (RX-236). SINCE CYCLE 0.2.4 `repr.npk` COMPUTES A TREE'S FOUR FACTS IN ONE PASS AND CACHES THEM, and
+-// `hir_props` is the query, which computes them when they are not (RX-238, RX-239).
++// `hir_props` is the query, which computes them when they are not (RX-238, RX-239). SINCE CYCLE 0.2.5 IT EXTRACTS A
++// TREE'S LITERALS -- the prefix, the first-byte set and the inner literal -- into `Hir.literals`, and `hir_literals`
++// is the query, which extracts them when the `Hir` holds none (RX-241, RX-242).
+ //
+ // EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1 and 3).
+ //
+@@ -68,6 +70,18 @@ pub use "./repr.npk".hir_free;
+ // ---- the computed properties: the query (RX-238, RX-239) --------------------------------------
+ pub use "./repr.npk".hir_props;
+ 
++// ---- the literals: their roles, their entries and the query (H-19, H-20) -------------------------
++pub use "./repr.npk".HIR_LITERAL_PREFIX;
++pub use "./repr.npk".HIR_LITERAL_WHOLE;
++pub use "./repr.npk".HIR_LITERAL_FIRST;
++pub use "./repr.npk".HIR_LITERAL_ANYWHERE;
++pub use "./repr.npk".HIR_LITERAL_INNER;
++pub use "./repr.npk".Literal;
++pub use "./repr.npk".hir_literals;
++pub use "./repr.npk".hir_literal_count;
++pub use "./repr.npk".hir_literal;
++pub use "./repr.npk".hir_literal_byte;
++
+ // ---- the text, and back (RX-225) -------------------------------------------------------
+ pub use "./dump.npk".hir_dump;
+ pub use "./dump.npk".hir_read;
+diff --git a/src/hir/normal.npk b/src/hir/normal.npk
+index c5fe37da05175b618e19b79a5092699f7b476ed4..99012764c1242a6dee61031a80e9e6fbe5a39b45 100644
+--- a/src/hir/normal.npk
++++ b/src/hir/normal.npk
+@@ -261,6 +261,9 @@ func:emit = NIL(Vec<HirNode>->:w, Vec<ClassRange>->:wr, Bytes->:dead, int64:root
+ // would dump `(class 5-7)`. FRESH IS THREE COUNTS: no node, no range, and group 0 alone -- every
+ // field `repr.npk`'s verbs write, since a name is written only with its group and the root only to a
+ // node the arena holds.
++// *(@@DATE025@@, cycle 0.2.5 -- RX-242: and the literals and their bytes, `Hir.literals` and `Hir.lits`, only by the
++// extraction, over a tree under a root: an arena with no node holds no literal, so the node count reads them too.
++// The normal form gets none of `h`'s; it is asked for its own.)*
+ pub func:hir_normalise = NIL(Hir->:h, Hir->:out) never fails {
+     if (((raw hir_len(<-out)) != 0i64) || ((raw hir_group_count(<-out)) != 1i64)
+         || ((raw hir_range_count(<-out)) != 0i64)) { drop vec_oob(raw hir_len(<-out)); }
+diff --git a/src/hir/repr.npk b/src/hir/repr.npk
+index 1926097d78b87af99de1b78f6c2618e11bd4fb32..b1f4e9d4105310c32cbe2f03491f77a5d3d78584 100644
+--- a/src/hir/repr.npk
++++ b/src/hir/repr.npk
+@@ -35,6 +35,13 @@
+ // copied from a computed tree carries none; and once the facts are computed the tree is finished --
+ // `hir_set` and `hir_set_root` stop on it, so a cached fact is never stale.
+ //
++// AND THE LITERALS (cycle 0.2.5, RX-241, RX-242; `HIR.md` H-11, H-12, H-19 and H-20). The three a prefilter reads --
++// the prefix every match begins with, the bytes a match may begin with, a literal every match holds -- each a fact of
++// every match that errs towards saying less, are `Hir.literals`, `Literal`s whose bytes are in `Hir.lits`, written by
++// the extraction below and by nothing else. `hir_literals` is the query: it extracts them when the `Hir` holds none --
++// after the facts, so the tree is finished first -- and the first-byte set's entry is always written, so a `Hir` that
++// holds none has not had them extracted: "not yet", never "no literal".
++//
+ // THE ARENA IS THE COMPILER'S TO GUARD. Every field of `Hir` but `root` is `hidden` (the
+ // compiler's D-314): outside this file it cannot be read (NITPICK-TYPE-080,
+ // `tests/rejection/hir_nodes_read.npk`), so every access goes through the functions below
+@@ -117,6 +124,22 @@ pub struct:GroupInfo = {
+     int64:len;         // its length; 0 when the group has no name
+ };
+ 
++// A literal's role (H-11, H-19): what it says of every match of the tree it was extracted from.
++pub fixed int64:HIR_LITERAL_PREFIX = 0i64;     // every match begins with its bytes
++pub fixed int64:HIR_LITERAL_WHOLE = 1i64;      // every match is its bytes: the prefix, when it is a whole match
++pub fixed int64:HIR_LITERAL_FIRST = 2i64;      // every match begins with one of its bytes, which ascend
++pub fixed int64:HIR_LITERAL_ANYWHERE = 3i64;   // no first-byte set: a match may begin anywhere, the end included
++pub fixed int64:HIR_LITERAL_INNER = 4i64;      // every match holds its bytes
++
++// One of a `Hir`'s literals (H-20): its role, and its bytes -- `len` of them from `off` in `Hir.lits` -- so it
++// owns nothing, as a group's name is an offset and a length in `Hir.names` (`SAFETY.md` S-23a, RX-224).
++#[derive(Copy)]
++pub struct:Literal = {
++    int64:role;        // HIR_LITERAL_PREFIX … HIR_LITERAL_INNER
++    int64:off;         // its first byte in `Hir.lits`
++    int64:len;         // how many bytes
++};
++
+ // MOVE-ONLY, because it holds a `Vec` and a `Bytes` (`SAFETY.md` S-23b, RX-161): transfer
+ // it with `move(...)`, lend it by value to a reader, hand it by pointer to anything that
+ // changes it.
+@@ -125,6 +148,8 @@ pub struct:Hir = {
+     hidden Vec<ClassRange>:ranges;   // every class's ranges, contiguous per class
+     hidden Bytes:names;              // the groups' names, one after another
+     hidden Vec<GroupInfo>:groups;    // one entry per group, group 0 first
++    hidden Vec<Literal>:literals;    // H-11's literals, in its order, once extracted; none until then (H-20)
++    hidden Vec<uint8>:lits;          // the literals' bytes, one after another
+     sealed int64:root;               // the root node, HIR_NONE until a builder sets it
+ };
+ 
+@@ -134,7 +159,8 @@ pub struct:Hir = {
+ // (`COMPILE.md` C-16), so a group the pattern opens is numbered from 1, as Y-6 numbers it.
+ pub func:hir_init = Hir(int64:cap) never fails {
+     Hir:h = Hir{ nodes: raw vec_init::<HirNode>(cap), ranges: raw vec_init::<ClassRange>(cap),
+-                 names: raw bytes_init(cap), groups: raw vec_init::<GroupInfo>(cap), root: HIR_NONE };
++                 names: raw bytes_init(cap), groups: raw vec_init::<GroupInfo>(cap),
++                 literals: raw vec_init::<Literal>(cap), lits: raw vec_init::<uint8>(cap), root: HIR_NONE };
+     drop vec_push(@h.groups, GroupInfo{ off: 0i64, len: 0i64 });
+     pass h;
+ };
+@@ -410,15 +436,446 @@ pub func:hir_props = uint32(Hir->:h, int64:i) never fails {
+     pass n.flags & HIR_PROPS;
+ };
+ 
++// ---- the literals (H-11, H-12, H-19, H-20) ------------------------------------------------------------
++
++// How many bytes a match of a `Literal` holding `cp` has (H-19): its UTF-8 encoding's, or under `byte` one --
++// `UNICODE.md` U-18 and U-19, a Unicode-mode node matches its well-formed encoding alone.
++func:cp_len = int64(int64:cp, bool:byte) never fails {
++    if (byte) { pass 1i64; }
++    if ((cp >> 7i64) == 0i64) { pass 1i64; }
++    if ((cp >> 11i64) == 0i64) { pass 2i64; }
++    if ((cp >> 16i64) == 0i64) { pass 3i64; }
++    pass 4i64;
++};
++
++// And its byte `i`, `0 <= i < cp_len`: the encoding's lead byte, then each continuation byte, six bits of the
++// codepoint each, or under `byte` the byte. A surrogate, which only a text `hir_read` reads can hold
++// (`COMPILE.md` C-3), is the three bytes this arithmetic gives, which no well-formed haystack holds.
++func:cp_byte = uint8(int64:cp, bool:byte, int64:i) never fails {
++    int64:k = raw cp_len(cp, byte);
++    if (k == 1i64) { pass cp =>! uint8; }
++    if (i == 0i64) {
++        if (k == 2i64) { pass (192i64 | (cp >> 6i64)) =>! uint8; }
++        if (k == 3i64) { pass (224i64 | (cp >> 12i64)) =>! uint8; }
++        pass (240i64 | (cp >> 18i64)) =>! uint8;
++    }
++    pass (128i64 | ((cp >> (6i64 * (k - 1i64 - i))) & 63i64)) =>! uint8;
++};
++
++// Adds to `s` the bytes `from` … `to`.
++func:add_span = NIL(ByteSet->:s, int64:from, int64:to) never fails {
++    int64:b = from;
++    while (b <= to) decreases to - b {
++        drop byteset_add(s, b =>! uint8);
++        b = b + 1i64;
++    }
++    pass NIL;
++};
++
++// Adds to `s` the first byte of every member of a class's range `lo` … `hi` (H-19): under `byte` each byte
++// itself; else each codepoint's lead byte. An ASCII codepoint is its own byte, and past U+007F a lead byte rises
++// with the codepoint over one run of bytes, `C2` … `F4` -- each the lead of an interval of codepoints, the
++// intervals adjacent (`COMPILE.md` C-2) -- so a range past it has its ends' lead bytes and every byte between.
++// Only the ASCII edge splits a range: `7F` and `C2` are not adjacent.
++func:add_leads = NIL(ByteSet->:s, int64:lo, int64:hi, bool:byte) never fails {
++    if (byte) { drop add_span(s, lo, hi); pass NIL; }
++    if (lo <= 127i64) {
++        int64:top = hi;
++        if (top > 127i64) { top = 127i64; }
++        drop add_span(s, lo, top);
++    }
++    if (hi >= 128i64) {
++        int64:from = lo;
++        if (from < 128i64) { from = 128i64; }
++        drop add_span(s, (raw cp_byte(from, false, 0i64)) => int64, (raw cp_byte(hi, false, 0i64)) => int64);
++    }
++    pass NIL;
++};
++
++// One step of a literal walk: a node, and what the walk does with it.
++#[derive(Copy)]
++struct:LitStep = {
++    int64:node;          // the node
++    int64:op;            // LIT_ONE, LIT_PIECE, LIT_ALT or LIT_AFTER
++};
++
++fixed int64:LIT_ONE = 0i64;      // the node
++fixed int64:LIT_PIECE = 1i64;    // a `Concat`'s piece: the node, then the piece after it
++fixed int64:LIT_ALT = 2i64;      // an `Alternate`'s alternative: the node, then the one after it
++fixed int64:LIT_AFTER = 3i64;    // a `Repeat`'s body read once: whether the prefix goes on
++
++// THE FIRST-BYTE SET (H-19): into `s`, the first byte of every match of the tree under the root -- a `Literal`'s
++// first byte, a `Class`'s members' first bytes, a `Group`'s and a `Repeat`'s body's, an `Alternate`'s every
++// alternative's, and a `Concat`'s pieces' up to the first that cannot match the empty string, that one's too;
++// an `Empty`, an `Anchor` and a `WordBoundary` none. Whether a piece may match the empty string is H-17's fact,
++// read through `hir_props`: it says MAY, so it errs this set's way -- a byte more, never one fewer. A tree
++// visits each node once, so the walk is bounded by the arena.
++func:first_bytes = NIL(Hir->:h, ByteSet->:s) never fails {
++    Vec<LitStep>:todo = raw vec_init::<LitStep>(16i64);
++    drop vec_push(@todo, LitStep{ node: h.root, op: LIT_ONE });
++    int64:budget = h.nodes.count - 1i64;
++    int64:steps = 0i64;
++    while (todo.count > 0i64) decreases budget - steps {
++        steps = steps + 1i64;
++        LitStep:t = raw vec_pop(@todo);
++        HirNode:n = raw vec_get(h.nodes, t.node);
++        bool:byte = (n.flags & HIR_FLAG_BYTE) != 0u32;
++        if ((t.op == LIT_PIECE) && (n.next != HIR_NONE)) {
++            if (((raw hir_props(h, t.node)) & HIR_CAN_MATCH_EMPTY) != 0u32) {
++                drop vec_push(@todo, LitStep{ node: n.next, op: LIT_PIECE });
++            }
++        }
++        else if ((t.op == LIT_ALT) && (n.next != HIR_NONE)) {
++            drop vec_push(@todo, LitStep{ node: n.next, op: LIT_ALT });
++        }
++        if (n.kind == HirKind.Literal) {
++            drop byteset_add(s, raw cp_byte(n.a, byte, 0i64));
++        }
++        else if (n.kind == HirKind.Class) {
++            int64:r = 0i64;
++            while (r < n.b) decreases n.b - r {
++                ClassRange:x = raw vec_get(h.ranges, n.a + r);
++                drop add_leads(s, x.lo => int64, x.hi => int64, byte);
++                r = r + 1i64;
++            }
++        }
++        else if ((n.kind == HirKind.Group) || (n.kind == HirKind.Repeat)) {
++            drop vec_push(@todo, LitStep{ node: n.a, op: LIT_ONE });
++        }
++        else if ((n.kind == HirKind.Concat) && (n.a != HIR_NONE)) {
++            drop vec_push(@todo, LitStep{ node: n.a, op: LIT_PIECE });
++        }
++        else if ((n.kind == HirKind.Alternate) && (n.a != HIR_NONE)) {
++            drop vec_push(@todo, LitStep{ node: n.a, op: LIT_ALT });
++        }
++    }
++    drop vec_free(@todo);
++    pass NIL;
++};
++
++// A plain literal's bytes (H-17's plain literal: a `Literal`, or a `Concat` of `Literal`s) appended to
++// `Hir.lits`, `room` of them at most; answers how many it has, written or not.
++func:plain_put = int64(Hir->:h, int64:i, int64:room) never fails {
++    HirNode:x = raw vec_get(h.nodes, i);
++    int64:p = i;
++    int64:count = 1i64;
++    if (x.kind == HirKind.Concat) { p = x.a; count = x.b; }
++    int64:total = 0i64;
++    int64:j = 0i64;
++    while ((p != HIR_NONE) && (j < count)) decreases count - j {
++        HirNode:y = raw vec_get(h.nodes, p);
++        bool:byte = (y.flags & HIR_FLAG_BYTE) != 0u32;
++        int64:k = raw cp_len(y.a, byte);
++        int64:q = 0i64;
++        while (q < k) decreases k - q {
++            if (total < room) { drop vec_push(@h.lits, raw cp_byte(y.a, byte, q)); }
++            total = total + 1i64;
++            q = q + 1i64;
++        }
++        p = y.next;
++        j = j + 1i64;
++    }
++    pass total;
++};
++
++// How many of a plain literal's first bytes are `Hir.lits`' from `at` on, `bound` at most.
++func:plain_common = int64(Hir->:h, int64:i, int64:at, int64:bound) never fails {
++    HirNode:x = raw vec_get(h.nodes, i);
++    int64:p = i;
++    int64:count = 1i64;
++    if (x.kind == HirKind.Concat) { p = x.a; count = x.b; }
++    int64:same = 0i64;
++    int64:j = 0i64;
++    while ((p != HIR_NONE) && (j < count)) decreases count - j {
++        HirNode:y = raw vec_get(h.nodes, p);
++        bool:byte = (y.flags & HIR_FLAG_BYTE) != 0u32;
++        int64:k = raw cp_len(y.a, byte);
++        int64:q = 0i64;
++        while (q < k) decreases k - q {
++            if (same >= bound) { pass same; }
++            if ((raw vec_get(h.lits, at + same)) != (raw cp_byte(y.a, byte, q))) { pass same; }
++            same = same + 1i64;
++            q = q + 1i64;
++        }
++        p = y.next;
++        j = j + 1i64;
++    }
++    pass same;
++};
++
++// How many bytes a plain literal has.
++func:plain_len = int64(Hir->:h, int64:i) never fails {
++    HirNode:x = raw vec_get(h.nodes, i);
++    int64:p = i;
++    int64:count = 1i64;
++    if (x.kind == HirKind.Concat) { p = x.a; count = x.b; }
++    int64:total = 0i64;
++    int64:j = 0i64;
++    while ((p != HIR_NONE) && (j < count)) decreases count - j {
++        HirNode:y = raw vec_get(h.nodes, p);
++        total = total + (raw cp_len(y.a, (y.flags & HIR_FLAG_BYTE) != 0u32));
++        p = y.next;
++        j = j + 1i64;
++    }
++    pass total;
++};
++
++// AN `Alternate` IN THE PREFIX (H-19). When every alternative is a plain literal -- a `Literal` or a `Concat`
++// holding H-17's `IS_ALTERNATION_LITERAL`, whose words are the plain literal's; the fact says the shape, the
++// tree which bytes -- appends the bytes they all begin with, at most what `NREGEX_LITERAL_BYTES` leaves the
++// prefix from `base`, and answers whether the read goes on: every alternative the same bytes, all written. Any
++// other alternative, and an `Alternate` of none, appends nothing and stops the read.
++func:shared_start = bool(Hir->:h, HirNode:n, int64:base) never fails {
++    if ((n.b == 0i64) || (n.a == HIR_NONE)) { pass false; }
++    int64:m = n.a;
++    int64:k = 0i64;
++    while ((m != HIR_NONE) && (k < n.b)) decreases n.b - k {
++        HirNode:x = raw vec_get(h.nodes, m);
++        bool:shape = (x.kind == HirKind.Literal) || (x.kind == HirKind.Concat);
++        if ((!shape) || (((raw hir_props(h, m)) & HIR_IS_ALTERNATION_LITERAL) == 0u32)) { pass false; }
++        m = x.next;
++        k = k + 1i64;
++    }
++    int64:start = h.lits.count;
++    int64:total = raw plain_put(h, n.a, NREGEX_LITERAL_BYTES - (start - base));
++    int64:common = h.lits.count - start;
++    bool:same = total == common;
++    HirNode:first = raw vec_get(h.nodes, n.a);
++    m = first.next;
++    k = 1i64;
++    while ((m != HIR_NONE) && (k < n.b)) decreases n.b - k {
++        common = raw plain_common(h, m, start, common);
++        if ((common != total) || ((raw plain_len(h, m)) != total)) { same = false; }
++        HirNode:y = raw vec_get(h.nodes, m);
++        m = y.next;
++        k = k + 1i64;
++    }
++    drop vec_truncate(@h.lits, start + common);
++    pass same;
++};
++
++// THE PREFIX (H-19): into `Hir.lits`, from its end, the bytes every match of the tree under the root begins
++// with, read down from the root while every match of what is read is the same bytes -- a `Literal` its bytes;
++// an `Empty`, an `Anchor` and a `WordBoundary` none, zero-width; a `Group` its body's; a `Concat` its pieces' in
++// order; a `Repeat` of minimum 1 or more its body's once, going on only when its maximum is 1 -- `{1}`, its
++// minimum at most its maximum; an `Alternate`, `shared_start` -- and stopping at a `Class`, a `Repeat` of minimum
++// 0, and the byte past `NREGEX_LITERAL_BYTES`. Answers whether the read reached the tree's end: every match is then
++// those bytes, a whole match (RX-224). Each node is read once and a `Repeat` once more, so the walk is bounded by
++// twice the arena.
++func:prefix_bytes = bool(Hir->:h) never fails {
++    int64:base = h.lits.count;
++    Vec<LitStep>:todo = raw vec_init::<LitStep>(16i64);
++    drop vec_push(@todo, LitStep{ node: h.root, op: LIT_ONE });
++    int64:budget = 2i64 * h.nodes.count - 1i64;
++    int64:steps = 0i64;
++    bool:going = true;
++    while (going && (todo.count > 0i64)) decreases budget - steps {
++        steps = steps + 1i64;
++        LitStep:t = raw vec_pop(@todo);
++        HirNode:n = raw vec_get(h.nodes, t.node);
++        if (t.op == LIT_AFTER) {
++            if (n.c != 1i64) { going = false; }
++        }
++        else {
++            if ((t.op == LIT_PIECE) && (n.next != HIR_NONE)) {
++                drop vec_push(@todo, LitStep{ node: n.next, op: LIT_PIECE });
++            }
++            if (n.kind == HirKind.Literal) {
++                bool:byte = (n.flags & HIR_FLAG_BYTE) != 0u32;
++                int64:k = raw cp_len(n.a, byte);
++                int64:i = 0i64;
++                while (going && (i < k)) decreases k - i {
++                    if ((h.lits.count - base) >= NREGEX_LITERAL_BYTES) { going = false; }
++                    else {
++                        drop vec_push(@h.lits, raw cp_byte(n.a, byte, i));
++                        i = i + 1i64;
++                    }
++                }
++            }
++            else if (n.kind == HirKind.Class) { going = false; }
++            else if (n.kind == HirKind.Group) {
++                drop vec_push(@todo, LitStep{ node: n.a, op: LIT_ONE });
++            }
++            else if (n.kind == HirKind.Repeat) {
++                if (n.b == 0i64) { going = false; }
++                else {
++                    drop vec_push(@todo, LitStep{ node: t.node, op: LIT_AFTER });
++                    drop vec_push(@todo, LitStep{ node: n.a, op: LIT_ONE });
++                }
++            }
++            else if ((n.kind == HirKind.Concat) && (n.a != HIR_NONE)) {
++                drop vec_push(@todo, LitStep{ node: n.a, op: LIT_PIECE });
++            }
++            else if (n.kind == HirKind.Alternate) { going = raw shared_start(h, n, base); }
++        }
++    }
++    drop vec_free(@todo);
++    pass going;
++};
++
++// THE INNER LITERAL (H-19): of the prefix -- `plen` bytes from `pfrom` in `Hir.lits` -- and every literal run the
++// tree requires, the longest, counting `NREGEX_LITERAL_BYTES` at most; of two as long, the prefix, then the run
++// read first. A required node: the root, a `Group`'s body, a `Repeat`'s of minimum 1 or more and a `Concat`'s
++// every piece -- never an `Alternate`'s alternative, nor a `Repeat`'s of minimum 0. A run: the adjacent
++// `Literal` pieces of one `Concat` (RX-235), or a required `Literal` alone. Writes its entry when it has a byte,
++// the prefix's bytes its own. A tree visits each node once, so the walk is bounded by the arena.
++func:inner_literal = NIL(Hir->:h, int64:pfrom, int64:plen) never fails {
++    int64:best = plen;
++    int64:run_at = HIR_NONE;
++    int64:run_count = 0i64;
++    Vec<LitStep>:todo = raw vec_init::<LitStep>(16i64);
++    drop vec_push(@todo, LitStep{ node: h.root, op: LIT_ONE });
++    int64:budget = h.nodes.count - 1i64;
++    int64:steps = 0i64;
++    while (todo.count > 0i64) decreases budget - steps {
++        steps = steps + 1i64;
++        LitStep:t = raw vec_pop(@todo);
++        HirNode:n = raw vec_get(h.nodes, t.node);
++        if (n.kind == HirKind.Literal) {
++            int64:count = 1i64;
++            int64:len = raw cp_len(n.a, (n.flags & HIR_FLAG_BYTE) != 0u32);
++            int64:m = HIR_NONE;
++            if (t.op == LIT_PIECE) { m = n.next; }
++            bool:more = true;
++            while (more && (m != HIR_NONE)) decreases budget - steps {
++                HirNode:y = raw vec_get(h.nodes, m);
++                if (y.kind == HirKind.Literal) {
++                    steps = steps + 1i64;
++                    count = count + 1i64;
++                    len = len + (raw cp_len(y.a, (y.flags & HIR_FLAG_BYTE) != 0u32));
++                    m = y.next;
++                }
++                else { more = false; }
++            }
++            if (len > NREGEX_LITERAL_BYTES) { len = NREGEX_LITERAL_BYTES; }
++            if (len > best) {
++                best = len;
++                run_at = t.node;
++                run_count = count;
++            }
++            if (m != HIR_NONE) { drop vec_push(@todo, LitStep{ node: m, op: LIT_PIECE }); }
++        }
++        else {
++            if ((t.op == LIT_PIECE) && (n.next != HIR_NONE)) {
++                drop vec_push(@todo, LitStep{ node: n.next, op: LIT_PIECE });
++            }
++            if (n.kind == HirKind.Group) {
++                drop vec_push(@todo, LitStep{ node: n.a, op: LIT_ONE });
++            }
++            else if ((n.kind == HirKind.Repeat) && (n.b > 0i64)) {
++                drop vec_push(@todo, LitStep{ node: n.a, op: LIT_ONE });
++            }
++            else if ((n.kind == HirKind.Concat) && (n.a != HIR_NONE)) {
++                drop vec_push(@todo, LitStep{ node: n.a, op: LIT_PIECE });
++            }
++        }
++    }
++    drop vec_free(@todo);
++    if (best == 0i64) { pass NIL; }
++    if (run_at == HIR_NONE) {
++        drop vec_push(@h.literals, Literal{ role: HIR_LITERAL_INNER, off: pfrom, len: plen });
++        pass NIL;
++    }
++    int64:off = h.lits.count;
++    int64:p = run_at;
++    int64:j = 0i64;
++    while ((p != HIR_NONE) && (j < run_count)) decreases run_count - j {
++        HirNode:y = raw vec_get(h.nodes, p);
++        bool:byte = (y.flags & HIR_FLAG_BYTE) != 0u32;
++        int64:k = raw cp_len(y.a, byte);
++        int64:q = 0i64;
++        while (q < k) decreases k - q {
++            if ((h.lits.count - off) < NREGEX_LITERAL_BYTES) { drop vec_push(@h.lits, raw cp_byte(y.a, byte, q)); }
++            q = q + 1i64;
++        }
++        p = y.next;
++        j = j + 1i64;
++    }
++    drop vec_push(@h.literals, Literal{ role: HIR_LITERAL_INNER, off: off, len: h.lits.count - off });
++    pass NIL;
++};
++
++// THE EXTRACTION (H-19, H-20). The tree's facts first, through `hir_props` -- the one pass, which stops on an
++// arena that is not a tree, and leaves the tree finished (H-18), so no literal written below is ever stale --
++// then H-11's three into `Hir.lits` and `Hir.literals`, in its order: the prefix when it has a byte, `WHOLE` when
++// the read reached the tree's end; the first-byte set always -- `ANYWHERE` when the root may match the empty
++// string or the set holds more than `NREGEX_LITERAL_LIMIT` bytes; and the inner literal when it has a byte.
++func:extract_literals = NIL(Hir->:h) never fails {
++    uint32:root = raw hir_props(h, h.root);
++    bool:whole = raw prefix_bytes(h);
++    int64:plen = h.lits.count;
++    if (plen > 0i64) {
++        int64:role = HIR_LITERAL_PREFIX;
++        if (whole) { role = HIR_LITERAL_WHOLE; }
++        drop vec_push(@h.literals, Literal{ role: role, off: 0i64, len: plen });
++    }
++    if ((root & HIR_CAN_MATCH_EMPTY) != 0u32) {
++        drop vec_push(@h.literals, Literal{ role: HIR_LITERAL_ANYWHERE, off: plen, len: 0i64 });
++    }
++    else {
++        ByteSet:s = raw byteset_empty();
++        drop first_bytes(h, @s);
++        int64:c = raw byteset_count(@s);
++        if (c > NREGEX_LITERAL_LIMIT) {
++            drop vec_push(@h.literals, Literal{ role: HIR_LITERAL_ANYWHERE, off: plen, len: 0i64 });
++        }
++        else {
++            int64:off = h.lits.count;
++            int64:b = raw byteset_next(@s, 0i64);
++            while (b < 256i64) decreases 256i64 - b {
++                drop vec_push(@h.lits, b =>! uint8);
++                b = raw byteset_next(@s, b + 1i64);
++            }
++            drop vec_push(@h.literals, Literal{ role: HIR_LITERAL_FIRST, off: off, len: c });
++        }
++    }
++    drop inner_literal(h, 0i64, plen);
++    pass NIL;
++};
++
++// obligation: never fails requires h.root != HIR_NONE
++//
++// THE QUERY (H-20): the Hir's literals, extracted first -- once -- when it holds none, and how many it holds.
++// An extraction always writes the first-byte set's entry, so a Hir that holds none has not had its literals
++// extracted: the distinct "not yet extracted" state, never "no literal" (the compiler's D-227). A `Hir` with no
++// root has no tree to extract from, and the extraction's first step, the root's facts, stops it `OutOfBounds`.
++pub func:hir_literals = int64(Hir->:h) never fails {
++    if (h.literals.count == 0i64) { drop extract_literals(h); }
++    pass h.literals.count;
++};
++
++// obligation: never fails ensures result == h.literals.count
++//
++// How many literals the Hir holds, extracting none: 0 until `hir_literals` has run -- "not yet", never "none".
++pub func:hir_literal_count = int64(Hir:h) never fails {
++    pass h.literals.count;
++};
++
++// obligation: never fails requires k >= 0i64 && k < hir_literal_count(h)
++pub func:hir_literal = Literal(Hir:h, int64:k) never fails {
++    pass raw vec_get(h.literals, k);
++};
++
++// obligation: never fails requires at >= 0i64 && at < h.lits.count
++//
++// A byte of the Hir's literals: an entry's are `hir_literal_byte(h, l.off + i)`, `0 <= i < l.len`.
++pub func:hir_literal_byte = uint8(Hir:h, int64:at) never fails {
++    pass raw vec_get(h.lits, at);
++};
++
+ // obligation: never fails ensures h.root == HIR_NONE
+ //
+ // Frees the arena's blocks. A node, a range and a group own nothing, so each block is its
+ // whole obligation, and a unit that frees and exits 0 proves it (D-151: a leaked `wild`
+ // block traps at exit); `names` is managed and drops with the `Hir`.
++// *(@@DATE025@@, cycle 0.2.5 -- RX-242: and the literals' two blocks, `literals` and `lits`: a `Literal` and a byte
++// own nothing too.)*
+ pub func:hir_free = NIL(Hir->:h) never fails {
+     drop vec_free(@h.nodes);
+     drop vec_free(@h.ranges);
+     drop vec_free(@h.groups);
++    drop vec_free(@h.literals);
++    drop vec_free(@h.lits);
+     h.root = HIR_NONE;
+     pass NIL;
+ };
+diff --git a/tests/unit/hir_literal.npk b/tests/unit/hir_literal.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..fe25f50ca6ccb7acb961b497ec672445a2354df6
+--- /dev/null
++++ b/tests/unit/hir_literal.npk
+@@ -0,0 +1,383 @@
++// expect-exit: 0
++//
++// THE LITERALS: THE QUERY, THE STORE, THE DUMP'S SECTION AND ITS READING, THE BOUNDS' EDGES, AND THE TREE
++// THEY ARE EXTRACTED FROM. Cycle 0.2.5; `meta/specs/HIR.md` rules H-11, H-12, H-19 and H-20. The
++// fifty-five-pattern reference is `hir_literal_reference.npk`, and the sampled matches `hir_literal_fuzz.npk`;
++// this unit asks what those cannot:
++//
++//   1 … 9    texts `hir_read` reads and the build never makes: a class of no range and an alternation of
++//            none, which match nothing, and an empty `Concat`; one alternative; a `Concat` and an `Alternate`
++//            nested in their own kind, and an alternation of none among the pieces; a surrogate, and a codepoint
++//            of three bytes and of four; a repetition of
++//            maximum 0; a byte under a group and a repetition; a line's anchor, and an `Empty` piece; and, built
++//            and normalised, runs in a group and in a repetition, a class across the two-byte and three-byte
++//            edge, and three alternatives
++//   10 … 12  the tree the literals are extracted from: `[a]bc` and `x[a]` built and normalised, and the
++//            normal form of a tree whose literals are extracted holds none until it is asked
++//   13 … 18  the query and the store: none before it, and no section; three entries, each role's bytes; a
++//            second query extracts nothing; the facts computed first, every node, and `Literal` 24 bytes; the
++//            dump's section, and the text with it read back to a Hir that holds them
++//   20 … 26  the section read back: round trips, and every section that is not the tree's refused at its
++//            first byte that differs, the root left unset and no literal written
++//   30 … 38  the bounds' edges: a prefix of exactly `NREGEX_LITERAL_BYTES` bytes and one past it, a codepoint
++//            cut at the bound, an inner literal past it, a first-byte set of `NREGEX_LITERAL_LIMIT` bytes and one
++//            of a byte more, an alternation's shared bytes cut at the bound, of two alternatives and of one, and a
++//            prefix and a run each counted at the bound
++//
++// A case that differs exits with its number; the program exits 0 only after every `hir_free` and
++// `ast_free`. The stops are units of their own: `hir_literal_no_root`, `hir_literal_not_extracted` and
++// `hir_literal_frozen`.
++mod:hir_literal;
++
++use "../../src/core/core.npk".*;
++use "../../src/syntax/syntax.npk".*;
++use "../../src/hir/hir.npk".*;
++
++// Whether `b` holds exactly the bytes of `want`.
++func:same = bool(Bytes->:b, fixed uint8[]:want) never fails {
++    if ((raw bytes_len(b)) != want.len) { pass false; }
++    int64:i = 0i64;
++    while (i < want.len) decreases want.len - i {
++        if ((raw bytes_get(b, i)) != want[i]) { pass false; }
++        i = i + 1i64;
++    }
++    pass true;
++};
++
++// Whether `all` is `tree`, a space, and `want`.
++func:tree_then = bool(Bytes->:all, Bytes->:tree, fixed uint8[]:want) never fails {
++    int64:n = raw bytes_len(tree);
++    if ((raw bytes_len(all)) != n + 1i64 + want.len) { pass false; }
++    int64:i = 0i64;
++    while (i < n) decreases n - i {
++        if ((raw bytes_get(all, i)) != (raw bytes_get(tree, i))) { pass false; }
++        i = i + 1i64;
++    }
++    if ((raw bytes_get(all, n)) != 32u8) { pass false; }
++    int64:k = 0i64;
++    while (k < want.len) decreases want.len - k {
++        if ((raw bytes_get(all, n + 1i64 + k)) != want[k]) { pass false; }
++        k = k + 1i64;
++    }
++    pass true;
++};
++
++// Whether `h`'s literals, asked for, are the section `want`, after the tree's text as it was.
++func:asked = bool(Hir->:h, string:want) never fails {
++    Bytes:tree = raw bytes_init(64i64);
++    drop hir_dump(h, @tree);
++    discard(raw hir_literals(h));
++    Bytes:all = raw bytes_init(64i64);
++    drop hir_dump(h, @all);
++    pass raw tree_then(@all, @tree, string_bytes(want));
++};
++
++// Whether the text `hir_read` reads has the literals `want`.
++func:text_has = bool(string:text, string:want) never fails {
++    Hir:h = raw hir_init(8i64);
++    bool:ok = false;
++    if ((raw hir_read(string_bytes(text), @h)) == HIR_NONE) { ok = raw asked(@h, want); }
++    drop hir_free(@h);
++    pass ok;
++};
++
++// Builds `pat` into `out`, normalised when `norm`: true when it parses and builds.
++func:make = bool(fixed uint8[]:pat, bool:norm, Hir->:out) never fails {
++    Ast:t = raw ast_init(8i64);
++    bool:ok = false;
++    if ((raw parse_pattern(pat, @t)) == NIL) {
++        if (!norm) { ok = (raw hir_build(pat, t, out)) == HIR_NONE; }
++        else {
++            Hir:h = raw hir_init(8i64);
++            if ((raw hir_build(pat, t, @h)) == HIR_NONE) {
++                drop hir_normalise(@h, out);
++                ok = true;
++            }
++            drop hir_free(@h);
++        }
++    }
++    drop ast_free(@t);
++    pass ok;
++};
++
++// Whether `pat`, built -- and normalised when `norm` -- has the literals `want`.
++func:pattern_has = bool(fixed uint8[]:pat, bool:norm, string:want) never fails {
++    Hir:h = raw hir_init(8i64);
++    bool:ok = false;
++    if (raw make(pat, norm, @h)) { ok = raw asked(@h, want); }
++    drop hir_free(@h);
++    pass ok;
++};
++
++// How many of `h`'s nodes hold a computed property's bit.
++func:computed_nodes = int64(Hir:h) never fails {
++    int64:k = 0i64;
++    int64:n = raw hir_len(h);
++    int64:i = 0i64;
++    while (i < n) decreases n - i {
++        HirNode:x = raw hir_get(h, i);
++        if ((x.flags & HIR_COMPUTED) != 0u32) { k = k + 1i64; }
++        i = i + 1i64;
++    }
++    pass k;
++};
++
++// `text` reads whole and writes back as itself.
++func:round = bool(string:text) never fails {
++    Hir:h = raw hir_init(8i64);
++    int64:e = raw hir_read(string_bytes(text), @h);
++    Bytes:b = raw bytes_init(64i64);
++    drop hir_dump(@h, @b);
++    bool:ok = (e == HIR_NONE) && (raw same(@b, string_bytes(text)));
++    drop hir_free(@h);
++    pass ok;
++};
++
++// `text` is refused at byte `at`: the root stays unset, and no literal is written.
++func:refused = bool(string:text, int64:at) never fails {
++    Hir:h = raw hir_init(8i64);
++    int64:e = raw hir_read(string_bytes(text), @h);
++    bool:ok = (e == at) && (h.root == HIR_NONE) && ((raw hir_literal_count(h)) == 0i64);
++    drop hir_free(@h);
++    pass ok;
++};
++
++// `n` bytes `b` into `out`, then `tail`, as a pattern's text.
++func:repeated = string(int64:n, uint8:b, string:tail) never fails {
++    Bytes:out = raw bytes_init(n + 8i64);
++    int64:i = 0i64;
++    while (i < n) decreases n - i {
++        drop bytes_push(@out, b);
++        i = i + 1i64;
++    }
++    drop bytes_extend_str(@out, tail);
++    pass raw bytes_copy_string(@out);
++};
++
++// Whether entry `k` of `h` has `role` and the `len` bytes from `at` in `want`.
++func:entry_is = bool(Hir:h, int64:k, int64:role, Bytes->:want, int64:at, int64:len) never fails {
++    Literal:l = raw hir_literal(h, k);
++    if ((l.role != role) || (l.len != len)) { pass false; }
++    int64:i = 0i64;
++    while (i < len) decreases len - i {
++        if ((raw hir_literal_byte(h, l.off + i)) != (raw bytes_get(want, at + i))) { pass false; }
++        i = i + 1i64;
++    }
++    pass true;
++};
++
++func:texts = int32() never fails {
++    // ---- 1 … 9: texts the build never makes
++    if (!(raw text_has("(class)", "(literals (first))")))                       { pass 1i32; }   // matches nothing: no first byte
++    if (!(raw text_has("(alternate)", "(literals (first))")))                   { pass 2i32; }   // nor does an alternation of none
++    if (!(raw text_has("(concat)", "(literals (anywhere))")))                   { pass 3i32; }   // the empty string, anywhere
++    if (!(raw text_has("(alternate (literal 97))", "(literals (whole 97) (first 97) (inner 97))"))) { pass 4i32; }
++    if (!(raw text_has("(concat (concat (literal 97) (literal 98)) (literal 99))",
++                       "(literals (whole 97 98 99) (first 97) (inner 97 98 99))"))) { pass 5i32; }   // the prefix longer than either run
++    // an alternative that is an `Alternate`, which a text holds: no plain literal, though its own fact is `L` --
++    // its first node's index, 0, is no byte of it, and the other alternative's is 0
++    if ((!(raw text_has("(alternate (alternate (literal 97)) (literal 98))", "(literals (first 97 98))")))
++        || (!(raw text_has("(alternate (alternate (literal 98)) (literal 0))", "(literals (first 0 98))")))
++        || (!(raw text_has("(concat (literal 97) (alternate) (literal 98))", "(literals (prefix 97) (first 97) (inner 97))")))) { pass 6i32; }
++    if ((!(raw text_has("(literal 55296)", "(literals (whole 237 160 128) (first 237) (inner 237 160 128))")))
++        || (!(raw text_has("(literal 2048)", "(literals (whole 224 160 128) (first 224) (inner 224 160 128))")))
++        || (!(raw text_has("(literal 65536)", "(literals (whole 240 144 128 128) (first 240) (inner 240 144 128 128))")))) { pass 7i32; }
++    if (!(raw text_has("(repeat 0 0 (literal 97))", "(literals (anywhere))")))  { pass 8i32; }
++    if ((!(raw text_has("(group 1 (repeat 2 2 (literal byte 255)))", "(literals (prefix 255) (first 255) (inner 255))")))
++        || (!(raw text_has("(concat (anchor line-start) (literal 97))", "(literals (whole 97) (first 97) (inner 97))")))
++        || (!(raw text_has("(concat (empty) (literal 97))", "(literals (whole 97) (first 97) (inner 97))")))) { pass 9i32; }
++
++    // ---- 10 … 12: the tree they are extracted from
++    if ((!(raw pattern_has(string_bytes("[a]bc"), false, "(literals (first 97) (inner 98 99))")))
++        || (!(raw pattern_has(string_bytes("[a]bc"), true, "(literals (whole 97 98 99) (first 97) (inner 97 98 99))")))) { pass 10i32; }
++    if ((!(raw pattern_has(string_bytes("x[a]"), false, "(literals (prefix 120) (first 120) (inner 120))")))
++        || (!(raw pattern_has(string_bytes("x[a]"), true, "(literals (whole 120 97) (first 120) (inner 120 97))")))) { pass 11i32; }
++    // a run inside a group, and inside a repetition of minimum 1, each the longest the tree requires
++    if ((!(raw pattern_has(string_bytes("[0-9](abc)"), true, "(literals (first 48 49 50 51 52 53 54 55 56 57) (inner 97 98 99))")))
++        || (!(raw pattern_has(string_bytes("[0-9](?:abc)+"), true, "(literals (first 48 49 50 51 52 53 54 55 56 57) (inner 97 98 99))")))) { pass 9i32; }
++    // a class across the two-byte and three-byte edge: its lead bytes run on, `DF` then `E0`
++    if (!(raw pattern_has(string_bytes("[߿-ࠀ]"), true, "(literals (first 223 224))"))) { pass 9i32; }
++    // three alternatives: the third shares no more with the first than the second left
++    if (!(raw pattern_has(string_bytes("abc|abd|abc"), true, "(literals (prefix 97 98) (first 97) (inner 97 98))"))) { pass 8i32; }
++    Hir:b = raw hir_init(8i64);
++    if (!(raw make(string_bytes("[a]bc"), false, @b))) { pass 12i32; }
++    if ((raw hir_literals(@b)) != 2i64) { pass 12i32; }
++    Hir:n = raw hir_init(8i64);
++    drop hir_normalise(@b, @n);
++    if ((raw hir_literal_count(n)) != 0i64) { pass 12i32; }
++    if (!(raw asked(@n, "(literals (whole 97 98 99) (first 97) (inner 97 98 99))"))) { pass 12i32; }
++    drop hir_free(@n);
++    drop hir_free(@b);
++    pass 0i32;
++};
++
++func:store = int32() never fails {
++    // ---- 13 … 18: the query and the store, on `(literal 97)`
++    Hir:h = raw hir_init(8i64);
++    if ((raw hir_read(string_bytes("(literal 97)"), @h)) != HIR_NONE) { pass 13i32; }
++    Bytes:before = raw bytes_init(64i64);
++    drop hir_dump(@h, @before);
++    if (((raw hir_literal_count(h)) != 0i64) || (!(raw same(@before, string_bytes("(literal 97)"))))) { pass 13i32; }
++    if ((raw computed_nodes(h)) != 0i64) { pass 13i32; }
++    if ((raw hir_literals(@h)) != 3i64) { pass 14i32; }
++    if ((raw hir_literal_count(h)) != 3i64) { pass 14i32; }
++    Bytes:a = raw bytes_init(4i64);
++    drop bytes_push(@a, 97u8);
++    if ((!(raw entry_is(h, 0i64, HIR_LITERAL_WHOLE, @a, 0i64, 1i64))) || (!(raw entry_is(h, 1i64, HIR_LITERAL_FIRST, @a, 0i64, 1i64)))
++        || (!(raw entry_is(h, 2i64, HIR_LITERAL_INNER, @a, 0i64, 1i64)))) { pass 14i32; }
++    Literal:w = raw hir_literal(h, 0i64);
++    Literal:f = raw hir_literal(h, 1i64);
++    if ((raw hir_literals(@h)) != 3i64) { pass 15i32; }                         // asked again: nothing more
++    Literal:w2 = raw hir_literal(h, 0i64);
++    Literal:f2 = raw hir_literal(h, 1i64);
++    if ((w2.off != w.off) || (f2.off != f.off) || ((raw hir_literal_count(h)) != 3i64)) { pass 15i32; }
++    if ((raw computed_nodes(h)) != (raw hir_len(h))) { pass 16i32; }            // the facts first, every node
++    if ((raw hir_props(@h, h.root)) != HIR_IS_ALTERNATION_LITERAL) { pass 16i32; }
++    if (#size_of<Literal>() != 24i64) { pass 16i32; }                         // three `int64`s, measured
++    Bytes:after = raw bytes_init(64i64);
++    drop hir_dump(@h, @after);
++    if (!(raw same(@after, string_bytes("(literal 97) (literals (whole 97) (first 97) (inner 97))")))) { pass 17i32; }
++    Hir:r = raw hir_init(8i64);
++    if ((raw hir_read(string_bytes("(literal 97) (literals (whole 97) (first 97) (inner 97))"), @r)) != HIR_NONE) { pass 18i32; }
++    if (((raw hir_literal_count(r)) != 3i64) || ((raw computed_nodes(r)) != (raw hir_len(r)))) { pass 18i32; }
++    drop hir_free(@r);
++    drop hir_free(@h);
++    pass 0i32;
++};
++
++func:sections = int32() never fails {
++    // ---- 20 … 26: the section read back
++    if ((!(raw round("(literal 97) (literals (whole 97) (first 97) (inner 97))")))
++        || (!(raw round("(class) (literals (first))")))
++        || (!(raw round("(concat) (literals (anywhere))")))
++        || (!(raw round("(alternate (concat (literal 97) (literal 98) (literal 99)) (concat (literal 97) (literal 98) (literal 100))) (literals (prefix 97 98) (first 97) (inner 97 98))")))
++        || (!(raw round("(concat (repeat 0 - (literal 120)) (literal 97) (literal 98)) (literals (first 97 120) (inner 97 98))")))
++        || (!(raw round("(group 1 x (literal byte 233)) (literals (whole 233) (first 233) (inner 233))")))) { pass 20i32; }
++    // what the dump writes after `(literal 97)` is ` (literals (whole 97) (first 97) (inner 97))`
++    if (!(raw refused("(literal 97) (literals (prefix 97) (first 97) (inner 97))", 24i64))) { pass 21i32; }  // a role
++    if (!(raw refused("(literal 97) (literals (whole 98) (first 97) (inner 97))", 31i64))) { pass 22i32; }   // a byte
++    if ((!(raw refused("(literal 97) (literals (whole 97) (first 97))", 44i64)))                               // an entry short
++        || (!(raw refused("(literal 97) (literals (whole 97)", 33i64)))) { pass 23i32; }                       // cut short: its length
++    if (!(raw refused("(literal 97) (literals (whole 97) (first 97) (inner 97)) ", 56i64))) { pass 24i32; }  // a byte more
++    if ((!(raw refused("(literal 97) (literals)", 22i64))) || (!(raw refused("(literal 97) (literals (anywhere))", 24i64)))) { pass 25i32; }
++    if ((!(raw refused("(literal 97) x", 12i64))) || (!(raw refused("(literal 97) ", 12i64)))
++        || (!(raw refused("(literal 97)  (literals (whole 97) (first 97) (inner 97))", 12i64)))) { pass 26i32; }      // no section begins
++    pass 0i32;
++};
++
++func:bounds = int32() never fails {
++    // ---- 30 … 33: the bounds' edges -- `NREGEX_LITERAL_BYTES`, 1 024, and `NREGEX_LITERAL_LIMIT`, 64
++    Bytes:a = raw bytes_init(1100i64);
++    int64:i = 0i64;
++    while (i < 1100i64) decreases 1100i64 - i {
++        drop bytes_push(@a, 97u8);
++        i = i + 1i64;
++    }
++    string:p1024 = raw repeated(NREGEX_LITERAL_BYTES, 97u8, "");
++    Hir:h = raw hir_init(8i64);
++    if (!(raw make(string_bytes(p1024), true, @h))) { pass 30i32; }
++    if (((raw hir_literals(@h)) != 3i64) || (!(raw entry_is(h, 0i64, HIR_LITERAL_WHOLE, @a, 0i64, 1024i64)))
++        || (!(raw entry_is(h, 2i64, HIR_LITERAL_INNER, @a, 0i64, 1024i64)))) { pass 30i32; }
++    drop hir_free(@h);
++    string:p1025 = raw repeated(NREGEX_LITERAL_BYTES + 1i64, 97u8, "");
++    Hir:g = raw hir_init(8i64);
++    if (!(raw make(string_bytes(p1025), true, @g))) { pass 31i32; }
++    if (((raw hir_literals(@g)) != 3i64) || (!(raw entry_is(g, 0i64, HIR_LITERAL_PREFIX, @a, 0i64, 1024i64)))
++        || (!(raw entry_is(g, 1i64, HIR_LITERAL_FIRST, @a, 0i64, 1i64)))
++        || (!(raw entry_is(g, 2i64, HIR_LITERAL_INNER, @a, 0i64, 1024i64)))) { pass 31i32; }
++    drop hir_free(@g);
++    // 1 023 `a`s and `é`: the prefix's 1 024th byte is `é`'s first, 195, and its second is past the bound
++    Bytes:c = raw bytes_init(1100i64);
++    i = 0i64;
++    while (i < 1023i64) decreases 1023i64 - i {
++        drop bytes_push(@c, 97u8);
++        i = i + 1i64;
++    }
++    drop bytes_push(@c, 195u8);
++    string:pe = raw repeated(1023i64, 97u8, "é");
++    Hir:e = raw hir_init(8i64);
++    if (!(raw make(string_bytes(pe), true, @e))) { pass 32i32; }
++    if (((raw hir_literals(@e)) != 3i64) || (!(raw entry_is(e, 0i64, HIR_LITERAL_PREFIX, @c, 0i64, 1024i64)))
++        || (!(raw entry_is(e, 2i64, HIR_LITERAL_INNER, @c, 0i64, 1024i64)))) { pass 32i32; }
++    drop hir_free(@e);
++    // an inner literal past the bound: its first 1 024 bytes
++    Bytes:d = raw bytes_init(1100i64);
++    drop bytes_extend_str(@d, "[0-9]");
++    i = 0i64;
++    while (i < (NREGEX_LITERAL_BYTES + 1i64)) decreases NREGEX_LITERAL_BYTES + 1i64 - i {
++        drop bytes_push(@d, 97u8);
++        i = i + 1i64;
++    }
++    string:pd = raw bytes_copy_string(@d);
++    Hir:k = raw hir_init(8i64);
++    if (!(raw make(string_bytes(pd), true, @k))) { pass 33i32; }
++    if (((raw hir_literals(@k)) != 2i64) || (!(raw entry_is(k, 1i64, HIR_LITERAL_INNER, @a, 0i64, 1024i64)))) { pass 33i32; }
++    drop hir_free(@k);
++    // a first-byte set of 64 bytes, and of 65
++    if (!(raw pattern_has(string_bytes("(?-u)[\\x00-?]"), true, "(literals (first 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63))"))) { pass 34i32; }
++    if (!(raw pattern_has(string_bytes("(?-u)[\\x00-@]"), true, "(literals (anywhere))"))) { pass 35i32; }
++    // an alternation's shared bytes past the bound: 1 020 `a`s and `bcdefg|bcdefh`, a prefix of `a`s and `bcde`
++    Bytes:f = raw bytes_init(1100i64);
++    i = 0i64;
++    while (i < 1020i64) decreases 1020i64 - i {
++        drop bytes_push(@f, 97u8);
++        i = i + 1i64;
++    }
++    drop bytes_extend_str(@f, "bcde");
++    string:pf = raw repeated(1020i64, 97u8, "(?:bcdefg|bcdefh)");
++    Hir:q = raw hir_init(8i64);
++    if (!(raw make(string_bytes(pf), true, @q))) { pass 36i32; }
++    if (((raw hir_literals(@q)) != 3i64) || (!(raw entry_is(q, 0i64, HIR_LITERAL_PREFIX, @f, 0i64, 1024i64)))) { pass 36i32; }
++    drop hir_free(@q);
++    // and one alternative, which a text alone holds, cut at the bound: the read stops there
++    Bytes:tb = raw bytes_init(14000i64);
++    drop bytes_extend_str(@tb, "(concat");
++    i = 0i64;
++    while (i < 1020i64) decreases 1020i64 - i {
++        drop bytes_extend_str(@tb, " (literal 97)");
++        i = i + 1i64;
++    }
++    drop bytes_extend_str(@tb, " (alternate (concat (literal 98) (literal 99) (literal 100) (literal 101) (literal 102) (literal 103))))");
++    string:ts = raw bytes_copy_string(@tb);
++    Hir:o = raw hir_init(8i64);
++    if ((raw hir_read(string_bytes(ts), @o)) != HIR_NONE) { pass 38i32; }
++    if (((raw hir_literals(@o)) != 3i64) || (!(raw entry_is(o, 0i64, HIR_LITERAL_PREFIX, @f, 0i64, 1024i64)))) { pass 38i32; }
++    drop hir_free(@o);
++    // a prefix and a run each 1 024 counted: the prefix; the run past the bound is no longer for its uncounted bytes
++    Bytes:gb = raw bytes_init(2100i64);
++    drop bytes_extend_str(@gb, raw repeated(NREGEX_LITERAL_BYTES, 97u8, "[0-9]"));
++    drop bytes_extend_str(@gb, raw repeated(NREGEX_LITERAL_BYTES + 1i64, 98u8, ""));
++    string:pg2 = raw bytes_copy_string(@gb);
++    Hir:r = raw hir_init(8i64);
++    if (!(raw make(string_bytes(pg2), true, @r))) { pass 37i32; }
++    if (((raw hir_literals(@r)) != 3i64) || (!(raw entry_is(r, 0i64, HIR_LITERAL_PREFIX, @a, 0i64, 1024i64)))
++        || (!(raw entry_is(r, 2i64, HIR_LITERAL_INNER, @a, 0i64, 1024i64)))) { pass 37i32; }
++    drop hir_free(@r);
++    pass 0i32;
++};
++
++func:main = int32(cstring[]:_~argv) {
++    int32:r = raw texts();
++    if (r == 0i32) { r = raw store(); }
++    if (r == 0i32) { r = raw sections(); }
++    if (r == 0i32) { r = raw bounds(); }
++    exit r;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/hir_literal_frozen.npk b/tests/unit/hir_literal_frozen.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..192c4db150bdf8f65ff953409d6584c9261da457
+--- /dev/null
++++ b/tests/unit/hir_literal_frozen.npk
+@@ -0,0 +1,39 @@
++// expect-exit: 94
++//
++// A TREE WHOSE LITERALS ARE EXTRACTED IS FINISHED. Cycle 0.2.5; `meta/specs/HIR.md` H-18 and H-20. The
++// extraction asks `hir_props` first, so the one pass computes the tree's facts before any literal is
++// written, and a computed tree is finished: `hir_set` on it stops `OutOfBounds` (94), so no write can make
++// a literal describe a tree it was not extracted from. Asked here through `hir_literals` alone -- the
++// facts never asked by name -- of one `Literal`, whose extraction asks no fact of a piece: the stop is the
++// root's facts, asked first.
++mod:hir_literal_frozen;
++
++use "../../src/core/core.npk".*;
++use "../../src/hir/hir.npk".*;
++
++func:main = int32(cstring[]:_~argv) {
++    Hir:h = raw hir_init(8i64);
++    if ((raw hir_read(string_bytes("(literal 97)"), @h)) != HIR_NONE) { exit 1i32; }
++    if ((raw hir_literals(@h)) != 3i64) { exit 2i32; }
++    drop hir_set(@h, 0i64, HirNode{ kind: HirKind.Literal, flags: 0u32, a: 120i64, b: 0i64, c: 0i64, next: HIR_NONE });
++    drop hir_free(@h);
++    exit 3i32;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/hir_literal_fuzz.npk b/tests/unit/hir_literal_fuzz.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..260a3654c9464e260b1037c8ad1477f0dccc7522
+--- /dev/null
++++ b/tests/unit/hir_literal_fuzz.npk
+@@ -0,0 +1,359 @@
++// expect-exit: 0
++//
++// NEVER WRONG IN THE UNSAFE DIRECTION, MEASURED: SEEDED PATTERNS, EACH TREE'S LITERALS HELD TO MATCHES DRAWN
++// FROM THE TREE. Cycle 0.2.5; `meta/specs/HIR.md` rules H-11, H-12 and H-19, and the cycle README's 0.2.5 row,
++// *"conservative, bounded, and never wrong in the unsafe direction"*.
++//
++// WHAT IT GENERATES. PATTERNS patterns from a fixed seed, three deep at most: literals `a`, `b` and `é`, a byte
++// under `(?-u:…)`, runs `ab`, `abc` and `cab`, classes of codepoints of one byte, of two, of both, and of three and
++// four, and of bytes, `^`, `$`, `\b` and `\B`, `(?:)`, concatenations, alternations -- an empty alternative among them --
++// groups, and repetitions -- `?`, `*`, `+`, `{2}`, `{0,2}`, `{1,3}`, `{1}`. Each is parsed, built and normalised, and its literals
++// extracted through `hir_literals`, the query.
++//
++// WHAT IT HOLDS THEM TO. SAMPLES strings drawn from each normal form's tree -- a class's member at its ends or
++// near its first, an alternative, a repetition's count, each at random; an assertion taken to hold, as H-17
++// takes it -- so each string is one the pattern matches, or one an assertion would refuse. Every literal is a
++// claim about EVERY match, so every string must keep it: begin with the prefix (12), be the whole match (11),
++// begin with a byte of the first-byte set -- and so be no empty string (13) -- and hold the inner literal (14).
++// A literal wrong the unsafe way, a byte too few or a byte too many, fails a string that a missed match would
++// begin at; and a string an assertion would refuse is one the extraction reads through too, as it reads the
++// assertion. The entries stand in H-11's order, the first-byte set's always (15), and where the root may match
++// the empty string it is `anywhere` (16). FLOORS on every role and on the strings drawn, so the extraction
++// cannot be green by saying nothing (17); and every pattern builds (10). The bytes a codepoint is are reckoned
++// here, by this unit's own UTF-8 encoder, not the library's.
++//
++// THE GENERATOR AND THE SAMPLER RECURSE: their depth is the tree's, three, not an input's (`SAFETY.md` S-18),
++// and `check_no_recursion` reads `src/`, not `tests/` (RX-192). A case that differs exits with its number; the
++// program exits 0 only after every `hir_free` and `ast_free`.
++mod:hir_literal_fuzz;
++
++use "../../src/core/core.npk".*;
++use "../../src/syntax/syntax.npk".*;
++use "../../src/hir/hir.npk".*;
++
++fixed int64:PATTERNS = 3000i64;
++fixed int64:SAMPLES = 16i64;
++fixed int64:DEPTH = 3i64;
++fixed int64:STRINGS_FLOOR = 40000i64;    // strings drawn and held to their literals
++fixed int64:ROLE_FLOOR = 150i64;         // patterns with each role: prefix, whole, first, anywhere, inner
++
++struct:Gen = {
++    uint64:rng;
++    int64:prefix;        // patterns whose literals hold a `prefix`
++    int64:whole;         // a `whole`
++    int64:first;         // a `first`
++    int64:anywhere;      // an `anywhere`
++    int64:inner;         // an `inner`
++    int64:strings;       // strings drawn and held
++};
++
++// xorshift64 (Marsaglia), as `parse_fuzz.npk` writes it.
++func:next_rng = uint64(uint64:s) never fails {
++    uint64:x = s;
++    x = x ^ (x << 13u64);
++    x = x ^ (x >> 7u64);
++    x = x ^ (x << 17u64);
++    pass x;
++};
++
++// A draw below `n`, at most 64, by subtraction: a unit that divided would owe two arms more.
++func:roll = int64(Gen->:g, int64:n) never fails {
++    g.rng = raw next_rng(g.rng);
++    int64:v = ((g.rng >> 20u64) & 63u64) =>! int64;
++    while (v >= n) decreases v { v = v - n; }
++    pass v;
++};
++
++// ---- the patterns
++
++func:pick_class = NIL(Gen->:g, Bytes->:b) never fails {
++    int64:k = raw roll(g, 6i64);
++    if (k == 0i64) { drop bytes_extend_str(b, "[ab]"); }
++    else if (k == 1i64) { drop bytes_extend_str(b, "[a-c]"); }
++    else if (k == 2i64) { drop bytes_extend_str(b, "[é-ë]"); }
++    else if (k == 3i64) { drop bytes_extend_str(b, "(?-u:[\\xE9-\\xEB])"); }
++    else if (k == 4i64) { drop bytes_extend_str(b, "[a-é]"); }
++    else { drop bytes_extend_str(b, "[ࠀ-𐀁]"); }
++    pass NIL;
++};
++
++func:gen = NIL(Gen->:g, int64:depth, Bytes->:b) never fails {
++    int64:k = raw roll(g, 16i64);
++    if (depth == 0i64) { k = raw roll(g, 9i64); }
++    if (k == 0i64) { drop bytes_extend_str(b, "a"); }
++    else if (k == 1i64) { drop bytes_extend_str(b, "b"); }
++    else if (k == 2i64) { drop bytes_extend_str(b, "é"); }
++    else if (k == 3i64) { drop bytes_extend_str(b, "(?-u:\\xE9)"); }
++    else if (k == 4i64) { drop pick_class(g, b); }
++    else if (k == 5i64) {
++        int64:w = raw roll(g, 4i64);
++        if (w == 0i64) { drop bytes_extend_str(b, "^"); }
++        else if (w == 1i64) { drop bytes_extend_str(b, "$"); }
++        else if (w == 2i64) { drop bytes_extend_str(b, "\\b"); }
++        else { drop bytes_extend_str(b, "\\B"); }
++    }
++    else if (k == 6i64) { drop bytes_extend_str(b, "(?:)"); }
++    else if ((k == 7i64) || (k == 8i64)) {
++        int64:w = raw roll(g, 3i64);
++        if (w == 0i64) { drop bytes_extend_str(b, "ab"); }
++        else if (w == 1i64) { drop bytes_extend_str(b, "abc"); }
++        else { drop bytes_extend_str(b, "cab"); }
++    }
++    else if ((k == 9i64) || (k == 10i64)) {
++        int64:n = 2i64 + (raw roll(g, 2i64));
++        int64:i = 0i64;
++        while (i < n) decreases n - i {
++            drop gen(g, depth - 1i64, b);
++            i = i + 1i64;
++        }
++    }
++    else if ((k == 11i64) || (k == 12i64)) {
++        drop bytes_extend_str(b, "(?:");
++        int64:n = 2i64 + (raw roll(g, 2i64));
++        int64:i = 0i64;
++        while (i < n) decreases n - i {
++            if (i > 0i64) { drop bytes_push(b, 124u8); }
++            if ((i == 0i64) || ((raw roll(g, 6i64)) != 0i64)) { drop gen(g, depth - 1i64, b); }
++            i = i + 1i64;
++        }
++        drop bytes_push(b, 41u8);
++    }
++    else if (k == 13i64) {
++        drop bytes_push(b, 40u8);
++        drop gen(g, depth - 1i64, b);
++        drop bytes_push(b, 41u8);
++    }
++    else {
++        drop bytes_extend_str(b, "(?:");
++        drop gen(g, depth - 1i64, b);
++        drop bytes_push(b, 41u8);
++        int64:q = raw roll(g, 7i64);
++        if (q == 0i64) { drop bytes_extend_str(b, "?"); }
++        else if (q == 1i64) { drop bytes_extend_str(b, "*"); }
++        else if (q == 2i64) { drop bytes_extend_str(b, "+"); }
++        else if (q == 3i64) { drop bytes_extend_str(b, "{2}"); }
++        else if (q == 4i64) { drop bytes_extend_str(b, "{0,2}"); }
++        else if (q == 5i64) { drop bytes_extend_str(b, "{1,3}"); }
++        else { drop bytes_extend_str(b, "{1}"); }
++    }
++    pass NIL;
++};
++
++// ---- the strings drawn from a tree
++
++// Appends codepoint `cp`'s UTF-8 encoding to `out`, or under `byte` the byte -- this unit's own encoder.
++func:encode = NIL(Bytes->:out, int64:cp, bool:byte) never fails {
++    if (byte || (cp < 128i64)) { drop bytes_push(out, cp =>! uint8); pass NIL; }
++    if (cp < 2048i64) {
++        drop bytes_push(out, (192i64 + (cp >> 6i64)) =>! uint8);
++        drop bytes_push(out, (128i64 + (cp & 63i64)) =>! uint8);
++        pass NIL;
++    }
++    if (cp < 65536i64) {
++        drop bytes_push(out, (224i64 + (cp >> 12i64)) =>! uint8);
++        drop bytes_push(out, (128i64 + ((cp >> 6i64) & 63i64)) =>! uint8);
++        drop bytes_push(out, (128i64 + (cp & 63i64)) =>! uint8);
++        pass NIL;
++    }
++    drop bytes_push(out, (240i64 + (cp >> 18i64)) =>! uint8);
++    drop bytes_push(out, (128i64 + ((cp >> 12i64) & 63i64)) =>! uint8);
++    drop bytes_push(out, (128i64 + ((cp >> 6i64) & 63i64)) =>! uint8);
++    drop bytes_push(out, (128i64 + (cp & 63i64)) =>! uint8);
++    pass NIL;
++};
++
++// A string node `i` of `h` matches, drawn at random into `out`: an assertion taken to hold.
++func:sample = NIL(Hir:h, int64:i, Gen->:g, Bytes->:out) never fails {
++    HirNode:n = raw hir_get(h, i);
++    bool:byte = (n.flags & HIR_FLAG_BYTE) != 0u32;
++    if (n.kind == HirKind.Literal) { drop encode(out, n.a, byte); pass NIL; }
++    if (n.kind == HirKind.Class) {
++        ClassRange:r = raw hir_range(h, n.a + (raw roll(g, n.b)));
++        int64:lo = r.lo => int64;
++        int64:hi = r.hi => int64;
++        int64:span = hi - lo + 1i64;
++        if (span > 64i64) { span = 64i64; }
++        int64:w = raw roll(g, 3i64);
++        int64:cp = lo;
++        if (w == 1i64) { cp = hi; }
++        else if (w == 2i64) { cp = lo + (raw roll(g, span)); }
++        drop encode(out, cp, byte);
++        pass NIL;
++    }
++    if (n.kind == HirKind.Concat) {
++        int64:m = n.a;
++        int64:k = 0i64;
++        while ((m != HIR_NONE) && (k < n.b)) decreases n.b - k {
++            drop sample(h, m, g, out);
++            HirNode:x = raw hir_get(h, m);
++            m = x.next;
++            k = k + 1i64;
++        }
++        pass NIL;
++    }
++    if (n.kind == HirKind.Alternate) {
++        int64:want = raw roll(g, n.b);
++        int64:m = n.a;
++        int64:k = 0i64;
++        while (k < want) decreases want - k {
++            HirNode:x = raw hir_get(h, m);
++            m = x.next;
++            k = k + 1i64;
++        }
++        drop sample(h, m, g, out);
++        pass NIL;
++    }
++    if (n.kind == HirKind.Repeat) {
++        int64:extra = 2i64;
++        if ((n.c != HIR_NONE) && ((n.c - n.b) < extra)) { extra = n.c - n.b; }
++        int64:count = n.b + (raw roll(g, extra + 1i64));
++        int64:k = 0i64;
++        while (k < count) decreases count - k {
++            drop sample(h, n.a, g, out);
++            k = k + 1i64;
++        }
++        pass NIL;
++    }
++    if (n.kind == HirKind.Group) { drop sample(h, n.a, g, out); pass NIL; }
++    pass NIL;
++};
++
++// ---- the claims
++
++// Whether `s` begins with literal `l`'s bytes -- and, when `whole`, is them.
++func:begins = bool(Hir:h, Literal:l, Bytes->:s, bool:whole) never fails {
++    int64:n = raw bytes_len(s);
++    if (n < l.len) { pass false; }
++    if (whole && (n != l.len)) { pass false; }
++    int64:i = 0i64;
++    while (i < l.len) decreases l.len - i {
++        if ((raw bytes_get(s, i)) != (raw hir_literal_byte(h, l.off + i))) { pass false; }
++        i = i + 1i64;
++    }
++    pass true;
++};
++
++// Whether `s` holds literal `l`'s bytes somewhere.
++func:holds = bool(Hir:h, Literal:l, Bytes->:s) never fails {
++    int64:n = raw bytes_len(s);
++    int64:at = 0i64;
++    while ((at + l.len) <= n) decreases n - at {
++        bool:all = true;
++        int64:i = 0i64;
++        while (all && (i < l.len)) decreases l.len - i {
++            if ((raw bytes_get(s, at + i)) != (raw hir_literal_byte(h, l.off + i))) { all = false; }
++            i = i + 1i64;
++        }
++        if (all) { pass true; }
++        at = at + 1i64;
++    }
++    pass false;
++};
++
++// Whether `s`'s first byte is one of literal `l`'s -- an empty `s` has none.
++func:first_of = bool(Hir:h, Literal:l, Bytes->:s) never fails {
++    if ((raw bytes_len(s)) == 0i64) { pass false; }
++    uint8:b = raw bytes_get(s, 0i64);
++    int64:i = 0i64;
++    while (i < l.len) decreases l.len - i {
++        if ((raw hir_literal_byte(h, l.off + i)) == b) { pass true; }
++        i = i + 1i64;
++    }
++    pass false;
++};
++
++// The entries' order (H-20): a `prefix` or a `whole` at most, first; then the first-byte set's, `first` or
++// `anywhere`, always; then an `inner` at most. Counts each role into `g`. Answers 0 or the case's number.
++func:order = int32(Hir:h, int64:n, Gen->:g) never fails {
++    int64:k = 0i64;
++    Literal:l = raw hir_literal(h, k);
++    if ((l.role == HIR_LITERAL_PREFIX) || (l.role == HIR_LITERAL_WHOLE)) {
++        if (l.role == HIR_LITERAL_PREFIX) { g.prefix = g.prefix + 1i64; } else { g.whole = g.whole + 1i64; }
++        if (l.len == 0i64) { pass 15i32; }
++        k = 1i64;
++        if (k >= n) { pass 15i32; }
++        l = raw hir_literal(h, k);
++    }
++    if (l.role == HIR_LITERAL_FIRST) { g.first = g.first + 1i64; }
++    else if (l.role == HIR_LITERAL_ANYWHERE) { g.anywhere = g.anywhere + 1i64; }
++    else { pass 15i32; }
++    k = k + 1i64;
++    if (k < n) {
++        l = raw hir_literal(h, k);
++        if ((l.role != HIR_LITERAL_INNER) || (l.len == 0i64)) { pass 15i32; }
++        g.inner = g.inner + 1i64;
++        k = k + 1i64;
++    }
++    if (k != n) { pass 15i32; }
++    pass 0i32;
++};
++
++func:run = int32() never fails {
++    Gen:g = Gen{ rng: 88172645463325252u64, prefix: 0i64, whole: 0i64, first: 0i64, anywhere: 0i64, inner: 0i64,
++                 strings: 0i64 };
++    int64:p = 0i64;
++    while (p < PATTERNS) decreases PATTERNS - p {
++        Bytes:pb = raw bytes_init(64i64);
++        drop gen(@g, DEPTH, @pb);
++        string:ps = raw bytes_copy_string(@pb);
++        fixed uint8[]:pat = string_bytes(ps);
++        Ast:t = raw ast_init(8i64);
++        if ((raw parse_pattern(pat, @t)) != NIL) { pass 10i32; }
++        Hir:h = raw hir_init(8i64);
++        if ((raw hir_build(pat, t, @h)) != HIR_NONE) { pass 10i32; }
++        Hir:n = raw hir_init(8i64);
++        drop hir_normalise(@h, @n);
++        int64:count = raw hir_literals(@n);
++        int32:o = raw order(n, count, @g);
++        if (o != 0i32) { pass o; }
++        int64:root = n.root;
++        bool:empty = ((raw hir_props(@n, root)) & HIR_CAN_MATCH_EMPTY) != 0u32;
++        int64:s = 0i64;
++        while (s < SAMPLES) decreases SAMPLES - s {
++            Bytes:m = raw bytes_init(16i64);
++            drop sample(n, root, @g, @m);
++            int64:k = 0i64;
++            while (k < count) decreases count - k {
++                Literal:l = raw hir_literal(n, k);
++                if ((l.role == HIR_LITERAL_WHOLE) && (!(raw begins(n, l, @m, true)))) { pass 11i32; }
++                if ((l.role == HIR_LITERAL_PREFIX) && (!(raw begins(n, l, @m, false)))) { pass 12i32; }
++                if ((l.role == HIR_LITERAL_FIRST) && (!(raw first_of(n, l, @m)))) { pass 13i32; }
++                if ((l.role == HIR_LITERAL_INNER) && (!(raw holds(n, l, @m)))) { pass 14i32; }
++                if ((l.role == HIR_LITERAL_FIRST) && empty) { pass 16i32; }
++                k = k + 1i64;
++            }
++            g.strings = g.strings + 1i64;
++            s = s + 1i64;
++        }
++        drop hir_free(@n);
++        drop hir_free(@h);
++        drop ast_free(@t);
++        p = p + 1i64;
++    }
++    if (g.strings < STRINGS_FLOOR) { pass 17i32; }
++    if ((g.prefix < ROLE_FLOOR) || (g.whole < ROLE_FLOOR) || (g.first < ROLE_FLOOR) || (g.anywhere < ROLE_FLOOR)
++        || (g.inner < ROLE_FLOOR)) { pass 17i32; }
++    pass 0i32;
++};
++
++func:main = int32(cstring[]:_~argv) {
++    exit raw run();
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/hir_literal_no_root.npk b/tests/unit/hir_literal_no_root.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..be559c7d6bfc123d8d5cec8db4c149c94cd92751
+--- /dev/null
++++ b/tests/unit/hir_literal_no_root.npk
+@@ -0,0 +1,36 @@
++// expect-exit: 94
++//
++// A `Hir` WITH NO ROOT HAS NO LITERALS, AND ASKING FOR THEM STOPS. Cycle 0.2.5; `meta/specs/HIR.md` H-20.
++// `hir_literals` on a `Hir` fresh from `hir_init` -- no node, no root -- stops `OutOfBounds` (94) before
++// anything is written: there is no tree whose matches a literal could describe, and an answer of none would
++// read "nothing to extract from" as "no literal". The stop is the extraction's first step, the root's facts:
++// `hir_props` stops on a `Hir` with no root (H-18).
++mod:hir_literal_no_root;
++
++use "../../src/core/core.npk".*;
++use "../../src/hir/hir.npk".*;
++
++func:main = int32(cstring[]:_~argv) {
++    Hir:h = raw hir_init(8i64);
++    discard(raw hir_literals(@h));
++    drop hir_free(@h);
++    exit 0i32;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/hir_literal_not_extracted.npk b/tests/unit/hir_literal_not_extracted.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..ee32f5c3d78ad630ece328bd8c6ee994bb3d526f
+--- /dev/null
++++ b/tests/unit/hir_literal_not_extracted.npk
+@@ -0,0 +1,38 @@
++// expect-exit: 94
++//
++// A LITERAL NOT EXTRACTED IS NEVER READ AS NONE. Cycle 0.2.5; `meta/specs/HIR.md` H-20, and the compiler's
++// D-227. A `Hir` read from `(literal 97)` and never asked for its literals holds none -- the distinct "not
++// yet extracted" state, which `hir_literal_count` answers as 0 -- and reading its first entry with
++// `hir_literal` stops `OutOfBounds` (94): there is no entry to answer, and no default a reader could take
++// for "no first-byte set".
++mod:hir_literal_not_extracted;
++
++use "../../src/core/core.npk".*;
++use "../../src/hir/hir.npk".*;
++
++func:main = int32(cstring[]:_~argv) {
++    Hir:h = raw hir_init(8i64);
++    if ((raw hir_read(string_bytes("(literal 97)"), @h)) != HIR_NONE) { exit 1i32; }
++    if ((raw hir_literal_count(h)) != 0i64) { exit 2i32; }
++    Literal:l = raw hir_literal(h, 0i64);
++    drop hir_free(@h);
++    exit 3i32;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/hir_literal_oracle.npk b/tests/unit/hir_literal_oracle.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..a90cf39a6fc3525cee308a1246fb037cbb01969e
+--- /dev/null
++++ b/tests/unit/hir_literal_oracle.npk
+@@ -0,0 +1,192 @@
++// expect-exit: 0
++// pending-until: 0.5.5 exit 1
++//
++// EVERY MATCH THE REAL MATCHER FINDS IS ONE ITS LITERALS ADMIT: THE PROPERTY TEST, RUN OVER THE ORACLE. Cycle
++// 0.2.5; `HIR.md` H-11, H-12 and H-19, `ENGINES.md` R-19, `TESTING.md` V-20, and the cycle README's last 0.2.5
++// box: *"for every corpus pattern and haystack, every position the real matcher finds is a position the
++// first-byte set admits — pending until 0.5"*.
++//
++// PENDING UNTIL CYCLE 0.5.5, ON EXIT 1 ALONE (`BUILD.md` B-5b, RX-226). The real matcher this library has before
++// cycle 0.7's Pike VM is cycle 0.5's oracle -- the naive matcher over the HIR, `tests/oracle/`, which imports
++// nothing from `src/` but `core` and `hir` (V-4) -- and the 0.5 README's 0.5.5 box is the one that turns this
++// unit green: *"0.2's pending literal-extraction property test now green"*. Until then the hook below answers
++// NO_ORACLE, and a unit whose every comparison met no oracle exits 1 -- that and nothing else. A match the
++// literals do not admit exits with its claim's number, 11 … 14, which the marker does not excuse: the run is red
++// then, not pending. The day every match is admitted the unit exits 0, the run goes red to say the marker is
++// stale, and the marker and its line in `harness/baseline/PENDING.txt` go.
++//
++// THE HOOK, `oracle_find`. The one place this unit meets the oracle, and the one line cycle 0.5.5 writes here:
++// given a HIR, a haystack and a position, the leftmost-first match that begins there or after -- its start in
++// slot 0 and its end in slot 1 -- answering 1 for a match and 0 for none. Its shape is this unit's: cycle 0.5.0
++// names the oracle's entry point, and the hook adapts it. Until then it answers NO_ORACLE and writes nothing.
++//
++// WHAT IT ASKS. Every pattern below is built, normalised and its literals extracted on every run, so an
++// extraction that trapped would be red here too (any exit but 1); each H-19 rule meets at least one, and each
++// role -- a prefix, a whole match, a first-byte set and `anywhere`, an inner literal -- several. For each
++// haystack and each position in it, the oracle's match from there, when there is one, must begin with a byte
++// of the first-byte set (11), begin with the prefix (12), be the whole match (13) and hold the inner literal
++// (14). THE CORPUS is cycle 0.5's: 0.5.5's box carries this property over its patterns and haystacks too, by
++// the corpus stage (0.5.3), whose shape is that subcycle's.
++mod:hir_literal_oracle;
++
++use "../../src/core/core.npk".*;
++use "../../src/syntax/syntax.npk".*;
++use "../../src/hir/hir.npk".*;
++
++fixed int64:NO_ORACLE = -2i64;
++
++// THE HOOK -- cycle 0.5.5 fills it with a call to the oracle (see the header).
++func:oracle_find = int64(Hir->:h, fixed uint8[]:hay, int64:from, Vec<int64>->:slots) never fails {
++    pass NO_ORACLE;
++};
++
++// The haystacks every pattern is run over.
++func:hay = string(int64:i) never fails {
++    if (i == 0i64) { pass ""; }
++    if (i == 1i64) { pass "abc"; }
++    if (i == 2i64) { pass "xabcy abd"; }
++    if (i == 3i64) { pass "foobar foo fo"; }
++    if (i == 4i64) { pass "aaab bab b"; }
++    if (i == 5i64) { pass "cxax bx"; }
++    if (i == 6i64) { pass "éê ë é"; }
++    if (i == 7i64) { pass "ababcd cd abcdef a7bcdef"; }
++    if (i == 8i64) { pass "foo foobar"; }
++    pass "abcabde abd abe";
++};
++fixed int64:HAYS = 10i64;
++
++// The patterns: each H-19 rule, and each role.
++func:pattern = string(int64:i) never fails {
++    if (i == 0i64) { pass "abc"; }
++    if (i == 1i64) { pass "abc|abd"; }
++    if (i == 2i64) { pass "foo|foobar"; }
++    if (i == 3i64) { pass "a+b"; }
++    if (i == 4i64) { pass "a*b"; }
++    if (i == 5i64) { pass "[a-c]x"; }
++    if (i == 6i64) { pass "é|ê"; }
++    if (i == 7i64) { pass "(?-u:\\xC3)|ë"; }
++    if (i == 8i64) { pass "x(abc)y"; }
++    if (i == 9i64) { pass "\\bfoo\\b"; }
++    if (i == 10i64) { pass "^abc"; }
++    if (i == 11i64) { pass "abc$"; }
++    if (i == 12i64) { pass "(?:ab)+cd"; }
++    if (i == 13i64) { pass "a[0-9]+bcdef"; }
++    if (i == 14i64) { pass "(?:a|)b"; }
++    if (i == 15i64) { pass "[é-ë]"; }
++    if (i == 16i64) { pass "ab?"; }
++    if (i == 17i64) { pass "a{3}"; }
++    if (i == 18i64) { pass "(?:abc|abd)e"; }
++    if (i == 19i64) { pass "a?b"; }
++    pass "(?:ab)*cd";
++};
++fixed int64:PATTERNS = 21i64;
++
++// Whether `hay[s..e]` begins with literal `l`'s bytes -- and, when `whole`, is them.
++func:begins = bool(Hir:h, Literal:l, fixed uint8[]:hay, int64:s, int64:e, bool:whole) never fails {
++    if ((e - s) < l.len) { pass false; }
++    if (whole && ((e - s) != l.len)) { pass false; }
++    int64:i = 0i64;
++    while (i < l.len) decreases l.len - i {
++        if (hay[s + i] != (raw hir_literal_byte(h, l.off + i))) { pass false; }
++        i = i + 1i64;
++    }
++    pass true;
++};
++
++// Whether `hay[s..e]` holds literal `l`'s bytes.
++func:holds = bool(Hir:h, Literal:l, fixed uint8[]:hay, int64:s, int64:e) never fails {
++    int64:at = s;
++    while ((at + l.len) <= e) decreases e - at {
++        bool:all = true;
++        int64:i = 0i64;
++        while (all && (i < l.len)) decreases l.len - i {
++            if (hay[at + i] != (raw hir_literal_byte(h, l.off + i))) { all = false; }
++            i = i + 1i64;
++        }
++        if (all) { pass true; }
++        at = at + 1i64;
++    }
++    pass false;
++};
++
++// Whether the byte at `s` is one of literal `l`'s -- there is none at the haystack's end.
++func:first_of = bool(Hir:h, Literal:l, fixed uint8[]:hay, int64:s) never fails {
++    if (s >= hay.len) { pass false; }
++    int64:i = 0i64;
++    while (i < l.len) decreases l.len - i {
++        if ((raw hir_literal_byte(h, l.off + i)) == hay[s]) { pass true; }
++        i = i + 1i64;
++    }
++    pass false;
++};
++
++func:run = int32() never fails {
++    bool:none = false;
++    int64:p = 0i64;
++    while (p < PATTERNS) decreases PATTERNS - p {
++        string:ps = raw pattern(p);
++        fixed uint8[]:pat = string_bytes(ps);
++        Ast:t = raw ast_init(8i64);
++        if ((raw parse_pattern(pat, @t)) != NIL) { pass 10i32; }
++        Hir:h = raw hir_init(8i64);
++        if ((raw hir_build(pat, t, @h)) != HIR_NONE) { pass 10i32; }
++        Hir:n = raw hir_init(8i64);
++        drop hir_normalise(@h, @n);
++        int64:count = raw hir_literals(@n);
++        int64:k = 0i64;
++        while (k < HAYS) decreases HAYS - k {
++            string:ys = raw hay(k);
++            fixed uint8[]:y = string_bytes(ys);
++            int64:from = 0i64;
++            while (from <= y.len) decreases y.len - from {
++                Vec<int64>:slots = raw vec_init_zeroed::<int64>(2i64);
++                int64:f = raw oracle_find(@n, y, from, @slots);
++                if (f == NO_ORACLE) { none = true; }
++                else if (f == 1i64) {
++                    int64:s = raw vec_get(slots, 0i64);
++                    int64:e = raw vec_get(slots, 1i64);
++                    int64:j = 0i64;
++                    while (j < count) decreases count - j {
++                        Literal:l = raw hir_literal(n, j);
++                        if ((l.role == HIR_LITERAL_FIRST) && (!(raw first_of(n, l, y, s)))) { pass 11i32; }
++                        if ((l.role == HIR_LITERAL_PREFIX) && (!(raw begins(n, l, y, s, e, false)))) { pass 12i32; }
++                        if ((l.role == HIR_LITERAL_WHOLE) && (!(raw begins(n, l, y, s, e, true)))) { pass 13i32; }
++                        if ((l.role == HIR_LITERAL_INNER) && (!(raw holds(n, l, y, s, e)))) { pass 14i32; }
++                        j = j + 1i64;
++                    }
++                }
++                drop vec_free(@slots);
++                from = from + 1i64;
++            }
++            k = k + 1i64;
++        }
++        drop hir_free(@n);
++        drop hir_free(@h);
++        drop ast_free(@t);
++        p = p + 1i64;
++    }
++    if (none) { pass 1i32; }
++    pass 0i32;
++};
++
++func:main = int32(cstring[]:_~argv) {
++    exit raw run();
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/hir_literal_reference.npk b/tests/unit/hir_literal_reference.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..c5bc039d80d9978c7040d8c150a8cbe48c6f8c5a
+--- /dev/null
++++ b/tests/unit/hir_literal_reference.npk
+@@ -0,0 +1,154 @@
++// expect-exit: 0
++//
++// THE LITERALS AGAINST A HAND-COMPUTED REFERENCE: FIFTY-FIVE PATTERNS. Cycle 0.2.5; `meta/specs/HIR.md`
++// rules H-11, H-12, H-19 and H-20, and the cycle README's 0.2.5 boxes.
++//
++// HAND-COMPUTED MEANS THIS. Each row below is a pattern and the literal section the dump writes after its
++// normal form's tree once its literals are extracted -- `(literals`, then the prefix (`whole` when every
++// match is it, `prefix` otherwise) when it has a byte, the first-byte set (`first` and its members
++// ascending, or `anywhere` when a match may begin anywhere), and the inner literal when it has a byte,
++// each byte in decimal -- written by hand from H-19's text, with the reading that gives it beside it. No
++// value was printed by the code and copied here: every row was written from the rule's text before the
++// extraction first ran, and a row the extraction disagrees with is read against H-19 again -- never
++// changed to the extraction's answer.
++//
++// EVERY ROW ASKS THE NORMAL FORM (RX-236): each pattern is parsed, built and normalised, the normal form
++// dumped, its literals asked for through `hir_literals`, the query a later stage will call, and dumped
++// again: the second text must be the first, a space, and the row's section, byte for byte -- the tree's
++// text unchanged by the extraction, and the section after it. A row that differs, or a pattern that does
++// not build, exits with the row's number; the program exits 0 only after every `hir_free` and `ast_free`.
++// The bytes are a match's bytes: a codepoint's UTF-8 encoding, or under `(?-u)` the byte itself.
++mod:hir_literal_reference;
++
++use "../../src/core/core.npk".*;
++use "../../src/syntax/syntax.npk".*;
++use "../../src/hir/hir.npk".*;
++
++// Whether `all` is `tree`, a space, and `want`.
++func:tree_then = bool(Bytes->:all, Bytes->:tree, fixed uint8[]:want) never fails {
++    int64:n = raw bytes_len(tree);
++    if ((raw bytes_len(all)) != n + 1i64 + want.len) { pass false; }
++    int64:i = 0i64;
++    while (i < n) decreases n - i {
++        if ((raw bytes_get(all, i)) != (raw bytes_get(tree, i))) { pass false; }
++        i = i + 1i64;
++    }
++    if ((raw bytes_get(all, n)) != 32u8) { pass false; }
++    int64:k = 0i64;
++    while (k < want.len) decreases want.len - k {
++        if ((raw bytes_get(all, n + 1i64 + k)) != want[k]) { pass false; }
++        k = k + 1i64;
++    }
++    pass true;
++};
++
++// Whether `pattern`'s normal form's literals are the section `want`.
++func:holds = bool(string:pattern, string:want) never fails {
++    fixed uint8[]:pat = string_bytes(pattern);
++    Ast:t = raw ast_init(8i64);
++    bool:ok = false;
++    if ((raw parse_pattern(pat, @t)) == NIL) {
++        Hir:h = raw hir_init(8i64);
++        if ((raw hir_build(pat, t, @h)) == HIR_NONE) {
++            Hir:n = raw hir_init(8i64);
++            drop hir_normalise(@h, @n);
++            Bytes:tree = raw bytes_init(64i64);
++            drop hir_dump(@n, @tree);
++            discard(raw hir_literals(@n));
++            Bytes:all = raw bytes_init(64i64);
++            drop hir_dump(@n, @all);
++            ok = raw tree_then(@all, @tree, string_bytes(want));
++            drop hir_free(@n);
++        }
++        drop hir_free(@h);
++    }
++    drop ast_free(@t);
++    pass ok;
++};
++
++func:run = int32() never fails {
++    // ---- a literal, a literal run, and their bytes
++    if (!(raw holds("a", "(literals (whole 97) (first 97) (inner 97))")))                       { pass 1i32; }   // one `Literal`: every match is `a`
++    if (!(raw holds("abc", "(literals (whole 97 98 99) (first 97) (inner 97 98 99))")))         { pass 2i32; }   // a run, read to the end
++    if (!(raw holds("é", "(literals (whole 195 169) (first 195) (inner 195 169))")))            { pass 3i32; }   // U+00E9, two bytes of UTF-8
++    if (!(raw holds("(?-u)a", "(literals (whole 97) (first 97) (inner 97))")))                  { pass 4i32; }   // a byte: the twin of row 1, the same bytes
++    if (!(raw holds("(?-u)\\xFF", "(literals (whole 255) (first 255) (inner 255))")))           { pass 5i32; }   // a byte past ASCII is itself
++    if (!(raw holds("\\xFF", "(literals (whole 195 191) (first 195) (inner 195 191))")))        { pass 6i32; }   // U+00FF is two bytes: no twin of row 5
++    if (!(raw holds("a(?:bc)", "(literals (whole 97 98 99) (first 97) (inner 97 98 99))")))     { pass 7i32; }   // flattened: row 2
++    // ---- an alternation of plain literals: the bytes the alternatives share at their start
++    if (!(raw holds("foo|bar", "(literals (first 98 102))")))                                   { pass 8i32; }   // nothing shared; `b` or `f` first
++    if (!(raw holds("abc|abd", "(literals (prefix 97 98) (first 97) (inner 97 98))")))          { pass 9i32; }   // `ab` shared, then they part
++    if (!(raw holds("foo|foobar", "(literals (prefix 102 111 111) (first 102) (inner 102 111 111))"))) { pass 10i32; } // `foo` shared, one goes on
++    if (!(raw holds("a|a", "(literals (whole 97) (first 97) (inner 97))")))                     { pass 11i32; }  // every alternative the same bytes: read on
++    if (!(raw holds("[a]|b", "(literals (first 97 98))")))                                      { pass 12i32; }  // two `Literal`s in the normal form
++    if (!(raw holds("a|", "(literals (anywhere))")))                                            { pass 13i32; }  // an `Empty` alternative: no plain literal, and may match empty
++    // ---- the empty string, and repetition
++    if (!(raw holds("", "(literals (anywhere))")))                                              { pass 14i32; }  // `Empty`: a match is empty, anywhere
++    if (!(raw holds("a*", "(literals (anywhere))")))                                            { pass 15i32; }  // minimum 0: the prefix stops, may match empty
++    if (!(raw holds("a+", "(literals (prefix 97) (first 97) (inner 97))")))                     { pass 16i32; }  // its body once, then stops
++    if (!(raw holds("a{3}", "(literals (prefix 97) (first 97) (inner 97))")))                   { pass 17i32; }  // its body once: `aaa` is not read
++    if (!(raw holds("a{1}", "(literals (whole 97) (first 97) (inner 97))")))                    { pass 18i32; }  // minimum and maximum 1: read on
++    if (!(raw holds("a?b", "(literals (first 97 98) (inner 98))")))                             { pass 19i32; }  // `a?` may match empty, so `b` begins one too
++    if (!(raw holds("a*bcd", "(literals (first 97 98) (inner 98 99 100))")))                    { pass 20i32; }  // the run after it, required
++    if (!(raw holds("ab*c", "(literals (prefix 97) (first 97) (inner 97))")))                   { pass 21i32; }  // `a`, then a minimum of 0 stops it; no run longer
++    if (!(raw holds("x(abc)y", "(literals (whole 120 97 98 99 121) (first 120) (inner 120 97 98 99 121))"))) { pass 22i32; } // through the group's body
++    // ---- classes: no prefix, each member's first byte
++    if (!(raw holds("[a-c]", "(literals (first 97 98 99))")))                                   { pass 23i32; }  // a class stops the prefix
++    if (!(raw holds("[a-c]x", "(literals (first 97 98 99) (inner 120))")))                      { pass 24i32; }  // and `x` is required
++    if (!(raw holds("[é-ë]", "(literals (first 195))")))                                        { pass 25i32; }  // three codepoints, one lead byte
++    if (!(raw holds("(?-u)[\\xE9-\\xEB]", "(literals (first 233 234 235))")))                   { pass 26i32; }  // three bytes, each itself
++    if (!(raw holds("(?s).", "(literals (anywhere))")))                                         { pass 27i32; }  // 179 first bytes, past the limit of 64
++    // ---- anchors and boundaries: zero-width, read through
++    if (!(raw holds("^abc", "(literals (whole 97 98 99) (first 97) (inner 97 98 99))")))        { pass 28i32; }  // `^` adds no byte
++    if (!(raw holds("abc$", "(literals (whole 97 98 99) (first 97) (inner 97 98 99))")))        { pass 29i32; }  // nor `$`
++    if (!(raw holds("\\bfoo\\b", "(literals (whole 102 111 111) (first 102) (inner 102 111 111))"))) { pass 30i32; } // nor `\b`
++    if (!(raw holds("(?m)^abc$", "(literals (whole 97 98 99) (first 97) (inner 97 98 99))")))   { pass 31i32; }  // nor the lines' anchors
++    if (!(raw holds("^", "(literals (anywhere))")))                                             { pass 32i32; }  // an anchor alone: every match empty
++    // ---- groups, alternations and repetitions together
++    if (!(raw holds("(a)|b", "(literals (first 97 98))")))                                      { pass 33i32; }  // a group is no plain literal: no prefix
++    if (!(raw holds("(?:ab|cd)ef", "(literals (first 97 99) (inner 101 102))")))                { pass 34i32; }  // nothing shared; `ef` required
++    if (!(raw holds("(?:abc|abd)e", "(literals (prefix 97 98) (first 97) (inner 97 98))")))     { pass 35i32; }  // `ab` shared, then the prefix stops
++    if (!(raw holds("(?:a|b)+", "(literals (first 97 98))")))                                   { pass 36i32; }  // an alternation is no required run
++    if (!(raw holds("a+b+c+", "(literals (prefix 97) (first 97) (inner 97))")))                 { pass 37i32; }  // three runs of one; the prefix first
++    if (!(raw holds("x*(?:abcd)y*", "(literals (first 97 120) (inner 97 98 99 100))")))         { pass 38i32; }  // `x*` may match empty; `abcd` required
++    if (!(raw holds("a(?:b|c)d", "(literals (prefix 97) (first 97) (inner 97))")))              { pass 39i32; }  // `a`, then nothing shared
++    if (!(raw holds("(?:ab)*cd", "(literals (first 97 99) (inner 99 100))")))                   { pass 40i32; }  // minimum 0: `ab` not required
++    if (!(raw holds("(?:ab)+cd", "(literals (prefix 97 98) (first 97) (inner 97 98))")))       { pass 41i32; }  // `ab` and `cd` as long: the prefix
++    if (!(raw holds("a\\bb", "(literals (whole 97 98) (first 97) (inner 97 98))")))             { pass 42i32; }  // `\b` between: read through
++    if (!(raw holds("\\b", "(literals (anywhere))")))                                           { pass 43i32; }  // a boundary alone: empty
++    if (!(raw holds("é|ê", "(literals (prefix 195) (first 195) (inner 195))")))                 { pass 44i32; }  // they share a lead byte
++    if (!(raw holds("(?-u:\\xE9)|é", "(literals (first 195 233))")))                            { pass 45i32; }  // a byte and a codepoint: nothing shared
++    if (!(raw holds("(?-u)abc", "(literals (whole 97 98 99) (first 97) (inner 97 98 99))")))    { pass 46i32; }  // bytes: the twin of row 2
++    if (!(raw holds("a(?:b|c)|ad", "(literals (first 97))")))                                   { pass 47i32; }  // an alternative no run: no prefix
++    if (!(raw holds("a[0-9]+bcdef", "(literals (prefix 97) (first 97) (inner 98 99 100 101 102))"))) { pass 48i32; } // a run longer than the prefix
++    if (!(raw holds("[0-9]ab[0-9]cd", "(literals (first 48 49 50 51 52 53 54 55 56 57) (inner 97 98))"))) { pass 49i32; } // two as long: the first
++    if (!(raw holds("(?:a|)b", "(literals (first 97 98) (inner 98))")))                         { pass 50i32; }  // an alternation that may match empty
++    if (!(raw holds("[a]bc", "(literals (whole 97 98 99) (first 97) (inner 97 98 99))")))       { pass 51i32; }  // `[a]` is `a` in the normal form
++    if (!(raw holds("(?:^a|^b)", "(literals (first 97 98))")))                                  { pass 52i32; }  // alternatives no runs; the anchors first
++    if (!(raw holds("ab?", "(literals (prefix 97) (first 97) (inner 97))")))                    { pass 53i32; }  // `a`, then a minimum of 0
++    if (!(raw holds("[~-Ā]", "(literals (first 126 127 194 195 196))")))                        { pass 54i32; }  // U+007E … U+0100: two of one byte, three lead bytes
++    if (!(raw holds("[ࠀ-𐀀]", "(literals (first 224 225 226 227 228 229 230 231 232 233 234 235 236 237 238 239 240))"))) { pass 55i32; } // U+0800 … U+10000, the surrogates left out
++    pass 0i32;
++};
++
++func:main = int32(cstring[]:_~argv) {
++    exit raw run();
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};

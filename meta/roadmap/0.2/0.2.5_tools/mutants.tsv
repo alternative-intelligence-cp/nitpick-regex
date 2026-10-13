@@ -1,0 +1,103 @@
+# 0.2.5's mutants of the literals -- `src/hir/repr.npk`'s extraction, every facet of H-19 broken alone by a row of its own
+# (a match's bytes, a class's first bytes, the first-byte set's walk and entry, the prefix and an alternation in it, the
+# inner literal), H-20's store and query, and `src/hir/dump.npk`'s section and its reading -- and of step 2's instruments,
+# the fuzz's floors and the pending test's hook: each one rule broken in a copy of a tree, the text matched exactly ONCE or
+# the row is a STOP; `mutants.py` builds every unit below that the tree holds, in the copy, at both legs, and prints the
+# units whose exits differ from the unchanged copy's. TAB-separated; `\n` in a text is a newline. The first column is the
+# step a row runs at: `1`, over the tree at step 1's commit, where all eight of the literals' units are (block 1m).
+# units: hir_literal hir_literal_reference hir_literal_no_root hir_literal_not_extracted hir_literal_frozen hir_literal_fuzz hir_literal_oracle hir_dump
+1	enc-byte-as-codepoint	src/hir/repr.npk	    if (byte) { pass 1i64; }\n    if ((cp >> 7i64) == 0i64) { pass 1i64; }	    if ((cp >> 7i64) == 0i64) { pass 1i64; }
+1	enc-ascii-as-two	src/hir/repr.npk	    if ((cp >> 7i64) == 0i64) { pass 1i64; }	    if ((cp >> 7i64) == 0i64) { pass 2i64; }
+1	enc-two-as-three	src/hir/repr.npk	    if ((cp >> 11i64) == 0i64) { pass 2i64; }	    if ((cp >> 11i64) == 0i64) { pass 3i64; }
+1	enc-three-as-four	src/hir/repr.npk	    if ((cp >> 16i64) == 0i64) { pass 3i64; }	    if ((cp >> 16i64) == 0i64) { pass 4i64; }
+1	enc-four-as-three	src/hir/repr.npk	    if ((cp >> 16i64) == 0i64) { pass 3i64; }\n    pass 4i64;	    if ((cp >> 16i64) == 0i64) { pass 3i64; }\n    pass 3i64;
+1	enc-lead-two	src/hir/repr.npk	{ pass (192i64 | (cp >> 6i64)) =>! uint8; }	{ pass (224i64 | (cp >> 6i64)) =>! uint8; }
+1	enc-lead-three	src/hir/repr.npk	{ pass (224i64 | (cp >> 12i64)) =>! uint8; }	{ pass (240i64 | (cp >> 12i64)) =>! uint8; }
+1	enc-lead-four	src/hir/repr.npk	        pass (240i64 | (cp >> 18i64)) =>! uint8;	        pass (248i64 | (cp >> 18i64)) =>! uint8;
+1	enc-continuation-mark	src/hir/repr.npk	    pass (128i64 | ((cp >> (6i64 * (k - 1i64 - i))) & 63i64)) =>! uint8;	    pass ((cp >> (6i64 * (k - 1i64 - i))) & 63i64) =>! uint8;
+1	enc-continuation-order	src/hir/repr.npk	(cp >> (6i64 * (k - 1i64 - i)))	(cp >> (6i64 * (i - 1i64)))
+1	class-byte-as-codepoint	src/hir/repr.npk	    if (byte) { drop add_span(s, lo, hi); pass NIL; }\n	
+1	class-ascii-past-127	src/hir/repr.npk	        if (top > 127i64) { top = 127i64; }\n	
+1	class-ascii-skipped	src/hir/repr.npk	        drop add_span(s, lo, top);	        discard(top);
+1	class-leads-skipped	src/hir/repr.npk	        drop add_span(s, (raw cp_byte(from, false, 0i64)) => int64, (raw cp_byte(hi, false, 0i64)) => int64);	        discard(from);
+1	class-leads-from-hi	src/hir/repr.npk	        drop add_span(s, (raw cp_byte(from, false, 0i64)) => int64, (raw cp_byte(hi, false, 0i64)) => int64);	        drop add_span(s, (raw cp_byte(hi, false, 0i64)) => int64, (raw cp_byte(hi, false, 0i64)) => int64);
+1	class-leads-to-from	src/hir/repr.npk	        drop add_span(s, (raw cp_byte(from, false, 0i64)) => int64, (raw cp_byte(hi, false, 0i64)) => int64);	        drop add_span(s, (raw cp_byte(from, false, 0i64)) => int64, (raw cp_byte(from, false, 0i64)) => int64);
+1	class-first-range-only	src/hir/repr.npk	            while (r < n.b) decreases n.b - r {	            while (r < 1i64) decreases 1i64 - r {
+1	span-last-byte-dropped	src/hir/repr.npk	    while (b <= to) decreases to - b {	    while (b < to) decreases to - b {
+1	first-literal-last-byte	src/hir/repr.npk	            drop byteset_add(s, raw cp_byte(n.a, byte, 0i64));	            drop byteset_add(s, raw cp_byte(n.a, byte, (raw cp_len(n.a, byte)) - 1i64));
+1	first-repeat-skipped	src/hir/repr.npk	        else if ((n.kind == HirKind.Group) || (n.kind == HirKind.Repeat)) {	        else if (n.kind == HirKind.Group) {
+1	first-group-skipped	src/hir/repr.npk	        else if ((n.kind == HirKind.Group) || (n.kind == HirKind.Repeat)) {	        else if (n.kind == HirKind.Repeat) {
+1	first-alternative-first-only	src/hir/repr.npk	        else if ((t.op == LIT_ALT) && (n.next != HIR_NONE)) {	        else if ((t.op == LIT_ALT) && (n.next == -7i64)) {
+1	first-piece-first-only	src/hir/repr.npk	            if (((raw hir_props(h, t.node)) & HIR_CAN_MATCH_EMPTY) != 0u32) {	            if (((raw hir_props(h, t.node)) & HIR_CAN_MATCH_EMPTY) == 7u32) {
+1	first-piece-every	src/hir/repr.npk	            if (((raw hir_props(h, t.node)) & HIR_CAN_MATCH_EMPTY) != 0u32) {	            if (true) {
+1	first-despite-empty	src/hir/repr.npk	    if ((root & HIR_CAN_MATCH_EMPTY) != 0u32) {	    if ((root & HIR_CAN_MATCH_EMPTY) == 7u32) {
+1	first-limit-inclusive	src/hir/repr.npk	        if (c > NREGEX_LITERAL_LIMIT) {	        if (c >= NREGEX_LITERAL_LIMIT) {
+1	first-no-limit	src/hir/repr.npk	        if (c > NREGEX_LITERAL_LIMIT) {	        if (c > 256i64) {
+1	first-members-wrong	src/hir/repr.npk	                drop vec_push(@h.lits, b =>! uint8);	                drop vec_push(@h.lits, 0u8);
+1	first-budget-short	src/hir/repr.npk	    int64:budget = h.nodes.count - 1i64;\n    int64:steps = 0i64;\n    while (todo.count > 0i64) decreases budget - steps {\n        steps = steps + 1i64;\n        LitStep:t = raw vec_pop(@todo);\n        HirNode:n = raw vec_get(h.nodes, t.node);\n        bool:byte	    int64:budget = h.nodes.count - 2i64;\n    int64:steps = 0i64;\n    while (todo.count > 0i64) decreases budget - steps {\n        steps = steps + 1i64;\n        LitStep:t = raw vec_pop(@todo);\n        HirNode:n = raw vec_get(h.nodes, t.node);\n        bool:byte
+1	prefix-literal-skipped	src/hir/repr.npk	                        drop vec_push(@h.lits, raw cp_byte(n.a, byte, i));	                        discard(raw cp_byte(n.a, byte, i));
+1	prefix-anchor-stops	src/hir/repr.npk	            else if (n.kind == HirKind.Alternate) { going = raw shared_start(h, n, base); }	            else if (n.kind == HirKind.Anchor) { going = false; }\n            else if (n.kind == HirKind.Alternate) { going = raw shared_start(h, n, base); }
+1	prefix-boundary-stops	src/hir/repr.npk	            else if (n.kind == HirKind.Alternate) { going = raw shared_start(h, n, base); }	            else if (n.kind == HirKind.WordBoundary) { going = false; }\n            else if (n.kind == HirKind.Alternate) { going = raw shared_start(h, n, base); }
+1	prefix-empty-stops	src/hir/repr.npk	            else if (n.kind == HirKind.Alternate) { going = raw shared_start(h, n, base); }	            else if (n.kind == HirKind.Empty) { going = false; }\n            else if (n.kind == HirKind.Alternate) { going = raw shared_start(h, n, base); }
+1	prefix-class-read-through	src/hir/repr.npk	            else if (n.kind == HirKind.Class) { going = false; }	            else if (n.kind == HirKind.Class) { discard(0i64); }
+1	prefix-group-stops	src/hir/repr.npk	            else if (n.kind == HirKind.Group) {\n                drop vec_push(@todo, LitStep{ node: n.a, op: LIT_ONE });\n            }\n            else if (n.kind == HirKind.Repeat) {	            else if (n.kind == HirKind.Group) {\n                going = false;\n            }\n            else if (n.kind == HirKind.Repeat) {
+1	prefix-repeat-zero-read	src/hir/repr.npk	                if (n.b == 0i64) { going = false; }	                if (n.b == 7i64) { going = false; }
+1	prefix-repeat-body-unread	src/hir/repr.npk	                    drop vec_push(@todo, LitStep{ node: t.node, op: LIT_AFTER });\n                    drop vec_push(@todo, LitStep{ node: n.a, op: LIT_ONE });	                    drop vec_push(@todo, LitStep{ node: t.node, op: LIT_AFTER });
+1	prefix-repeat-read-on	src/hir/repr.npk	            if (n.c != 1i64) { going = false; }	            if (n.c == 7i64) { going = false; }
+1	prefix-repeat-one-stops	src/hir/repr.npk	            if (n.c != 1i64) { going = false; }	            if (true) { going = false; }
+1	prefix-first-piece-only	src/hir/repr.npk	            if ((t.op == LIT_PIECE) && (n.next != HIR_NONE)) {\n                drop vec_push(@todo, LitStep{ node: n.next, op: LIT_PIECE });\n            }\n            if (n.kind == HirKind.Literal) {\n                bool:byte	            if ((t.op == LIT_PIECE) && (n.next == -7i64)) {\n                drop vec_push(@todo, LitStep{ node: n.next, op: LIT_PIECE });\n            }\n            if (n.kind == HirKind.Literal) {\n                bool:byte
+1	prefix-bound-inclusive	src/hir/repr.npk	                    if ((h.lits.count - base) >= NREGEX_LITERAL_BYTES) { going = false; }	                    if ((h.lits.count - base) > NREGEX_LITERAL_BYTES) { going = false; }
+1	prefix-bound-short	src/hir/repr.npk	                    if ((h.lits.count - base) >= NREGEX_LITERAL_BYTES) { going = false; }	                    if ((h.lits.count - base) >= (NREGEX_LITERAL_BYTES - 1i64)) { going = false; }
+1	prefix-budget-short	src/hir/repr.npk	    int64:budget = 2i64 * h.nodes.count - 1i64;\n    int64:steps = 0i64;\n    bool:going = true;	    int64:budget = h.nodes.count - 1i64;\n    int64:steps = 0i64;\n    bool:going = true;
+1	whole-never	src/hir/repr.npk	        if (whole) { role = HIR_LITERAL_WHOLE; }	        if (false) { role = HIR_LITERAL_WHOLE; }
+1	whole-always	src/hir/repr.npk	        if (whole) { role = HIR_LITERAL_WHOLE; }	        if (true) { role = HIR_LITERAL_WHOLE; }
+1	prefix-empty-written	src/hir/repr.npk	    if (plen > 0i64) {	    if (plen >= 0i64) {
+1	alt-any-shape	src/hir/repr.npk	        bool:shape = (x.kind == HirKind.Literal) || (x.kind == HirKind.Concat);	        bool:shape = true;
+1	alt-fact-unread	src/hir/repr.npk	        if ((!shape) || (((raw hir_props(h, m)) & HIR_IS_ALTERNATION_LITERAL) == 0u32)) { pass false; }	        if (!shape) { pass false; }
+1	alt-of-none-read-on	src/hir/repr.npk	    if ((n.b == 0i64) || (n.a == HIR_NONE)) { pass false; }	    if ((n.b == 0i64) || (n.a == HIR_NONE)) { pass true; }
+1	alt-first-only	src/hir/repr.npk	        common = raw plain_common(h, m, start, common);	        discard(raw plain_common(h, m, start, common));
+1	alt-same-length-unread	src/hir/repr.npk	        if ((common != total) || ((raw plain_len(h, m)) != total)) { same = false; }	        if (common != total) { same = false; }
+1	alt-same-bytes-unread	src/hir/repr.npk	        if ((common != total) || ((raw plain_len(h, m)) != total)) { same = false; }	        if ((raw plain_len(h, m)) != total) { same = false; }
+1	alt-first-cut-read-on	src/hir/repr.npk	    bool:same = total == common;	    bool:same = true;
+1	alt-room-unbounded	src/hir/repr.npk	    int64:total = raw plain_put(h, n.a, NREGEX_LITERAL_BYTES - (start - base));	    int64:total = raw plain_put(h, n.a, 1000000i64);
+1	alt-not-cut-back	src/hir/repr.npk	    drop vec_truncate(@h.lits, start + common);	    discard(start + common);
+1	alt-common-unbounded	src/hir/repr.npk	            if (same >= bound) { pass same; }\n	
+1	inner-prefix-unread	src/hir/repr.npk	    int64:best = plen;	    int64:best = 0i64;
+1	inner-run-one-piece	src/hir/repr.npk	                if (y.kind == HirKind.Literal) {\n                    steps = steps + 1i64;	                if (y.kind == HirKind.Empty) {\n                    steps = steps + 1i64;
+1	inner-run-any-piece	src/hir/repr.npk	                if (y.kind == HirKind.Literal) {\n                    steps = steps + 1i64;	                if (true) {\n                    steps = steps + 1i64;
+1	inner-group-not-required	src/hir/repr.npk	            if (n.kind == HirKind.Group) {\n                drop vec_push(@todo, LitStep{ node: n.a, op: LIT_ONE });\n            }\n            else if ((n.kind == HirKind.Repeat) && (n.b > 0i64)) {	            if (n.kind == HirKind.Group) {\n                discard(0i64);\n            }\n            else if ((n.kind == HirKind.Repeat) && (n.b > 0i64)) {
+1	inner-repeat-not-required	src/hir/repr.npk	            else if ((n.kind == HirKind.Repeat) && (n.b > 0i64)) {	            else if ((n.kind == HirKind.Repeat) && (n.b > 7i64)) {
+1	inner-repeat-zero-required	src/hir/repr.npk	            else if ((n.kind == HirKind.Repeat) && (n.b > 0i64)) {	            else if ((n.kind == HirKind.Repeat) && (n.b >= 0i64)) {
+1	inner-alternative-required	src/hir/repr.npk	            else if ((n.kind == HirKind.Concat) && (n.a != HIR_NONE)) {\n                drop vec_push(@todo, LitStep{ node: n.a, op: LIT_PIECE });\n            }\n        }\n    }\n    drop vec_free(@todo);\n    if (best == 0i64)	            else if ((n.kind == HirKind.Concat) && (n.a != HIR_NONE)) {\n                drop vec_push(@todo, LitStep{ node: n.a, op: LIT_PIECE });\n            }\n            else if ((n.kind == HirKind.Alternate) && (n.a != HIR_NONE)) {\n                drop vec_push(@todo, LitStep{ node: n.a, op: LIT_ONE });\n            }\n        }\n    }\n    drop vec_free(@todo);\n    if (best == 0i64)
+1	inner-piece-first-only	src/hir/repr.npk	            if ((t.op == LIT_PIECE) && (n.next != HIR_NONE)) {\n                drop vec_push(@todo, LitStep{ node: n.next, op: LIT_PIECE });\n            }\n            if (n.kind == HirKind.Group) {	            if ((t.op == LIT_PIECE) && (n.next == -7i64)) {\n                drop vec_push(@todo, LitStep{ node: n.next, op: LIT_PIECE });\n            }\n            if (n.kind == HirKind.Group) {
+1	inner-after-run-skipped	src/hir/repr.npk	            if (m != HIR_NONE) { drop vec_push(@todo, LitStep{ node: m, op: LIT_PIECE }); }	            discard(m);
+1	inner-ties-to-later	src/hir/repr.npk	            if (len > best) {	            if (len >= best) {
+1	inner-uncounted	src/hir/repr.npk	            if (len > NREGEX_LITERAL_BYTES) { len = NREGEX_LITERAL_BYTES; }\n	
+1	inner-writer-unbounded	src/hir/repr.npk	            if ((h.lits.count - off) < NREGEX_LITERAL_BYTES) { drop vec_push(@h.lits, raw cp_byte(y.a, byte, q)); }	            drop vec_push(@h.lits, raw cp_byte(y.a, byte, q));
+1	inner-empty-written	src/hir/repr.npk	    if (best == 0i64) { pass NIL; }	    if (best == -7i64) { pass NIL; }
+1	inner-budget-short	src/hir/repr.npk	    int64:budget = h.nodes.count - 1i64;\n    int64:steps = 0i64;\n    while (todo.count > 0i64) decreases budget - steps {\n        steps = steps + 1i64;\n        LitStep:t = raw vec_pop(@todo);\n        HirNode:n = raw vec_get(h.nodes, t.node);\n        if (n.kind == HirKind.Literal) {	    int64:budget = h.nodes.count - 2i64;\n    int64:steps = 0i64;\n    while (todo.count > 0i64) decreases budget - steps {\n        steps = steps + 1i64;\n        LitStep:t = raw vec_pop(@todo);\n        HirNode:n = raw vec_get(h.nodes, t.node);\n        if (n.kind == HirKind.Literal) {
+1	query-never-extracts	src/hir/repr.npk	    if (h.literals.count == 0i64) { drop extract_literals(h); }	    if (h.literals.count == 7i64) { drop extract_literals(h); }
+1	query-always-extracts	src/hir/repr.npk	    if (h.literals.count == 0i64) { drop extract_literals(h); }	    if (true) { drop extract_literals(h); }
+1	query-no-root-answers-none	src/hir/repr.npk	    if (h.literals.count == 0i64) { drop extract_literals(h); }	    if (h.root == HIR_NONE) { pass 0i64; }\n    if (h.literals.count == 0i64) { drop extract_literals(h); }
+1	extract-facts-unasked	src/hir/repr.npk	    uint32:root = raw hir_props(h, h.root);	    uint32:root = 0u32;
+1	extract-says-nothing	src/hir/repr.npk	    uint32:root = raw hir_props(h, h.root);\n    bool:whole = raw prefix_bytes(h);	    uint32:root = raw hir_props(h, h.root);\n    if (true) { drop vec_push(@h.literals, Literal{ role: HIR_LITERAL_ANYWHERE, off: 0i64, len: 0i64 }); pass NIL; }\n    bool:whole = raw prefix_bytes(h);
+1	count-always-none	src/hir/repr.npk	pub func:hir_literal_count = int64(Hir:h) never fails {\n    pass h.literals.count;	pub func:hir_literal_count = int64(Hir:h) never fails {\n    pass 0i64;
+1	free-keeps-literals	src/hir/repr.npk	    drop vec_free(@h.literals);\n	
+1	free-keeps-lits	src/hir/repr.npk	    drop vec_free(@h.lits);\n	
+1	dump-no-section	src/hir/dump.npk	    drop write_literals(h, out);\n    pass NIL;	    pass NIL;
+1	dump-section-always	src/hir/dump.npk	    if (n == 0i64) { pass NIL; }\n    drop put(out, " (literals");	    drop put(out, " (literals");
+1	dump-prefix-as-whole	src/hir/dump.npk	        if (l.role == HIR_LITERAL_PREFIX) { drop put(out, " (prefix"); }	        if (l.role == HIR_LITERAL_PREFIX) { drop put(out, " (whole"); }
+1	dump-whole-as-prefix	src/hir/dump.npk	        else if (l.role == HIR_LITERAL_WHOLE) { drop put(out, " (whole"); }	        else if (l.role == HIR_LITERAL_WHOLE) { drop put(out, " (prefix"); }
+1	dump-first-as-anywhere	src/hir/dump.npk	        else if (l.role == HIR_LITERAL_FIRST) { drop put(out, " (first"); }	        else if (l.role == HIR_LITERAL_FIRST) { drop put(out, " (anywhere"); }
+1	dump-anywhere-as-first	src/hir/dump.npk	        else if (l.role == HIR_LITERAL_ANYWHERE) { drop put(out, " (anywhere"); }	        else if (l.role == HIR_LITERAL_ANYWHERE) { drop put(out, " (first"); }
+1	dump-inner-as-prefix	src/hir/dump.npk	        else if (l.role == HIR_LITERAL_INNER) { drop put(out, " (inner"); }	        else if (l.role == HIR_LITERAL_INNER) { drop put(out, " (prefix"); }
+1	dump-bytes-unwritten	src/hir/dump.npk	            drop num(out, (raw hir_literal_byte(<-h, l.off + i)) => int64);	            drop num(out, 0i64);
+1	read-any-byte-after-a-space	src/hir/dump.npk	        if (((raw byte_at(text, r.pos)) != CH_SPACE) || ((raw byte_at(text, r.pos + 1i64)) != CH_LPAREN)) { pass r.pos; }	        if ((raw byte_at(text, r.pos)) != CH_SPACE) { pass r.pos; }
+1	read-trusts-section	src/hir/dump.npk	        int64:e2 = raw read_literals(text, out, r.top, r.pos);	        int64:e2 = HIR_NONE;
+1	read-ignores-trailing	src/hir/dump.npk	    if ((at + w) < text.len) { pass at + w; }\n	
+1	read-offset-one-past	src/hir/dump.npk	        if (text[at + k] != (raw bytes_get(@want, k))) { pass at + k; }	        if (text[at + k] != (raw bytes_get(@want, k))) { pass at + k + 1i64; }
+1	read-short-at-section	src/hir/dump.npk	        if ((at + k) >= text.len) { pass text.len; }	        if ((at + k) >= text.len) { pass at; }
+1	read-roots-before-holding	src/hir/dump.npk	        int64:e2 = raw read_literals(text, out, r.top, r.pos);	        drop hir_set_root(out, r.top);\n        int64:e2 = raw read_literals(text, out, r.top, r.pos);
+1	read-leaves-out-unextracted	src/hir/dump.npk	        discard(raw hir_literals(out));\n        pass HIR_NONE;\n    }	        pass HIR_NONE;\n    }
+1	oracle-hook-finds-nothing	tests/unit/hir_literal_oracle.npk	    pass NO_ORACLE;\n};	    pass 0i64;\n};
+1	oracle-hook-empty-match	tests/unit/hir_literal_oracle.npk	    pass NO_ORACLE;\n};	    drop vec_set(slots, 0i64, from);\n    drop vec_set(slots, 1i64, from);\n    pass 1i64;\n};

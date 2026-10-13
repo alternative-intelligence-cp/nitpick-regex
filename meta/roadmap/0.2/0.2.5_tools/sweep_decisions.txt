@@ -1,0 +1,4 @@
+# 0.2.5's sweep of the decision log alone: the claims of RX-224, RX-225, RX-236 and RX-239 that step 1's rules extend, in
+# their own words -- `Literal` left to cycle 0.2.5, the dump's one line of the tree, the three counts that cover every
+# field, a tree's one text -- which a search for removed lines cannot see.
+holds no .?literals.? until|left to cycle 0\.2\.5|writes the tree under the root as one line|three counts that cover every field|a tree has one text before and after|one text before and after
