@@ -165,8 +165,9 @@ echo "§1.5 after step 4:"; tchecks "$F/new"
 
 # ---- §1.6 the units in the patched copy, both legs
 echo "§1.6 after step 4:"
-for u in hir_normalise hir_normalise_not_fresh hir_normalise_stray_range hir_normalise_not_a_tree hir_normalise_gate \
-         hir_normalise_oracle hir_build hir_dump hir_unit hir_build_classes hir_build_fold; do
+for u in hir_normalise hir_normalise_not_fresh hir_normalise_stray_node hir_normalise_stray_group hir_normalise_stray_range \
+         hir_normalise_not_a_tree hir_normalise_gate hir_normalise_oracle hir_build hir_dump hir_unit hir_build_classes \
+         hir_build_fold; do
   run4 "$F/new/tests/unit/$u.npk"; done | sed 's/^/  /'
 # and what FRESH covers: the fields of `Hir` each public verb of `repr.npk` writes, read from its text -- no other module
 # reads or writes a hidden field (`tests/rejection/hir_nodes_read.npk`) -- `hir_set_root`'s stops, and the counts

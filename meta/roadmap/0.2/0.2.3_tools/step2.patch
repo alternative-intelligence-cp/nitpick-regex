@@ -35,7 +35,7 @@ index 0d95470b754cc9157e23604bee27bd4d69d834d7..45da4d6db3a912b403359f1e5c935900
  two hooks' tests, pending on cycle 0.3.4.)*
 +*(@@DATE023@@, cycle 0.2.3 — RX-237: three since, the third normalisation's oracle test, pending on cycle 0.5.5.)*
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index 71d5a2d4e5c1716ae7a18fe1f6a32d3004da9739..25f6df6c28021221a029d51000632ff86d3d1035 100644
+index a6555f29543bca5669f6b2e01c804e4c1003a485..e1e4d9a9fc05b32131f6eaf2b20e4b1c58b7fe0c 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
 @@ -6117,6 +6117,9 @@ three of their pins with it, and wants its own decision and a case that holds th
@@ -48,7 +48,7 @@ index 71d5a2d4e5c1716ae7a18fe1f6a32d3004da9739..25f6df6c28021221a029d51000632ff8
  **2026-10-10, cycle 0.2.2 (the plan's PD-107), at compiler `7e91730`** — RX-015, `HIR.md` H-7, H-8 and H-16, `SAFETY.md` S-12
  and S-13, `SYNTAX.md` Y-25, Y-32 and Y-34, `COMPILE.md` C-14, and the cycle README's 0.2.2 boxes. RX-015 and H-8 say the
  product is checked as the HIR is built, multiplying the enclosing factors on the way down, and S-13 that the multiply is a
-@@ -6297,3 +6300,48 @@ that `Alternate` is built: a node more than the tree, or a verb that pops the ar
+@@ -6302,3 +6305,48 @@ that `Alternate` is built: a node more than the tree, or a verb that pops the ar
  reads** — H-15's round trip, `hir_dump(hir_read(t))` is `t`; **the table rebuilt from the tree's groups** — the copy is
  the table as built, names and all, and no group moves; **an insertion sort** — `n²` over a class nothing bounds but the
  pattern's length until cycle 0.3.4 counts `NREGEX_CLASS_RANGES`.

@@ -1,8 +1,8 @@
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index 6ef5fd2fbc3190924767b23999414367b71506f1..71d5a2d4e5c1716ae7a18fe1f6a32d3004da9739 100644
+index 6ef5fd2fbc3190924767b23999414367b71506f1..a6555f29543bca5669f6b2e01c804e4c1003a485 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
-@@ -6204,3 +6204,96 @@ touched. The 0.6 README's 0.6.2 box is dated: the real emission takes the stand-
+@@ -6204,3 +6204,101 @@ touched. The 0.6 README's 0.6.2 box is dated: the real emission takes the stand-
  request leaves it flat; **a cap over the build alone, nothing stood in for** — nothing in the tree could make it fail;
  **one capped unit, no control** — a cap the bomb's request also passes says nothing, the PLAYBOOK's lesson; **the test
  pending until cycle 0.6.2** — the build's half is testable now, and a pending unit is outside the count.
@@ -72,17 +72,22 @@ index 6ef5fd2fbc3190924767b23999414367b71506f1..71d5a2d4e5c1716ae7a18fe1f6a32d30
 +plus one never overflows. **Total over what `hir_read` reads** (H-15): a `(concat)` is `Empty` and a `(concat X)` is
 +`X`; a list of one alternative or of none, and a class of no range, stay as read, since no identity rewrites them. **A
 +fixed point**: a normal form normalised again is itself. P-6's site *"after HIR normalisation"* is `leave_class`, a
-+comment by P-1b until cycle 0.8. Units `hir_normalise` (0), `hir_normalise_not_fresh` (94), `hir_normalise_stray_range`
-+(94) and `hir_normalise_not_a_tree` (108); H-1, H-15, H-16, Y-15 and P-6 dated, and the headers of `build.npk`,
-+`dump.npk` and `class_range.npk`, `hir.npk`'s header and re-exports, and `src/hir/README.md`.
++comment by P-1b until cycle 0.8. Units `hir_normalise` (0); `hir_normalise_not_fresh` (94), an arena read into before,
++and `hir_normalise_stray_node`, `hir_normalise_stray_group` and `hir_normalise_stray_range` (94), each an arena holding
++a node, a group or a range and nothing else, which trips one count alone; and `hir_normalise_not_a_tree` (108); H-1,
++H-15, H-16, Y-15 and P-6 dated, and the headers of `build.npk`, `dump.npk` and `class_range.npk`, `hir.npk`'s header and
++re-exports, and `src/hir/README.md`.
 +
-+**Measured at `7e91730`.** `hir_normalise` 0, `hir_normalise_not_fresh` and `hir_normalise_stray_range` 94, and
-+`hir_normalise_not_a_tree` 108, at both legs; without the stop's range count, `(class 97-99)` normalised into an `out`
-+holding `5-7` and nothing else dumps `(class 5-7)` and does not stop, and `hir_normalise_stray_range` exits 2. Every
-+normal form `hir_normalise.npk` makes leaves the tree read unchanged, dump for dump, holds its tree and its classes'
-+ranges and nothing else, copies every group name for name, and is its own normal form, normalised again and read back;
-+its 4 000 seeded classes — 3 240 of them merged or sorted, 143 left a `Literal` — each hold exactly the set their ranges
-+covered, and two classes of 17 000 members written backwards sort to one range and to 17 000.
++**Measured at `7e91730`.** `hir_normalise` 0, the four freshness units 94 and `hir_normalise_not_a_tree` 108, at both
++legs; and each of the stop's three counts is the only one a unit trips: without the node count a stray node stays beside
++the tree and `hir_normalise_stray_node` exits 2, without the group count the normal form's group 1 is named with `out`'s
++text and `hir_normalise_stray_group` exits 2, and without the range count `(class 97-99)` normalised into an `out`
++holding `5-7` and nothing else dumps `(class 5-7)` and `hir_normalise_stray_range` exits 2 — `hir_normalise_not_fresh`
++stops at 94 under each, since its arena trips two. Every normal form `hir_normalise.npk` makes leaves the tree read
++unchanged, dump for dump, holds its tree and its classes' ranges and nothing else, copies every group name for name, and
++is its own normal form, normalised again and read back; its 4 000 seeded classes — 3 240 of them merged or sorted, 143
++left a `Literal` — each hold exactly the set their ranges covered, and two classes of 17 000 members written backwards
++sort to one range and to 17 000.
 +
 +*Alternatives declined:* **an `out` held to its node and group counts alone** — the first cut's: a range is a field of
 +the arena too, and the first class reads a range `out` held — `(class 97-99)` normalised into an `out` holding `5-7`
@@ -1320,12 +1325,122 @@ index 0000000000000000000000000000000000000000..c8d9c4c0856b4f230c7ff839c79101a6
 +    }
 +    exit 9i32;
 +};
+diff --git a/tests/unit/hir_normalise_stray_group.npk b/tests/unit/hir_normalise_stray_group.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..320acde4a1cad2b1db16466bfbffa2aab7881ca4
+--- /dev/null
++++ b/tests/unit/hir_normalise_stray_group.npk
+@@ -0,0 +1,50 @@
++// expect-exit: 94
++//
++// AN ARENA HOLDING A GROUP AND NOTHING ELSE IS NOT FRESH, AND NORMALISING INTO IT STOPS. Cycle 0.2.3,
++// RX-236; `HIR.md` H-13.
++//
++// `hir_normalise` copies the groups of the tree it reads into `out` past the ones `out` holds, so a
++// group `out` held already would take the first number: `h`'s group 1 would land at 2, and the normal
++// form's `(group 1 …)` would name `out`'s group 1 -- another group's text. Here `out` holds one group,
++// named `y`, and no node and no range: the node count and the range count are a fresh arena's, the group
++// count is not, and `hir_normalise` traps `OutOfBounds` (94) through `vec_oob` before it writes
++// anything -- the stop's group count alone, as `hir_normalise_stray_node.npk` holds its node count and
++// `hir_normalise_stray_range.npk` its range count. Were it not stopped, this unit would exit 2 when the
++// normal form's group 1 was named `y`, and 3 when it was not.
++mod:hir_normalise_stray_group;
++
++use "../../src/core/core.npk".*;
++use "../../src/hir/hir.npk".*;
++
++func:main = int32(cstring[]:_~argv) {
++    Hir:h = raw hir_init(4i64);
++    discard(raw hir_read(string_bytes("(group 1 x (literal 97))"), @h));
++    Hir:out = raw hir_init(4i64);
++    discard(raw hir_add_group(@out, string_bytes("y")));
++    drop hir_normalise(@h, @out);
++    Bytes:got = raw bytes_init(4i64);
++    drop hir_put_name(@out, 1i64, @got);
++    int32:e = 3i32;
++    if (((raw bytes_len(@got)) == 1i64) && ((raw bytes_get(@got, 0i64)) == 121u8)) { e = 2i32; }
++    drop hir_free(@out);
++    drop hir_free(@h);
++    exit e;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/hir_normalise_stray_node.npk b/tests/unit/hir_normalise_stray_node.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..6b1dca06ae65741dde296da8f6d963d1614e1281
+--- /dev/null
++++ b/tests/unit/hir_normalise_stray_node.npk
+@@ -0,0 +1,48 @@
++// expect-exit: 94
++//
++// AN ARENA HOLDING A NODE AND NOTHING ELSE IS NOT FRESH, AND NORMALISING INTO IT STOPS. Cycle 0.2.3,
++// RX-236; `HIR.md` H-13 and H-16.
++//
++// `hir_normalise` pushes the normal form's nodes after whatever `out` holds, so a node `out` held
++// already would stay in the arena beside the tree, reached from no root: the arena would hold more than
++// the tree (H-16). Here `out` holds one `Empty` node, no range and group 0 alone: the range count and the
++// group count are a fresh arena's, the node count is not, and `hir_normalise` traps `OutOfBounds` (94)
++// through `vec_oob` before it writes anything -- the stop's node count alone, as
++// `hir_normalise_stray_group.npk` holds its group count and `hir_normalise_stray_range.npk` its range
++// count. Were it not stopped, this unit would exit 2 when the stray node stayed beside the tree, and 3
++// when it did not.
++mod:hir_normalise_stray_node;
++
++use "../../src/core/core.npk".*;
++use "../../src/hir/hir.npk".*;
++
++func:main = int32(cstring[]:_~argv) {
++    Hir:h = raw hir_init(4i64);
++    discard(raw hir_read(string_bytes("(literal 97)"), @h));
++    Hir:out = raw hir_init(4i64);
++    discard(raw hir_push(@out, HirNode{ kind: HirKind.Empty, flags: 0u32, a: 0i64, b: 0i64, c: 0i64, next: HIR_NONE }));
++    drop hir_normalise(@h, @out);
++    int32:e = 3i32;
++    if ((raw hir_len(out)) == 2i64) { e = 2i32; }
++    drop hir_free(@out);
++    drop hir_free(@h);
++    exit e;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
 diff --git a/tests/unit/hir_normalise_stray_range.npk b/tests/unit/hir_normalise_stray_range.npk
 new file mode 100644
-index 0000000000000000000000000000000000000000..fa6f94e2f8390cce0e9aa3bb26fda5119279a1a7
+index 0000000000000000000000000000000000000000..d0b76b3243c51f92175523e5c0cc62e8457b3aa6
 --- /dev/null
 +++ b/tests/unit/hir_normalise_stray_range.npk
-@@ -0,0 +1,49 @@
+@@ -0,0 +1,50 @@
 +// expect-exit: 94
 +//
 +// AN ARENA HOLDING A RANGE AND NOTHING ELSE IS NOT FRESH, AND NORMALISING INTO IT STOPS. Cycle 0.2.3,
@@ -1335,9 +1450,10 @@ index 0000000000000000000000000000000000000000..fa6f94e2f8390cce0e9aa3bb26fda511
 +// range `out` held already would be read by the first class: `(class 97-99)` normalised into an `out`
 +// holding `5-7` would dump `(class 5-7)` -- a wrong class, and no stop. Here `out` holds that one range,
 +// no node and group 0 alone: the node count and the group count are a fresh arena's, the range count is
-+// not, and `hir_normalise` traps `OutOfBounds` (94) through `vec_oob`, as `hir_normalise_not_fresh.npk`
-+// does for an arena read into before, before it writes anything. Were it not stopped, this unit would
-+// exit 2 when the class read the stray range, and 3 when it did not.
++// not, and `hir_normalise` traps `OutOfBounds` (94) through `vec_oob` before it writes anything -- the
++// stop's range count alone, as `hir_normalise_stray_node.npk` holds its node count and
++// `hir_normalise_stray_group.npk` its group count. Were it not stopped, this unit would exit 2 when the
++// class read the stray range, and 3 when it did not.
 +mod:hir_normalise_stray_range;
 +
 +use "../../src/core/core.npk".*;
