@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
-"""0.2.5 -- THE OPERATOR SWEEP, the planner's check that the mutant table's facets are all the code has (§4.1): every
-relational, logical, arithmetic and bitwise operator, every integer constant (one up and one down), every negation and
-boolean, and every statement that is an assignment, a `drop` or a `discard` of the literals' code -- `repr.npk` from
-its `---- the literals` section to `hir_literal_byte`, `hir_free`'s two lines, and `dump.npk`'s `write_literals`,
-`read_literals`, `read_run`'s tail and `hir_dump`'s call -- mutated ONCE each, in a copy of <tree>, built at -O0 and run
-against the eight units of `mutants.tsv`'s `# units:` line in that order, stopping at the first whose exit differs from
-the unchanged copy's.
+"""0.2.5 -- THE OPERATOR SWEEP, the planner's sweep beneath the mutant table (§4.1), over these mutations and no others:
+each relational operator written between spaces replaced by one other (`<` and `<=`, `>` and `>=`, `==` and `!=`, each
+by its partner); each `&&`, `||`, `+`, `-`, `|` and `&` between spaces by its counterpart; each typed integer literal
+one up and, above 0, one down; each `!` before a name or a `(` dropped; each `true` and `false` flipped; and each
+statement that assigns, `drop`s or `discard`s removed -- in the literals' code: `repr.npk` from its `---- the literals`
+section to `hir_literal_byte`, `hir_free`'s two lines, and `dump.npk`'s `write_literals`, `read_literals`, `read_run`'s
+tail and `hir_dump`'s call -- each ONCE, in a copy of <tree>, built at -O0 and run against the eight units of
+`mutants.tsv`'s `# units:` line in that order, stopping at the first whose exit differs from the unchanged copy's.
+Mutations of other kinds -- a relational operator's other replacements, `*`, a named constant, a call's argument, a
+field read for another, a condition forced, a variable for another -- it does not make; §4.1 says what lies there.
 
     python3 -B opsweep.py <tree> [<jobs>]
 
 It prints how many mutants were red, refused by `npkc` and left, and then every one left -- file, line and edit -- for
-§4.1 to name: each is an equivalent mutant there, or a facet the table lacks. `$NPKC`, `$NPKRT` and `$A` come from the
-environment (`env.sh`), `llc` and `ld.lld` from PATH; the copies are made under `$A/ops/` and removed. Not a block: no
-Expect quotes it, and its count is the plan's §4.1 and §8.
+§4.1 to name: each is an equivalent mutant there, or a facet the units do not hold. `$NPKC`, `$NPKRT` and `$A` come from
+the environment (`env.sh`), `llc` and `ld.lld` from PATH; the copies are made under `$A/ops/` and removed. Not a block:
+no Expect quotes it, and its count is the plan's §4.1 and §8.
 """
 import concurrent.futures
 import os

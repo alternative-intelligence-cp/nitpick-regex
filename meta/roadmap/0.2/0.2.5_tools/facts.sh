@@ -399,7 +399,10 @@ gone = ["int64:limit", "2047i64", "65535i64", "U+07FF and U+FFFF", "(n.b != 1i64
         # and plan verification 1's fix: the counts and words it replaced, and its own drafts' (§8)
         "every facet of H-19's words", "seventy rows", "twenty-three rows", "everywhere 13", "20 … 26",
         "a vector's first capacity", "one step to spare", "an edge's form that adds an empty span",
-        "mutated once by the plan's operator sweep", "node 6"]
+        "mutated once by the plan's operator sweep", "node 6",
+        # and plan verification 2's fix: the claims it narrowed, and the counts it moved
+        "is broken by a row of its own", "one hundred and five rows", "mutates every operator, constant and statement",
+        "Beneath the facets", "twenty-four rows", "every node, and `Literal` 24 bytes"]
 text = "".join(added)
 print("§1.12 the drafts' replaced words, in the patches' %d added lines: " % len(added) + "; ".join("%s %d" % (g, text.count(g)) for g in gone))
 PY
@@ -411,7 +414,7 @@ rows = [l.split("\t")[1] for l in open(sys.argv[1], encoding="utf-8") if l.strip
 def rule(n):
     if n.split("-")[0] in ("enc", "class", "span", "first", "prefix", "whole", "alt", "inner"):
         return "H-19"
-    if n.split("-")[0] in ("query", "extract", "count", "free", "dump", "read"):
+    if n.split("-")[0] in ("query", "extract", "count", "free", "dump", "read", "role"):
         return "H-20"
     return "the hook"
 c = collections.Counter(rule(n) for n in rows)

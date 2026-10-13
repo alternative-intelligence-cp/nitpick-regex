@@ -1,13 +1,14 @@
-# 0.2.5's mutants of the literals -- `src/hir/repr.npk`'s extraction, every facet of H-19 as the code implements it
-# broken alone by a row of its own (a match's bytes, each length's range and count, each lead's place, mark and payload,
-# a continuation's mark, six bits and order; a class's first bytes and each side of the ASCII edge; the first-byte set's
-# walk and entry; the prefix and an alternation in it, every alternative and every byte of each, its own and no more;
-# the inner literal; the byte flag at each read), H-20's store and query, and `src/hir/dump.npk`'s section and its
-# reading -- and of step 1's instruments, the fuzz's floors and the pending test's hook, each of its four claims: each
-# one rule broken in a copy of a tree, the text matched exactly ONCE or the row is a STOP; `mutants.py` builds every
-# unit below that the tree holds, in the copy, at both legs, and prints the units whose exits differ from the unchanged
-# copy's. TAB-separated; `\n` in a text is a newline. The first column is the step a row runs at: `1`, over the tree at
-# step 1's commit, where all eight of the literals' units are (block 1m).
+# 0.2.5's mutants of the literals -- `src/hir/repr.npk`'s extraction, each row one edit at one site breaking a facet of
+# H-19 (a match's bytes, each length's range and count, each lead's place, mark and payload, a continuation's mark, six
+# bits and order; a class's first bytes and each side of the ASCII edge; the first-byte set's walk, its guards and its
+# entry; the prefix and an alternation in it, every alternative and every byte of each, its own and no more; the inner
+# literal; the byte flag where a row reads it; each walk's bound), though not every facet has a row of its own -- the
+# plan's §4.1 names those that have none; H-20's store, query and roles' values, and `src/hir/dump.npk`'s section and
+# its reading; and of step 1's pending test, its hook, each of its four claims: each one rule broken in a copy of a
+# tree, the text matched exactly ONCE or the row is a STOP; `mutants.py` builds every unit below that the tree holds, in
+# the copy, at both legs, and prints the units whose exits differ from the unchanged copy's. TAB-separated; `\n` in a
+# text is a newline. The first column is the step a row runs at: `1`, over the tree at step 1's commit, where all eight
+# of the literals' units are (block 1m).
 # units: hir_literal hir_literal_reference hir_literal_no_root hir_literal_not_extracted hir_literal_frozen hir_literal_fuzz hir_literal_oracle hir_dump
 1	enc-byte-as-codepoint	src/hir/repr.npk	    if (byte) { pass 1i64; }\n    if ((cp >> 7i64) == 0i64) { pass 1i64; }	    if ((cp >> 7i64) == 0i64) { pass 1i64; }
 1	enc-ascii-as-two	src/hir/repr.npk	    if ((cp >> 7i64) == 0i64) { pass 1i64; }	    if ((cp >> 7i64) == 0i64) { pass 2i64; }
@@ -52,6 +53,12 @@
 1	first-members-wrong	src/hir/repr.npk	                drop vec_push(@h.lits, b =>! uint8);	                drop vec_push(@h.lits, 0u8);
 1	first-members-skipped	src/hir/repr.npk	                b = raw byteset_next(@s, b + 1i64);	                b = raw byteset_next(@s, b + 2i64);
 1	first-node-as-byte	src/hir/repr.npk	bool:byte = (n.flags & HIR_FLAG_BYTE) != 0u32;\n        if ((t.op == LIT_PIECE)	bool:byte = (n.flags & HIR_FLAG_BYTE) == 0u32;\n        if ((t.op == LIT_PIECE)
+1	first-piece-end-unguarded	src/hir/repr.npk	        if ((t.op == LIT_PIECE) && (n.next != HIR_NONE)) {\n            if (((raw hir_props(h, t.node)) & HIR_CAN_MATCH_EMPTY) != 0u32) {	        if ((t.op == LIT_PIECE) && (n.next >= HIR_NONE)) {\n            if (((raw hir_props(h, t.node)) & HIR_CAN_MATCH_EMPTY) != 0u32) {
+1	first-piece-end-read-at-a	src/hir/repr.npk	        if ((t.op == LIT_PIECE) && (n.next != HIR_NONE)) {\n            if (((raw hir_props(h, t.node)) & HIR_CAN_MATCH_EMPTY) != 0u32) {	        if ((t.op == LIT_PIECE) && (n.a != HIR_NONE)) {\n            if (((raw hir_props(h, t.node)) & HIR_CAN_MATCH_EMPTY) != 0u32) {
+1	first-piece-end-read-at-b	src/hir/repr.npk	        if ((t.op == LIT_PIECE) && (n.next != HIR_NONE)) {\n            if (((raw hir_props(h, t.node)) & HIR_CAN_MATCH_EMPTY) != 0u32) {	        if ((t.op == LIT_PIECE) && (n.b != HIR_NONE)) {\n            if (((raw hir_props(h, t.node)) & HIR_CAN_MATCH_EMPTY) != 0u32) {
+1	first-concat-empty-unguarded	src/hir/repr.npk	}\n        else if ((n.kind == HirKind.Concat) && (n.a != HIR_NONE)) {	}\n        else if ((n.kind == HirKind.Concat) && (n.a >= HIR_NONE)) {
+1	first-concat-empty-read-at-b	src/hir/repr.npk	}\n        else if ((n.kind == HirKind.Concat) && (n.a != HIR_NONE)) {	}\n        else if ((n.kind == HirKind.Concat) && (n.b != HIR_NONE)) {
+1	first-concat-empty-read-at-c	src/hir/repr.npk	}\n        else if ((n.kind == HirKind.Concat) && (n.a != HIR_NONE)) {	}\n        else if ((n.kind == HirKind.Concat) && (n.c != HIR_NONE)) {
 1	first-budget-short	src/hir/repr.npk	    int64:budget = h.nodes.count - 1i64;\n    int64:steps = 0i64;\n    while (todo.count > 0i64) decreases budget - steps {\n        steps = steps + 1i64;\n        LitStep:t = raw vec_pop(@todo);\n        HirNode:n = raw vec_get(h.nodes, t.node);\n        bool:byte	    int64:budget = h.nodes.count - 2i64;\n    int64:steps = 0i64;\n    while (todo.count > 0i64) decreases budget - steps {\n        steps = steps + 1i64;\n        LitStep:t = raw vec_pop(@todo);\n        HirNode:n = raw vec_get(h.nodes, t.node);\n        bool:byte
 1	prefix-literal-skipped	src/hir/repr.npk	                        drop vec_push(@h.lits, raw cp_byte(n.a, byte, i));	                        discard(raw cp_byte(n.a, byte, i));
 1	prefix-bytes-skipped	src/hir/repr.npk	                        drop vec_push(@h.lits, raw cp_byte(n.a, byte, i));\n                        i = i + 1i64;	                        drop vec_push(@h.lits, raw cp_byte(n.a, byte, i));\n                        i = i + 2i64;
@@ -69,6 +76,7 @@
 1	prefix-bound-inclusive	src/hir/repr.npk	                    if ((h.lits.count - base) >= NREGEX_LITERAL_BYTES) { going = false; }	                    if ((h.lits.count - base) > NREGEX_LITERAL_BYTES) { going = false; }
 1	prefix-bound-short	src/hir/repr.npk	                    if ((h.lits.count - base) >= NREGEX_LITERAL_BYTES) { going = false; }	                    if ((h.lits.count - base) >= (NREGEX_LITERAL_BYTES - 1i64)) { going = false; }
 1	prefix-budget-short	src/hir/repr.npk	    int64:budget = 2i64 * h.nodes.count - 1i64;\n    int64:steps = 0i64;\n    bool:going = true;	    int64:budget = h.nodes.count - 1i64;\n    int64:steps = 0i64;\n    bool:going = true;
+1	prefix-budget-sum	src/hir/repr.npk	    int64:budget = 2i64 * h.nodes.count - 1i64;\n    int64:steps = 0i64;\n    bool:going = true;	    int64:budget = 2i64 + h.nodes.count - 1i64;\n    int64:steps = 0i64;\n    bool:going = true;
 1	whole-never	src/hir/repr.npk	        if (whole) { role = HIR_LITERAL_WHOLE; }	        if (false) { role = HIR_LITERAL_WHOLE; }
 1	whole-always	src/hir/repr.npk	        if (whole) { role = HIR_LITERAL_WHOLE; }	        if (true) { role = HIR_LITERAL_WHOLE; }
 1	prefix-empty-written	src/hir/repr.npk	    if (plen > 0i64) {	    if (plen >= 0i64) {
@@ -87,13 +95,17 @@
 1	alt-put-bytes-skipped	src/hir/repr.npk	            total = total + 1i64;\n            q = q + 1i64;	            total = total + 1i64;\n            q = q + 2i64;
 1	alt-put-first-piece-only	src/hir/repr.npk	            total = total + 1i64;\n            q = q + 1i64;\n        }\n        p = y.next;	            total = total + 1i64;\n            q = q + 1i64;\n        }\n        discard(y.next);
 1	alt-put-reads-on	src/hir/repr.npk	func:plain_put = int64(Hir->:h, int64:i, int64:room) never fails {\n    HirNode:x = raw vec_get(h.nodes, i);\n    int64:p = i;\n    int64:count = 1i64;	func:plain_put = int64(Hir->:h, int64:i, int64:room) never fails {\n    HirNode:x = raw vec_get(h.nodes, i);\n    int64:p = i;\n    int64:count = 2i64;
+1	alt-put-flag-dropped	src/hir/repr.npk	        int64:k = raw cp_len(y.a, byte);\n        int64:q = 0i64;\n        while (q < k) decreases k - q {\n            if (total < room)	        int64:k = raw cp_len(y.a, false);\n        int64:q = 0i64;\n        while (q < k) decreases k - q {\n            if (total < room)
 1	alt-compare-as-byte	src/hir/repr.npk	!= 0u32;\n        int64:k = raw cp_len(y.a, byte);\n        int64:q = 0i64;\n        while (q < k) decreases k - q {\n            if (same >= bound)	== 0u32;\n        int64:k = raw cp_len(y.a, byte);\n        int64:q = 0i64;\n        while (q < k) decreases k - q {\n            if (same >= bound)
 1	alt-compare-bytes-skipped	src/hir/repr.npk	            same = same + 1i64;\n            q = q + 1i64;	            same = same + 1i64;\n            q = q + 2i64;
 1	alt-compare-first-piece-only	src/hir/repr.npk	            same = same + 1i64;\n            q = q + 1i64;\n        }\n        p = y.next;	            same = same + 1i64;\n            q = q + 1i64;\n        }\n        discard(y.next);
 1	alt-compare-reads-on	src/hir/repr.npk	func:plain_common = int64(Hir->:h, int64:i, int64:at, int64:bound) never fails {\n    HirNode:x = raw vec_get(h.nodes, i);\n    int64:p = i;\n    int64:count = 1i64;	func:plain_common = int64(Hir->:h, int64:i, int64:at, int64:bound) never fails {\n    HirNode:x = raw vec_get(h.nodes, i);\n    int64:p = i;\n    int64:count = 2i64;
+1	alt-compare-flag-dropped	src/hir/repr.npk	        int64:k = raw cp_len(y.a, byte);\n        int64:q = 0i64;\n        while (q < k) decreases k - q {\n            if (same >= bound)	        int64:k = raw cp_len(y.a, false);\n        int64:q = 0i64;\n        while (q < k) decreases k - q {\n            if (same >= bound)
+1	alt-compare-count-from-a	src/hir/repr.npk	func:plain_common = int64(Hir->:h, int64:i, int64:at, int64:bound) never fails {\n    HirNode:x = raw vec_get(h.nodes, i);\n    int64:p = i;\n    int64:count = 1i64;\n    if (x.kind == HirKind.Concat) { p = x.a; count = x.b; }	func:plain_common = int64(Hir->:h, int64:i, int64:at, int64:bound) never fails {\n    HirNode:x = raw vec_get(h.nodes, i);\n    int64:p = i;\n    int64:count = 1i64;\n    if (x.kind == HirKind.Concat) { p = x.a; count = x.a; }
 1	alt-length-as-byte	src/hir/repr.npk	        total = total + (raw cp_len(y.a, (y.flags & HIR_FLAG_BYTE) != 0u32));	        total = total + (raw cp_len(y.a, (y.flags & HIR_FLAG_BYTE) == 0u32));
 1	alt-length-first-piece-only	src/hir/repr.npk	!= 0u32));\n        p = y.next;	!= 0u32));\n        discard(y.next);
 1	alt-length-reads-on	src/hir/repr.npk	func:plain_len = int64(Hir->:h, int64:i) never fails {\n    HirNode:x = raw vec_get(h.nodes, i);\n    int64:p = i;\n    int64:count = 1i64;	func:plain_len = int64(Hir->:h, int64:i) never fails {\n    HirNode:x = raw vec_get(h.nodes, i);\n    int64:p = i;\n    int64:count = 2i64;
+1	alt-length-flag-never	src/hir/repr.npk	        total = total + (raw cp_len(y.a, (y.flags & HIR_FLAG_BYTE) != 0u32));	        total = total + (raw cp_len(y.a, (y.flags & HIR_FLAG_BYTE) < 0u32));
 1	inner-prefix-unread	src/hir/repr.npk	    int64:best = plen;	    int64:best = 0i64;
 1	inner-run-one-piece	src/hir/repr.npk	                if (y.kind == HirKind.Literal) {\n                    steps = steps + 1i64;	                if (y.kind == HirKind.Empty) {\n                    steps = steps + 1i64;
 1	inner-run-any-piece	src/hir/repr.npk	                if (y.kind == HirKind.Literal) {\n                    steps = steps + 1i64;	                if (true) {\n                    steps = steps + 1i64;
@@ -105,9 +117,12 @@
 1	inner-after-run-skipped	src/hir/repr.npk	            if (m != HIR_NONE) { drop vec_push(@todo, LitStep{ node: m, op: LIT_PIECE }); }	            discard(m);
 1	inner-ties-to-later	src/hir/repr.npk	            if (len > best) {	            if (len >= best) {
 1	inner-uncounted	src/hir/repr.npk	            if (len > NREGEX_LITERAL_BYTES) { len = NREGEX_LITERAL_BYTES; }\n	
+1	inner-clamp-short	src/hir/repr.npk	            if (len > NREGEX_LITERAL_BYTES) { len = NREGEX_LITERAL_BYTES; }	            if (len > NREGEX_LITERAL_BYTES) { len = NREGEX_LITERAL_BYTES - 1i64; }
 1	inner-writer-unbounded	src/hir/repr.npk	            if ((h.lits.count - off) < NREGEX_LITERAL_BYTES) { drop vec_push(@h.lits, raw cp_byte(y.a, byte, q)); }	            drop vec_push(@h.lits, raw cp_byte(y.a, byte, q));
 1	inner-run-lead-as-byte	src/hir/repr.npk	            int64:len = raw cp_len(n.a, (n.flags & HIR_FLAG_BYTE) != 0u32);	            int64:len = raw cp_len(n.a, (n.flags & HIR_FLAG_BYTE) == 0u32);
 1	inner-run-next-as-byte	src/hir/repr.npk	                    len = len + (raw cp_len(y.a, (y.flags & HIR_FLAG_BYTE) != 0u32));	                    len = len + (raw cp_len(y.a, (y.flags & HIR_FLAG_BYTE) == 0u32));
+1	inner-run-lead-flag-never	src/hir/repr.npk	            int64:len = raw cp_len(n.a, (n.flags & HIR_FLAG_BYTE) != 0u32);	            int64:len = raw cp_len(n.a, (n.flags & HIR_FLAG_BYTE) < 0u32);
+1	inner-run-next-flag-never	src/hir/repr.npk	                    len = len + (raw cp_len(y.a, (y.flags & HIR_FLAG_BYTE) != 0u32));	                    len = len + (raw cp_len(y.a, (y.flags & HIR_FLAG_BYTE) < 0u32));
 1	inner-written-as-byte	src/hir/repr.npk	!= 0u32;\n        int64:k = raw cp_len(y.a, byte);\n        int64:q = 0i64;\n        while (q < k) decreases k - q {\n            if ((h.lits.count - off)	== 0u32;\n        int64:k = raw cp_len(y.a, byte);\n        int64:q = 0i64;\n        while (q < k) decreases k - q {\n            if ((h.lits.count - off)
 1	inner-written-bytes-skipped	src/hir/repr.npk	{ drop vec_push(@h.lits, raw cp_byte(y.a, byte, q)); }\n            q = q + 1i64;	{ drop vec_push(@h.lits, raw cp_byte(y.a, byte, q)); }\n            q = q + 2i64;
 1	inner-written-first-piece-only	src/hir/repr.npk	        p = y.next;\n        j = j + 1i64;\n    }\n    drop vec_push(@h.literals	        discard(y.next);\n        j = j + 1i64;\n    }\n    drop vec_push(@h.literals
@@ -120,6 +135,7 @@
 1	extract-facts-unasked	src/hir/repr.npk	    uint32:root = raw hir_props(h, h.root);	    uint32:root = 0u32;
 1	extract-says-nothing	src/hir/repr.npk	    uint32:root = raw hir_props(h, h.root);\n    bool:whole = raw prefix_bytes(h);	    uint32:root = raw hir_props(h, h.root);\n    if (true) { drop vec_push(@h.literals, Literal{ role: HIR_LITERAL_ANYWHERE, off: 0i64, len: 0i64 }); pass NIL; }\n    bool:whole = raw prefix_bytes(h);
 1	count-always-none	src/hir/repr.npk	pub func:hir_literal_count = int64(Hir:h) never fails {\n    pass h.literals.count;	pub func:hir_literal_count = int64(Hir:h) never fails {\n    pass 0i64;
+1	role-inner-value	src/hir/repr.npk	pub fixed int64:HIR_LITERAL_INNER = 4i64;	pub fixed int64:HIR_LITERAL_INNER = 5i64;
 1	free-keeps-literals	src/hir/repr.npk	    drop vec_free(@h.literals);\n	
 1	free-keeps-lits	src/hir/repr.npk	    drop vec_free(@h.lits);\n	
 1	dump-no-section	src/hir/dump.npk	    drop write_literals(h, out);\n    pass NIL;	    pass NIL;

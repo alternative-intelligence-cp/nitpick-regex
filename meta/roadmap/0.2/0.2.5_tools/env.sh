@@ -139,9 +139,10 @@ for fn in treecheck.ALL:
 PY
 }
 
-# The mutants of `$T/mutants.tsv` whose step list holds <step>, over the checkout: `mutants.py`, twelve rows at a time --
-# eight until plan verification 1's fix, whose 134 rows would take seven minutes at eight, and a Bash call has ten.
+# The mutants of `$T/mutants.tsv` whose step list holds <step>, over the checkout: `mutants.py`, sixteen rows at a time
+# -- eight until plan verification 1's fix and twelve until plan verification 2's, whose 149 rows take about four
+# minutes at sixteen, where a Bash call has ten and the lock may hold it five more.
 #     mutants <step>
 mutants() {
-  python3 -B "$T/mutants.py" "$REPO" "$1" 12
+  python3 -B "$T/mutants.py" "$REPO" "$1" 16
 }
