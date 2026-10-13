@@ -154,7 +154,7 @@ index c6e25639228b9cd445fc734fe3619f923d63d798..9078ed17f8a468a29d781bed41b04615
  
 diff --git a/tests/unit/hir_normalise_gate.npk b/tests/unit/hir_normalise_gate.npk
 new file mode 100644
-index 0000000000000000000000000000000000000000..1afa3eeacf9eb4f69ffa45fa69a44706a9eb7418
+index 0000000000000000000000000000000000000000..fcd25e0561b17b99ef8708e20853a8f319f9fb43
 --- /dev/null
 +++ b/tests/unit/hir_normalise_gate.npk
 @@ -0,0 +1,644 @@
@@ -178,10 +178,10 @@ index 0000000000000000000000000000000000000000..1afa3eeacf9eb4f69ffa45fa69a44706
 +// is one only normalisation could join; there must be many (16).
 +//
 +// AND THE OTHER HALF. Each tree is also mutated once outside the identities -- two alternatives
-+// swapped, a literal's byte bit flipped, an `Empty` alternative dropped, a repetition's laziness
-+// flipped -- and its normal dump must differ from the tree's (14) and be its own expected text (15):
-+// a normaliser that reordered, merged a byte into a codepoint, or dropped what is not concatenation's
-+// identity, joins what this half keeps apart. And FLOORS on every kind of noise and mutation, so the
++// swapped, a literal's byte bit flipped, two pieces swapped, a repetition's laziness flipped -- and
++// its normal dump must differ from the tree's (14) and be its own expected text (15): a normaliser
++// that reordered, merged a byte into a codepoint, or dropped a laziness, joins what this half keeps
++// apart. And FLOORS on every kind of noise and mutation, so the
 +// pass cannot be green by looking nowhere (17).
 +//
 +// THE GENERATOR RECURSES, and so do its writers: their depth is the generator's own bound, four, not
