@@ -21,7 +21,12 @@ refusal comes before the request (RX-232 … RX-234, `meta/roadmap/0.2/0.2.2.md`
 — `hir_normalise` writes a HIR's tree in its normal form into a fresh arena, a pass of its own after the build, where
 structurally equal patterns — equal up to `HIR.md` H-13's rewrites read as identities — are one tree and one dump; a
 generated corpus of pairs and its near misses is the Gate, and the oracle's test of both forms is pending until cycle
-0.5.5 (RX-235 … RX-237, `meta/roadmap/0.2/0.2.3.md`); 0.2.4, the computed properties, is next.
+0.5.5 (RX-235 … RX-237, `meta/roadmap/0.2/0.2.3.md`); and its 0.2.4, the computed properties, is done — `hir_props`
+answers a node's four facts, whether it may match the empty string, whether every match begins at the haystack's start or
+ends at its end, and whether it is a plain literal or a union of them, computing a tree's in one pass when they are not
+and caching them in each node's `flags`; a computed tree is finished, fifty patterns' facts written by hand are the
+reference, and the Gate's seventh kind of noise has its floor (RX-238 … RX-240, `meta/roadmap/0.2/0.2.4.md`); 0.2.5,
+literal extraction, is next.
 Cycle 0.1's 0.1.0, 0.1.0b, 0.1.1, 0.1.1b, 0.1.2, 0.1.3, 0.1.4, 0.1.5, 0.1.6a, 0.1.6b and 0.1.6 are done** — the pieces the parser is written
 in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/done/0.1/0.1.0.md`); the adoption of
 compiler `5fbaf4a` (RX-176 … RX-180, `0.1.0b.md`); and the core grammar —
@@ -111,10 +116,11 @@ and `src/unicode/` holds `ClassRange`, written by hand, which a class's ranges a
 `build.npk` (`HIR.md` H-16), with six unit programs more, two of them pending until cycle 0.3.4 — **and since 0.2.2
 the repetition product** (`HIR.md` H-8), with four unit programs more, two of them a pair under one memory cap — **and
 since 0.2.3 normalisation** (`HIR.md` H-13), `normal.npk`, with eight unit programs more, one of them pending until cycle
-0.5.5. **No matching
+0.5.5 — **and since 0.2.4 the computed properties** (`HIR.md` H-17, H-18), in `repr.npk`, with eight unit programs more.
+**No matching
 happens yet**: `src/compile/`, `src/engine/` and `src/api/` are still one
 placeholder module each. A full green run at compiler `7e91730` is
-**318 units** (after cycle 0.2.3, normalisation, three pending units outside them; 302 after cycle 0.2.2, the repetition product, two pending outside them, as after cycle 0.2.1a; 294 after cycle 0.2.1a, the adoption of that pin, as after cycle 0.2.1 at `5fbaf4a`; 283 after cycle 0.2.0; 260 after cycle 0.1.6b; 258 after cycle 0.1.6a, as after cycle 0.1.5; 254 after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus ten tree checks (nine until cycle 0.1.6b's `check_error_kinds_tested`, eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
+**334 units** (after cycle 0.2.4, the computed properties, three pending units outside them, as after cycle 0.2.3; 318 after cycle 0.2.3, normalisation; 302 after cycle 0.2.2, the repetition product, two pending outside them, as after cycle 0.2.1a; 294 after cycle 0.2.1a, the adoption of that pin, as after cycle 0.2.1 at `5fbaf4a`; 283 after cycle 0.2.0; 260 after cycle 0.1.6b; 258 after cycle 0.1.6a, as after cycle 0.1.5; 254 after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus ten tree checks (nine until cycle 0.1.6b's `check_error_kinds_tested`, eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
 summary rather than from here. **Nothing is PENDING any more**:
 `tests/unit/bytes_copy_string_empty.npk` was committed red under
 `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at

@@ -45,7 +45,7 @@ RX-030, RX-031, RX-032. Settled. **No open questions.**
 ### 0.6.3 — entry points
 - [ ] the unanchored `.*?` prefix compiled as a `Split` loop over the any-byte class
 - [ ] `start` and `start_anchored` both emitted always (C-15)
-- [ ] `IS_ANCHORED_START` from the HIR recorded in the program's flags
+- [ ] `IS_ANCHORED_START` from the HIR recorded in the program's flags *(2026-10-13, cycle 0.2.4 — RX-238, RX-239: the normal form's root's `HIR_IS_ANCHORED_START`, which `hir_props` answers; set only where every match begins at the haystack's start — `^` and `\A`, never `^` under `m`)*
 
 ### 0.6.4 — multi-pattern reservation
 - [ ] `Match` carries a pattern id, always zero at 1.0 (C-17)
