@@ -1,0 +1,1166 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 76c917da78d3ed7e4b50f1a799ca0a1f7e3c4533..58f34d035e5d3f2e5536e38a87f3cd0240c3be3d 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -5919,6 +5919,9 @@ fills the hook** — *"how a defect gets forgotten between the day it is underst
+ denominator, and every check B-5b holds the marker to written twice.
+ 
+ ### RX-227 — the dump stops on a bit a node's kind does not take, so a dump that completes shows every bit and is a test of H-6
++> **SUPERSEDED IN PART by RX-239 (@@DATE024@@)** — its *"a dump that completes shows every bit its nodes hold"*: every bit
++> but the computed properties' five, `HIR_COMPUTED`, which every kind takes and the dump does not show; and its *"they store
++> what a builder hands them"*: but those five, which `hir_push` and `hir_set` drop. The decision stands.
+ 
+ **2026-10-08, cycle 0.2.1 (the plan's PD-71), at compiler `5fbaf4a`** — `HIR.md` H-4a, H-6 and H-15, RX-225, and the cycle
+ README's second 0.2.1 box: *"flags erased (H-6): nothing downstream knows what `i`, `s`, `m`, `u` or `x` meant. A test
+@@ -6350,3 +6353,101 @@ the byte bit erased, passes every pair; **the hook as a stub oracle module in `t
+ left out of the suites; **the label `0.5.0`, where the oracle is written** — the 0.5 README names this test in 0.5.5's
+ box; **RX-232's list left as it is** — a list of what a decision dated is a claim about a set, and the set has one
+ member more.
++
++
++## The computed properties — cycle 0.2.4
++
++### RX-238 — the four computed properties, kind by kind, a new rule H-17: each a fact of a node's subtree that errs one way only — `CAN_MATCH_EMPTY` is *may* match the empty string, and the two anchors and `IS_ALTERNATION_LITERAL` hold only where certain; the anchors the text's alone, `m`'s none; a plain literal a `Literal` or a literal run; no fact reads the byte bit
++**@@DATE024@@, cycle 0.2.4 (the plan's PD-123), at compiler `7e91730`** — `HIR.md` H-1, H-9, H-16 and H-17, `SYNTAX.md` §6,
++Y-19, Y-20 and Y-21, `API.md` A-14, `ENGINES.md` R-24, `COMPILE.md` C-15, RX-235 and RX-236, and the cycle README's first
++and fourth 0.2.4 boxes — *"`CAN_MATCH_EMPTY`, `IS_ANCHORED_START`, `IS_ANCHORED_END`, `IS_ALTERNATION_LITERAL`"*, with
++RX-236's note, *"over the normal form `hir_normalise` writes, where `[a]|b` is an alternation of two `Literal`s"*, and
++*"each flag asserted against a hand-computed reference over fifty patterns"*. H-9 gives each fact a meaning in a phrase,
++and no rule says what it is for each kind of node — a definition the reference needs independently of the pass it checks.
++
++**The decision.** H-17's table says each fact kind by kind, from the node's kind, its operands and its children's facts,
++and each fact errs one way only. **`CAN_MATCH_EMPTY` is MAY match the empty string**: an `Empty`, an `Anchor` and a
++`WordBoundary` may — an assertion is zero-width (Y-20) and is taken to hold — a `Literal` and a `Class` may not; a `Concat`
++may when every piece may, an `Alternate` when some alternative may, a `Repeat` when its minimum is 0 or its body may, a
++`Group` when its body may. A subtree without it never matches the empty string, so its readers — the iterator's advance
++(Y-21, A-14) and the one-pass engine's eligibility, *"conservative"* by the 0.11 README — are wrong only on a false *no*.
++**`IS_ANCHORED_START` and `IS_ANCHORED_END` hold only where every match begins at the haystack's start or ends at its
++end**: an `Anchor` that is `HIR_TEXT_START`, or `HIR_TEXT_END`; a `Concat` whose first piece, or whose last, does; an
++`Alternate` of one alternative or more, every one of which does; a `Repeat` of minimum 1 or more whose body does; a `Group`
++whose body does — since an anchored search skips the scan loop (R-24, C-15) and a reverse search starts at the end, each
++wrong only on a false *yes*. **The anchors are the text's alone**: `^` and `\A` are `HIR_TEXT_START`, `$` and `\z`
++`HIR_TEXT_END` (H-16); under `m`, `^` and `$` are `HIR_LINE_START` and `HIR_LINE_END`, which hold after and before every
++`\n` too (`SYNTAX.md` §6, Y-19), and anchor neither end. **`IS_ALTERNATION_LITERAL` holds only where the subtree is written
++as a plain literal or a union of them**: a `Literal`; a literal run, a `Concat` of one piece or more, every piece a
++`Literal` (RX-235); and an `Alternate` of one alternative or more, every one a plain literal. A list of no member, which only
++a text `hir_read` reads holds, is read by the same words. **No fact reads `HIR_FLAG_BYTE`, `HIR_FLAG_LAZY` or a class's
++ranges**: `(?-u)a` and `a` have one set of facts. **The facts are of the tree they are computed over**: over the normal
++form, which every later stage reads (H-1, RX-236), `[a]|b` and `a(?:bc)` are a union of plain literals and a plain literal
++and `(?:)^a` is anchored at the start; over the build's tree none is. H-9 is dated.
++
++**Measured at `7e91730`.** `tests/unit/hir_props_reference.npk` exits 0 at both legs: fifty patterns, each with its normal
++form's four facts written by hand from H-17's table before the pass first ran — plain literals and unions of them, the
++empty string, the anchors under `m` and not, and three pairs of a byte-mode pattern and its codepoint twin with one set of
++facts. Each of H-17's rules broken alone in the pass is red: twenty-five rows of the plan's mutant table, twenty-three of
++them in this unit and the two that read a list of no member, which no pattern makes, in `hir_props.npk`, cases 4 and 5.
++
++*Alternatives declined:* **an anchor read through a zero-width prefix** — `\b^a` read as anchored, the assertions before
++the anchor skipped: a fifth fact, *"every match is empty"*, computed beside the four, for a shape an author rarely writes,
++where the miss costs a scan and never an answer; **`CAN_MATCH_EMPTY` exact** — `\b\B` matches
++nothing, and saying so needs the assertions' joint truth, where its readers lose only speed on a false *yes*; **the line
++anchors as anchors** — `(?m)^a` matches after every `\n`; **a byte literal as no plain literal** — the prefilter reads
++bytes, and `(?-u)a` is the byte `a` is; **a group around a plain literal as one** — the group is a capture, which a
++prefilter does not report; **an `Empty` alternative as a plain literal** — the empty string matches at every position, and
++is no literal to filter on; **a `Concat` holding literal runs as a run** — only the build's tree holds one, which the
++normal form flattens (RX-235); **the facts of the normal form alone** — the query answers over any tree, and the build's
++facts beside the normal form's show what normalisation gains.
++
++### RX-239 — the cache and the query, a new rule H-18: the facts in the high half of `flags` behind `HIR_PROPS_COMPUTED`, the distinct "not yet computed" state; `hir_props` computes-or-returns by one pass over the whole tree; only that pass writes the bits — `hir_push` and `hir_set` drop them; a computed tree is finished — `hir_set` and `hir_set_root` stop on it; and the dump shows none
++**@@DATE024@@, cycle 0.2.4 (the plan's PD-124), at compiler `7e91730`** — `HIR.md` H-4a, H-9, H-10, H-15 and H-18,
++`SAFETY.md` S-19, RX-225, RX-227 and RX-236, the compiler's D-227, the cycle README's second and third 0.2.4 boxes —
++*"computed in **one** bottom-up pass and cached (H-10)"*, with RX-227's note that each bit this subcycle adds is refused by
++the dump until it says how the dump shows it, and *"the query computes-or-returns; no caller remembers to compute first"*
++— and its *"Watch for"*: *"Use a distinct 'not yet computed' state or compute-on-query; do not use `false`."* H-10 says
++the facts are computed once and never recomputed and that the query computes-or-returns; no rule says where the bits are,
++who writes them, what a write after them does, or what the dump makes of them — and `hir_normalise` copies a node's
++`flags` into the normal form (RX-236).
++
++**The decision.** **The bits**: the high half of `flags`, where no AST flag is (`ast.npk`'s are 1 … 1024) —
++`HIR_PROPS_COMPUTED`, 65 536, then `HIR_CAN_MATCH_EMPTY`, `HIR_IS_ANCHORED_START`, `HIR_IS_ANCHORED_END` and
++`HIR_IS_ALTERNATION_LITERAL`, `HIR_PROPS` the four and `HIR_COMPUTED` the five. A node without `HIR_PROPS_COMPUTED` holds no
++fact: the distinct "not yet computed" state. **The query** is `hir_props(Hir->:h, int64:i)` in `src/hir/repr.npk`,
++re-exported, answering node `i`'s four bits: when the root holds no `HIR_PROPS_COMPUTED` it runs the one pass, over the
++whole tree under the root, each node after its children, on an explicit stack bounded by twice the arena (S-19), the root
++left last; then it reads. A `Hir` with no root, and a node the root does not reach, have no facts and stop it
++`OutOfBounds`; the pass stops `OutOfBounds` on a node it leaves twice — a node with two parents, or a second pass — and
++`DecreasesViolated` past its bound. **Only that pass writes the five bits**: `hir_push` and `hir_set` drop them from every
++node they are handed, so no builder writes a fact and a node copied from a computed tree carries none. **A computed tree
++is finished**: `hir_set` and `hir_set_root` stop `OutOfBounds` on a tree whose root holds `HIR_PROPS_COMPUTED`, so a cached
++fact is never stale. `repr.npk`'s other writers change no fact: `hir_push` appends a node the root does not reach,
++`hir_push_range`, `hir_add_group` and `hir_copy_groups` write what no fact reads — a class's ranges, a group's name — and
++`hir_free` ends the arena, its root `HIR_NONE`. **The dump shows none of them** (H-15): every kind takes the five, the text writes
++none and `hir_read` sets none — they are the tree's facts, and a tree has one text before and after. Units
++`hir_props` (0), `hir_props_reference` (RX-238's), `hir_props_no_root`, `hir_props_not_in_tree`, `hir_props_frozen_set`,
++`hir_props_frozen_root` and `hir_props_shared` (94), and `hir_props_not_a_tree` (108); H-4a, H-10 and H-15 dated, and the
++comments of `repr.npk` and `dump.npk` and the header of `hir_build.npk`; RX-227's heading marked.
++
++**Measured at `7e91730`.** The eight units at both legs, each at its exit. Asking a leaf first computes all six nodes of a
++tree, a second query answers the same, and the dump is one text before and after; `[a]|b` built and computed, then
++normalised, answers `IS_ALTERNATION_LITERAL` at the normal form's root, which the built root does not. In the plan's mutant
++table each guard's every term is dropped alone and red: without the root's check the empty `Hir`'s query ends 108, without
++the reached check a node outside the tree answers no bits and its unit exits 2, without either freeze the write is made and
++its unit exits 2, a freeze read from the root alone stops the writes `hir_props` makes before any fact, and without the
++pass's second-leave stop the shared node's walk ends 108; and the compiler's D-227 defect itself — the query reading an
++uncomputed node as no bits — is red in both units that answer and in five of the six that stop.
++
++*Alternatives declined:* **the facts in a table of their own in `Hir`** — H-9 says `flags`, and a field more is one
++`hir_normalise`'s freshness must count beside its three (RX-236); **`false` for not computed** — D-227's defect, and the
++cycle README's watch-for; **the caller computing first**, a pass every stage calls before it asks — D-227: a rule enforced
++where somebody remembered is sampled, not enforced; **the normal form born with its facts**, `hir_normalise` computing them
++— the query answers over any tree, built, read or normalised, so it computes on demand anyway; **the pass in a module of its
++own, beside a public verb that writes the bits** — any module could write a fact; **the doors keeping the bits** — a node
++copied from a computed tree carries that tree's facts, and a computed `[a]|b` normalised would answer the built tree's *"not
++a union of literals"*; **a write after the facts clearing them**, the pass run again — H-10's *"never recomputed"*, and
++every ancestor of a rewritten node holds a stale bit until the next query; **the dump writing the facts** — a tree would
++have a text before and another after, and `hir_read` would read a fact it must trust or check; **the dump refusing them**
++— every computed tree would be one the dump stops on.
+diff --git a/meta/specs/HIR.md b/meta/specs/HIR.md
+index 0d66cc06fd5b2ac5470551b71be4135749716369..c2e6ec67da035472eff7a5706e1275a86ebe93d2 100644
+--- a/meta/specs/HIR.md
++++ b/meta/specs/HIR.md
+@@ -103,6 +103,8 @@ A list's members — a `Concat`'s pieces, an `Alternate`'s alternatives — are
+ `HIR_NONE`. `flags` holds the two bits above, and cycle 0.2.4's computed properties (H-9) take others. No pattern flag
+ survives (H-6): `m` is an `Anchor`'s value, `s` a `.`'s class, `i` folded ranges, `x` the parser's, and `u` is
+ `HIR_FLAG_BYTE`, which says what a node matches.
++*(@@DATE024@@, cycle 0.2.4 — RX-239: *"take others"* — the high half, `HIR_PROPS_COMPUTED` and H-9's four, `HIR_COMPUTED`'s five
++bits, which every kind takes, only `repr.npk`'s pass writes and the dump does not show (H-18).)*
+ 
+ ---
+ 
+@@ -214,11 +216,67 @@ each is a whole-subtree walk:
+ | `IS_ANCHORED_END` | every match ends at the haystack end | reverse search |
+ | `IS_ALTERNATION_LITERAL` | the subtree is a union of plain literals | the Aho-Corasick-style prefilter |
+ 
++*(@@DATE024@@, cycle 0.2.4 — RX-238: the four are `repr.npk`'s `HIR_CAN_MATCH_EMPTY`, `HIR_IS_ANCHORED_START`,
++`HIR_IS_ANCHORED_END` and `HIR_IS_ALTERNATION_LITERAL`, and H-17 says what each is, kind by kind. *"The subtree matches the
++empty string"* is that it MAY: false only where no match is empty, an assertion taken to hold. *"Every match begins at the
++haystack start"* and *"ends at the haystack end"* hold only where they are certain, and only the text's anchors make them:
++under `m`, `^` and `$` anchor neither end. *"A union of plain literals"* is a plain literal — a `Literal`, or a literal run —
++or an `Alternate` of plain literals.)*
++
+ **Rule H-10 — these are computed once, in one bottom-up pass, and never
+ recomputed.** The compiler's D-227 is the precedent and the reason: a memoised
+ fact that is read before it is computed is a defect that presents as something
+ else entirely, and the answer is that the query computes-or-returns rather than
+ the caller remembering to.
++*(@@DATE024@@, cycle 0.2.4 — RX-239: the query is `hir_props`, and the one pass `repr.npk`'s, over the whole tree under the
++root; *"never recomputed"* holds because a tree whose facts are computed is finished — `hir_set` and `hir_set_root` stop on
++it — and the pass stops on a node it leaves twice (H-18).)*
++
++**Rule H-17 — the four facts, kind by kind** (RX-238). Each is a fact of a node's subtree, computed from its kind, its
++operands and its children's facts, and each errs one way only. `CAN_MATCH_EMPTY` is MAY match the empty string — an
++assertion is zero-width (`SYNTAX.md` Y-20) and is taken to hold — so a subtree without it never matches the empty string:
++the iterator's advance (Y-21) and the one-pass engine's eligibility are wrong only on a false *no*. `IS_ANCHORED_START`,
++`IS_ANCHORED_END` and `IS_ALTERNATION_LITERAL` hold only where they are certain: an anchored search skips the scan loop, a
++reverse search starts at the end, and the prefilter reads the literals, each wrong only on a false *yes*. A **plain
++literal** is a `Literal`, or a literal run — a `Concat` of one piece or more, every piece a `Literal` (RX-235).
++
++| Kind | `CAN_MATCH_EMPTY` | `IS_ANCHORED_START` | `IS_ANCHORED_END` | `IS_ALTERNATION_LITERAL` |
++|---|---|---|---|---|
++| `Empty` | yes | no | no | no |
++| `Literal` | no | no | no | yes |
++| `Class` | no | no | no | no |
++| `Concat` | every piece's | its first piece's | its last piece's | one piece or more, every one a `Literal` |
++| `Alternate` | some alternative's | one alternative or more, every one's | one alternative or more, every one's | one alternative or more, every one a plain literal |
++| `Repeat` | a minimum of 0, or its body's | a minimum of 1 or more, and its body's | a minimum of 1 or more, and its body's | no |
++| `Group` | its body's | its body's | its body's | no |
++| `Anchor` | yes | `HIR_TEXT_START` | `HIR_TEXT_END` | no |
++| `WordBoundary` | yes | no | no | no |
++
++**The anchors are the text's alone.** `^` and `\A` are `HIR_TEXT_START` and `$` and `\z` `HIR_TEXT_END` (H-16); under `m`,
++`^` and `$` are `HIR_LINE_START` and `HIR_LINE_END`, which hold after and before every `\n` too (`SYNTAX.md` §6, Y-19), and
++anchor neither end. A list of no member, which only a text `hir_read` reads holds, is read by the same words: a `Concat` of
++none may match the empty string, and an `Alternate` of none matches nothing and holds no other fact. **No fact reads
++`HIR_FLAG_BYTE`, `HIR_FLAG_LAZY` or a class's ranges**, so `(?-u)a` and `a` have one set of facts. **The facts are of the
++tree they are computed over**: over the normal form, which every later stage reads (H-1, RX-236), `[a]|b` and `a(?:bc)`
++are plain literals or a union of them and `(?:)^a` is anchored at the start; over the build's tree, where `[a]` is a
++class, `a(?:bc)` a `Concat` holding a `Concat` and `(?:)^a` begins with an `Empty`, none is.
++`tests/unit/hir_props_reference.npk` holds fifty patterns' facts, each written by hand from this table.
++
++**Rule H-18 — the cache, the query, and a finished tree** (RX-239). The facts live in the high half of a node's `flags`,
++where no AST flag is: `HIR_PROPS_COMPUTED`, 65 536, and H-9's four above it — `HIR_CAN_MATCH_EMPTY`,
++`HIR_IS_ANCHORED_START`, `HIR_IS_ANCHORED_END` and `HIR_IS_ALTERNATION_LITERAL` — the five together `HIR_COMPUTED`. A node
++without `HIR_PROPS_COMPUTED` holds no fact: the distinct "not yet computed" state, never `false`. **The query is
++`hir_props(Hir->:h, int64:i)`**, in `src/hir/repr.npk`, answering node `i`'s four bits: when the root holds no
++`HIR_PROPS_COMPUTED` it first runs the one pass, over the whole tree under the root, each node after its children, on an
++explicit stack bounded by twice the arena (`SAFETY.md` S-19); then it reads. A `Hir` with no root, and a node the root does
++not reach, have no facts, and the query stops `OutOfBounds` on each; the pass stops `OutOfBounds` on a node it leaves
++twice, and `DecreasesViolated` past its bound. **Only that pass writes the five bits**: `hir_push` and `hir_set` drop them
++from every node they are handed, so no builder writes a fact, and a node copied from a computed tree — `hir_normalise`
++copies a node's `flags` — carries none. **A tree whose facts are computed is finished**: `hir_set` and `hir_set_root` stop
++`OutOfBounds` on it, so a cached fact is never stale, and the pass never runs twice over one tree (H-10). **The dump shows
++none of them** (H-15): every kind takes the five, which the text does not write and `hir_read` never sets — they are the
++tree's facts, and the text shows the tree — so a tree has one text before its facts and after. `tests/unit/hir_props.npk`
++holds the query, the doors and the cache, and six units more each stop.
+ 
+ ---
+ 
+@@ -305,6 +363,10 @@ Bit column, `byte` on a `literal`, a `class` and a `wordboundary`, `lazy` on a `
+ completes shows every bit its nodes hold and a dump compared with its expected text is a test of H-6. Five units trap
+ now: `hir_dump_stray_bit.npk` is the fifth. A bit cycle 0.2.4 adds (H-9) is one this check refuses until that cycle
+ says how the dump shows it.)*
++*(@@DATE024@@, cycle 0.2.4 — RX-239: *"until that cycle says how the dump shows it"* — it shows none: every kind takes
++`HIR_COMPUTED`'s five bits, the computed properties, which the text does not write and `hir_read` never sets (H-18). So
++*"a dump that completes shows every bit its nodes hold"* is every bit but those five, and a tree has one text before its
++facts are computed and after.)*
+ *(2026-10-08, cycle 0.2.1 — RX-228: and `hir_build` builds one — every node it pushes is reached from the root once
+ (H-16) — so the walk's bound is exact for every HIR it answers `HIR_NONE` for.)*
+ *(2026-10-12, cycle 0.2.3 — RX-236: *"cycle 0.2.3's order"* is `hir_normalise`'s to make: a text's classes read as written,
+diff --git a/src/hir/README.md b/src/hir/README.md
+index eda55fc6b1727f9b72efd912b1810cfd29192d45..1768b1ca7323c23de965c91d348eee224135d7e7 100644
+--- a/src/hir/README.md
++++ b/src/hir/README.md
+@@ -14,7 +14,7 @@ this layer's.)*
+ | File | Holds | Since |
+ |---|---|---|
+ | `hir.npk` | the layer's entry: one `pub use` per name it offers | 0.2.0 |
+-| `repr.npk` | the arena — `HirKind`, `HirNode`, `GroupInfo`, `Hir` — and its accessors (H-2 … H-4a); the group table's copy, for normalisation | 0.2.0; 0.2.3 |
++| `repr.npk` | the arena — `HirKind`, `HirNode`, `GroupInfo`, `Hir` — and its accessors (H-2 … H-4a); the group table's copy, for normalisation; the computed properties, cached in each node's `flags` by one pass, and `hir_props`, the query (H-9, H-10, H-17, H-18) | 0.2.0; 0.2.3; 0.2.4 |
+ | `dump.npk` | the HIR as one line of text, and back (H-15) | 0.2.0 |
+ | `build.npk` | the desugaring: a pattern's AST to a HIR, and the two hooks cycle 0.3.4 fills (H-5, H-6, H-16); the repetition product, refused on the way down, and its `PatternError` (H-8) | 0.2.1; 0.2.2 |
+ | `normal.npk` | normalisation: a HIR's tree in its normal form, where structurally equal patterns are one tree, into a fresh arena (H-13) | 0.2.3 |
+diff --git a/src/hir/dump.npk b/src/hir/dump.npk
+index b97dec090e518dc3f8ed19944443851ca04fd835..33b72171c2830637e9b355c839068ccc97a0188e 100644
+--- a/src/hir/dump.npk
++++ b/src/hir/dump.npk
+@@ -146,10 +146,13 @@ func:write_head = NIL(Hir->:h, HirNode:n, Bytes->:out) never fails {
+ // The bits a node of kind `k` may hold (H-4a): `HIR_FLAG_BYTE` on a `Literal`, a `Class` and a
+ // `WordBoundary`, `HIR_FLAG_LAZY` on a `Repeat`, none on any other (RX-227). The text shows each
+ // where it may be and nowhere else, so any other bit is one the dump would drop in silence.
++// *(@@DATE024@@, cycle 0.2.4 -- RX-239: and every kind takes `HIR_COMPUTED`'s five, the computed
++// properties, which the text does not show: they are the tree's, which it shows, and only `repr.npk`'s
++// pass writes them. *"Any other bit"* is any bit but those.)*
+ func:kind_bits = uint32(HirKind:k) never fails {
+-    if ((k == HirKind.Literal) || (k == HirKind.Class) || (k == HirKind.WordBoundary)) { pass HIR_FLAG_BYTE; }
+-    if (k == HirKind.Repeat) { pass HIR_FLAG_LAZY; }
+-    pass 0u32;
++    if ((k == HirKind.Literal) || (k == HirKind.Class) || (k == HirKind.WordBoundary)) { pass HIR_FLAG_BYTE | HIR_COMPUTED; }
++    if (k == HirKind.Repeat) { pass HIR_FLAG_LAZY | HIR_COMPUTED; }
++    pass HIR_COMPUTED;
+ };
+ 
+ // Whether a list's chain -- its first member and each one's `next` -- holds exactly its count,
+@@ -182,6 +185,9 @@ func:chain_holds = bool(Hir->:h, HirNode:n) never fails {
+ // (beside a node nothing reaches the bound has room, and a shared node is written once for
+ // each parent). Each is a defect in the code that built the arena, and a builder's unit finds
+ // it by dumping.
++// *(@@DATE024@@, cycle 0.2.4 -- RX-239: *"the writer shows what the arena holds"*, and a dump that completes
++// *"shows every bit its nodes hold"* -- all but the computed properties' five, `HIR_COMPUTED`, which every
++// kind takes and the text does not show: they are the tree's facts, and a tree has one text before and after.)*
+ pub func:hir_dump = NIL(Hir->:h, Bytes->:out) never fails {
+     if (h.root == HIR_NONE) { pass NIL; }
+     Vec<Visit>:todo = raw vec_init::<Visit>(16i64);
+diff --git a/src/hir/hir.npk b/src/hir/hir.npk
+index 390469fd8af1be0acd2e432fbce3de0c60ad64ba..d7e7f7d614f735316f2e7c04178d9600fa624cd5 100644
+--- a/src/hir/hir.npk
++++ b/src/hir/hir.npk
+@@ -15,7 +15,8 @@
+ // `NREGEX_REPEAT_PRODUCT`, on the way down, and `hir_build_refusal` is the refusal (RX-232). SINCE
+ // CYCLE 0.2.3 `normal.npk` WRITES A HIR'S TREE IN ITS NORMAL FORM, where structurally equal patterns
+ // are one tree (RX-235), into a fresh arena -- `hir_normalise`, a pass of its own after the build
+-// (RX-236).
++// (RX-236). SINCE CYCLE 0.2.4 `repr.npk` COMPUTES A TREE'S FOUR FACTS IN ONE PASS AND CACHES THEM, and
++// `hir_props` is the query, which computes them when they are not (RX-238, RX-239).
+ //
+ // EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1 and 3).
+ //
+@@ -37,6 +38,13 @@ pub use "./repr.npk".HIR_LINE_START;
+ pub use "./repr.npk".HIR_LINE_END;
+ pub use "./repr.npk".HIR_WORD;
+ pub use "./repr.npk".HIR_NOT_WORD;
++pub use "./repr.npk".HIR_PROPS_COMPUTED;
++pub use "./repr.npk".HIR_CAN_MATCH_EMPTY;
++pub use "./repr.npk".HIR_IS_ANCHORED_START;
++pub use "./repr.npk".HIR_IS_ANCHORED_END;
++pub use "./repr.npk".HIR_IS_ALTERNATION_LITERAL;
++pub use "./repr.npk".HIR_PROPS;
++pub use "./repr.npk".HIR_COMPUTED;
+ pub use "./repr.npk".HirKind;
+ pub use "./repr.npk".HirNode;
+ pub use "./repr.npk".GroupInfo;
+@@ -57,6 +65,9 @@ pub use "./repr.npk".hir_put_name;
+ pub use "./repr.npk".hir_copy_groups;
+ pub use "./repr.npk".hir_free;
+ 
++// ---- the computed properties: the query (RX-238, RX-239) --------------------------------------
++pub use "./repr.npk".hir_props;
++
+ // ---- the text, and back (RX-225) -------------------------------------------------------
+ pub use "./dump.npk".hir_dump;
+ pub use "./dump.npk".hir_read;
+diff --git a/src/hir/repr.npk b/src/hir/repr.npk
+index 6f17065db4eb6b93468f1c56cf97e82a624b22c1..eab0b7fd15c268f74180f7352ecddc94017ba3ca 100644
+--- a/src/hir/repr.npk
++++ b/src/hir/repr.npk
+@@ -25,6 +25,16 @@
+ // `(?:a)b`. A refusal made while the HIR is built takes its offset from the AST node it
+ // is building from (cycle 0.2.2's `RepeatProductTooLarge`).
+ //
++// THE COMPUTED PROPERTIES ARE THIS FILE'S TO WRITE (cycle 0.2.4, RX-238, RX-239; `HIR.md` H-9, H-10,
++// H-17 and H-18). Four facts of every node -- whether it may match the empty string, whether every
++// match begins at the haystack's start or ends at its end, and whether it is a plain literal or a union
++// of plain literals -- are cached in the high half of its `flags` by ONE bottom-up pass over the whole
++// tree, and `hir_props` is the query: it runs the pass when the tree's facts are not computed yet, and
++// then reads. `HIR_PROPS_COMPUTED` is the distinct "not yet computed" state, never `false`. `hir_push`
++// and `hir_set` drop those bits from every node they are handed, so no builder writes a fact and a node
++// copied from a computed tree carries none; and once the facts are computed the tree is finished --
++// `hir_set` and `hir_set_root` stop on it, so a cached fact is never stale.
++//
+ // THE ARENA IS THE COMPILER'S TO GUARD. Every field of `Hir` but `root` is `hidden` (the
+ // compiler's D-314): outside this file it cannot be read (NITPICK-TYPE-080,
+ // `tests/rejection/hir_nodes_read.npk`), so every access goes through the functions below
+@@ -49,6 +59,20 @@ pub fixed int64:HIR_NONE = -1i64;
+ // a codepoint, never how to read anything at run time.
+ pub fixed uint32:HIR_FLAG_LAZY = 1u32;   // a `Repeat` that prefers fewer iterations
+ pub fixed uint32:HIR_FLAG_BYTE = 2u32;   // a `Literal` that is a byte, a `Class` of bytes, a `WordBoundary` over ASCII
++// *(@@DATE024@@, cycle 0.2.4 -- RX-239: *"bits above them"* are the high half, `HIR_PROPS_COMPUTED` and the
++// four facts below, where no AST flag is -- `ast.npk`'s are 1 … 1024 -- so no AST flag copied into a node
++// lands on one, and the dump refuses each it refused (RX-227).)*
++
++// THE COMPUTED PROPERTIES (H-9, H-17, H-18; RX-238, RX-239). A node whose `HIR_PROPS_COMPUTED` is clear
++// holds no fact -- the distinct "not yet computed" state -- and one whose bit is set holds its four.
++// Every kind takes all five; only this file's pass writes them, and the dump writes none (H-15).
++pub fixed uint32:HIR_PROPS_COMPUTED = 65536u32;            // the four bits above it are the node's facts
++pub fixed uint32:HIR_CAN_MATCH_EMPTY = 131072u32;          // the subtree may match the empty string
++pub fixed uint32:HIR_IS_ANCHORED_START = 262144u32;        // every match begins at the haystack's start
++pub fixed uint32:HIR_IS_ANCHORED_END = 524288u32;          // every match ends at the haystack's end
++pub fixed uint32:HIR_IS_ALTERNATION_LITERAL = 1048576u32;  // a plain literal, or a union of plain literals
++pub fixed uint32:HIR_PROPS = 1966080u32;                   // the four facts: what `hir_props` answers
++pub fixed uint32:HIR_COMPUTED = 2031616u32;                // the four and `HIR_PROPS_COMPUTED`: the pass's alone
+ 
+ // An `Anchor`'s `a` (`SYNTAX.md` §6, `m` erased).
+ pub fixed int64:HIR_TEXT_START = 0i64;   // the haystack's start: `^`, `\A`
+@@ -122,9 +146,12 @@ pub func:hir_len = int64(Hir:h) never fails {
+ 
+ // obligation: never fails ensures hir_len(h) == old(hir_len(h)) + 1i64 && result == hir_len(h) - 1i64
+ //
+-// Appends a node and answers its index.
++// Appends a node and answers its index -- its computed bits dropped: a fact is the pass's to write
++// (H-18), and a node copied from a computed tree would carry that tree's.
+ pub func:hir_push = int64(Hir->:h, HirNode:n) never fails {
+-    drop vec_push(@h.nodes, n);
++    HirNode:x = n;
++    x.flags = n.flags & (~HIR_COMPUTED);
++    drop vec_push(@h.nodes, x);
+     pass h.nodes.count - 1i64;
+ };
+ 
+@@ -133,16 +160,32 @@ pub func:hir_get = HirNode(Hir:h, int64:i) never fails {
+     pass raw vec_get(h.nodes, i);
+ };
+ 
++// Whether `h`'s facts are computed: its root's -- the pass leaves the root last, after every node under it.
++func:facts_done = bool(Hir->:h) never fails {
++    if (h.root == HIR_NONE) { pass false; }
++    HirNode:r = raw vec_get(h.nodes, h.root);
++    pass (r.flags & HIR_PROPS_COMPUTED) != 0u32;
++};
++
+ // obligation: never fails requires i >= 0i64 && i < hir_len(h)
++//
++// Rewrites a node, its computed bits dropped (H-18). A tree whose facts are computed is finished, and a
++// write to it stops `OutOfBounds`: a fact cached in it is never stale (H-10).
+ pub func:hir_set = NIL(Hir->:h, int64:i, HirNode:n) never fails {
+-    drop vec_set(@h.nodes, i, n);
++    if (raw facts_done(h)) { drop vec_oob(i); }
++    HirNode:x = n;
++    x.flags = n.flags & (~HIR_COMPUTED);
++    drop vec_set(@h.nodes, i, x);
+     pass NIL;
+ };
+ 
+ // obligation: never fails requires i >= 0i64 && i < hir_len(h)
++//
++// Sets the root -- and stops `OutOfBounds` on a tree whose facts are computed (H-18), as `hir_set` does.
+ pub func:hir_set_root = NIL(Hir->:h, int64:i) never fails {
+     if (i < 0i64)           { drop vec_oob(i); }
+     if (i >= h.nodes.count) { drop vec_oob(i); }
++    if (raw facts_done(h))  { drop vec_oob(i); }
+     h.root = i;
+     pass NIL;
+ };
+@@ -224,6 +267,149 @@ pub func:hir_put_name = NIL(Hir->:h, int64:k, Bytes->:out) never fails {
+     pass NIL;
+ };
+ 
++// ---- the computed properties (H-9, H-10, H-17, H-18; RX-238, RX-239) ----------------------------------
++
++// One step of the facts' walk: a node to enter, or one whose children are done, to leave.
++#[derive(Copy)]
++struct:FactStep = {
++    int64:node;          // the node
++    int64:op;            // FACT_ONE, FACT_LIST or FACT_LEAVE
++};
++
++fixed int64:FACT_ONE = 0i64;       // enter the node
++fixed int64:FACT_LIST = 1i64;      // enter the node, then the rest of the list it heads
++fixed int64:FACT_LEAVE = 2i64;     // its children are done: its facts
++
++// H-17, A `Concat` OR AN `Alternate`: from its members' facts, in the order its chain links them. A
++// `Concat` may match the empty string when every piece may, begins at the start when its first piece
++// does and ends at the end when its last does, and is a plain literal -- a literal run -- when it holds
++// a piece and every piece is a `Literal`. An `Alternate` may match the empty string when an alternative
++// may, and, holding one alternative or more, is anchored at either end when every alternative is, and a
++// union of plain literals when every alternative is a plain literal: a `Literal` or a literal run.
++func:list_facts = uint32(Hir->:h, HirNode:n) never fails {
++    bool:every_empty = true;
++    bool:some_empty = false;
++    bool:every_start = true;
++    bool:every_end = true;
++    bool:first_start = false;
++    bool:last_end = false;
++    bool:every_literal = true;
++    bool:every_plain = true;
++    int64:m = n.a;
++    int64:k = 0i64;
++    while ((m != HIR_NONE) && (k < n.b)) decreases n.b - k {
++        HirNode:x = raw vec_get(h.nodes, m);
++        bool:e = (x.flags & HIR_CAN_MATCH_EMPTY) != 0u32;
++        bool:s = (x.flags & HIR_IS_ANCHORED_START) != 0u32;
++        bool:t = (x.flags & HIR_IS_ANCHORED_END) != 0u32;
++        bool:lit = x.kind == HirKind.Literal;
++        bool:run = (x.kind == HirKind.Concat) && ((x.flags & HIR_IS_ALTERNATION_LITERAL) != 0u32);
++        every_empty = every_empty && e;
++        some_empty = some_empty || e;
++        every_start = every_start && s;
++        every_end = every_end && t;
++        if (k == 0i64) { first_start = s; }
++        last_end = t;
++        every_literal = every_literal && lit;
++        every_plain = every_plain && (lit || run);
++        m = x.next;
++        k = k + 1i64;
++    }
++    uint32:f = 0u32;
++    if (n.kind == HirKind.Concat) {
++        if (every_empty) { f = f | HIR_CAN_MATCH_EMPTY; }
++        if (first_start) { f = f | HIR_IS_ANCHORED_START; }
++        if (last_end) { f = f | HIR_IS_ANCHORED_END; }
++        if ((k > 0i64) && every_literal) { f = f | HIR_IS_ALTERNATION_LITERAL; }
++        pass f;
++    }
++    if (some_empty) { f = f | HIR_CAN_MATCH_EMPTY; }
++    if (k > 0i64) {
++        if (every_start) { f = f | HIR_IS_ANCHORED_START; }
++        if (every_end) { f = f | HIR_IS_ANCHORED_END; }
++        if (every_plain) { f = f | HIR_IS_ALTERNATION_LITERAL; }
++    }
++    pass f;
++};
++
++// H-17, ONE NODE: its four facts from its kind, its operands and its children's facts, which the walk
++// below has computed before it. No fact reads `HIR_FLAG_BYTE` or `HIR_FLAG_LAZY`, or a class's ranges.
++func:facts_of = uint32(Hir->:h, HirNode:n) never fails {
++    if (n.kind == HirKind.Empty)        { pass HIR_CAN_MATCH_EMPTY; }
++    if (n.kind == HirKind.Literal)      { pass HIR_IS_ALTERNATION_LITERAL; }
++    if (n.kind == HirKind.Class)        { pass 0u32; }
++    if (n.kind == HirKind.WordBoundary) { pass HIR_CAN_MATCH_EMPTY; }
++    if (n.kind == HirKind.Anchor) {
++        // `^` and `\A` are `HIR_TEXT_START`, `$` and `\z` `HIR_TEXT_END`; under `m`, `^` and `$` are the
++        // lines' anchors, which hold after and before every `\n` too (`SYNTAX.md` §6), and anchor nothing
++        uint32:f = HIR_CAN_MATCH_EMPTY;
++        if (n.a == HIR_TEXT_START) { f = f | HIR_IS_ANCHORED_START; }
++        if (n.a == HIR_TEXT_END)   { f = f | HIR_IS_ANCHORED_END; }
++        pass f;
++    }
++    if ((n.kind == HirKind.Repeat) || (n.kind == HirKind.Group)) {
++        // a `Group` is its body's, but no plain literal; a `Repeat` of minimum 0 may match the empty
++        // string and anchors nothing, and one of minimum 1 or more is its body's, and no plain literal
++        if ((n.kind == HirKind.Repeat) && (n.b == 0i64)) { pass HIR_CAN_MATCH_EMPTY; }
++        HirNode:c = raw vec_get(h.nodes, n.a);
++        pass c.flags & (HIR_CAN_MATCH_EMPTY | HIR_IS_ANCHORED_START | HIR_IS_ANCHORED_END);
++    }
++    pass raw list_facts(h, n);
++};
++
++// THE ONE PASS (H-10): every node of the tree under the root, each after its children, on an explicit
++// stack (`SAFETY.md` S-19) bounded by twice the arena, as the build's, the dump's and the normaliser's
++// walks are, so a node that holds itself stops it `DecreasesViolated`. Each node it leaves gets
++// `HIR_PROPS_COMPUTED` and its facts, the root last; a node it leaves computed already stops it
++// `OutOfBounds` -- a node with two parents, or a second pass over one tree, which `hir_props` never makes.
++func:compute_facts = NIL(Hir->:h) never fails {
++    Vec<FactStep>:todo = raw vec_init::<FactStep>(16i64);
++    drop vec_push(@todo, FactStep{ node: h.root, op: FACT_ONE });
++    // A `decreases` measure is checked as each step begins, so `2n - 1` admits `2n` steps: a walk
++    // entering and leaving every node of the arena once, and not one more.
++    int64:budget = 2i64 * h.nodes.count - 1i64;
++    int64:steps = 0i64;
++    while (todo.count > 0i64) decreases budget - steps {
++        steps = steps + 1i64;
++        FactStep:s = raw vec_pop(@todo);
++        HirNode:n = raw vec_get(h.nodes, s.node);
++        if (s.op == FACT_LEAVE) {
++            if ((n.flags & HIR_PROPS_COMPUTED) != 0u32) { drop vec_oob(s.node); }
++            n.flags = n.flags | HIR_PROPS_COMPUTED | (raw facts_of(h, n));
++            drop vec_set(@h.nodes, s.node, n);
++        }
++        else {
++            if ((s.op == FACT_LIST) && (n.next != HIR_NONE)) {
++                drop vec_push(@todo, FactStep{ node: n.next, op: FACT_LIST });
++            }
++            drop vec_push(@todo, FactStep{ node: s.node, op: FACT_LEAVE });
++            if ((n.kind == HirKind.Concat) || (n.kind == HirKind.Alternate)) {
++                if (n.a != HIR_NONE) { drop vec_push(@todo, FactStep{ node: n.a, op: FACT_LIST }); }
++            }
++            else if ((n.kind == HirKind.Repeat) || (n.kind == HirKind.Group)) {
++                drop vec_push(@todo, FactStep{ node: n.a, op: FACT_ONE });
++            }
++        }
++    }
++    drop vec_free(@todo);
++    pass NIL;
++};
++
++// obligation: never fails requires h.root != HIR_NONE && i >= 0i64 && i < hir_len(h)
++//
++// THE QUERY (H-10, H-18): node `i`'s four facts, `HIR_PROPS`' bits -- computed first, by the one pass
++// over the whole tree, when the tree's are not; read once they are. NO CALLER COMPUTES FIRST (the
++// compiler's D-227: the query ensures, and the caller does not remember). A `Hir` with no root, and a node
++// the root does not reach, have no facts: each stops `OutOfBounds`, and neither is ever answered with no
++// bits, which would read "not computed" as "false".
++pub func:hir_props = uint32(Hir->:h, int64:i) never fails {
++    if (h.root == HIR_NONE) { drop vec_oob(i); }
++    if (!(raw facts_done(h))) { drop compute_facts(h); }
++    HirNode:n = raw vec_get(h.nodes, i);
++    if ((n.flags & HIR_PROPS_COMPUTED) == 0u32) { drop vec_oob(i); }
++    pass n.flags & HIR_PROPS;
++};
++
+ // obligation: never fails ensures h.root == HIR_NONE
+ //
+ // Frees the arena's blocks. A node, a range and a group own nothing, so each block is its
+diff --git a/tests/unit/hir_build.npk b/tests/unit/hir_build.npk
+index cff97671ce0053ab2deb4c4d08a645300a7b4ac1..9966ebc94903c4aab70e517fa9290f1c1ec84563 100644
+--- a/tests/unit/hir_build.npk
++++ b/tests/unit/hir_build.npk
+@@ -11,6 +11,9 @@
+ // nothing else, every node reached from the root once (`is_tree`, H-16); and the text reads back
+ // and writes the same (H-15). `stops` asks a build that stops at a hook or in `leaf` until cycle
+ // 0.3.4 to answer the node at the byte named and to leave the root unset.
++// *(@@DATE024@@, cycle 0.2.4 -- RX-239: *"a dump that completes shows every bit its nodes hold"* -- every
++// bit but the computed properties', which the dump does not show; a built tree holds none, since
++// `hir_push` and `hir_set` drop them, so the text is a test of H-6 still.)*
+ //
+ // THE CASES. 1 … 9 are H-5's six quantifier rows, their lazy forms, their bounds' edges and what
+ // a quantifier may wrap; 10 … 14 the `.` row; 15 … 19 the `(?:…)` row; 20 … 23 the class row and
+diff --git a/tests/unit/hir_props.npk b/tests/unit/hir_props.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..fbefe19168ff17f9976475ea977e2bcb105c9768
+--- /dev/null
++++ b/tests/unit/hir_props.npk
+@@ -0,0 +1,213 @@
++// expect-exit: 0
++//
++// THE COMPUTED PROPERTIES: THE QUERY, THE CACHE, THE DOORS AND THE TREE THEY ARE COMPUTED OVER. Cycle
++// 0.2.4, RX-238 and RX-239; `meta/specs/HIR.md` rules H-9, H-10, H-17 and H-18. The fifty-pattern
++// reference is `hir_props_reference.npk`; this unit asks what that one cannot:
++//
++//   1 … 9    every kind's facts, on texts `hir_read` reads, the lines' anchors among them, and the shapes
++//            the build never makes: a class of no range, a `Concat` or an `Alternate` of no member and of one
++//   10 … 12  the normal form against the build: `[a]|b`, `a(?:bc)` and `(?:)^a` each answer otherwise
++//            built and normalised, and the normal form is what a later stage reads (RX-236)
++//   15 … 19  compute-or-return: no node holds a fact before the first query, and asking a leaf computes
++//            every node of the tree; a second query answers the same and makes no second pass; each node
++//            answers its own facts; the dump is one text before and after; the query writes no range,
++//            group or name
++//   20 … 24  the doors and the freeze: a computed tree normalised, or a computed node copied with
++//            `hir_set` or `hir_push`, carries none of its facts into another arena; before its facts are
++//            computed a tree takes writes, and its facts are the rewritten tree's; `hir_free` after them
++//
++// A case that differs exits with its number; the program exits 0 only after every `hir_free` and
++// `ast_free`. The stops are units of their own: `hir_props_no_root`, `hir_props_not_in_tree`,
++// `hir_props_frozen_set`, `hir_props_frozen_root`, `hir_props_shared` and `hir_props_not_a_tree`.
++mod:hir_props;
++
++use "../../src/core/core.npk".*;
++use "../../src/syntax/syntax.npk".*;
++use "../../src/hir/hir.npk".*;
++
++// The facts a four-letter row names: `E`, `S`, `T` and `L` in their places, `-` for a fact that does not hold.
++func:want_of = uint32(string:row) never fails {
++    fixed uint8[]:w = string_bytes(row);
++    uint32:f = 0u32;
++    if (w[0i64] == 69u8) { f = f | HIR_CAN_MATCH_EMPTY; }
++    if (w[1i64] == 83u8) { f = f | HIR_IS_ANCHORED_START; }
++    if (w[2i64] == 84u8) { f = f | HIR_IS_ANCHORED_END; }
++    if (w[3i64] == 76u8) { f = f | HIR_IS_ALTERNATION_LITERAL; }
++    pass f;
++};
++
++// Whether the text `hir_read` reads has, at its root, exactly the facts `row` names.
++func:text_holds = bool(string:text, string:row) never fails {
++    Hir:h = raw hir_init(8i64);
++    bool:ok = false;
++    if ((raw hir_read(string_bytes(text), @h)) == HIR_NONE) {
++        int64:r = h.root;
++        ok = (raw hir_props(@h, r)) == (raw want_of(row));
++    }
++    drop hir_free(@h);
++    pass ok;
++};
++
++// Builds `pattern` into `h`, normalised into `n` when `norm`: true when it parses and builds.
++func:make = bool(string:pattern, bool:norm, Hir->:out) never fails {
++    fixed uint8[]:pat = string_bytes(pattern);
++    Ast:t = raw ast_init(8i64);
++    bool:ok = false;
++    if ((raw parse_pattern(pat, @t)) == NIL) {
++        if (!norm) { ok = (raw hir_build(pat, t, out)) == HIR_NONE; }
++        else {
++            Hir:h = raw hir_init(8i64);
++            if ((raw hir_build(pat, t, @h)) == HIR_NONE) {
++                drop hir_normalise(@h, out);
++                ok = true;
++            }
++            drop hir_free(@h);
++        }
++    }
++    drop ast_free(@t);
++    pass ok;
++};
++
++// Whether `pattern`, built -- and normalised when `norm` -- has at its root exactly the facts `row` names.
++func:pattern_holds = bool(string:pattern, bool:norm, string:row) never fails {
++    Hir:h = raw hir_init(8i64);
++    bool:ok = false;
++    if (raw make(pattern, norm, @h)) {
++        int64:r = h.root;
++        ok = (raw hir_props(@h, r)) == (raw want_of(row));
++    }
++    drop hir_free(@h);
++    pass ok;
++};
++
++// How many of `h`'s nodes hold a computed bit.
++func:computed_nodes = int64(Hir:h) never fails {
++    int64:k = 0i64;
++    int64:n = raw hir_len(h);
++    int64:i = 0i64;
++    while (i < n) decreases n - i {
++        HirNode:x = raw hir_get(h, i);
++        if ((x.flags & HIR_COMPUTED) != 0u32) { k = k + 1i64; }
++        i = i + 1i64;
++    }
++    pass k;
++};
++
++func:same_bytes = bool(Bytes->:a, Bytes->:b) never fails {
++    int64:n = raw bytes_len(a);
++    if (n != (raw bytes_len(b))) { pass false; }
++    int64:i = 0i64;
++    while (i < n) decreases n - i {
++        if ((raw bytes_get(a, i)) != (raw bytes_get(b, i))) { pass false; }
++        i = i + 1i64;
++    }
++    pass true;
++};
++
++func:run = int32() never fails {
++    // ---- 1 … 9: every kind, on texts `hir_read` reads
++    if (!(raw text_holds("(empty)", "E---")))                                    { pass 1i32; }
++    if ((!(raw text_holds("(literal 97)", "---L"))) || (!(raw text_holds("(literal byte 97)", "---L")))) { pass 2i32; }
++    if ((!(raw text_holds("(class 97-99)", "----"))) || (!(raw text_holds("(class)", "----"))))          { pass 3i32; }
++    if ((!(raw text_holds("(concat)", "E---"))) || (!(raw text_holds("(concat (literal 97))", "---L"))))  { pass 4i32; }
++    if ((!(raw text_holds("(alternate)", "----"))) || (!(raw text_holds("(alternate (literal 97))", "---L")))) { pass 5i32; }
++    if ((!(raw text_holds("(repeat 0 0 (class))", "E---")))
++        || (!(raw text_holds("(repeat 1 - (anchor text-start))", "ES--"))))    { pass 6i32; }
++    if (!(raw text_holds("(group 1 (anchor text-end))", "E-T-")))              { pass 7i32; }
++    if ((!(raw text_holds("(anchor line-start)", "E---"))) || (!(raw text_holds("(anchor line-end)", "E---")))) { pass 8i32; }
++    if (!(raw text_holds("(wordboundary byte not)", "E---")))                  { pass 9i32; }
++
++    // ---- 10 … 12: the normal form against the build
++    if ((!(raw pattern_holds("[a]|b", false, "----"))) || (!(raw pattern_holds("[a]|b", true, "---L"))))     { pass 10i32; }
++    if ((!(raw pattern_holds("a(?:bc)", false, "----"))) || (!(raw pattern_holds("a(?:bc)", true, "---L")))) { pass 11i32; }
++    if ((!(raw pattern_holds("(?:)^a", false, "----"))) || (!(raw pattern_holds("(?:)^a", true, "-S--"))))   { pass 12i32; }
++
++    // ---- 15 … 19: compute-or-return. The text's nodes, in the order `hir_read` closes them: `(anchor
++    // text-start)` 0, `(literal 97)` 1, the `concat` 2, `(literal 98)` 3, the `repeat` 4, the root 5.
++    Hir:h = raw hir_init(8i64);
++    if ((raw hir_read(string_bytes("(alternate (concat (anchor text-start) (literal 97)) (repeat 0 - (literal 98)))"), @h)) != HIR_NONE) { pass 15i32; }
++    Bytes:before = raw bytes_init(64i64);
++    drop hir_dump(@h, @before);
++    int64:ranges = raw hir_range_count(h);
++    int64:groups = raw hir_group_count(h);
++    int64:nodes = raw hir_len(h);
++    if ((raw computed_nodes(h)) != 0i64) { pass 15i32; }                     // no fact before the first query
++    if ((raw hir_props(@h, 1i64)) != (raw want_of("---L"))) { pass 15i32; }  // a leaf asked first ...
++    if ((raw computed_nodes(h)) != 6i64) { pass 15i32; }                     // ... and every node computed
++    if ((raw hir_props(@h, 1i64)) != (raw want_of("---L"))) { pass 16i32; }  // asked again: read, no second pass
++    if (((raw hir_props(@h, 0i64)) != (raw want_of("ES--"))) || ((raw hir_props(@h, 2i64)) != (raw want_of("-S--")))
++        || ((raw hir_props(@h, 3i64)) != (raw want_of("---L"))) || ((raw hir_props(@h, 4i64)) != (raw want_of("E---")))
++        || ((raw hir_props(@h, 5i64)) != (raw want_of("E---")))) { pass 17i32; }
++    Bytes:after = raw bytes_init(64i64);
++    drop hir_dump(@h, @after);
++    if (!(raw same_bytes(@before, @after))) { pass 18i32; }
++    if (((raw hir_range_count(h)) != ranges) || ((raw hir_group_count(h)) != groups) || ((raw hir_len(h)) != nodes)) { pass 19i32; }
++    drop hir_free(@h);
++
++    // ---- 20: a computed tree normalised: the normal form's facts are its own
++    Hir:b = raw hir_init(8i64);
++    if (!(raw make("[a]|b", false, @b))) { pass 20i32; }
++    int64:br = b.root;
++    if ((raw hir_props(@b, br)) != (raw want_of("----"))) { pass 20i32; }
++    Hir:n = raw hir_init(8i64);
++    drop hir_normalise(@b, @n);
++    if ((raw computed_nodes(n)) != 0i64) { pass 20i32; }
++    int64:nr = n.root;
++    if ((raw hir_props(@n, nr)) != (raw want_of("---L"))) { pass 20i32; }
++
++    // ---- 21: a computed node copied with `hir_set` into a tree not yet computed carries no fact: `b`'s
++    // root, an `Alternate` whose facts are `----`, made the root of `(alternate (literal 97) (literal 98))`
++    Hir:g = raw hir_init(8i64);
++    if ((raw hir_read(string_bytes("(alternate (literal 97) (literal 98))"), @g)) != HIR_NONE) { pass 21i32; }
++    HirNode:x = raw hir_get(b, br);
++    if ((x.flags & HIR_PROPS_COMPUTED) == 0u32) { pass 21i32; }
++    HirNode:y = raw hir_get(g, 2i64);
++    x.a = y.a;
++    x.b = y.b;
++    drop hir_set(@g, 2i64, x);
++    if ((raw hir_props(@g, 2i64)) != (raw want_of("---L"))) { pass 21i32; }
++
++    // ---- 22: and copied with `hir_push`
++    Hir:p = raw hir_init(8i64);
++    int64:pi = raw hir_push(@p, raw hir_get(b, br));
++    HirNode:z = raw hir_get(p, pi);
++    if ((z.flags & HIR_COMPUTED) != 0u32) { pass 22i32; }
++    drop hir_free(@p);
++    drop hir_free(@g);
++    drop hir_free(@n);
++    drop hir_free(@b);
++
++    // ---- 23: before its facts are computed a tree takes writes, and its facts are the rewritten tree's
++    Hir:w = raw hir_init(8i64);
++    if ((raw hir_read(string_bytes("(literal 97)"), @w)) != HIR_NONE) { pass 23i32; }
++    drop hir_set(@w, 0i64, HirNode{ kind: HirKind.Empty, flags: 0u32, a: 0i64, b: 0i64, c: 0i64, next: HIR_NONE });
++    drop hir_set_root(@w, 0i64);
++    if ((raw hir_props(@w, 0i64)) != (raw want_of("E---"))) { pass 23i32; }
++
++    // ---- 24: freed after its facts, with no stop
++    drop hir_free(@w);
++    if (w.root != HIR_NONE) { pass 24i32; }
++    pass 0i32;
++};
++
++func:main = int32(cstring[]:_~argv) {
++    exit raw run();
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/hir_props_frozen_root.npk b/tests/unit/hir_props_frozen_root.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..a438c66a37bb35f5e087acc576cd9073aeb251b6
+--- /dev/null
++++ b/tests/unit/hir_props_frozen_root.npk
+@@ -0,0 +1,37 @@
++// expect-exit: 94
++//
++// A TREE WHOSE FACTS ARE COMPUTED IS FINISHED: `hir_set_root` STOPS ON IT. Cycle 0.2.4, RX-239; `HIR.md`
++// H-10 and H-18. `(literal 97)` is read and its facts computed, and then its root is set again, to the
++// same node: `OutOfBounds`, since a root moved after the pass could name a node whose facts a write made
++// stale. Exit 2 says the root was set.
++mod:hir_props_frozen_root;
++
++use "../../src/core/core.npk".*;
++use "../../src/hir/hir.npk".*;
++
++func:main = int32(cstring[]:_~argv) {
++    Hir:h = raw hir_init(8i64);
++    if ((raw hir_read(string_bytes("(literal 97)"), @h)) != HIR_NONE) { exit 3i32; }
++    discard(raw hir_props(@h, 0i64));
++    drop hir_set_root(@h, 0i64);
++    drop hir_free(@h);
++    exit 2i32;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/hir_props_frozen_set.npk b/tests/unit/hir_props_frozen_set.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..0012bb9900c708b0d8d9c3badea65aa223ac70dc
+--- /dev/null
++++ b/tests/unit/hir_props_frozen_set.npk
+@@ -0,0 +1,37 @@
++// expect-exit: 94
++//
++// A TREE WHOSE FACTS ARE COMPUTED IS FINISHED: `hir_set` STOPS ON IT. Cycle 0.2.4, RX-239; `HIR.md` H-10
++// and H-18. `(literal 97)` is read and its facts computed, and then its one node is written again, as it
++// is: `OutOfBounds`, since a write after the pass would leave a cached fact stale. Exit 2 says the write
++// was made.
++mod:hir_props_frozen_set;
++
++use "../../src/core/core.npk".*;
++use "../../src/hir/hir.npk".*;
++
++func:main = int32(cstring[]:_~argv) {
++    Hir:h = raw hir_init(8i64);
++    if ((raw hir_read(string_bytes("(literal 97)"), @h)) != HIR_NONE) { exit 3i32; }
++    discard(raw hir_props(@h, 0i64));
++    drop hir_set(@h, 0i64, raw hir_get(h, 0i64));
++    drop hir_free(@h);
++    exit 2i32;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/hir_props_no_root.npk b/tests/unit/hir_props_no_root.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..a9abd9921557680ef1838f32bcbbccd596c9b783
+--- /dev/null
++++ b/tests/unit/hir_props_no_root.npk
+@@ -0,0 +1,36 @@
++// expect-exit: 94
++//
++// A `Hir` WITH NO ROOT HAS NO FACTS: `hir_props` STOPS. Cycle 0.2.4, RX-239; `HIR.md` H-18. An arena
++// nothing has been built into is asked for its root's facts, and the query stops `OutOfBounds` before
++// anything else -- never an answer of no bits, which would read "not computed" as "false" (the compiler's
++// D-227). The arena is empty, so without that stop the pass would end `DecreasesViolated`, 108, on a walk
++// of no node; exit 2 says the query answered.
++mod:hir_props_no_root;
++
++use "../../src/core/core.npk".*;
++use "../../src/hir/hir.npk".*;
++
++func:main = int32(cstring[]:_~argv) {
++    Hir:h = raw hir_init(8i64);
++    discard(raw hir_props(@h, 0i64));
++    drop hir_free(@h);
++    exit 2i32;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/hir_props_not_a_tree.npk b/tests/unit/hir_props_not_a_tree.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..7273c438811adbb1036a3d57cccf4a2674eb2bd0
+--- /dev/null
++++ b/tests/unit/hir_props_not_a_tree.npk
+@@ -0,0 +1,38 @@
++// expect-exit: 108
++//
++// THE PASS IS BOUNDED BY TWICE THE ARENA: A NODE THAT HOLDS ITSELF STOPS IT. Cycle 0.2.4, RX-239;
++// `HIR.md` H-10 and H-18, `SAFETY.md` S-19. A `Group` whose body is itself: the walk enters it again
++// and again and never leaves it, and its bound, two steps for one node, ends it `DecreasesViolated`,
++// as the build's, the dump's and the normaliser's walks end on an arena that is not a tree. Exit 2 says
++// the pass finished.
++mod:hir_props_not_a_tree;
++
++use "../../src/core/core.npk".*;
++use "../../src/hir/hir.npk".*;
++
++func:main = int32(cstring[]:_~argv) {
++    Hir:h = raw hir_init(8i64);
++    int64:g = raw hir_push(@h, HirNode{ kind: HirKind.Group, flags: 0u32, a: 0i64, b: 1i64, c: 0i64, next: HIR_NONE });
++    drop hir_set_root(@h, g);
++    discard(raw hir_props(@h, g));
++    drop hir_free(@h);
++    exit 2i32;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/hir_props_not_in_tree.npk b/tests/unit/hir_props_not_in_tree.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..31d8cf14325cdc5fd2708fcf4f024ef8a68ba857
+--- /dev/null
++++ b/tests/unit/hir_props_not_in_tree.npk
+@@ -0,0 +1,38 @@
++// expect-exit: 94
++//
++// A NODE THE ROOT DOES NOT REACH HAS NO FACTS: `hir_props` STOPS. Cycle 0.2.4, RX-239; `HIR.md` H-18.
++// `(literal 97)` is read, and an `Empty` pushed beside it, which no path from the root reaches. Asked for
++// that node, the query computes the tree's facts -- the literal's -- and finds none on it: `OutOfBounds`,
++// never an answer of no bits, which would read "not computed" as "false" (the compiler's D-227). Exit 2
++// says the query answered.
++mod:hir_props_not_in_tree;
++
++use "../../src/core/core.npk".*;
++use "../../src/hir/hir.npk".*;
++
++func:main = int32(cstring[]:_~argv) {
++    Hir:h = raw hir_init(8i64);
++    if ((raw hir_read(string_bytes("(literal 97)"), @h)) != HIR_NONE) { exit 3i32; }
++    int64:x = raw hir_push(@h, HirNode{ kind: HirKind.Empty, flags: 0u32, a: 0i64, b: 0i64, c: 0i64, next: HIR_NONE });
++    discard(raw hir_props(@h, x));
++    drop hir_free(@h);
++    exit 2i32;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/hir_props_reference.npk b/tests/unit/hir_props_reference.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..fe49aa2dee3753dd40de67dcaf87037e50cdda0b
+--- /dev/null
++++ b/tests/unit/hir_props_reference.npk
+@@ -0,0 +1,133 @@
++// expect-exit: 0
++//
++// THE COMPUTED PROPERTIES AGAINST A HAND-COMPUTED REFERENCE: FIFTY PATTERNS. Cycle 0.2.4, RX-238 and
++// RX-239; `meta/specs/HIR.md` rules H-9, H-17 and H-18, and the cycle README's fourth 0.2.4 box.
++//
++// HAND-COMPUTED MEANS THIS. Each row below is a pattern and the four facts of its normal form's root,
++// written by hand from H-17's table -- `E` the subtree may match the empty string, `S` every match begins
++// at the haystack's start, `T` every match ends at its end, `L` it is a plain literal or a union of plain
++// literals, `-` where a fact does not hold -- with the reading that gives them beside it. No value was
++// printed by the code and copied here: every row was written from the rule's text before the pass first
++// ran, and a row the pass disagrees with is read against H-17 again -- never changed to the pass's
++// answer. The mutants of the pass, one rule of H-17 broken at a time, are each red here but the two
++// that read a list of no member, which no pattern makes and `hir_props.npk` asks (the plan's block 2m).
++//
++// EVERY ROW ASKS THE NORMAL FORM (RX-236): each pattern is parsed, built, normalised, and the normal
++// form's root asked through `hir_props`, the query a later stage will call. A row that differs, or a
++// pattern that does not build, exits with the row's number; the program exits 0 only after every
++// `hir_free` and `ast_free`.
++mod:hir_props_reference;
++
++use "../../src/core/core.npk".*;
++use "../../src/syntax/syntax.npk".*;
++use "../../src/hir/hir.npk".*;
++
++// The facts a four-letter row names: `E`, `S`, `T` and `L` in their places, `-` for a fact that does not hold.
++func:want_of = uint32(string:row) never fails {
++    fixed uint8[]:w = string_bytes(row);
++    uint32:f = 0u32;
++    if (w[0i64] == 69u8) { f = f | HIR_CAN_MATCH_EMPTY; }
++    if (w[1i64] == 83u8) { f = f | HIR_IS_ANCHORED_START; }
++    if (w[2i64] == 84u8) { f = f | HIR_IS_ANCHORED_END; }
++    if (w[3i64] == 76u8) { f = f | HIR_IS_ALTERNATION_LITERAL; }
++    pass f;
++};
++
++// Whether `pattern`'s normal form's root has exactly the facts `row` names.
++func:holds = bool(string:pattern, string:row) never fails {
++    fixed uint8[]:pat = string_bytes(pattern);
++    Ast:t = raw ast_init(8i64);
++    bool:ok = false;
++    if ((raw parse_pattern(pat, @t)) == NIL) {
++        Hir:h = raw hir_init(8i64);
++        if ((raw hir_build(pat, t, @h)) == HIR_NONE) {
++            Hir:n = raw hir_init(8i64);
++            drop hir_normalise(@h, @n);
++            int64:r = n.root;
++            ok = (raw hir_props(@n, r)) == (raw want_of(row));
++            drop hir_free(@n);
++        }
++        drop hir_free(@h);
++    }
++    drop ast_free(@t);
++    pass ok;
++};
++
++func:run = int32() never fails {
++    // ---- plain literals, literal runs, and unions of them
++    if (!(raw holds("a", "---L")))              { pass 1i32; }    // a `Literal`
++    if (!(raw holds("abc", "---L")))            { pass 2i32; }    // a literal run: a `Concat` of `Literal`s
++    if (!(raw holds("é", "---L")))              { pass 3i32; }    // one codepoint, two bytes of UTF-8
++    if (!(raw holds("(?-u)a", "---L")))         { pass 4i32; }    // a byte: no fact reads the byte bit, so as `a`
++    if (!(raw holds("(?-u)\\xFF", "---L")))     { pass 5i32; }    // a byte past ASCII
++    if (!(raw holds("[a]", "---L")))            { pass 6i32; }    // a class of one codepoint is a `Literal` (RX-235)
++    if (!(raw holds("a(?:bc)", "---L")))        { pass 7i32; }    // flattened, one run of three
++    if (!(raw holds("a|b", "---L")))            { pass 8i32; }    // a union of two
++    if (!(raw holds("foo|bar|baz", "---L")))    { pass 9i32; }    // a union of three runs
++    if (!(raw holds("[a]|b", "---L")))          { pass 10i32; }   // two `Literal`s in the normal form (0.2.3's hand-on)
++    if (!(raw holds("a|(?:b|c)", "---L")))      { pass 11i32; }   // flattened, a union of three
++    if (!(raw holds("(?-u:\\xFF)|é", "---L")))  { pass 12i32; }   // a byte and a codepoint, both plain
++    if (!(raw holds("a|", "E---")))             { pass 13i32; }   // the `Empty` alternative: empty, and no plain literal
++    if (!(raw holds("(a)|b", "----")))          { pass 14i32; }   // a group is no plain literal
++    if (!(raw holds("a|[bc]", "----")))         { pass 15i32; }   // nor is a class of two
++    if (!(raw holds("a(?:b|c)", "----")))       { pass 16i32; }   // a `Concat` holding an `Alternate`: not a run
++    if (!(raw holds("ab*|c", "----")))          { pass 17i32; }   // an alternative that is no run
++    if (!(raw holds("(abc)", "----")))          { pass 18i32; }   // a group of a run: no plain literal
++    // ---- the empty string
++    if (!(raw holds("", "E---")))               { pass 19i32; }   // `Empty`
++    if (!(raw holds("a*", "E---")))             { pass 20i32; }   // minimum 0
++    if (!(raw holds("a+", "----")))             { pass 21i32; }   // minimum 1, and `a` cannot
++    if (!(raw holds("a$|b", "----")))           { pass 22i32; }   // one alternative ends at the end, not both
++    if (!(raw holds("a{0}", "E---")))           { pass 23i32; }   // minimum 0 and maximum 0
++    if (!(raw holds("a{2,}", "----")))          { pass 24i32; }   // minimum 2, and `a` cannot
++    if (!(raw holds("(?:a*)+", "E---")))        { pass 25i32; }   // minimum 1, and its body can
++    if (!(raw holds("(a*)", "E---")))           { pass 26i32; }   // a group is its body's
++    if (!(raw holds("a*b", "----")))            { pass 27i32; }   // one piece cannot
++    if (!(raw holds("a*b*", "E---")))           { pass 28i32; }   // every piece can
++    if (!(raw holds("\\b", "E---")))            { pass 29i32; }   // an assertion is zero-width (Y-20)
++    if (!(raw holds("(?-u)\\b", "E---")))       { pass 30i32; }   // the byte bit read by none, so as `\b`
++    if (!(raw holds("\\B", "E---")))            { pass 31i32; }
++    if (!(raw holds("[a-z]", "----")))          { pass 32i32; }   // a class matches one codepoint
++    if (!(raw holds("(?-u)[a-z]", "----")))     { pass 33i32; }   // or one byte, so as `[a-z]`
++    if (!(raw holds("(?s).", "----")))          { pass 34i32; }   // `.` is a class
++    // ---- the anchors, and the multi-line flag (`SYNTAX.md` §6, Y-19)
++    if (!(raw holds("^", "ES--")))              { pass 35i32; }   // `HIR_TEXT_START`: zero-width, and at the start
++    if (!(raw holds("$", "E-T-")))              { pass 36i32; }   // `HIR_TEXT_END`: only at the end
++    if (!(raw holds("^$", "EST-")))             { pass 37i32; }   // first piece `^`, last `$`, both empty
++    if (!(raw holds("^abc", "-S--")))           { pass 38i32; }   // its first piece anchors the start
++    if (!(raw holds("abc$", "--T-")))           { pass 39i32; }   // its last the end
++    if (!(raw holds("\\Aabc\\z", "-ST-")))      { pass 40i32; }   // `\A` and `\z` are the text's anchors always
++    if (!(raw holds("(?m)^abc$", "----")))      { pass 41i32; }   // under `m` the lines' anchors: after and before every `\n` too
++    if (!(raw holds("^a|^b", "-S--")))          { pass 42i32; }   // every alternative anchored at the start
++    if (!(raw holds("^a|b", "----")))           { pass 43i32; }   // not every one
++    if (!(raw holds("a$|b$", "--T-")))          { pass 44i32; }   // every alternative anchored at the end
++    if (!(raw holds("(?:^a$)+", "-ST-")))       { pass 45i32; }   // minimum 1: every match begins with its body
++    if (!(raw holds("(?:^a$)*", "E---")))       { pass 46i32; }   // minimum 0: the empty match anywhere
++    if (!(raw holds("(^a$)", "-ST-")))          { pass 47i32; }   // a group is its body's
++    if (!(raw holds("\\b^a", "----")))          { pass 48i32; }   // its first piece is `\b`, which anchors nothing
++    if (!(raw holds("$a", "----")))             { pass 49i32; }   // its last piece is `a`
++    if (!(raw holds("(?:)^a", "-S--")))         { pass 50i32; }   // the `Empty` piece goes in the normal form: `^` is first
++    pass 0i32;
++};
++
++func:main = int32(cstring[]:_~argv) {
++    exit raw run();
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};
+diff --git a/tests/unit/hir_props_shared.npk b/tests/unit/hir_props_shared.npk
+new file mode 100644
+index 0000000000000000000000000000000000000000..e433cea6c114c226c332b43bf2c3c5593ab178bc
+--- /dev/null
++++ b/tests/unit/hir_props_shared.npk
+@@ -0,0 +1,41 @@
++// expect-exit: 94
++//
++// THE PASS COMPUTES A NODE ONCE: ONE WITH TWO PARENTS STOPS IT. Cycle 0.2.4, RX-239; `HIR.md` H-10 and
++// H-18. Built by hand: a `Concat` of two groups, both holding one `Literal` -- four nodes, so the walk's
++// bound admits eight steps, and the eighth leaves the literal a second time: `OutOfBounds`, since a node
++// left computed already is one the pass has seen. Without that stop the ninth step ends the walk
++// `DecreasesViolated`, 108; exit 2 says the pass finished.
++mod:hir_props_shared;
++
++use "../../src/core/core.npk".*;
++use "../../src/hir/hir.npk".*;
++
++func:main = int32(cstring[]:_~argv) {
++    Hir:h = raw hir_init(8i64);
++    int64:lit = raw hir_push(@h, HirNode{ kind: HirKind.Literal, flags: 0u32, a: 97i64, b: 0i64, c: 0i64, next: HIR_NONE });
++    int64:g2 = raw hir_push(@h, HirNode{ kind: HirKind.Group, flags: 0u32, a: lit, b: 2i64, c: 0i64, next: HIR_NONE });
++    int64:g1 = raw hir_push(@h, HirNode{ kind: HirKind.Group, flags: 0u32, a: lit, b: 1i64, c: 0i64, next: g2 });
++    int64:cat = raw hir_push(@h, HirNode{ kind: HirKind.Concat, flags: 0u32, a: g1, b: 2i64, c: 0i64, next: HIR_NONE });
++    drop hir_set_root(@h, cat);
++    discard(raw hir_props(@h, cat));
++    drop hir_free(@h);
++    exit 2i32;
++};
++
++func:failsafe = int32(Error:e) {
++    pick (e) {
++        (HeapBadRequest)    { exit 91i32; },
++        (HeapOom)           { exit 92i32; },
++        (IntOverflow)       { exit 93i32; },
++        (OutOfBounds)       { exit 94i32; },
++        (Unreachable)       { exit 95i32; },
++        (WildLeak)          { exit 96i32; },
++        (StackExhausted)    { exit 106i32; },
++        (MachineFault)      { exit 107i32; },
++        (DecreasesViolated) { exit 108i32; },
++        (LimitViolated)     { exit 109i32; },
++        (ShiftRange)        { exit 115i32; },
++        (*)                 { exit 99i32; }
++    }
++    exit 9i32;
++};

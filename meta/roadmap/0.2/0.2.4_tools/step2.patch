@@ -1,0 +1,131 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 58f34d035e5d3f2e5536e38a87f3cd0240c3be3d..248679da8a277ed28272566297a2da40bbeab6e5 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -6310,6 +6310,8 @@ the table as built, names and all, and no group moves; **an insertion sort** —
+ pattern's length until cycle 0.3.4 counts `NREGEX_CLASS_RANGES`.
+ 
+ ### RX-237 — the Gate's corpus generated: trees in normal form written plain and noisy, each pattern's dump its tree's reckoned again, and near misses held apart; the oracle's test written now, pending until cycle 0.5.5 on a hook; and RX-232's list of what it dated completed
++> **SUPERSEDED IN PART by RX-240 (@@DATE024@@)** — its *"Floors on every kind of noise and mutation"*: the gate applied a
++> seventh kind of noise, the atom a repetition holds in a `(?:…)` it does not need, and counted it nowhere. The decision stands.
+ **2026-10-12, cycle 0.2.3 (the plan's PD-122), at compiler `7e91730`** — RX-226 and RX-229, `BUILD.md` B-5b, `TESTING.md` §7
+ and V-20, the cycle README's 0.2.3 Gate box, *"a generated corpus of pattern pairs that are structurally equal but
+ textually different produces byte-identical dumps"*, and its last box, *"a test asserting no normalisation changes which
+@@ -6451,3 +6453,26 @@ a union of literals"*; **a write after the facts clearing them**, the pass run a
+ every ancestor of a rewritten node holds a stale bit until the next query; **the dump writing the facts** — a tree would
+ have a text before and another after, and `hir_read` would read a fact it must trust or check; **the dump refusing them**
+ — every computed tree would be one the dump stops on.
++
++### RX-240 — the Gate's seventh kind of noise counted and floored: the atom a repetition holds, in a `(?:…)` it does not need, applied from the start and counted by nothing; and RX-237's list of the kinds it floors completed
++**@@DATE024@@, cycle 0.2.4 (the plan's PD-125), at compiler `7e91730`** — RX-237, `TESTING.md` §7, and the cycle README's 0.2.3
++Gate box. RX-237 says *"Floors on every kind of noise and mutation"*, and so do the gate's header, `TESTING.md`'s note and
++the box; the gate's `put_pat` applies a seventh kind of noise — a repetition's atom, a leaf or a group, written in a `(?:…)`
++it does not need — which no counter counts and no floor holds, as cycle 0.2.3's work verifier found (its finding 2).
++
++**The decision.** `tests/unit/hir_normalise_gate.npk` counts the seventh kind, `repwraps`, at the draw that applies it, and
++holds it to a floor of its own, `REPWRAP_FLOOR`, 200: it is applied 476 times in 3 000 trees, under the other six kinds'
++floor of 500, because it needs a noisy repetition of an atom. Every draw is the one it was, so every count RX-237 measured
++reads as it did. The gate's header, `TESTING.md`'s note and the cycle README's 0.2.3 Gate box each carry a dated note
++quoting the words it dates, and `NOISE_FLOOR`'s comment says six kinds; and this decision supersedes RX-237 in that list
++alone, its heading marked.
++
++**Measured at `7e91730`.** `hir_normalise_gate` exits 0 at both legs, and its counts, read out of the unit, are RX-237's —
++3 000 pairs textually different and 2 060 joined only by normalisation; the six kinds 1 716, 1 308, 1 283, 4 001, 3 078
++and 1 817 times; the four mutations 251, 467, 267 and 288 — and the seventh kind 476. With the draw kept and the noise never
++applied, the gate exits 17, its floors' exit (the plan's mutant `repwrap-never-applied`).
++
++*Alternatives declined:* **the seventh under the other kinds' floor of 500** — it is applied 476 times, and the gate would
++be red; **a dated note alone, no floor** — a gate that stopped applying the seventh kind would stay green, and the words
++would stay false; **the draw's odds raised to clear 500** — every count RX-237 measured would move, and the corpus with
++them; **RX-237's sentence rewritten** — a settled decision's text is never rewritten.
+diff --git a/meta/roadmap/0.2/README.md b/meta/roadmap/0.2/README.md
+index 68c3681c6e8c7bee5f6ad3fb5e6a4911ed5e0a6c..b0035f54c9697364a5bb45d03e36782f0ff76158 100644
+--- a/meta/roadmap/0.2/README.md
++++ b/meta/roadmap/0.2/README.md
+@@ -103,7 +103,7 @@ RX-015, RX-031. Settled. **No open questions.**
+ - [x] alternations flattened and **not reordered** (order is semantic under RX-013) — RX-235, RX-236, **`2397770`**: an `Alternate` alternative that is an `Alternate` is its alternatives in their place, in order, and an `Empty` alternative stays — `hir_normalise` 10 … 16 (`c|(?:b|a)` stays `c`, `b`, `a`), 51 (a text's `Concat` of one `Alternate`, standing in an `Alternate`, spliced) and 60 (`a|b` apart from `b|a`, `ab|ac` from `a(?:b|c)`); and **`fa96f62`**: the gate's runs of alternatives wrapped 1 308 times, and its alternatives swapped 251 times, each held apart; the mutants `no-alternate-splice`, `list-reversed` and `empty-alternative-dropped` each red (block 2m)
+ - [x] empty concatenations to `Empty`; single-codepoint classes to `Literal` — RX-235, RX-236, **`2397770`**: a `Concat` of no piece is `Empty` and of one piece that piece, and a `Concat` drops an `Empty` piece, `Empty` being concatenation's identity; a class of one codepoint is that `Literal`, its byte bit kept — `hir_normalise` 20 … 23 (`a(?:)b` is `ab`, and `(?:(?:)|a)` keeps its `Empty` alternative), 30, 31 (`(?-u)[a]` is `(literal byte 97)`), 50, 52 and 53 (a text's `(concat)` is `(empty)`); and **`fa96f62`**: the gate's `(?:)` among the pieces 1 283 times, and a literal as a class or an escape 4 001; the mutants `empty-piece-kept`, `one-piece-concat-kept`, `empty-concat-kept`, `dropped-left-live`, `no-class-literal`, `class-literal-drops-byte` and `class-literal-any-range` each red (block 2m)
+ - [x] class ranges sorted, adjacent and overlapping ranges merged — RX-235, RX-236, **`2397770`**: a class is the set its ranges cover, sorted bottom-up by first member and merged where two overlap or touch, reckoned in `int64` — `hir_normalise` 32 … 39 (the surrogates' gap no adjacency, 36; two classes of 17 000 members written backwards, one range and 17 000, 39) and the seeded classes 80 … 84: 4 000 classes, 3 240 merged or sorted and 143 left a `Literal`, each held to the set it covers; and **`fa96f62`**: the gate's class respelt 3 078 times; the mutants `no-sort`, `sort-by-end`, `sort-one-pass`, `merge-overlap-only`, `merge-across-a-gap`, `merge-end-not-max`, `class-drops-byte` and `literal-leaves-a-range` each red (block 2m)
+-- [x] **the gate**: a generated corpus of pattern pairs that are structurally equal but textually different produces byte-identical dumps — RX-237, **`fa96f62`**: `tests/unit/hir_normalise_gate.npk`, 0 at both legs: 3 000 seeded trees in normal form, each written as its expected dump, as a plain pattern and as a noisy one, every pattern's normal dump its tree's byte for byte; all 3 000 pairs textually different, 2 060 of them joined only by normalisation; each tree mutated once outside the identities and held apart; floors on every kind of noise and mutation; the build alone leaves `a(?:bc)`'s dump 9 bytes longer than `abc`'s, and normalised the two are one text (block 0b); `318/318`, and in CI run 38346120227
++- [x] **the gate**: a generated corpus of pattern pairs that are structurally equal but textually different produces byte-identical dumps — RX-237, **`fa96f62`**: `tests/unit/hir_normalise_gate.npk`, 0 at both legs: 3 000 seeded trees in normal form, each written as its expected dump, as a plain pattern and as a noisy one, every pattern's normal dump its tree's byte for byte; all 3 000 pairs textually different, 2 060 of them joined only by normalisation; each tree mutated once outside the identities and held apart; floors on every kind of noise and mutation; the build alone leaves `a(?:bc)`'s dump 9 bytes longer than `abc`'s, and normalised the two are one text (block 0b); `318/318`, and in CI run 38346120227 *(@@DATE024@@, cycle 0.2.4 — RX-240: *"floors on every kind of noise"* but a seventh — the atom a repetition holds, in a `(?:…)` it does not need — applied 476 times and counted by nothing until RX-240 gave it a floor of its own)*
+ - [x] a test asserting no normalisation changes which strings match, by running the oracle over both forms — **pending until 0.5**, and written now as a pending case *(2026-10-08, cycle 0.2.1 — RX-226: a unit can be pending on a subcycle of this library now, `// pending-until: 0.5.N exit E`, with its line in `harness/baseline/PENDING.txt`)* — RX-237, **`fa96f62`**: `tests/unit/hir_normalise_oracle.npk`, `pending-until: 0.5.5 exit 1` — the 0.5 README's 0.5.5 box names it, and is dated — with its line in `harness/baseline/PENDING.txt`: 21 patterns whose normal forms differ from their built trees, over 12 haystacks, through one hook, `oracle_find`, that answers no oracle until cycle 0.5.5 fills it; 1 at both legs, `PENDING until cycle 0.5.5` outside the count, in every local run from block 2h and in CI run 38346120227; the mutants `oracle-hook-agrees` (0) and `oracle-hook-tells-forms-apart` (11) each red in it (block 2m)
+ 
+ ### 0.2.4 — computed properties
+diff --git a/meta/specs/TESTING.md b/meta/specs/TESTING.md
+index 0ac9e7a5cc5767f3248a9f6e92077bb6f600a085..ea0f24a946e05cfcd95445dbd8ee9376f922d246 100644
+--- a/meta/specs/TESTING.md
++++ b/meta/specs/TESTING.md
+@@ -195,6 +195,9 @@ by index, every refusal a crossing `Repeat`'s `{` inside the pattern, with floor
+ corpus: three thousand seeded trees in normal form, each written plain and noisy and its dump held to the tree's,
+ reckoned again, and each mutated once outside the identities and held apart, with floors on every kind of noise and
+ mutation. RX-232's list of what it dated leaves out the note above, which its step wrote; RX-237 completes it.)*
++*(@@DATE024@@, cycle 0.2.4 — RX-240: *"with floors on every kind of noise"* was not true of a seventh kind, which the gate
++applied from the start and counted nowhere: the atom a repetition holds, written in a `(?:…)` it does not need. It has a
++counter now and a floor of its own, 200, under the other six kinds' 500; RX-240 completes RX-237's list.)*
+ 
+ ---
+ 
+diff --git a/tests/unit/hir_normalise_gate.npk b/tests/unit/hir_normalise_gate.npk
+index fcd25e0561b17b99ef8708e20853a8f319f9fb43..b47306dc96dd2bba607c6784fbd9b406cc520468 100644
+--- a/tests/unit/hir_normalise_gate.npk
++++ b/tests/unit/hir_normalise_gate.npk
+@@ -23,6 +23,10 @@
+ // that reordered, merged a byte into a codepoint, or dropped a laziness, joins what this half keeps
+ // apart. And FLOORS on every kind of noise and mutation, so the
+ // pass cannot be green by looking nowhere (17).
++// *(@@DATE024@@, cycle 0.2.4 -- RX-240: *"FLOORS on every kind of noise"* was not true of a seventh kind, which
++// `put_pat` applied from the start and nothing counted: the atom a repetition holds, in a `(?:…)` it does not
++// need -- 476 times in 3 000 trees. It has a counter now, `repwraps`, and a floor of its own, `REPWRAP_FLOOR`:
++// it is rarer than the six above, and under their floor of 500.)*
+ //
+ // THE GENERATOR RECURSES, and so do its writers: their depth is the generator's own bound, four, not
+ // an input's (`SAFETY.md` S-18), and `check_no_recursion` reads `src/`, not `tests/` (RX-192). A case
+@@ -37,7 +41,8 @@ fixed int64:TREES = 3000i64;
+ fixed int64:DEPTH = 4i64;
+ fixed int64:PAIRS_FLOOR = 3000i64;       // pairs whose two patterns differ as text: every one
+ fixed int64:JOINED_FLOOR = 1500i64;      // pairs whose BUILT dumps differ: only normalisation joins them
+-fixed int64:NOISE_FLOOR = 500i64;        // each kind of noise applied at least this often
++fixed int64:NOISE_FLOOR = 500i64;        // each of six kinds of noise applied at least this often
++fixed int64:REPWRAP_FLOOR = 200i64;      // and the seventh, rarer (RX-240): a repetition's atom in a `(?:…)`
+ fixed int64:MUTANT_FLOOR = 100i64;       // each kind of mutation applied at least this often
+ 
+ // The kinds of node a tree holds.
+@@ -79,6 +84,7 @@ struct:Gen = {
+     int64:litcls;        // noise: a literal written as a class or an escape
+     int64:clsnoise;      // noise: a class's members split, overlapped, doubled or reordered
+     int64:quants;        // noise: a quantifier respelt, or an anchor's other name
++    int64:repwraps;      // noise: the atom a repetition holds in a `(?:…)` it does not need
+ };
+ 
+ // xorshift64 (Marsaglia), as `parse_fuzz.npk` writes it.
+@@ -310,8 +316,10 @@ func:put_pat = NIL(Vec<GNode>->:t, Gen->:g, int64:i, int64:at, bool:noisy, Bytes
+     }
+     if (x.kind == G_REP) {
+         GNode:c = raw vec_get(<-t, x.first);
+-        bool:wrap = (c.kind == G_CAT) || (c.kind == G_ALT) || (c.kind == G_REP)
+-                    || (noisy && ((raw roll(g, 4i64)) == 0i64));
++        bool:wrap = (c.kind == G_CAT) || (c.kind == G_ALT) || (c.kind == G_REP);
++        if ((!wrap) && noisy) {
++            if ((raw roll(g, 4i64)) == 0i64) { g.repwraps = g.repwraps + 1i64; wrap = true; }
++        }
+         if (wrap) { drop bytes_extend_str(b, "(?:"); }
+         drop put_pat(t, g, x.first, AT_ANY, noisy, b);
+         if (wrap) { drop bytes_push(b, 41u8); }
+@@ -572,7 +580,7 @@ func:mutate = bool(Vec<GNode>->:t, Gen->:g, int64:kind) never fails {
+ 
+ func:run = int32() never fails {
+     Gen:g = Gen{ rng: 1442695040888963407u64, group: 0i64, wraps: 0i64, altwraps: 0i64, empties: 0i64,
+-                 litcls: 0i64, clsnoise: 0i64, quants: 0i64 };
++                 litcls: 0i64, clsnoise: 0i64, quants: 0i64, repwraps: 0i64 };
+     int64:pairs = 0i64;
+     int64:joined = 0i64;
+     int64[4]:mutants = [0i64, 0i64, 0i64, 0i64];
+@@ -616,7 +624,7 @@ func:run = int32() never fails {
+     if (pairs < PAIRS_FLOOR) { pass 13i32; }
+     if (joined < JOINED_FLOOR) { pass 16i32; }
+     if ((g.wraps < NOISE_FLOOR) || (g.altwraps < NOISE_FLOOR) || (g.empties < NOISE_FLOOR) || (g.litcls < NOISE_FLOOR)
+-        || (g.clsnoise < NOISE_FLOOR) || (g.quants < NOISE_FLOOR)) { pass 17i32; }
++        || (g.clsnoise < NOISE_FLOOR) || (g.quants < NOISE_FLOOR) || (g.repwraps < REPWRAP_FLOOR)) { pass 17i32; }
+     if ((mutants[0] < MUTANT_FLOOR) || (mutants[1] < MUTANT_FLOOR) || (mutants[2] < MUTANT_FLOOR) || (mutants[3] < MUTANT_FLOOR)) { pass 17i32; }
+     pass 0i32;
+ };

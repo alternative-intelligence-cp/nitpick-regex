@@ -1,0 +1,50 @@
+# 0.2.4's mutants of src/hir/repr.npk's computed properties -- H-17's table in `facts_of` and `list_facts`, the query,
+# the pass, the doors and the freeze -- of dump.npk's admission of the computed bits, and of the Gate's seventh kind of
+# noise: each one rule broken in a copy of a tree, the text matched exactly ONCE or the row is a STOP; `mutants.py`
+# builds every unit below that the tree holds, in the copy, at both legs, and prints the units whose exits differ from
+# the unchanged copy's. TAB-separated; `\n` in a text is a newline. The first column is the block a row runs at: `2`,
+# over the tree at step 2, where all eight of the computed properties' units are, and the Gate's floor.
+# units: hir_props hir_props_reference hir_props_no_root hir_props_not_in_tree hir_props_frozen_set hir_props_frozen_root hir_props_shared hir_props_not_a_tree hir_normalise hir_normalise_gate
+2	empty-cannot-match-empty	src/hir/repr.npk	    if (n.kind == HirKind.Empty)        { pass HIR_CAN_MATCH_EMPTY; }	    if (n.kind == HirKind.Empty)        { pass 0u32; }
+2	literal-not-plain	src/hir/repr.npk	    if (n.kind == HirKind.Literal)      { pass HIR_IS_ALTERNATION_LITERAL; }	    if (n.kind == HirKind.Literal)      { pass 0u32; }
+2	class-matches-empty	src/hir/repr.npk	    if (n.kind == HirKind.Class)        { pass 0u32; }	    if (n.kind == HirKind.Class)        { pass HIR_CAN_MATCH_EMPTY; }
+2	boundary-not-empty	src/hir/repr.npk	    if (n.kind == HirKind.WordBoundary) { pass HIR_CAN_MATCH_EMPTY; }	    if (n.kind == HirKind.WordBoundary) { pass 0u32; }
+2	anchor-not-empty	src/hir/repr.npk	        uint32:f = HIR_CAN_MATCH_EMPTY;\n        if (n.a == HIR_TEXT_START)	        uint32:f = 0u32;\n        if (n.a == HIR_TEXT_START)
+2	line-start-anchors	src/hir/repr.npk	        if (n.a == HIR_TEXT_START) { f = f | HIR_IS_ANCHORED_START; }	        if ((n.a == HIR_TEXT_START) || (n.a == HIR_LINE_START)) { f = f | HIR_IS_ANCHORED_START; }
+2	line-end-anchors	src/hir/repr.npk	        if (n.a == HIR_TEXT_END)   { f = f | HIR_IS_ANCHORED_END; }	        if ((n.a == HIR_TEXT_END) || (n.a == HIR_LINE_END)) { f = f | HIR_IS_ANCHORED_END; }
+2	repeat-zero-is-its-body	src/hir/repr.npk	        if ((n.kind == HirKind.Repeat) && (n.b == 0i64)) { pass HIR_CAN_MATCH_EMPTY; }\n	
+2	repeat-body-never-empty	src/hir/repr.npk	        pass c.flags & (HIR_CAN_MATCH_EMPTY | HIR_IS_ANCHORED_START | HIR_IS_ANCHORED_END);	        pass c.flags & (HIR_IS_ANCHORED_START | HIR_IS_ANCHORED_END);
+2	repeat-body-never-anchored	src/hir/repr.npk	        pass c.flags & (HIR_CAN_MATCH_EMPTY | HIR_IS_ANCHORED_START | HIR_IS_ANCHORED_END);	        pass c.flags & HIR_CAN_MATCH_EMPTY;
+2	group-is-plain	src/hir/repr.npk	        pass c.flags & (HIR_CAN_MATCH_EMPTY | HIR_IS_ANCHORED_START | HIR_IS_ANCHORED_END);	        pass c.flags & HIR_PROPS;
+2	concat-some-empty	src/hir/repr.npk	        if (every_empty) { f = f | HIR_CAN_MATCH_EMPTY; }	        if (some_empty) { f = f | HIR_CAN_MATCH_EMPTY; }
+2	alternate-every-empty	src/hir/repr.npk	    if (some_empty) { f = f | HIR_CAN_MATCH_EMPTY; }	    if (every_empty) { f = f | HIR_CAN_MATCH_EMPTY; }
+2	concat-start-from-last	src/hir/repr.npk	        if (k == 0i64) { first_start = s; }	        first_start = s;
+2	concat-start-any-piece	src/hir/repr.npk	        if (k == 0i64) { first_start = s; }	        first_start = first_start || s;
+2	concat-end-from-first	src/hir/repr.npk	        last_end = t;	        if (k == 0i64) { last_end = t; }
+2	concat-end-any-piece	src/hir/repr.npk	        last_end = t;	        last_end = last_end || t;
+2	alternate-start-first-only	src/hir/repr.npk	        every_start = every_start && s;	        every_start = every_start && (s || (k > 0i64));
+2	alternate-end-first-only	src/hir/repr.npk	        every_end = every_end && t;	        every_end = every_end && (t || (k > 0i64));
+2	concat-any-literal	src/hir/repr.npk	        every_literal = every_literal && lit;	        every_literal = every_literal || lit;
+2	empty-alternative-plain	src/hir/repr.npk	        every_plain = every_plain && (lit || run);	        every_plain = every_plain && (lit || run || (x.kind == HirKind.Empty));
+2	group-alternative-plain	src/hir/repr.npk	        every_plain = every_plain && (lit || run);	        every_plain = every_plain && (lit || run || (x.kind == HirKind.Group));
+2	any-concat-plain	src/hir/repr.npk	        bool:run = (x.kind == HirKind.Concat) && ((x.flags & HIR_IS_ALTERNATION_LITERAL) != 0u32);	        bool:run = x.kind == HirKind.Concat;
+2	empty-union-facts	src/hir/repr.npk	    if (k > 0i64) {\n        if (every_start)	    if (k >= 0i64) {\n        if (every_start)
+2	empty-run-plain	src/hir/repr.npk	        if ((k > 0i64) && every_literal) { f = f | HIR_IS_ALTERNATION_LITERAL; }	        if (every_literal) { f = f | HIR_IS_ALTERNATION_LITERAL; }
+2	d227-absent-as-false	src/hir/repr.npk	    if (!(raw facts_done(h))) { drop compute_facts(h); }\n    HirNode:n = raw vec_get(h.nodes, i);\n    if ((n.flags & HIR_PROPS_COMPUTED) == 0u32) { drop vec_oob(i); }\n	    HirNode:n = raw vec_get(h.nodes, i);\n
+2	query-never-computes	src/hir/repr.npk	    if (!(raw facts_done(h))) { drop compute_facts(h); }\n	
+2	query-answers-absent	src/hir/repr.npk	    if ((n.flags & HIR_PROPS_COMPUTED) == 0u32) { drop vec_oob(i); }\n	
+2	query-always-computes	src/hir/repr.npk	    if (!(raw facts_done(h))) { drop compute_facts(h); }	    drop compute_facts(h);
+2	no-root-unchecked	src/hir/repr.npk	    if (h.root == HIR_NONE) { drop vec_oob(i); }\n	
+2	pass-computes-twice	src/hir/repr.npk	            if ((n.flags & HIR_PROPS_COMPUTED) != 0u32) { drop vec_oob(s.node); }\n	
+2	pass-marks-nothing	src/hir/repr.npk	            n.flags = n.flags | HIR_PROPS_COMPUTED | (raw facts_of(h, n));	            n.flags = n.flags | (raw facts_of(h, n));
+2	walk-budget-short	src/hir/repr.npk	    int64:budget = 2i64 * h.nodes.count - 1i64;	    int64:budget = 2i64 * h.nodes.count - 2i64;
+2	push-keeps-facts	src/hir/repr.npk	    x.flags = n.flags & (~HIR_COMPUTED);\n    drop vec_push(@h.nodes, x);	    x.flags = n.flags;\n    drop vec_push(@h.nodes, x);
+2	set-keeps-facts	src/hir/repr.npk	    x.flags = n.flags & (~HIR_COMPUTED);\n    drop vec_set(@h.nodes, i, x);	    x.flags = n.flags;\n    drop vec_set(@h.nodes, i, x);
+2	set-unfrozen	src/hir/repr.npk	    if (raw facts_done(h)) { drop vec_oob(i); }\n    HirNode:x = n;	    HirNode:x = n;
+2	root-unfrozen	src/hir/repr.npk	    if (raw facts_done(h))  { drop vec_oob(i); }\n	
+2	set-frozen-once-rooted	src/hir/repr.npk	    if (raw facts_done(h)) { drop vec_oob(i); }\n    HirNode:x = n;	    if (h.root != HIR_NONE) { drop vec_oob(i); }\n    HirNode:x = n;
+2	root-frozen-once-rooted	src/hir/repr.npk	    if (raw facts_done(h))  { drop vec_oob(i); }	    if (h.root != HIR_NONE) { drop vec_oob(i); }
+2	done-without-a-root	src/hir/repr.npk	    if (h.root == HIR_NONE) { pass false; }\n	
+2	done-once-rooted	src/hir/repr.npk	    pass (r.flags & HIR_PROPS_COMPUTED) != 0u32;	    pass true;
+2	dump-refuses-facts	src/hir/dump.npk	    if (k == HirKind.Repeat) { pass HIR_FLAG_LAZY | HIR_COMPUTED; }\n    pass HIR_COMPUTED;	    if (k == HirKind.Repeat) { pass HIR_FLAG_LAZY | HIR_COMPUTED; }\n    pass 0u32;
+2	repwrap-never-applied	tests/unit/hir_normalise_gate.npk	            if ((raw roll(g, 4i64)) == 0i64) { g.repwraps = g.repwraps + 1i64; wrap = true; }	            if ((raw roll(g, 4i64)) == 64i64) { g.repwraps = g.repwraps + 1i64; wrap = true; }

@@ -1,0 +1,18 @@
+# 0.2.4's omission sweep, block 4 -- one extended regular expression per line, each read by `sweep.py` line by line AND
+# across line breaks, case-insensitive: every statement steps 1 ... 3 make false, every claim a step dates in its own words
+# -- the twins a search for removed lines cannot see -- and every place a reader would look for what they changed. The dump
+# that shows every bit; the bits the computed properties take; what the dump shows of them; the four facts' meanings, in
+# H-9's words and the flags' names; never recomputed, and the state not yet computed; the Gate's floors on every kind of
+# noise; the run's count; the subcycle that is next; the status's parts; the pending units.
+shows every bit|every bit its nodes hold|any other bit|store what a builder hands|shows what the arena holds
+take (bits above them|others)|properties \(H-9\) take|bits above them
+says how the dump shows|the dump writes neither
+matches the empty string|can.match.empty|matches-empty
+every match (begins|ends) at the haystack|is.anchored|anchored at the (start|end)
+union of plain literals|alternation.literal|plain literals?
+never recomputed|computes-or-returns|compute-on-query|not yet computed
+every kind of noise|each kind of noise|kinds? of noise
+\b(318|334)\b.{0,20}(unit|/)
+0\.2\.4.{0,40}\bnext\b|\bnext\b.{0,30}0\.2\.4|whose plan no file holds yet
+first (five|six) parts|(five|six) parts
+three (units )?(are )?pending|three pending|pending outside|all three outside
