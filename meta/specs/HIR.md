@@ -280,6 +280,10 @@ copies a node's `flags` — carries none. **A tree whose facts are computed is f
 none of them** (H-15): every kind takes the five, which the text does not write and `hir_read` never sets — they are the
 tree's facts, and the text shows the tree — so a tree has one text before its facts and after. `tests/unit/hir_props.npk`
 holds the query, the doors and the cache, and six units more each stop.
+*(2026-10-15, cycle 0.2.5 — RX-242: *"which the text does not write and `hir_read` never sets"* — the text still writes
+none of the five, but a text that carries a literals' section is read by extracting its literals (H-20), which asks
+`hir_props` first: every node of the tree `hir_read` reads from such a text holds its facts, and the tree is finished. A
+text without a section reads as before, its facts not yet computed.)*
 
 ---
 
@@ -428,6 +432,9 @@ says how the dump shows it.)*
 `HIR_COMPUTED`'s five bits, the computed properties, which the text does not write and `hir_read` never sets (H-18). So
 *"a dump that completes shows every bit its nodes hold"* is every bit but those five, and a tree has one text before its
 facts are computed and after.)*
+*(2026-10-15, cycle 0.2.5 — RX-242: *"which the text does not write and `hir_read` never sets"* — but reading a text that
+carries a literals' section extracts its literals after the facts (H-18, H-20), so every node of the tree read from such a
+text holds its facts; the text writes none of them, with a section or without.)*
 *(2026-10-08, cycle 0.2.1 — RX-228: and `hir_build` builds one — every node it pushes is reached from the root once
 (H-16) — so the walk's bound is exact for every HIR it answers `HIR_NONE` for.)*
 *(2026-10-12, cycle 0.2.3 — RX-236: *"cycle 0.2.3's order"* is `hir_normalise`'s to make: a text's classes read as written,
