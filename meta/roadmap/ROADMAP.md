@@ -56,7 +56,7 @@ cycle 0.0.
 |---|---|---|
 | **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **DONE 2026-09-26, archived to [`done/0.0/`](done/0.0/README.md).** The sixth W-22 audit ACCEPTED the close at compiler `c970483`, after five refusals — three on 2026-09-06, two on 2026-09-25 — and two inserted subcycles, 0.0.4d (`Vec` move-only) and 0.0.4e (the re-pin that refused the loan). The close is [`done/0.0/0.0.5.md`](done/0.0/0.0.5.md) §13 | — |
 | **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **DONE 2026-10-08, archived to [`done/0.1/`](done/0.1/README.md).** Its audit ACCEPTED it once C1 was fixed — `regex_escape`'s text read as a POSIX class straight after a nested class's `[`, the one wrong answer, fixed first — and the close is [`done/0.1/0.1.6.md`](done/0.1/0.1.6.md), its §2 the audit's twenty-two findings, one row each | 0.0 |
-| **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction — **OPEN: [`0.2.0`](0.2/0.2.0.md), the arena, [`0.2.1`](0.2/0.2.1.md), the desugaring, [`0.2.1a`](0.2/0.2.1a.md), the adoption of compiler `7e91730`, [`0.2.2`](0.2/0.2.2.md), the repetition product, [`0.2.3`](0.2/0.2.3.md), normalisation, and [`0.2.4`](0.2/0.2.4.md), the computed properties, done; 0.2.5, literal extraction, next** | 0.1 |
+| **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction — **OPEN: [`0.2.0`](0.2/0.2.0.md), the arena, [`0.2.1`](0.2/0.2.1.md), the desugaring, [`0.2.1a`](0.2/0.2.1a.md), the adoption of compiler `7e91730`, [`0.2.2`](0.2/0.2.2.md), the repetition product, [`0.2.3`](0.2/0.2.3.md), normalisation, [`0.2.4`](0.2/0.2.4.md), the computed properties, and [`0.2.5`](0.2/0.2.5.md), literal extraction, done; 0.2.6, the close, next** | 0.1 |
 | **0.3** | **Unicode** — generated tables, properties, scripts, simple case folding | 0.0 |
 | **0.4** | **UTF-8 automata** — codepoint ranges to byte ranges, alphabet compression | 0.3 |
 | **0.5** | **The oracle** — the naive reference matcher, and the conformance corpus | 0.2, 0.3 |
@@ -217,6 +217,9 @@ run as a program and swept as a root, and its oracle test pending until cycle 0.
 with the two before it; decisions through RX-237.)*
 *(After cycle 0.2.4, the same compiler: **334** units — the computed properties' eight unit programs, in `repr.npk`, each
 run as a program and swept as a root; three pending outside them, as before; decisions through RX-240.)*
+*(After cycle 0.2.5, the same compiler: **347** units — literal extraction's six unit programs, in `repr.npk` and
+`dump.npk`, each run as a program and swept as a root, and its property test pending until cycle 0.5.5, swept and printed
+outside the count with the three before it; decisions through RX-243.)*
 
 **Two probes refuted their own hypothesis**, which is the cycle's best return:
 `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler

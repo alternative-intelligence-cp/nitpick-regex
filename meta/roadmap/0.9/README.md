@@ -25,14 +25,14 @@ seam.
 
 ### 0.9.0 — memchr and the first-byte set
 - [ ] a scalar `memchr` over `uint8[]`, and a small-set variant
-- [ ] driven by `HIR.md` §5's extracted first-byte set
+- [ ] driven by `HIR.md` §5's extracted first-byte set *(2026-10-15, cycle 0.2.5 — RX-241, RX-242: `hir_literals`' `first` entry, its bytes ascending, at most `NREGEX_LITERAL_LIMIT` of them; `anywhere` where the pattern may match the empty string or the set is larger — no prefilter then, since a match may begin at the haystack's end, where there is no byte (`HIR.md` H-19, H-20))*
 - [ ] **a prefilter never decides a match** (RX-043): every candidate is confirmed by a real engine
 - [ ] **the property test**: for every corpus pattern and haystack, every position a real engine finds is a position the prefilter admitted. A prefilter wrong in the "too few" direction is a correctness defect, and this is what catches it
 - [ ] the scanner is a separate function with a stable signature, so 0.13 can swap in a SIMD implementation and compare
 
 ### 0.9.1 — the literal prefix
 - [ ] a required byte-string search, algorithm stated and recorded (recommendation: a simple two-way or memchr-plus-verify, not Boyer–Moore, because the patterns are short and the code is smaller)
-- [ ] bounded by `NREGEX_LITERAL_BYTES`
+- [ ] bounded by `NREGEX_LITERAL_BYTES` *(2026-10-15, cycle 0.2.5 — RX-241, RX-242: the extracted prefix is so bounded already, its first `NREGEX_LITERAL_BYTES` bytes, in `hir_literals`' `prefix` or `whole` entry — `whole` where every match is the prefix (`HIR.md` H-19, H-20))*
 - [ ] the same never-miss property test
 
 ### 0.9.2 — the meta-engine

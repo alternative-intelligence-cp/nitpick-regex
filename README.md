@@ -8,8 +8,8 @@ makes the guarantee below possible.
 > **The guarantee, in one sentence: a search takes time linear in the length of
 > the haystack, on every pattern, on every input, always.**
 
-> **Status: cycle 0.2, the HIR, is open, and its first six parts — the arena, the desugaring, the adoption of
-> compiler `7e91730`, the repetition product, normalisation and the computed properties — are done; cycle 0.1, the pattern parser, closed on 2026-10-08.** Cycle 0.0, the
+> **Status: cycle 0.2, the HIR, is open, and its first seven parts — the arena, the desugaring, the adoption of
+> compiler `7e91730`, the repetition product, normalisation, the computed properties and literal extraction — are done; cycle 0.1, the pattern parser, closed on 2026-10-08.** Cycle 0.0, the
 > foundations, closed on 2026-09-26 — the language probes, the test harness and
 > the storage primitives in `src/core/` are built and audited — and cycle 0.1.0
 > laid the parser's pieces in `src/syntax/`: the closed list of pattern errors,
@@ -43,6 +43,9 @@ makes the guarantee below possible.
 > `[ba]` and `[a-b]` — are one HIR and one line of text, while nothing that changes what a pattern matches is joined.
 > Cycle 0.2.4 computes four facts of every node once, for the engines to ask — whether it may match the empty string,
 > whether every match is anchored at the haystack's start or at its end, and whether it is a literal or a union of them.
+> Cycle 0.2.5 extracts, for the prefilters to scan for, the bytes every match begins with, the bytes a match can begin
+> with and a literal every match holds — each one only where it is certain, so a pattern it cannot read is searched slower,
+> never wrongly.
 > Nothing matches a pattern yet.
 > The specification set is in [`meta/specs/`](meta/specs/) and the plan in
 > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
