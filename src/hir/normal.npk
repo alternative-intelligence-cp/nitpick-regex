@@ -261,6 +261,9 @@ func:emit = NIL(Vec<HirNode>->:w, Vec<ClassRange>->:wr, Bytes->:dead, int64:root
 // would dump `(class 5-7)`. FRESH IS THREE COUNTS: no node, no range, and group 0 alone -- every
 // field `repr.npk`'s verbs write, since a name is written only with its group and the root only to a
 // node the arena holds.
+// *(2026-10-15, cycle 0.2.5 -- RX-242: and the literals and their bytes, `Hir.literals` and `Hir.lits`, only by the
+// extraction, over a tree under a root: an arena with no node holds no literal, so the node count reads them too.
+// The normal form gets none of `h`'s; it is asked for its own.)*
 pub func:hir_normalise = NIL(Hir->:h, Hir->:out) never fails {
     if (((raw hir_len(<-out)) != 0i64) || ((raw hir_group_count(<-out)) != 1i64)
         || ((raw hir_range_count(<-out)) != 0i64)) { drop vec_oob(raw hir_len(<-out)); }

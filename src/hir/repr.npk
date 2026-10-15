@@ -35,6 +35,13 @@
 // copied from a computed tree carries none; and once the facts are computed the tree is finished --
 // `hir_set` and `hir_set_root` stop on it, so a cached fact is never stale.
 //
+// AND THE LITERALS (cycle 0.2.5, RX-241, RX-242; `HIR.md` H-11, H-12, H-19 and H-20). The three a prefilter reads --
+// the prefix every match begins with, the bytes a match may begin with, a literal every match holds -- each a fact of
+// every match that errs towards saying less, are `Hir.literals`, `Literal`s whose bytes are in `Hir.lits`, written by
+// the extraction below and by nothing else. `hir_literals` is the query: it extracts them when the `Hir` holds none --
+// after the facts, so the tree is finished first -- and the first-byte set's entry is always written, so a `Hir` that
+// holds none has not had them extracted: "not yet", never "no literal".
+//
 // THE ARENA IS THE COMPILER'S TO GUARD. Every field of `Hir` but `root` is `hidden` (the
 // compiler's D-314): outside this file it cannot be read (NITPICK-TYPE-080,
 // `tests/rejection/hir_nodes_read.npk`), so every access goes through the functions below
@@ -117,6 +124,22 @@ pub struct:GroupInfo = {
     int64:len;         // its length; 0 when the group has no name
 };
 
+// A literal's role (H-11, H-19): what it says of every match of the tree it was extracted from.
+pub fixed int64:HIR_LITERAL_PREFIX = 0i64;     // every match begins with its bytes
+pub fixed int64:HIR_LITERAL_WHOLE = 1i64;      // every match is its bytes: the prefix, when it is a whole match
+pub fixed int64:HIR_LITERAL_FIRST = 2i64;      // every match begins with one of its bytes, which ascend
+pub fixed int64:HIR_LITERAL_ANYWHERE = 3i64;   // no first-byte set: a match may begin anywhere, the end included
+pub fixed int64:HIR_LITERAL_INNER = 4i64;      // every match holds its bytes
+
+// One of a `Hir`'s literals (H-20): its role, and its bytes -- `len` of them from `off` in `Hir.lits` -- so it
+// owns nothing, as a group's name is an offset and a length in `Hir.names` (`SAFETY.md` S-23a, RX-224).
+#[derive(Copy)]
+pub struct:Literal = {
+    int64:role;        // HIR_LITERAL_PREFIX … HIR_LITERAL_INNER
+    int64:off;         // its first byte in `Hir.lits`
+    int64:len;         // how many bytes
+};
+
 // MOVE-ONLY, because it holds a `Vec` and a `Bytes` (`SAFETY.md` S-23b, RX-161): transfer
 // it with `move(...)`, lend it by value to a reader, hand it by pointer to anything that
 // changes it.
@@ -125,6 +148,8 @@ pub struct:Hir = {
     hidden Vec<ClassRange>:ranges;   // every class's ranges, contiguous per class
     hidden Bytes:names;              // the groups' names, one after another
     hidden Vec<GroupInfo>:groups;    // one entry per group, group 0 first
+    hidden Vec<Literal>:literals;    // H-11's literals, in its order, once extracted; none until then (H-20)
+    hidden Vec<uint8>:lits;          // the literals' bytes, one after another
     sealed int64:root;               // the root node, HIR_NONE until a builder sets it
 };
 
@@ -134,7 +159,8 @@ pub struct:Hir = {
 // (`COMPILE.md` C-16), so a group the pattern opens is numbered from 1, as Y-6 numbers it.
 pub func:hir_init = Hir(int64:cap) never fails {
     Hir:h = Hir{ nodes: raw vec_init::<HirNode>(cap), ranges: raw vec_init::<ClassRange>(cap),
-                 names: raw bytes_init(cap), groups: raw vec_init::<GroupInfo>(cap), root: HIR_NONE };
+                 names: raw bytes_init(cap), groups: raw vec_init::<GroupInfo>(cap),
+                 literals: raw vec_init::<Literal>(cap), lits: raw vec_init::<uint8>(cap), root: HIR_NONE };
     drop vec_push(@h.groups, GroupInfo{ off: 0i64, len: 0i64 });
     pass h;
 };
@@ -410,15 +436,446 @@ pub func:hir_props = uint32(Hir->:h, int64:i) never fails {
     pass n.flags & HIR_PROPS;
 };
 
+// ---- the literals (H-11, H-12, H-19, H-20) ------------------------------------------------------------
+
+// How many bytes a match of a `Literal` holding `cp` has (H-19): its UTF-8 encoding's, or under `byte` one --
+// `UNICODE.md` U-18 and U-19, a Unicode-mode node matches its well-formed encoding alone.
+func:cp_len = int64(int64:cp, bool:byte) never fails {
+    if (byte) { pass 1i64; }
+    if ((cp >> 7i64) == 0i64) { pass 1i64; }
+    if ((cp >> 11i64) == 0i64) { pass 2i64; }
+    if ((cp >> 16i64) == 0i64) { pass 3i64; }
+    pass 4i64;
+};
+
+// And its byte `i`, `0 <= i < cp_len`: the encoding's lead byte, then each continuation byte, six bits of the
+// codepoint each, or under `byte` the byte. A surrogate, which only a text `hir_read` reads can hold
+// (`COMPILE.md` C-3), is the three bytes this arithmetic gives, which no well-formed haystack holds.
+func:cp_byte = uint8(int64:cp, bool:byte, int64:i) never fails {
+    int64:k = raw cp_len(cp, byte);
+    if (k == 1i64) { pass cp =>! uint8; }
+    if (i == 0i64) {
+        if (k == 2i64) { pass (192i64 | (cp >> 6i64)) =>! uint8; }
+        if (k == 3i64) { pass (224i64 | (cp >> 12i64)) =>! uint8; }
+        pass (240i64 | (cp >> 18i64)) =>! uint8;
+    }
+    pass (128i64 | ((cp >> (6i64 * (k - 1i64 - i))) & 63i64)) =>! uint8;
+};
+
+// Adds to `s` the bytes `from` … `to`.
+func:add_span = NIL(ByteSet->:s, int64:from, int64:to) never fails {
+    int64:b = from;
+    while (b <= to) decreases to - b {
+        drop byteset_add(s, b =>! uint8);
+        b = b + 1i64;
+    }
+    pass NIL;
+};
+
+// Adds to `s` the first byte of every member of a class's range `lo` … `hi` (H-19): under `byte` each byte
+// itself; else each codepoint's lead byte. An ASCII codepoint is its own byte, and past U+007F a lead byte rises
+// with the codepoint over one run of bytes, `C2` … `F4` -- each the lead of an interval of codepoints, the
+// intervals adjacent (`COMPILE.md` C-2) -- so a range past it has its ends' lead bytes and every byte between.
+// Only the ASCII edge splits a range: `7F` and `C2` are not adjacent.
+func:add_leads = NIL(ByteSet->:s, int64:lo, int64:hi, bool:byte) never fails {
+    if (byte) { drop add_span(s, lo, hi); pass NIL; }
+    if (lo <= 127i64) {
+        int64:top = hi;
+        if (top > 127i64) { top = 127i64; }
+        drop add_span(s, lo, top);
+    }
+    if (hi >= 128i64) {
+        int64:from = lo;
+        if (from < 128i64) { from = 128i64; }
+        drop add_span(s, (raw cp_byte(from, false, 0i64)) => int64, (raw cp_byte(hi, false, 0i64)) => int64);
+    }
+    pass NIL;
+};
+
+// One step of a literal walk: a node, and what the walk does with it.
+#[derive(Copy)]
+struct:LitStep = {
+    int64:node;          // the node
+    int64:op;            // LIT_ONE, LIT_PIECE, LIT_ALT or LIT_AFTER
+};
+
+fixed int64:LIT_ONE = 0i64;      // the node
+fixed int64:LIT_PIECE = 1i64;    // a `Concat`'s piece: the node, then the piece after it
+fixed int64:LIT_ALT = 2i64;      // an `Alternate`'s alternative: the node, then the one after it
+fixed int64:LIT_AFTER = 3i64;    // a `Repeat`'s body read once: whether the prefix goes on
+
+// THE FIRST-BYTE SET (H-19): into `s`, the first byte of every match of the tree under the root -- a `Literal`'s
+// first byte, a `Class`'s members' first bytes, a `Group`'s and a `Repeat`'s body's, an `Alternate`'s every
+// alternative's, and a `Concat`'s pieces' up to the first that cannot match the empty string, that one's too;
+// an `Empty`, an `Anchor` and a `WordBoundary` none. Whether a piece may match the empty string is H-17's fact,
+// read through `hir_props`: it says MAY, so it errs this set's way -- a byte more, never one fewer. A tree
+// visits each node once, so the walk is bounded by the arena.
+func:first_bytes = NIL(Hir->:h, ByteSet->:s) never fails {
+    Vec<LitStep>:todo = raw vec_init::<LitStep>(16i64);
+    drop vec_push(@todo, LitStep{ node: h.root, op: LIT_ONE });
+    int64:budget = h.nodes.count - 1i64;
+    int64:steps = 0i64;
+    while (todo.count > 0i64) decreases budget - steps {
+        steps = steps + 1i64;
+        LitStep:t = raw vec_pop(@todo);
+        HirNode:n = raw vec_get(h.nodes, t.node);
+        bool:byte = (n.flags & HIR_FLAG_BYTE) != 0u32;
+        if ((t.op == LIT_PIECE) && (n.next != HIR_NONE)) {
+            if (((raw hir_props(h, t.node)) & HIR_CAN_MATCH_EMPTY) != 0u32) {
+                drop vec_push(@todo, LitStep{ node: n.next, op: LIT_PIECE });
+            }
+        }
+        else if ((t.op == LIT_ALT) && (n.next != HIR_NONE)) {
+            drop vec_push(@todo, LitStep{ node: n.next, op: LIT_ALT });
+        }
+        if (n.kind == HirKind.Literal) {
+            drop byteset_add(s, raw cp_byte(n.a, byte, 0i64));
+        }
+        else if (n.kind == HirKind.Class) {
+            int64:r = 0i64;
+            while (r < n.b) decreases n.b - r {
+                ClassRange:x = raw vec_get(h.ranges, n.a + r);
+                drop add_leads(s, x.lo => int64, x.hi => int64, byte);
+                r = r + 1i64;
+            }
+        }
+        else if ((n.kind == HirKind.Group) || (n.kind == HirKind.Repeat)) {
+            drop vec_push(@todo, LitStep{ node: n.a, op: LIT_ONE });
+        }
+        else if ((n.kind == HirKind.Concat) && (n.a != HIR_NONE)) {
+            drop vec_push(@todo, LitStep{ node: n.a, op: LIT_PIECE });
+        }
+        else if ((n.kind == HirKind.Alternate) && (n.a != HIR_NONE)) {
+            drop vec_push(@todo, LitStep{ node: n.a, op: LIT_ALT });
+        }
+    }
+    drop vec_free(@todo);
+    pass NIL;
+};
+
+// A plain literal's bytes (H-17's plain literal: a `Literal`, or a `Concat` of `Literal`s) appended to
+// `Hir.lits`, `room` of them at most; answers how many it has, written or not.
+func:plain_put = int64(Hir->:h, int64:i, int64:room) never fails {
+    HirNode:x = raw vec_get(h.nodes, i);
+    int64:p = i;
+    int64:count = 1i64;
+    if (x.kind == HirKind.Concat) { p = x.a; count = x.b; }
+    int64:total = 0i64;
+    int64:j = 0i64;
+    while ((p != HIR_NONE) && (j < count)) decreases count - j {
+        HirNode:y = raw vec_get(h.nodes, p);
+        bool:byte = (y.flags & HIR_FLAG_BYTE) != 0u32;
+        int64:k = raw cp_len(y.a, byte);
+        int64:q = 0i64;
+        while (q < k) decreases k - q {
+            if (total < room) { drop vec_push(@h.lits, raw cp_byte(y.a, byte, q)); }
+            total = total + 1i64;
+            q = q + 1i64;
+        }
+        p = y.next;
+        j = j + 1i64;
+    }
+    pass total;
+};
+
+// How many of a plain literal's first bytes are `Hir.lits`' from `at` on, `bound` at most.
+func:plain_common = int64(Hir->:h, int64:i, int64:at, int64:bound) never fails {
+    HirNode:x = raw vec_get(h.nodes, i);
+    int64:p = i;
+    int64:count = 1i64;
+    if (x.kind == HirKind.Concat) { p = x.a; count = x.b; }
+    int64:same = 0i64;
+    int64:j = 0i64;
+    while ((p != HIR_NONE) && (j < count)) decreases count - j {
+        HirNode:y = raw vec_get(h.nodes, p);
+        bool:byte = (y.flags & HIR_FLAG_BYTE) != 0u32;
+        int64:k = raw cp_len(y.a, byte);
+        int64:q = 0i64;
+        while (q < k) decreases k - q {
+            if (same >= bound) { pass same; }
+            if ((raw vec_get(h.lits, at + same)) != (raw cp_byte(y.a, byte, q))) { pass same; }
+            same = same + 1i64;
+            q = q + 1i64;
+        }
+        p = y.next;
+        j = j + 1i64;
+    }
+    pass same;
+};
+
+// How many bytes a plain literal has.
+func:plain_len = int64(Hir->:h, int64:i) never fails {
+    HirNode:x = raw vec_get(h.nodes, i);
+    int64:p = i;
+    int64:count = 1i64;
+    if (x.kind == HirKind.Concat) { p = x.a; count = x.b; }
+    int64:total = 0i64;
+    int64:j = 0i64;
+    while ((p != HIR_NONE) && (j < count)) decreases count - j {
+        HirNode:y = raw vec_get(h.nodes, p);
+        total = total + (raw cp_len(y.a, (y.flags & HIR_FLAG_BYTE) != 0u32));
+        p = y.next;
+        j = j + 1i64;
+    }
+    pass total;
+};
+
+// AN `Alternate` IN THE PREFIX (H-19). When every alternative is a plain literal -- a `Literal` or a `Concat`
+// holding H-17's `IS_ALTERNATION_LITERAL`, whose words are the plain literal's; the fact says the shape, the
+// tree which bytes -- appends the bytes they all begin with, at most what `NREGEX_LITERAL_BYTES` leaves the
+// prefix from `base`, and answers whether the read goes on: every alternative the same bytes, all written. Any
+// other alternative, and an `Alternate` of none, appends nothing and stops the read.
+func:shared_start = bool(Hir->:h, HirNode:n, int64:base) never fails {
+    if ((n.b == 0i64) || (n.a == HIR_NONE)) { pass false; }
+    int64:m = n.a;
+    int64:k = 0i64;
+    while ((m != HIR_NONE) && (k < n.b)) decreases n.b - k {
+        HirNode:x = raw vec_get(h.nodes, m);
+        bool:shape = (x.kind == HirKind.Literal) || (x.kind == HirKind.Concat);
+        if ((!shape) || (((raw hir_props(h, m)) & HIR_IS_ALTERNATION_LITERAL) == 0u32)) { pass false; }
+        m = x.next;
+        k = k + 1i64;
+    }
+    int64:start = h.lits.count;
+    int64:total = raw plain_put(h, n.a, NREGEX_LITERAL_BYTES - (start - base));
+    int64:common = h.lits.count - start;
+    bool:same = total == common;
+    HirNode:first = raw vec_get(h.nodes, n.a);
+    m = first.next;
+    k = 1i64;
+    while ((m != HIR_NONE) && (k < n.b)) decreases n.b - k {
+        common = raw plain_common(h, m, start, common);
+        if ((common != total) || ((raw plain_len(h, m)) != total)) { same = false; }
+        HirNode:y = raw vec_get(h.nodes, m);
+        m = y.next;
+        k = k + 1i64;
+    }
+    drop vec_truncate(@h.lits, start + common);
+    pass same;
+};
+
+// THE PREFIX (H-19): into `Hir.lits`, from its end, the bytes every match of the tree under the root begins
+// with, read down from the root while every match of what is read is the same bytes -- a `Literal` its bytes;
+// an `Empty`, an `Anchor` and a `WordBoundary` none, zero-width; a `Group` its body's; a `Concat` its pieces' in
+// order; a `Repeat` of minimum 1 or more its body's once, going on only when its maximum is 1 -- `{1}`, its
+// minimum at most its maximum; an `Alternate`, `shared_start` -- and stopping at a `Class`, a `Repeat` of minimum
+// 0, and the byte past `NREGEX_LITERAL_BYTES`. Answers whether the read reached the tree's end: every match is then
+// those bytes, a whole match (RX-224). Each node is read once and a `Repeat` once more, so the walk is bounded by
+// twice the arena.
+func:prefix_bytes = bool(Hir->:h) never fails {
+    int64:base = h.lits.count;
+    Vec<LitStep>:todo = raw vec_init::<LitStep>(16i64);
+    drop vec_push(@todo, LitStep{ node: h.root, op: LIT_ONE });
+    int64:budget = 2i64 * h.nodes.count - 1i64;
+    int64:steps = 0i64;
+    bool:going = true;
+    while (going && (todo.count > 0i64)) decreases budget - steps {
+        steps = steps + 1i64;
+        LitStep:t = raw vec_pop(@todo);
+        HirNode:n = raw vec_get(h.nodes, t.node);
+        if (t.op == LIT_AFTER) {
+            if (n.c != 1i64) { going = false; }
+        }
+        else {
+            if ((t.op == LIT_PIECE) && (n.next != HIR_NONE)) {
+                drop vec_push(@todo, LitStep{ node: n.next, op: LIT_PIECE });
+            }
+            if (n.kind == HirKind.Literal) {
+                bool:byte = (n.flags & HIR_FLAG_BYTE) != 0u32;
+                int64:k = raw cp_len(n.a, byte);
+                int64:i = 0i64;
+                while (going && (i < k)) decreases k - i {
+                    if ((h.lits.count - base) >= NREGEX_LITERAL_BYTES) { going = false; }
+                    else {
+                        drop vec_push(@h.lits, raw cp_byte(n.a, byte, i));
+                        i = i + 1i64;
+                    }
+                }
+            }
+            else if (n.kind == HirKind.Class) { going = false; }
+            else if (n.kind == HirKind.Group) {
+                drop vec_push(@todo, LitStep{ node: n.a, op: LIT_ONE });
+            }
+            else if (n.kind == HirKind.Repeat) {
+                if (n.b == 0i64) { going = false; }
+                else {
+                    drop vec_push(@todo, LitStep{ node: t.node, op: LIT_AFTER });
+                    drop vec_push(@todo, LitStep{ node: n.a, op: LIT_ONE });
+                }
+            }
+            else if ((n.kind == HirKind.Concat) && (n.a != HIR_NONE)) {
+                drop vec_push(@todo, LitStep{ node: n.a, op: LIT_PIECE });
+            }
+            else if (n.kind == HirKind.Alternate) { going = raw shared_start(h, n, base); }
+        }
+    }
+    drop vec_free(@todo);
+    pass going;
+};
+
+// THE INNER LITERAL (H-19): of the prefix -- `plen` bytes from `pfrom` in `Hir.lits` -- and every literal run the
+// tree requires, the longest, counting `NREGEX_LITERAL_BYTES` at most; of two as long, the prefix, then the run
+// read first. A required node: the root, a `Group`'s body, a `Repeat`'s of minimum 1 or more and a `Concat`'s
+// every piece -- never an `Alternate`'s alternative, nor a `Repeat`'s of minimum 0. A run: the adjacent
+// `Literal` pieces of one `Concat` (RX-235), or a required `Literal` alone. Writes its entry when it has a byte,
+// the prefix's bytes its own. A tree visits each node once, so the walk is bounded by the arena.
+func:inner_literal = NIL(Hir->:h, int64:pfrom, int64:plen) never fails {
+    int64:best = plen;
+    int64:run_at = HIR_NONE;
+    int64:run_count = 0i64;
+    Vec<LitStep>:todo = raw vec_init::<LitStep>(16i64);
+    drop vec_push(@todo, LitStep{ node: h.root, op: LIT_ONE });
+    int64:budget = h.nodes.count - 1i64;
+    int64:steps = 0i64;
+    while (todo.count > 0i64) decreases budget - steps {
+        steps = steps + 1i64;
+        LitStep:t = raw vec_pop(@todo);
+        HirNode:n = raw vec_get(h.nodes, t.node);
+        if (n.kind == HirKind.Literal) {
+            int64:count = 1i64;
+            int64:len = raw cp_len(n.a, (n.flags & HIR_FLAG_BYTE) != 0u32);
+            int64:m = HIR_NONE;
+            if (t.op == LIT_PIECE) { m = n.next; }
+            bool:more = true;
+            while (more && (m != HIR_NONE)) decreases budget - steps {
+                HirNode:y = raw vec_get(h.nodes, m);
+                if (y.kind == HirKind.Literal) {
+                    steps = steps + 1i64;
+                    count = count + 1i64;
+                    len = len + (raw cp_len(y.a, (y.flags & HIR_FLAG_BYTE) != 0u32));
+                    m = y.next;
+                }
+                else { more = false; }
+            }
+            if (len > NREGEX_LITERAL_BYTES) { len = NREGEX_LITERAL_BYTES; }
+            if (len > best) {
+                best = len;
+                run_at = t.node;
+                run_count = count;
+            }
+            if (m != HIR_NONE) { drop vec_push(@todo, LitStep{ node: m, op: LIT_PIECE }); }
+        }
+        else {
+            if ((t.op == LIT_PIECE) && (n.next != HIR_NONE)) {
+                drop vec_push(@todo, LitStep{ node: n.next, op: LIT_PIECE });
+            }
+            if (n.kind == HirKind.Group) {
+                drop vec_push(@todo, LitStep{ node: n.a, op: LIT_ONE });
+            }
+            else if ((n.kind == HirKind.Repeat) && (n.b > 0i64)) {
+                drop vec_push(@todo, LitStep{ node: n.a, op: LIT_ONE });
+            }
+            else if ((n.kind == HirKind.Concat) && (n.a != HIR_NONE)) {
+                drop vec_push(@todo, LitStep{ node: n.a, op: LIT_PIECE });
+            }
+        }
+    }
+    drop vec_free(@todo);
+    if (best == 0i64) { pass NIL; }
+    if (run_at == HIR_NONE) {
+        drop vec_push(@h.literals, Literal{ role: HIR_LITERAL_INNER, off: pfrom, len: plen });
+        pass NIL;
+    }
+    int64:off = h.lits.count;
+    int64:p = run_at;
+    int64:j = 0i64;
+    while ((p != HIR_NONE) && (j < run_count)) decreases run_count - j {
+        HirNode:y = raw vec_get(h.nodes, p);
+        bool:byte = (y.flags & HIR_FLAG_BYTE) != 0u32;
+        int64:k = raw cp_len(y.a, byte);
+        int64:q = 0i64;
+        while (q < k) decreases k - q {
+            if ((h.lits.count - off) < NREGEX_LITERAL_BYTES) { drop vec_push(@h.lits, raw cp_byte(y.a, byte, q)); }
+            q = q + 1i64;
+        }
+        p = y.next;
+        j = j + 1i64;
+    }
+    drop vec_push(@h.literals, Literal{ role: HIR_LITERAL_INNER, off: off, len: h.lits.count - off });
+    pass NIL;
+};
+
+// THE EXTRACTION (H-19, H-20). The tree's facts first, through `hir_props` -- the one pass, which stops on an
+// arena that is not a tree, and leaves the tree finished (H-18), so no literal written below is ever stale --
+// then H-11's three into `Hir.lits` and `Hir.literals`, in its order: the prefix when it has a byte, `WHOLE` when
+// the read reached the tree's end; the first-byte set always -- `ANYWHERE` when the root may match the empty
+// string or the set holds more than `NREGEX_LITERAL_LIMIT` bytes; and the inner literal when it has a byte.
+func:extract_literals = NIL(Hir->:h) never fails {
+    uint32:root = raw hir_props(h, h.root);
+    bool:whole = raw prefix_bytes(h);
+    int64:plen = h.lits.count;
+    if (plen > 0i64) {
+        int64:role = HIR_LITERAL_PREFIX;
+        if (whole) { role = HIR_LITERAL_WHOLE; }
+        drop vec_push(@h.literals, Literal{ role: role, off: 0i64, len: plen });
+    }
+    if ((root & HIR_CAN_MATCH_EMPTY) != 0u32) {
+        drop vec_push(@h.literals, Literal{ role: HIR_LITERAL_ANYWHERE, off: plen, len: 0i64 });
+    }
+    else {
+        ByteSet:s = raw byteset_empty();
+        drop first_bytes(h, @s);
+        int64:c = raw byteset_count(@s);
+        if (c > NREGEX_LITERAL_LIMIT) {
+            drop vec_push(@h.literals, Literal{ role: HIR_LITERAL_ANYWHERE, off: plen, len: 0i64 });
+        }
+        else {
+            int64:off = h.lits.count;
+            int64:b = raw byteset_next(@s, 0i64);
+            while (b < 256i64) decreases 256i64 - b {
+                drop vec_push(@h.lits, b =>! uint8);
+                b = raw byteset_next(@s, b + 1i64);
+            }
+            drop vec_push(@h.literals, Literal{ role: HIR_LITERAL_FIRST, off: off, len: c });
+        }
+    }
+    drop inner_literal(h, 0i64, plen);
+    pass NIL;
+};
+
+// obligation: never fails requires h.root != HIR_NONE
+//
+// THE QUERY (H-20): the Hir's literals, extracted first -- once -- when it holds none, and how many it holds.
+// An extraction always writes the first-byte set's entry, so a Hir that holds none has not had its literals
+// extracted: the distinct "not yet extracted" state, never "no literal" (the compiler's D-227). A `Hir` with no
+// root has no tree to extract from, and the extraction's first step, the root's facts, stops it `OutOfBounds`.
+pub func:hir_literals = int64(Hir->:h) never fails {
+    if (h.literals.count == 0i64) { drop extract_literals(h); }
+    pass h.literals.count;
+};
+
+// obligation: never fails ensures result == h.literals.count
+//
+// How many literals the Hir holds, extracting none: 0 until `hir_literals` has run -- "not yet", never "none".
+pub func:hir_literal_count = int64(Hir:h) never fails {
+    pass h.literals.count;
+};
+
+// obligation: never fails requires k >= 0i64 && k < hir_literal_count(h)
+pub func:hir_literal = Literal(Hir:h, int64:k) never fails {
+    pass raw vec_get(h.literals, k);
+};
+
+// obligation: never fails requires at >= 0i64 && at < h.lits.count
+//
+// A byte of the Hir's literals: an entry's are `hir_literal_byte(h, l.off + i)`, `0 <= i < l.len`.
+pub func:hir_literal_byte = uint8(Hir:h, int64:at) never fails {
+    pass raw vec_get(h.lits, at);
+};
+
 // obligation: never fails ensures h.root == HIR_NONE
 //
 // Frees the arena's blocks. A node, a range and a group own nothing, so each block is its
 // whole obligation, and a unit that frees and exits 0 proves it (D-151: a leaked `wild`
 // block traps at exit); `names` is managed and drops with the `Hir`.
+// *(2026-10-15, cycle 0.2.5 -- RX-242: and the literals' two blocks, `literals` and `lits`: a `Literal` and a byte
+// own nothing too.)*
 pub func:hir_free = NIL(Hir->:h) never fails {
     drop vec_free(@h.nodes);
     drop vec_free(@h.ranges);
     drop vec_free(@h.groups);
+    drop vec_free(@h.literals);
+    drop vec_free(@h.lits);
     h.root = HIR_NONE;
     pass NIL;
 };

@@ -1,0 +1,38 @@
+// expect-exit: 94
+//
+// A LITERAL NOT EXTRACTED IS NEVER READ AS NONE. Cycle 0.2.5; `meta/specs/HIR.md` H-20, and the compiler's
+// D-227. A `Hir` read from `(literal 97)` and never asked for its literals holds none -- the distinct "not
+// yet extracted" state, which `hir_literal_count` answers as 0 -- and reading its first entry with
+// `hir_literal` stops `OutOfBounds` (94): there is no entry to answer, and no default a reader could take
+// for "no first-byte set".
+mod:hir_literal_not_extracted;
+
+use "../../src/core/core.npk".*;
+use "../../src/hir/hir.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Hir:h = raw hir_init(8i64);
+    if ((raw hir_read(string_bytes("(literal 97)"), @h)) != HIR_NONE) { exit 1i32; }
+    if ((raw hir_literal_count(h)) != 0i64) { exit 2i32; }
+    Literal:l = raw hir_literal(h, 0i64);
+    drop hir_free(@h);
+    exit 3i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

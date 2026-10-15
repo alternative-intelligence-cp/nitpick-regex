@@ -1,0 +1,36 @@
+// expect-exit: 94
+//
+// A `Hir` WITH NO ROOT HAS NO LITERALS, AND ASKING FOR THEM STOPS. Cycle 0.2.5; `meta/specs/HIR.md` H-20.
+// `hir_literals` on a `Hir` fresh from `hir_init` -- no node, no root -- stops `OutOfBounds` (94) before
+// anything is written: there is no tree whose matches a literal could describe, and an answer of none would
+// read "nothing to extract from" as "no literal". The stop is the extraction's first step, the root's facts:
+// `hir_props` stops on a `Hir` with no root (H-18).
+mod:hir_literal_no_root;
+
+use "../../src/core/core.npk".*;
+use "../../src/hir/hir.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Hir:h = raw hir_init(8i64);
+    discard(raw hir_literals(@h));
+    drop hir_free(@h);
+    exit 0i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

@@ -68,7 +68,7 @@ RX-070, RX-071, RX-044. Settled. **No open questions.**
 ### 0.5.5 — close
 - [ ] self-check case 6 (a fixture off by one) live
 - [ ] 0.2's pending normalisation test now green — the oracle can run both forms *(2026-10-12, cycle 0.2.3 — RX-237: `tests/unit/hir_normalise_oracle.npk`, `pending-until: 0.5.5 exit 1`; fill its hook, `oracle_find`, with the oracle's own entry point — the leftmost-first match's capture slots, 1 for a match and 0 for none — and when every answer over both forms agrees the unit exits 0, the run goes red to say its marker is stale, and the marker and its line in `harness/baseline/PENDING.txt` go)*
-- [ ] 0.2's pending literal-extraction property test now green
+- [ ] 0.2's pending literal-extraction property test now green *(2026-10-15, cycle 0.2.5 — RX-243: `tests/unit/hir_literal_oracle.npk`, `pending-until: 0.5.5 exit 1`; fill its hook, `oracle_find`, with the oracle's own entry point — the leftmost-first match from a position, its start and end in slots 0 and 1, 1 for a match and 0 for none — and when every match it finds is one its literals admit the unit exits 0, the run goes red to say its marker is stale, and the marker and its line in `harness/baseline/PENDING.txt` go; and the box's *"every corpus pattern and haystack"* is this subcycle's to carry, the same property over the corpus's cases, by the corpus stage of 0.5.3)*
 - [ ] findings written; `0.6.0.md` written; archived
 
 ## Gate

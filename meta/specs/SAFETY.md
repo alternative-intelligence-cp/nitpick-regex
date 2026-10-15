@@ -721,6 +721,8 @@ compiler now, at the type; and each of those two derives `Copy`.)*
 *(2026-10-08, cycle 0.2.0 — RX-224: `GroupInfo` is shaped — a group name's offset and length in `Hir.names`, two
 `int64`s, deriving `Copy` — and `check_vec_elements_own_nothing` clears `Vec<GroupInfo>`, as it clears `Vec<HirNode>`
 and `Vec<ClassRange>` (RX-223, RX-222); `Literal` is cycle 0.2.5's, shaped with the extraction that fills it.)*
+*(2026-10-15, cycle 0.2.5 — RX-242: `Literal` is shaped — a role, and its bytes' offset and length in `Hir.lits`, three
+`int64`s, deriving `Copy` — and the check clears `Vec<Literal>`: the last of the three types this rule left to shape.)*
 
 *A cycle that needs an owning element lifts S-23a by a decision*, and the
 compiler's own `List<T>` at `c3bdae2` is the shape it would take: removals that
@@ -1010,6 +1012,8 @@ Three things worth keeping from it:
   and `hir_build_fold.npk`, on cycle 0.3.4, which fills the HIR's hooks.)*
   *(2026-10-12, cycle 0.2.3 — RX-237: and a third, `tests/unit/hir_normalise_oracle.npk`, on cycle 0.5.5, whose oracle
   its hook meets.)*
+  *(2026-10-15, cycle 0.2.5 — RX-243: and a fourth, `tests/unit/hir_literal_oracle.npk`, on cycle 0.5.5 too, the property
+  test of the literals over the oracle.)*
 
 **The general form: a citation of `exit 0` in a comment about a managed body is
 a defect in the comment, and it will be written again — it has now been written

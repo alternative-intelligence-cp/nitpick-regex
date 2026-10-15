@@ -1,0 +1,359 @@
+// expect-exit: 0
+//
+// NEVER WRONG IN THE UNSAFE DIRECTION, MEASURED: SEEDED PATTERNS, EACH TREE'S LITERALS HELD TO MATCHES DRAWN
+// FROM THE TREE. Cycle 0.2.5; `meta/specs/HIR.md` rules H-11, H-12 and H-19, and the cycle README's 0.2.5 row,
+// *"conservative, bounded, and never wrong in the unsafe direction"*.
+//
+// WHAT IT GENERATES. PATTERNS patterns from a fixed seed, three deep at most: literals `a`, `b` and `é`, a byte
+// under `(?-u:…)`, runs `ab`, `abc` and `cab`, classes of codepoints of one byte, of two, of both, and of three and
+// four, and of bytes, `^`, `$`, `\b` and `\B`, `(?:)`, concatenations, alternations -- an empty alternative among them --
+// groups, and repetitions -- `?`, `*`, `+`, `{2}`, `{0,2}`, `{1,3}`, `{1}`. Each is parsed, built and normalised, and its literals
+// extracted through `hir_literals`, the query.
+//
+// WHAT IT HOLDS THEM TO. SAMPLES strings drawn from each normal form's tree -- a class's member at its ends or
+// near its first, an alternative, a repetition's count, each at random; an assertion taken to hold, as H-17
+// takes it -- so each string is one the pattern matches, or one an assertion would refuse. Every literal is a
+// claim about EVERY match, so every string must keep it: begin with the prefix (12), be the whole match (11),
+// begin with a byte of the first-byte set -- and so be no empty string (13) -- and hold the inner literal (14).
+// A literal wrong the unsafe way, a byte too few or a byte too many, fails a string that a missed match would
+// begin at; and a string an assertion would refuse is one the extraction reads through too, as it reads the
+// assertion. The entries stand in H-11's order, the first-byte set's always (15), and where the root may match
+// the empty string it is `anywhere` (16). FLOORS on every role and on the strings drawn, so the extraction
+// cannot be green by saying nothing (17); and every pattern builds (10). The bytes a codepoint is are reckoned
+// here, by this unit's own UTF-8 encoder, not the library's.
+//
+// THE GENERATOR AND THE SAMPLER RECURSE: their depth is the tree's, three, not an input's (`SAFETY.md` S-18),
+// and `check_no_recursion` reads `src/`, not `tests/` (RX-192). A case that differs exits with its number; the
+// program exits 0 only after every `hir_free` and `ast_free`.
+mod:hir_literal_fuzz;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+use "../../src/hir/hir.npk".*;
+
+fixed int64:PATTERNS = 3000i64;
+fixed int64:SAMPLES = 16i64;
+fixed int64:DEPTH = 3i64;
+fixed int64:STRINGS_FLOOR = 40000i64;    // strings drawn and held to their literals
+fixed int64:ROLE_FLOOR = 150i64;         // patterns with each role: prefix, whole, first, anywhere, inner
+
+struct:Gen = {
+    uint64:rng;
+    int64:prefix;        // patterns whose literals hold a `prefix`
+    int64:whole;         // a `whole`
+    int64:first;         // a `first`
+    int64:anywhere;      // an `anywhere`
+    int64:inner;         // an `inner`
+    int64:strings;       // strings drawn and held
+};
+
+// xorshift64 (Marsaglia), as `parse_fuzz.npk` writes it.
+func:next_rng = uint64(uint64:s) never fails {
+    uint64:x = s;
+    x = x ^ (x << 13u64);
+    x = x ^ (x >> 7u64);
+    x = x ^ (x << 17u64);
+    pass x;
+};
+
+// A draw below `n`, at most 64, by subtraction: a unit that divided would owe two arms more.
+func:roll = int64(Gen->:g, int64:n) never fails {
+    g.rng = raw next_rng(g.rng);
+    int64:v = ((g.rng >> 20u64) & 63u64) =>! int64;
+    while (v >= n) decreases v { v = v - n; }
+    pass v;
+};
+
+// ---- the patterns
+
+func:pick_class = NIL(Gen->:g, Bytes->:b) never fails {
+    int64:k = raw roll(g, 6i64);
+    if (k == 0i64) { drop bytes_extend_str(b, "[ab]"); }
+    else if (k == 1i64) { drop bytes_extend_str(b, "[a-c]"); }
+    else if (k == 2i64) { drop bytes_extend_str(b, "[é-ë]"); }
+    else if (k == 3i64) { drop bytes_extend_str(b, "(?-u:[\\xE9-\\xEB])"); }
+    else if (k == 4i64) { drop bytes_extend_str(b, "[a-é]"); }
+    else { drop bytes_extend_str(b, "[ࠀ-𐀁]"); }
+    pass NIL;
+};
+
+func:gen = NIL(Gen->:g, int64:depth, Bytes->:b) never fails {
+    int64:k = raw roll(g, 16i64);
+    if (depth == 0i64) { k = raw roll(g, 9i64); }
+    if (k == 0i64) { drop bytes_extend_str(b, "a"); }
+    else if (k == 1i64) { drop bytes_extend_str(b, "b"); }
+    else if (k == 2i64) { drop bytes_extend_str(b, "é"); }
+    else if (k == 3i64) { drop bytes_extend_str(b, "(?-u:\\xE9)"); }
+    else if (k == 4i64) { drop pick_class(g, b); }
+    else if (k == 5i64) {
+        int64:w = raw roll(g, 4i64);
+        if (w == 0i64) { drop bytes_extend_str(b, "^"); }
+        else if (w == 1i64) { drop bytes_extend_str(b, "$"); }
+        else if (w == 2i64) { drop bytes_extend_str(b, "\\b"); }
+        else { drop bytes_extend_str(b, "\\B"); }
+    }
+    else if (k == 6i64) { drop bytes_extend_str(b, "(?:)"); }
+    else if ((k == 7i64) || (k == 8i64)) {
+        int64:w = raw roll(g, 3i64);
+        if (w == 0i64) { drop bytes_extend_str(b, "ab"); }
+        else if (w == 1i64) { drop bytes_extend_str(b, "abc"); }
+        else { drop bytes_extend_str(b, "cab"); }
+    }
+    else if ((k == 9i64) || (k == 10i64)) {
+        int64:n = 2i64 + (raw roll(g, 2i64));
+        int64:i = 0i64;
+        while (i < n) decreases n - i {
+            drop gen(g, depth - 1i64, b);
+            i = i + 1i64;
+        }
+    }
+    else if ((k == 11i64) || (k == 12i64)) {
+        drop bytes_extend_str(b, "(?:");
+        int64:n = 2i64 + (raw roll(g, 2i64));
+        int64:i = 0i64;
+        while (i < n) decreases n - i {
+            if (i > 0i64) { drop bytes_push(b, 124u8); }
+            if ((i == 0i64) || ((raw roll(g, 6i64)) != 0i64)) { drop gen(g, depth - 1i64, b); }
+            i = i + 1i64;
+        }
+        drop bytes_push(b, 41u8);
+    }
+    else if (k == 13i64) {
+        drop bytes_push(b, 40u8);
+        drop gen(g, depth - 1i64, b);
+        drop bytes_push(b, 41u8);
+    }
+    else {
+        drop bytes_extend_str(b, "(?:");
+        drop gen(g, depth - 1i64, b);
+        drop bytes_push(b, 41u8);
+        int64:q = raw roll(g, 7i64);
+        if (q == 0i64) { drop bytes_extend_str(b, "?"); }
+        else if (q == 1i64) { drop bytes_extend_str(b, "*"); }
+        else if (q == 2i64) { drop bytes_extend_str(b, "+"); }
+        else if (q == 3i64) { drop bytes_extend_str(b, "{2}"); }
+        else if (q == 4i64) { drop bytes_extend_str(b, "{0,2}"); }
+        else if (q == 5i64) { drop bytes_extend_str(b, "{1,3}"); }
+        else { drop bytes_extend_str(b, "{1}"); }
+    }
+    pass NIL;
+};
+
+// ---- the strings drawn from a tree
+
+// Appends codepoint `cp`'s UTF-8 encoding to `out`, or under `byte` the byte -- this unit's own encoder.
+func:encode = NIL(Bytes->:out, int64:cp, bool:byte) never fails {
+    if (byte || (cp < 128i64)) { drop bytes_push(out, cp =>! uint8); pass NIL; }
+    if (cp < 2048i64) {
+        drop bytes_push(out, (192i64 + (cp >> 6i64)) =>! uint8);
+        drop bytes_push(out, (128i64 + (cp & 63i64)) =>! uint8);
+        pass NIL;
+    }
+    if (cp < 65536i64) {
+        drop bytes_push(out, (224i64 + (cp >> 12i64)) =>! uint8);
+        drop bytes_push(out, (128i64 + ((cp >> 6i64) & 63i64)) =>! uint8);
+        drop bytes_push(out, (128i64 + (cp & 63i64)) =>! uint8);
+        pass NIL;
+    }
+    drop bytes_push(out, (240i64 + (cp >> 18i64)) =>! uint8);
+    drop bytes_push(out, (128i64 + ((cp >> 12i64) & 63i64)) =>! uint8);
+    drop bytes_push(out, (128i64 + ((cp >> 6i64) & 63i64)) =>! uint8);
+    drop bytes_push(out, (128i64 + (cp & 63i64)) =>! uint8);
+    pass NIL;
+};
+
+// A string node `i` of `h` matches, drawn at random into `out`: an assertion taken to hold.
+func:sample = NIL(Hir:h, int64:i, Gen->:g, Bytes->:out) never fails {
+    HirNode:n = raw hir_get(h, i);
+    bool:byte = (n.flags & HIR_FLAG_BYTE) != 0u32;
+    if (n.kind == HirKind.Literal) { drop encode(out, n.a, byte); pass NIL; }
+    if (n.kind == HirKind.Class) {
+        ClassRange:r = raw hir_range(h, n.a + (raw roll(g, n.b)));
+        int64:lo = r.lo => int64;
+        int64:hi = r.hi => int64;
+        int64:span = hi - lo + 1i64;
+        if (span > 64i64) { span = 64i64; }
+        int64:w = raw roll(g, 3i64);
+        int64:cp = lo;
+        if (w == 1i64) { cp = hi; }
+        else if (w == 2i64) { cp = lo + (raw roll(g, span)); }
+        drop encode(out, cp, byte);
+        pass NIL;
+    }
+    if (n.kind == HirKind.Concat) {
+        int64:m = n.a;
+        int64:k = 0i64;
+        while ((m != HIR_NONE) && (k < n.b)) decreases n.b - k {
+            drop sample(h, m, g, out);
+            HirNode:x = raw hir_get(h, m);
+            m = x.next;
+            k = k + 1i64;
+        }
+        pass NIL;
+    }
+    if (n.kind == HirKind.Alternate) {
+        int64:want = raw roll(g, n.b);
+        int64:m = n.a;
+        int64:k = 0i64;
+        while (k < want) decreases want - k {
+            HirNode:x = raw hir_get(h, m);
+            m = x.next;
+            k = k + 1i64;
+        }
+        drop sample(h, m, g, out);
+        pass NIL;
+    }
+    if (n.kind == HirKind.Repeat) {
+        int64:extra = 2i64;
+        if ((n.c != HIR_NONE) && ((n.c - n.b) < extra)) { extra = n.c - n.b; }
+        int64:count = n.b + (raw roll(g, extra + 1i64));
+        int64:k = 0i64;
+        while (k < count) decreases count - k {
+            drop sample(h, n.a, g, out);
+            k = k + 1i64;
+        }
+        pass NIL;
+    }
+    if (n.kind == HirKind.Group) { drop sample(h, n.a, g, out); pass NIL; }
+    pass NIL;
+};
+
+// ---- the claims
+
+// Whether `s` begins with literal `l`'s bytes -- and, when `whole`, is them.
+func:begins = bool(Hir:h, Literal:l, Bytes->:s, bool:whole) never fails {
+    int64:n = raw bytes_len(s);
+    if (n < l.len) { pass false; }
+    if (whole && (n != l.len)) { pass false; }
+    int64:i = 0i64;
+    while (i < l.len) decreases l.len - i {
+        if ((raw bytes_get(s, i)) != (raw hir_literal_byte(h, l.off + i))) { pass false; }
+        i = i + 1i64;
+    }
+    pass true;
+};
+
+// Whether `s` holds literal `l`'s bytes somewhere.
+func:holds = bool(Hir:h, Literal:l, Bytes->:s) never fails {
+    int64:n = raw bytes_len(s);
+    int64:at = 0i64;
+    while ((at + l.len) <= n) decreases n - at {
+        bool:all = true;
+        int64:i = 0i64;
+        while (all && (i < l.len)) decreases l.len - i {
+            if ((raw bytes_get(s, at + i)) != (raw hir_literal_byte(h, l.off + i))) { all = false; }
+            i = i + 1i64;
+        }
+        if (all) { pass true; }
+        at = at + 1i64;
+    }
+    pass false;
+};
+
+// Whether `s`'s first byte is one of literal `l`'s -- an empty `s` has none.
+func:first_of = bool(Hir:h, Literal:l, Bytes->:s) never fails {
+    if ((raw bytes_len(s)) == 0i64) { pass false; }
+    uint8:b = raw bytes_get(s, 0i64);
+    int64:i = 0i64;
+    while (i < l.len) decreases l.len - i {
+        if ((raw hir_literal_byte(h, l.off + i)) == b) { pass true; }
+        i = i + 1i64;
+    }
+    pass false;
+};
+
+// The entries' order (H-20): a `prefix` or a `whole` at most, first; then the first-byte set's, `first` or
+// `anywhere`, always; then an `inner` at most. Counts each role into `g`. Answers 0 or the case's number.
+func:order = int32(Hir:h, int64:n, Gen->:g) never fails {
+    int64:k = 0i64;
+    Literal:l = raw hir_literal(h, k);
+    if ((l.role == HIR_LITERAL_PREFIX) || (l.role == HIR_LITERAL_WHOLE)) {
+        if (l.role == HIR_LITERAL_PREFIX) { g.prefix = g.prefix + 1i64; } else { g.whole = g.whole + 1i64; }
+        if (l.len == 0i64) { pass 15i32; }
+        k = 1i64;
+        if (k >= n) { pass 15i32; }
+        l = raw hir_literal(h, k);
+    }
+    if (l.role == HIR_LITERAL_FIRST) { g.first = g.first + 1i64; }
+    else if (l.role == HIR_LITERAL_ANYWHERE) { g.anywhere = g.anywhere + 1i64; }
+    else { pass 15i32; }
+    k = k + 1i64;
+    if (k < n) {
+        l = raw hir_literal(h, k);
+        if ((l.role != HIR_LITERAL_INNER) || (l.len == 0i64)) { pass 15i32; }
+        g.inner = g.inner + 1i64;
+        k = k + 1i64;
+    }
+    if (k != n) { pass 15i32; }
+    pass 0i32;
+};
+
+func:run = int32() never fails {
+    Gen:g = Gen{ rng: 88172645463325252u64, prefix: 0i64, whole: 0i64, first: 0i64, anywhere: 0i64, inner: 0i64,
+                 strings: 0i64 };
+    int64:p = 0i64;
+    while (p < PATTERNS) decreases PATTERNS - p {
+        Bytes:pb = raw bytes_init(64i64);
+        drop gen(@g, DEPTH, @pb);
+        string:ps = raw bytes_copy_string(@pb);
+        fixed uint8[]:pat = string_bytes(ps);
+        Ast:t = raw ast_init(8i64);
+        if ((raw parse_pattern(pat, @t)) != NIL) { pass 10i32; }
+        Hir:h = raw hir_init(8i64);
+        if ((raw hir_build(pat, t, @h)) != HIR_NONE) { pass 10i32; }
+        Hir:n = raw hir_init(8i64);
+        drop hir_normalise(@h, @n);
+        int64:count = raw hir_literals(@n);
+        int32:o = raw order(n, count, @g);
+        if (o != 0i32) { pass o; }
+        int64:root = n.root;
+        bool:empty = ((raw hir_props(@n, root)) & HIR_CAN_MATCH_EMPTY) != 0u32;
+        int64:s = 0i64;
+        while (s < SAMPLES) decreases SAMPLES - s {
+            Bytes:m = raw bytes_init(16i64);
+            drop sample(n, root, @g, @m);
+            int64:k = 0i64;
+            while (k < count) decreases count - k {
+                Literal:l = raw hir_literal(n, k);
+                if ((l.role == HIR_LITERAL_WHOLE) && (!(raw begins(n, l, @m, true)))) { pass 11i32; }
+                if ((l.role == HIR_LITERAL_PREFIX) && (!(raw begins(n, l, @m, false)))) { pass 12i32; }
+                if ((l.role == HIR_LITERAL_FIRST) && (!(raw first_of(n, l, @m)))) { pass 13i32; }
+                if ((l.role == HIR_LITERAL_INNER) && (!(raw holds(n, l, @m)))) { pass 14i32; }
+                if ((l.role == HIR_LITERAL_FIRST) && empty) { pass 16i32; }
+                k = k + 1i64;
+            }
+            g.strings = g.strings + 1i64;
+            s = s + 1i64;
+        }
+        drop hir_free(@n);
+        drop hir_free(@h);
+        drop ast_free(@t);
+        p = p + 1i64;
+    }
+    if (g.strings < STRINGS_FLOOR) { pass 17i32; }
+    if ((g.prefix < ROLE_FLOOR) || (g.whole < ROLE_FLOOR) || (g.first < ROLE_FLOOR) || (g.anywhere < ROLE_FLOOR)
+        || (g.inner < ROLE_FLOOR)) { pass 17i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    exit raw run();
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

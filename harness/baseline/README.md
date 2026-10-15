@@ -93,3 +93,4 @@ library, `0.3.4`, for a unit pending on what a later subcycle builds.)*
 passing at `c3bdae2`. *(2026-10-08, cycle 0.2.1 — RX-229: two lines since, the HIR's
 two hooks' tests, pending on cycle 0.3.4.)*
 *(2026-10-12, cycle 0.2.3 — RX-237: three since, the third normalisation's oracle test, pending on cycle 0.5.5.)*
+*(2026-10-15, cycle 0.2.5 — RX-243: four since, the fourth literal extraction's property test, pending on cycle 0.5.5.)*

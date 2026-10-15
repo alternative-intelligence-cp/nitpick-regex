@@ -16,7 +16,9 @@
 // CYCLE 0.2.3 `normal.npk` WRITES A HIR'S TREE IN ITS NORMAL FORM, where structurally equal patterns
 // are one tree (RX-235), into a fresh arena -- `hir_normalise`, a pass of its own after the build
 // (RX-236). SINCE CYCLE 0.2.4 `repr.npk` COMPUTES A TREE'S FOUR FACTS IN ONE PASS AND CACHES THEM, and
-// `hir_props` is the query, which computes them when they are not (RX-238, RX-239).
+// `hir_props` is the query, which computes them when they are not (RX-238, RX-239). SINCE CYCLE 0.2.5 IT EXTRACTS A
+// TREE'S LITERALS -- the prefix, the first-byte set and the inner literal -- into `Hir.literals`, and `hir_literals`
+// is the query, which extracts them when the `Hir` holds none (RX-241, RX-242).
 //
 // EVERY LINE BELOW IS `pub use`, ONE NAME PER LINE (`BUILD.md` B-15a rules 1 and 3).
 //
@@ -67,6 +69,18 @@ pub use "./repr.npk".hir_free;
 
 // ---- the computed properties: the query (RX-238, RX-239) --------------------------------------
 pub use "./repr.npk".hir_props;
+
+// ---- the literals: their roles, their entries and the query (H-19, H-20) -------------------------
+pub use "./repr.npk".HIR_LITERAL_PREFIX;
+pub use "./repr.npk".HIR_LITERAL_WHOLE;
+pub use "./repr.npk".HIR_LITERAL_FIRST;
+pub use "./repr.npk".HIR_LITERAL_ANYWHERE;
+pub use "./repr.npk".HIR_LITERAL_INNER;
+pub use "./repr.npk".Literal;
+pub use "./repr.npk".hir_literals;
+pub use "./repr.npk".hir_literal_count;
+pub use "./repr.npk".hir_literal;
+pub use "./repr.npk".hir_literal_byte;
 
 // ---- the text, and back (RX-225) -------------------------------------------------------
 pub use "./dump.npk".hir_dump;

@@ -68,6 +68,9 @@ says what each kind's operands hold. `Hir`'s fields are `hidden` but `root`, whi
 access goes through `repr.npk`'s accessors. `Hir` holds no `literals` until cycle 0.2.5, which shapes `Literal` with
 the extraction that fills it; `groups[k]` is group `k`, group 0 the whole match with no name (`COMPILE.md` C-16), each
 a `GroupInfo` — its name's offset and length in `names`.)*
+*(2026-10-15, cycle 0.2.5 — RX-242: *"`Hir` holds no `literals` until cycle 0.2.5"* — it holds them since: `Hir.literals`,
+H-11's three once they are extracted, each a `Literal` — a role, and an offset and a length in `Hir.lits`, a `Vec<uint8>`
+of every literal's bytes, beside it (H-20). Both are `hidden`, and only the extraction writes them.)*
 
 **Rule H-3 — children are found by index, never by pointer.** The language
 would allow a pointer tree, and it would be worse: a `Vec<HirNode>` reallocates
@@ -292,11 +295,69 @@ All three are computed here, bounded by `NREGEX_LITERAL_LIMIT` entries and
 `NREGEX_LITERAL_BYTES` each, and all three are **hints**: an engine may ignore
 them and must produce the same answer either way (`ENGINES.md` R-3).
 
+*(2026-10-15, cycle 0.2.5 — RX-241: H-19 says what each of the three is, kind by kind, and which way each errs; and
+*"bounded by `NREGEX_LITERAL_LIMIT` entries and `NREGEX_LITERAL_BYTES` each"* is read so — the prefix and the inner
+literal are at most `NREGEX_LITERAL_BYTES` bytes each, and the first-byte set, whose members are the one-byte literals a
+prefilter scans for, at most `NREGEX_LITERAL_LIMIT` of them, a set of more being none. RX-242: they are `Hir.literals`,
+H-20.)*
+
 **Rule H-12 — extraction is conservative and its failure mode is "no
 literals".** A pattern whose structure defeats the analysis gets an empty
 literal set and a slower search, never a wrong one. There is no case where a
 missed literal is a correctness problem, which is what makes this analysis safe
 to improve later without re-verifying the engines.
+*(2026-10-15, cycle 0.2.5 — RX-241: *"an empty literal set"* is no prefix, no inner literal, and a first-byte set that
+admits every position — `anywhere`. RX-242: an extraction always writes that much, the first-byte set's entry, so a `Hir`
+that holds no literal is one whose literals are not extracted yet, never one with none (H-20).)*
+
+**Rule H-19 — the three literals, kind by kind** (RX-241). Each is a fact of every match of the tree it is extracted
+from, and each errs one way only — towards saying less — since a prefilter that reads it (`ENGINES.md` R-20) confirms
+every candidate (R-19), and a literal wrong the other way loses a match: R-19's *"too few"*. A match's bytes are what
+its nodes match, read over the haystack's bytes (`UNICODE.md` U-18): a `Literal` its codepoint's UTF-8 encoding — a
+Unicode-mode node matches its well-formed encoding alone (U-19) — or under `HIR_FLAG_BYTE` the byte; an `Empty`, an
+`Anchor` and a `WordBoundary` none, zero-width (`SYNTAX.md` Y-20), each assertion taken to hold, as H-17 takes it.
+
+| Literal | It says | Wrong the unsafe way | It is read |
+|---|---|---|---|
+| **the prefix** | every match begins with its bytes — and, `whole`, is them | a byte some match does not begin with; `whole` where some match is more | down from the root while every match of what is read is the same bytes: a `Literal` its bytes; an `Empty`, an `Anchor` and a `WordBoundary` none; a `Group` its body's; a `Concat` its pieces' in order; a `Repeat` of minimum 1 or more its body's once, read on only when its maximum is 1 — `{1}`; an `Alternate` whose every alternative is a plain literal (H-17) the bytes they all begin with, read on only when every one is the same bytes. The read stops at a `Class`, a `Repeat` of minimum 0, any other `Alternate`, and the byte past `NREGEX_LITERAL_BYTES`; read to the tree's end, every match is the prefix, a whole match (RX-224) |
+| **the first-byte set** | every match begins with one of its bytes | a byte too few; a set at all where a match may be empty — it begins with no byte, and at the haystack's end there is none | none, `anywhere`, when the root may match the empty string (H-17's `CAN_MATCH_EMPTY`) or the set holds more than `NREGEX_LITERAL_LIMIT` bytes; else the first bytes over the tree: a `Literal` its first byte; a `Class` each member's; a `Group` and a `Repeat` their body's; an `Alternate` every alternative's; a `Concat` its pieces' up to the first that cannot match the empty string, that one's included |
+| **the inner literal** | every match holds its bytes | bytes some match does not hold | of the prefix and every literal run the tree requires, the longest, counting `NREGEX_LITERAL_BYTES` bytes at most, its first that many; of two as long, the prefix, then the run read first, a `Concat`'s pieces in order. A run is the adjacent `Literal` pieces of one `Concat` (RX-235), or a required `Literal` alone; the root is required, and a `Group`'s body, a `Repeat`'s of minimum 1 or more, and a `Concat`'s every piece — never an `Alternate`'s alternative, nor a `Repeat`'s of minimum 0 |
+
+The extraction reads two of the computed facts and no other: `CAN_MATCH_EMPTY`, which says MAY, and so errs the first-byte
+set's way — a byte more, never one fewer — and `IS_ALTERNATION_LITERAL`, which says an alternative is written as a plain
+literal, never which, so its bytes are read from the tree. **The literals are of the tree they are extracted from**: over
+the normal form, which every later stage reads (H-1, RX-236), `[a]bc` is the whole match `abc`; over the build's tree,
+where `[a]` is a class, it has no prefix. **No literal reads the byte bit but for what a node's bytes are**, so `(?-u)a` and
+`a`, each the byte 97, have one set of literals, and `(?-u:\xE9)`, the byte 233, and `é`, the bytes 195 169, have two.
+`tests/unit/hir_literal_reference.npk` holds fifty-five patterns' literals, each written by hand from this table.
+
+**Rule H-20 — `Literal`, `Hir.literals`, the query and the dump's section** (RX-242). `Literal` is `{ int64:role;
+int64:off; int64:len; }`, deriving `Copy` and owning nothing: its bytes are `len` from `off` in `Hir.lits`, one
+`Vec<uint8>` holding every literal's, as a group's name is an offset and a length into `Hir.names` (`SAFETY.md` S-23a).
+Its role is `HIR_LITERAL_PREFIX` 0, `HIR_LITERAL_WHOLE` 1, `HIR_LITERAL_FIRST` 2 — its bytes the set's members, ascending
+— `HIR_LITERAL_ANYWHERE` 3, with none, or `HIR_LITERAL_INNER` 4. **`Hir.literals` holds them in H-11's order once they are
+extracted**: the prefix when it has a byte, `WHOLE` or `PREFIX`; the first-byte set always, `FIRST` or `ANYWHERE`; and the
+inner literal when it has a byte. So a `Hir` that holds none has not had
+its literals extracted — **the distinct "not yet extracted" state**, never "no literal" (the compiler's D-227). **The query
+is `hir_literals(Hir->:h)`**, in `src/hir/repr.npk`: when the `Hir` holds none it extracts them, and then it answers how
+many it holds, one to three; a `Hir` with no root has no tree to extract from, and stops it `OutOfBounds`.
+`hir_literal_count(Hir:h)` answers how many it holds and extracts nothing; `hir_literal(Hir:h, int64:k)` is entry `k` and
+`hir_literal_byte(Hir:h, int64:at)` a byte of `Hir.lits`, each stopping `OutOfBounds` past what it holds, so an entry never
+extracted is never read as none. **Only the extraction writes the two fields**, and it asks `hir_props` first: the facts
+are computed — one pass, which stops on an arena that is not a tree — and the tree is finished (H-18) before a literal is
+written, so no write can leave a literal describing a tree it was not extracted from. A node copied from an extracted tree
+carries no literal, and the normal form of one holds none until it is asked. **The dump's section**: after the tree, when
+the `Hir` holds its literals, ` (literals`, each entry in order — `(prefix B …)`, `(whole B …)`, `(first B …)`,
+`(anywhere)`, `(inner B …)`, each byte in decimal — and `)`; nothing when it holds none, so every text written before this
+rule is the text it was. **`hir_read` reads a section back by extracting the literals of the tree it has read**, in a
+scratch arena, and holding the section to what the dump writes for them, byte for byte — refusing at the first byte that
+is not, its root left unset and no literal written — and then extracts them into the `Hir` it reads into: a text never
+carries a literal its tree does not give, and `hir_dump(hir_read(t))` is `t`, with a section or without.
+`tests/unit/hir_literal.npk` holds the query, the store, the section and its reading, and the bounds' edges, and three
+units more each stop.
+*(2026-10-15, cycle 0.2.5 — RX-243: never wrong in the unsafe direction is measured by `tests/unit/hir_literal_fuzz.npk` —
+three thousand seeded trees, each tree's literals held to strings drawn from it — and the property test over the oracle,
+`hir_literal_oracle.npk`, is pending until cycle 0.5.5.)*
 
 ---
 
@@ -371,6 +432,9 @@ facts are computed and after.)*
 (H-16) — so the walk's bound is exact for every HIR it answers `HIR_NONE` for.)*
 *(2026-10-12, cycle 0.2.3 — RX-236: *"cycle 0.2.3's order"* is `hir_normalise`'s to make: a text's classes read as written,
 and `hir_normalise` sorts and merges them, total over every text `hir_read` reads.)*
+*(2026-10-15, cycle 0.2.5 — RX-242: *"writes the tree under the root as one line"* — and after it, when the `Hir` holds its
+literals, their section, which `hir_read` reads back by extracting them itself and holding the text to them (H-20); a tree
+whose literals are not extracted has none, so every text written before is the text it was.)*
 
 ---
 

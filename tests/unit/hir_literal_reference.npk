@@ -1,0 +1,154 @@
+// expect-exit: 0
+//
+// THE LITERALS AGAINST A HAND-COMPUTED REFERENCE: FIFTY-FIVE PATTERNS. Cycle 0.2.5; `meta/specs/HIR.md`
+// rules H-11, H-12, H-19 and H-20, and the cycle README's 0.2.5 boxes.
+//
+// HAND-COMPUTED MEANS THIS. Each row below is a pattern and the literal section the dump writes after its
+// normal form's tree once its literals are extracted -- `(literals`, then the prefix (`whole` when every
+// match is it, `prefix` otherwise) when it has a byte, the first-byte set (`first` and its members
+// ascending, or `anywhere` when a match may begin anywhere), and the inner literal when it has a byte,
+// each byte in decimal -- written by hand from H-19's text, with the reading that gives it beside it. No
+// value was printed by the code and copied here: every row was written from the rule's text before the
+// extraction first ran, and a row the extraction disagrees with is read against H-19 again -- never
+// changed to the extraction's answer.
+//
+// EVERY ROW ASKS THE NORMAL FORM (RX-236): each pattern is parsed, built and normalised, the normal form
+// dumped, its literals asked for through `hir_literals`, the query a later stage will call, and dumped
+// again: the second text must be the first, a space, and the row's section, byte for byte -- the tree's
+// text unchanged by the extraction, and the section after it. A row that differs, or a pattern that does
+// not build, exits with the row's number; the program exits 0 only after every `hir_free` and `ast_free`.
+// The bytes are a match's bytes: a codepoint's UTF-8 encoding, or under `(?-u)` the byte itself.
+mod:hir_literal_reference;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+use "../../src/hir/hir.npk".*;
+
+// Whether `all` is `tree`, a space, and `want`.
+func:tree_then = bool(Bytes->:all, Bytes->:tree, fixed uint8[]:want) never fails {
+    int64:n = raw bytes_len(tree);
+    if ((raw bytes_len(all)) != n + 1i64 + want.len) { pass false; }
+    int64:i = 0i64;
+    while (i < n) decreases n - i {
+        if ((raw bytes_get(all, i)) != (raw bytes_get(tree, i))) { pass false; }
+        i = i + 1i64;
+    }
+    if ((raw bytes_get(all, n)) != 32u8) { pass false; }
+    int64:k = 0i64;
+    while (k < want.len) decreases want.len - k {
+        if ((raw bytes_get(all, n + 1i64 + k)) != want[k]) { pass false; }
+        k = k + 1i64;
+    }
+    pass true;
+};
+
+// Whether `pattern`'s normal form's literals are the section `want`.
+func:holds = bool(string:pattern, string:want) never fails {
+    fixed uint8[]:pat = string_bytes(pattern);
+    Ast:t = raw ast_init(8i64);
+    bool:ok = false;
+    if ((raw parse_pattern(pat, @t)) == NIL) {
+        Hir:h = raw hir_init(8i64);
+        if ((raw hir_build(pat, t, @h)) == HIR_NONE) {
+            Hir:n = raw hir_init(8i64);
+            drop hir_normalise(@h, @n);
+            Bytes:tree = raw bytes_init(64i64);
+            drop hir_dump(@n, @tree);
+            discard(raw hir_literals(@n));
+            Bytes:all = raw bytes_init(64i64);
+            drop hir_dump(@n, @all);
+            ok = raw tree_then(@all, @tree, string_bytes(want));
+            drop hir_free(@n);
+        }
+        drop hir_free(@h);
+    }
+    drop ast_free(@t);
+    pass ok;
+};
+
+func:run = int32() never fails {
+    // ---- a literal, a literal run, and their bytes
+    if (!(raw holds("a", "(literals (whole 97) (first 97) (inner 97))")))                       { pass 1i32; }   // one `Literal`: every match is `a`
+    if (!(raw holds("abc", "(literals (whole 97 98 99) (first 97) (inner 97 98 99))")))         { pass 2i32; }   // a run, read to the end
+    if (!(raw holds("é", "(literals (whole 195 169) (first 195) (inner 195 169))")))            { pass 3i32; }   // U+00E9, two bytes of UTF-8
+    if (!(raw holds("(?-u)a", "(literals (whole 97) (first 97) (inner 97))")))                  { pass 4i32; }   // a byte: the twin of row 1, the same bytes
+    if (!(raw holds("(?-u)\\xFF", "(literals (whole 255) (first 255) (inner 255))")))           { pass 5i32; }   // a byte past ASCII is itself
+    if (!(raw holds("\\xFF", "(literals (whole 195 191) (first 195) (inner 195 191))")))        { pass 6i32; }   // U+00FF is two bytes: no twin of row 5
+    if (!(raw holds("a(?:bc)", "(literals (whole 97 98 99) (first 97) (inner 97 98 99))")))     { pass 7i32; }   // flattened: row 2
+    // ---- an alternation of plain literals: the bytes the alternatives share at their start
+    if (!(raw holds("foo|bar", "(literals (first 98 102))")))                                   { pass 8i32; }   // nothing shared; `b` or `f` first
+    if (!(raw holds("abc|abd", "(literals (prefix 97 98) (first 97) (inner 97 98))")))          { pass 9i32; }   // `ab` shared, then they part
+    if (!(raw holds("foo|foobar", "(literals (prefix 102 111 111) (first 102) (inner 102 111 111))"))) { pass 10i32; } // `foo` shared, one goes on
+    if (!(raw holds("a|a", "(literals (whole 97) (first 97) (inner 97))")))                     { pass 11i32; }  // every alternative the same bytes: read on
+    if (!(raw holds("[a]|b", "(literals (first 97 98))")))                                      { pass 12i32; }  // two `Literal`s in the normal form
+    if (!(raw holds("a|", "(literals (anywhere))")))                                            { pass 13i32; }  // an `Empty` alternative: no plain literal, and may match empty
+    // ---- the empty string, and repetition
+    if (!(raw holds("", "(literals (anywhere))")))                                              { pass 14i32; }  // `Empty`: a match is empty, anywhere
+    if (!(raw holds("a*", "(literals (anywhere))")))                                            { pass 15i32; }  // minimum 0: the prefix stops, may match empty
+    if (!(raw holds("a+", "(literals (prefix 97) (first 97) (inner 97))")))                     { pass 16i32; }  // its body once, then stops
+    if (!(raw holds("a{3}", "(literals (prefix 97) (first 97) (inner 97))")))                   { pass 17i32; }  // its body once: `aaa` is not read
+    if (!(raw holds("a{1}", "(literals (whole 97) (first 97) (inner 97))")))                    { pass 18i32; }  // minimum and maximum 1: read on
+    if (!(raw holds("a?b", "(literals (first 97 98) (inner 98))")))                             { pass 19i32; }  // `a?` may match empty, so `b` begins one too
+    if (!(raw holds("a*bcd", "(literals (first 97 98) (inner 98 99 100))")))                    { pass 20i32; }  // the run after it, required
+    if (!(raw holds("ab*c", "(literals (prefix 97) (first 97) (inner 97))")))                   { pass 21i32; }  // `a`, then a minimum of 0 stops it; no run longer
+    if (!(raw holds("x(abc)y", "(literals (whole 120 97 98 99 121) (first 120) (inner 120 97 98 99 121))"))) { pass 22i32; } // through the group's body
+    // ---- classes: no prefix, each member's first byte
+    if (!(raw holds("[a-c]", "(literals (first 97 98 99))")))                                   { pass 23i32; }  // a class stops the prefix
+    if (!(raw holds("[a-c]x", "(literals (first 97 98 99) (inner 120))")))                      { pass 24i32; }  // and `x` is required
+    if (!(raw holds("[é-ë]", "(literals (first 195))")))                                        { pass 25i32; }  // three codepoints, one lead byte
+    if (!(raw holds("(?-u)[\\xE9-\\xEB]", "(literals (first 233 234 235))")))                   { pass 26i32; }  // three bytes, each itself
+    if (!(raw holds("(?s).", "(literals (anywhere))")))                                         { pass 27i32; }  // 179 first bytes, past the limit of 64
+    // ---- anchors and boundaries: zero-width, read through
+    if (!(raw holds("^abc", "(literals (whole 97 98 99) (first 97) (inner 97 98 99))")))        { pass 28i32; }  // `^` adds no byte
+    if (!(raw holds("abc$", "(literals (whole 97 98 99) (first 97) (inner 97 98 99))")))        { pass 29i32; }  // nor `$`
+    if (!(raw holds("\\bfoo\\b", "(literals (whole 102 111 111) (first 102) (inner 102 111 111))"))) { pass 30i32; } // nor `\b`
+    if (!(raw holds("(?m)^abc$", "(literals (whole 97 98 99) (first 97) (inner 97 98 99))")))   { pass 31i32; }  // nor the lines' anchors
+    if (!(raw holds("^", "(literals (anywhere))")))                                             { pass 32i32; }  // an anchor alone: every match empty
+    // ---- groups, alternations and repetitions together
+    if (!(raw holds("(a)|b", "(literals (first 97 98))")))                                      { pass 33i32; }  // a group is no plain literal: no prefix
+    if (!(raw holds("(?:ab|cd)ef", "(literals (first 97 99) (inner 101 102))")))                { pass 34i32; }  // nothing shared; `ef` required
+    if (!(raw holds("(?:abc|abd)e", "(literals (prefix 97 98) (first 97) (inner 97 98))")))     { pass 35i32; }  // `ab` shared, then the prefix stops
+    if (!(raw holds("(?:a|b)+", "(literals (first 97 98))")))                                   { pass 36i32; }  // an alternation is no required run
+    if (!(raw holds("a+b+c+", "(literals (prefix 97) (first 97) (inner 97))")))                 { pass 37i32; }  // three runs of one; the prefix first
+    if (!(raw holds("x*(?:abcd)y*", "(literals (first 97 120) (inner 97 98 99 100))")))         { pass 38i32; }  // `x*` may match empty; `abcd` required
+    if (!(raw holds("a(?:b|c)d", "(literals (prefix 97) (first 97) (inner 97))")))              { pass 39i32; }  // `a`, then nothing shared
+    if (!(raw holds("(?:ab)*cd", "(literals (first 97 99) (inner 99 100))")))                   { pass 40i32; }  // minimum 0: `ab` not required
+    if (!(raw holds("(?:ab)+cd", "(literals (prefix 97 98) (first 97) (inner 97 98))")))       { pass 41i32; }  // `ab` and `cd` as long: the prefix
+    if (!(raw holds("a\\bb", "(literals (whole 97 98) (first 97) (inner 97 98))")))             { pass 42i32; }  // `\b` between: read through
+    if (!(raw holds("\\b", "(literals (anywhere))")))                                           { pass 43i32; }  // a boundary alone: empty
+    if (!(raw holds("é|ê", "(literals (prefix 195) (first 195) (inner 195))")))                 { pass 44i32; }  // they share a lead byte
+    if (!(raw holds("(?-u:\\xE9)|é", "(literals (first 195 233))")))                            { pass 45i32; }  // a byte and a codepoint: nothing shared
+    if (!(raw holds("(?-u)abc", "(literals (whole 97 98 99) (first 97) (inner 97 98 99))")))    { pass 46i32; }  // bytes: the twin of row 2
+    if (!(raw holds("a(?:b|c)|ad", "(literals (first 97))")))                                   { pass 47i32; }  // an alternative no run: no prefix
+    if (!(raw holds("a[0-9]+bcdef", "(literals (prefix 97) (first 97) (inner 98 99 100 101 102))"))) { pass 48i32; } // a run longer than the prefix
+    if (!(raw holds("[0-9]ab[0-9]cd", "(literals (first 48 49 50 51 52 53 54 55 56 57) (inner 97 98))"))) { pass 49i32; } // two as long: the first
+    if (!(raw holds("(?:a|)b", "(literals (first 97 98) (inner 98))")))                         { pass 50i32; }  // an alternation that may match empty
+    if (!(raw holds("[a]bc", "(literals (whole 97 98 99) (first 97) (inner 97 98 99))")))       { pass 51i32; }  // `[a]` is `a` in the normal form
+    if (!(raw holds("(?:^a|^b)", "(literals (first 97 98))")))                                  { pass 52i32; }  // alternatives no runs; the anchors first
+    if (!(raw holds("ab?", "(literals (prefix 97) (first 97) (inner 97))")))                    { pass 53i32; }  // `a`, then a minimum of 0
+    if (!(raw holds("[~-Ā]", "(literals (first 126 127 194 195 196))")))                        { pass 54i32; }  // U+007E … U+0100: two of one byte, three lead bytes
+    if (!(raw holds("[ࠀ-𐀀]", "(literals (first 224 225 226 227 228 229 230 231 232 233 234 235 236 237 238 239 240))"))) { pass 55i32; } // U+0800 … U+10000, the surrogates left out
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    exit raw run();
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

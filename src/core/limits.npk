@@ -110,8 +110,12 @@ pub fixed int64:NREGEX_DFA_MIN_STATES = 32i64;
 // `check_constants_named` diffs against and these are not rows in it.
 
 // The most literals a prefilter will consider from one pattern.
+// *(2026-10-15, cycle 0.2.5 -- RX-241: the first-byte set's members, each a one-byte literal a first-byte
+// prefilter scans for: a set of more is none, and a match may begin anywhere (`HIR.md` H-19).)*
 pub fixed int64:NREGEX_LITERAL_LIMIT = 64i64;
 
 // The most bytes of literal text extracted in total. A prefilter that has to
 // scan for more than this stops being a prefilter.
+// *(2026-10-15, cycle 0.2.5 -- RX-241: *"in total"* -- each literal's, as `HIR.md` H-11 says, *"each"*: the
+// prefix's and the inner literal's bytes, each its first this many (H-19).)*
 pub fixed int64:NREGEX_LITERAL_BYTES = 1024i64;

@@ -1,0 +1,192 @@
+// expect-exit: 0
+// pending-until: 0.5.5 exit 1
+//
+// EVERY MATCH THE REAL MATCHER FINDS IS ONE ITS LITERALS ADMIT: THE PROPERTY TEST, RUN OVER THE ORACLE. Cycle
+// 0.2.5; `HIR.md` H-11, H-12 and H-19, `ENGINES.md` R-19, `TESTING.md` V-20, and the cycle README's last 0.2.5
+// box: *"for every corpus pattern and haystack, every position the real matcher finds is a position the
+// first-byte set admits — pending until 0.5"*.
+//
+// PENDING UNTIL CYCLE 0.5.5, ON EXIT 1 ALONE (`BUILD.md` B-5b, RX-226). The real matcher this library has before
+// cycle 0.7's Pike VM is cycle 0.5's oracle -- the naive matcher over the HIR, `tests/oracle/`, which imports
+// nothing from `src/` but `core` and `hir` (V-4) -- and the 0.5 README's 0.5.5 box is the one that turns this
+// unit green: *"0.2's pending literal-extraction property test now green"*. Until then the hook below answers
+// NO_ORACLE, and a unit whose every comparison met no oracle exits 1 -- that and nothing else. A match the
+// literals do not admit exits with its claim's number, 11 … 14, which the marker does not excuse: the run is red
+// then, not pending. The day every match is admitted the unit exits 0, the run goes red to say the marker is
+// stale, and the marker and its line in `harness/baseline/PENDING.txt` go.
+//
+// THE HOOK, `oracle_find`. The one place this unit meets the oracle, and the one line cycle 0.5.5 writes here:
+// given a HIR, a haystack and a position, the leftmost-first match that begins there or after -- its start in
+// slot 0 and its end in slot 1 -- answering 1 for a match and 0 for none. Its shape is this unit's: cycle 0.5.0
+// names the oracle's entry point, and the hook adapts it. Until then it answers NO_ORACLE and writes nothing.
+//
+// WHAT IT ASKS. Every pattern below is built, normalised and its literals extracted on every run, so an
+// extraction that trapped would be red here too (any exit but 1); each H-19 rule meets at least one, and each
+// role -- a prefix, a whole match, a first-byte set and `anywhere`, an inner literal -- several. For each
+// haystack and each position in it, the oracle's match from there, when there is one, must begin with a byte
+// of the first-byte set (11), begin with the prefix (12), be the whole match (13) and hold the inner literal
+// (14). THE CORPUS is cycle 0.5's: 0.5.5's box carries this property over its patterns and haystacks too, by
+// the corpus stage (0.5.3), whose shape is that subcycle's.
+mod:hir_literal_oracle;
+
+use "../../src/core/core.npk".*;
+use "../../src/syntax/syntax.npk".*;
+use "../../src/hir/hir.npk".*;
+
+fixed int64:NO_ORACLE = -2i64;
+
+// THE HOOK -- cycle 0.5.5 fills it with a call to the oracle (see the header).
+func:oracle_find = int64(Hir->:h, fixed uint8[]:hay, int64:from, Vec<int64>->:slots) never fails {
+    pass NO_ORACLE;
+};
+
+// The haystacks every pattern is run over.
+func:hay = string(int64:i) never fails {
+    if (i == 0i64) { pass ""; }
+    if (i == 1i64) { pass "abc"; }
+    if (i == 2i64) { pass "xabcy abd"; }
+    if (i == 3i64) { pass "foobar foo fo"; }
+    if (i == 4i64) { pass "aaab bab b"; }
+    if (i == 5i64) { pass "cxax bx"; }
+    if (i == 6i64) { pass "éê ë é"; }
+    if (i == 7i64) { pass "ababcd cd abcdef a7bcdef"; }
+    if (i == 8i64) { pass "foo foobar"; }
+    pass "abcabde abd abe";
+};
+fixed int64:HAYS = 10i64;
+
+// The patterns: each H-19 rule, and each role.
+func:pattern = string(int64:i) never fails {
+    if (i == 0i64) { pass "abc"; }
+    if (i == 1i64) { pass "abc|abd"; }
+    if (i == 2i64) { pass "foo|foobar"; }
+    if (i == 3i64) { pass "a+b"; }
+    if (i == 4i64) { pass "a*b"; }
+    if (i == 5i64) { pass "[a-c]x"; }
+    if (i == 6i64) { pass "é|ê"; }
+    if (i == 7i64) { pass "(?-u:\\xC3)|ë"; }
+    if (i == 8i64) { pass "x(abc)y"; }
+    if (i == 9i64) { pass "\\bfoo\\b"; }
+    if (i == 10i64) { pass "^abc"; }
+    if (i == 11i64) { pass "abc$"; }
+    if (i == 12i64) { pass "(?:ab)+cd"; }
+    if (i == 13i64) { pass "a[0-9]+bcdef"; }
+    if (i == 14i64) { pass "(?:a|)b"; }
+    if (i == 15i64) { pass "[é-ë]"; }
+    if (i == 16i64) { pass "ab?"; }
+    if (i == 17i64) { pass "a{3}"; }
+    if (i == 18i64) { pass "(?:abc|abd)e"; }
+    if (i == 19i64) { pass "a?b"; }
+    pass "(?:ab)*cd";
+};
+fixed int64:PATTERNS = 21i64;
+
+// Whether `hay[s..e]` begins with literal `l`'s bytes -- and, when `whole`, is them.
+func:begins = bool(Hir:h, Literal:l, fixed uint8[]:hay, int64:s, int64:e, bool:whole) never fails {
+    if ((e - s) < l.len) { pass false; }
+    if (whole && ((e - s) != l.len)) { pass false; }
+    int64:i = 0i64;
+    while (i < l.len) decreases l.len - i {
+        if (hay[s + i] != (raw hir_literal_byte(h, l.off + i))) { pass false; }
+        i = i + 1i64;
+    }
+    pass true;
+};
+
+// Whether `hay[s..e]` holds literal `l`'s bytes.
+func:holds = bool(Hir:h, Literal:l, fixed uint8[]:hay, int64:s, int64:e) never fails {
+    int64:at = s;
+    while ((at + l.len) <= e) decreases e - at {
+        bool:all = true;
+        int64:i = 0i64;
+        while (all && (i < l.len)) decreases l.len - i {
+            if (hay[at + i] != (raw hir_literal_byte(h, l.off + i))) { all = false; }
+            i = i + 1i64;
+        }
+        if (all) { pass true; }
+        at = at + 1i64;
+    }
+    pass false;
+};
+
+// Whether the byte at `s` is one of literal `l`'s -- there is none at the haystack's end.
+func:first_of = bool(Hir:h, Literal:l, fixed uint8[]:hay, int64:s) never fails {
+    if (s >= hay.len) { pass false; }
+    int64:i = 0i64;
+    while (i < l.len) decreases l.len - i {
+        if ((raw hir_literal_byte(h, l.off + i)) == hay[s]) { pass true; }
+        i = i + 1i64;
+    }
+    pass false;
+};
+
+func:run = int32() never fails {
+    bool:none = false;
+    int64:p = 0i64;
+    while (p < PATTERNS) decreases PATTERNS - p {
+        string:ps = raw pattern(p);
+        fixed uint8[]:pat = string_bytes(ps);
+        Ast:t = raw ast_init(8i64);
+        if ((raw parse_pattern(pat, @t)) != NIL) { pass 10i32; }
+        Hir:h = raw hir_init(8i64);
+        if ((raw hir_build(pat, t, @h)) != HIR_NONE) { pass 10i32; }
+        Hir:n = raw hir_init(8i64);
+        drop hir_normalise(@h, @n);
+        int64:count = raw hir_literals(@n);
+        int64:k = 0i64;
+        while (k < HAYS) decreases HAYS - k {
+            string:ys = raw hay(k);
+            fixed uint8[]:y = string_bytes(ys);
+            int64:from = 0i64;
+            while (from <= y.len) decreases y.len - from {
+                Vec<int64>:slots = raw vec_init_zeroed::<int64>(2i64);
+                int64:f = raw oracle_find(@n, y, from, @slots);
+                if (f == NO_ORACLE) { none = true; }
+                else if (f == 1i64) {
+                    int64:s = raw vec_get(slots, 0i64);
+                    int64:e = raw vec_get(slots, 1i64);
+                    int64:j = 0i64;
+                    while (j < count) decreases count - j {
+                        Literal:l = raw hir_literal(n, j);
+                        if ((l.role == HIR_LITERAL_FIRST) && (!(raw first_of(n, l, y, s)))) { pass 11i32; }
+                        if ((l.role == HIR_LITERAL_PREFIX) && (!(raw begins(n, l, y, s, e, false)))) { pass 12i32; }
+                        if ((l.role == HIR_LITERAL_WHOLE) && (!(raw begins(n, l, y, s, e, true)))) { pass 13i32; }
+                        if ((l.role == HIR_LITERAL_INNER) && (!(raw holds(n, l, y, s, e)))) { pass 14i32; }
+                        j = j + 1i64;
+                    }
+                }
+                drop vec_free(@slots);
+                from = from + 1i64;
+            }
+            k = k + 1i64;
+        }
+        drop hir_free(@n);
+        drop hir_free(@h);
+        drop ast_free(@t);
+        p = p + 1i64;
+    }
+    if (none) { pass 1i32; }
+    pass 0i32;
+};
+
+func:main = int32(cstring[]:_~argv) {
+    exit raw run();
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};

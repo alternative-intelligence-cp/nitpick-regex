@@ -6,6 +6,11 @@
 // its children `)`; `hir_read` reads that text back into an arena. A test commits the text
 // and compares bytes, a reviewer reads a diff of it, and a later stage -- the oracle at
 // cycle 0.5, the compiler at 0.6 -- can start from a HIR nobody had to parse a pattern for.
+// *(2026-10-15, cycle 0.2.5 -- RX-242: *"`hir_dump` writes a HIR as one line of text, a node at a time from the
+// root"* -- and on that line, after the tree, the literals' section when the `Hir` holds them, ` (literals …)`,
+// which `hir_read` reads back by extracting the literals of the tree it read and holding the text to them byte
+// for byte; a `Hir` whose literals are not extracted has none, so every text written before is the text it was
+// (H-20).)*
 //
 // THE ROUND TRIP IS THE CONTRACT. For every text `hir_dump` writes from a HIR the library
 // builds, `hir_read` builds a HIR whose dump is the same text, byte for byte; and every
@@ -168,6 +173,36 @@ func:chain_holds = bool(Hir->:h, HirNode:n) never fails {
     pass (k == n.b) && (m == HIR_NONE);
 };
 
+// THE LITERALS' SECTION (H-20): ` (literals`, then each literal the Hir holds, in its order -- ` (`, its role's
+// word, each of its bytes in decimal after a space, `)` -- and `)`; nothing when the Hir holds none, whose
+// literals are not extracted. A role the text has no word for is written as its number, which `hir_read`
+// refuses: the writer shows what the Hir holds.
+func:write_literals = NIL(Hir->:h, Bytes->:out) never fails {
+    int64:n = raw hir_literal_count(<-h);
+    if (n == 0i64) { pass NIL; }
+    drop put(out, " (literals");
+    int64:k = 0i64;
+    while (k < n) decreases n - k {
+        Literal:l = raw hir_literal(<-h, k);
+        if (l.role == HIR_LITERAL_PREFIX) { drop put(out, " (prefix"); }
+        else if (l.role == HIR_LITERAL_WHOLE) { drop put(out, " (whole"); }
+        else if (l.role == HIR_LITERAL_FIRST) { drop put(out, " (first"); }
+        else if (l.role == HIR_LITERAL_ANYWHERE) { drop put(out, " (anywhere"); }
+        else if (l.role == HIR_LITERAL_INNER) { drop put(out, " (inner"); }
+        else { drop put(out, " ("); drop num(out, l.role); }
+        int64:i = 0i64;
+        while (i < l.len) decreases l.len - i {
+            drop put(out, " ");
+            drop num(out, (raw hir_literal_byte(<-h, l.off + i)) => int64);
+            i = i + 1i64;
+        }
+        drop put(out, ")");
+        k = k + 1i64;
+    }
+    drop put(out, ")");
+    pass NIL;
+};
+
 // obligation: never fails
 //
 // THE DUMP (H-15). Appends the tree under `h`'s root to `out`, as one line with no line
@@ -188,6 +223,9 @@ func:chain_holds = bool(Hir->:h, HirNode:n) never fails {
 // *(2026-10-13, cycle 0.2.4 -- RX-239: *"the writer shows what the arena holds"*, and a dump that completes
 // *"shows every bit its nodes hold"* -- all but the computed properties' five, `HIR_COMPUTED`, which every
 // kind takes and the text does not show: they are the tree's facts, and a tree has one text before and after.)*
+// *(2026-10-15, cycle 0.2.5 -- RX-242: *"Appends the tree under `h`'s root to `out`"* -- and after it, on the same
+// line, the literals' section when the `Hir` holds them (`write_literals`), which their extraction writes and the
+// facts alone do not: a tree's text gains the section when its literals are extracted, and nothing else.)*
 pub func:hir_dump = NIL(Hir->:h, Bytes->:out) never fails {
     if (h.root == HIR_NONE) { pass NIL; }
     Vec<Visit>:todo = raw vec_init::<Visit>(16i64);
@@ -225,6 +263,7 @@ pub func:hir_dump = NIL(Hir->:h, Bytes->:out) never fails {
         }
     }
     drop vec_free(@todo);
+    drop write_literals(h, out);
     pass NIL;
 };
 
@@ -532,6 +571,40 @@ func:close_node = int64(Hir->:out, ReadState->:r, int64:at) never fails {
     pass HIR_NONE;
 };
 
+// THE SECTION READ BACK (H-20): the tree `out` holds, rooted at `top`, copied into a scratch arena and rooted
+// there, its literals extracted and written as the dump writes them -- and `text` from `at` must be that, byte for
+// byte. Answers HIR_NONE, or the offset of the first byte that is not, the text's length when it ends early; `out`
+// is left as it was, its root unset and no literal in it, so a text never carries a literal its tree does not give.
+func:read_literals = int64(fixed uint8[]:text, Hir->:out, int64:top, int64:at) never fails {
+    Hir:s = raw hir_init(8i64);
+    int64:n = raw hir_len(<-out);
+    int64:i = 0i64;
+    while (i < n) decreases n - i {
+        discard(raw hir_push(@s, raw hir_get(<-out, i)));
+        i = i + 1i64;
+    }
+    int64:r = raw hir_range_count(<-out);
+    i = 0i64;
+    while (i < r) decreases r - i {
+        discard(raw hir_push_range(@s, raw hir_range(<-out, i)));
+        i = i + 1i64;
+    }
+    drop hir_set_root(@s, top);
+    discard(raw hir_literals(@s));
+    Bytes:want = raw bytes_init(64i64);
+    drop write_literals(@s, @want);
+    drop hir_free(@s);
+    int64:w = raw bytes_len(@want);
+    int64:k = 0i64;
+    while (k < w) decreases w - k {
+        if ((at + k) >= text.len) { pass text.len; }
+        if (text[at + k] != (raw bytes_get(@want, k))) { pass at + k; }
+        k = k + 1i64;
+    }
+    if ((at + w) < text.len) { pass at + w; }
+    pass HIR_NONE;
+};
+
 func:read_run = int64(fixed uint8[]:text, Hir->:out, ReadState->:r) never fails {
     if (!(raw eat(text, r, CH_LPAREN))) { pass r.pos; }
     int64:e = raw read_head(text, out, r);
@@ -552,7 +625,15 @@ func:read_run = int64(fixed uint8[]:text, Hir->:out, ReadState->:r) never fails 
         else { pass r.pos; }
         if (e != HIR_NONE) { pass e; }
     }
-    if (r.pos < text.len) { pass r.pos; }
+    if (r.pos < text.len) {
+        // what the dump writes after a tree is the literals' section, which begins ` (`, and nothing else
+        if (((raw byte_at(text, r.pos)) != CH_SPACE) || ((raw byte_at(text, r.pos + 1i64)) != CH_LPAREN)) { pass r.pos; }
+        int64:e2 = raw read_literals(text, out, r.top, r.pos);
+        if (e2 != HIR_NONE) { pass e2; }
+        drop hir_set_root(out, r.top);
+        discard(raw hir_literals(out));
+        pass HIR_NONE;
+    }
     drop hir_set_root(out, r.top);
     pass HIR_NONE;
 };
@@ -564,6 +645,9 @@ func:read_run = int64(fixed uint8[]:text, Hir->:out, ReadState->:r) never fails 
 // that is not what `hir_dump` writes there -- the text's length when it ends early -- and
 // leaves `out`'s root as it was, its nodes partial, for the caller to free. Pass a `Hir`
 // fresh from `hir_init`: its groups are numbered from the count it already holds.
+// *(2026-10-15, cycle 0.2.5 -- RX-242: and when the tree's text is followed by a literals' section, it holds the
+// section to the literals of the tree it read (`read_literals`) and, the section accepted, extracts them into
+// `out` -- whose tree is then finished; a refused section leaves `out`'s root unset and no literal in it.)*
 pub func:hir_read = int64(fixed uint8[]:text, Hir->:out) never fails {
     ReadState:r = ReadState{ pos: 0i64, next_group: raw hir_group_count(<-out), top: HIR_NONE,
                              open: raw vec_init::<ReadFrame>(8i64) };

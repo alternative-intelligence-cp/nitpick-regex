@@ -198,6 +198,11 @@ mutation. RX-232's list of what it dated leaves out the note above, which its st
 *(2026-10-13, cycle 0.2.4 — RX-240: *"with floors on every kind of noise"* was not true of a seventh kind, which the gate
 applied from the start and counted nowhere: the atom a repetition holds, written in a `(?:…)` it does not need. It has a
 counter now and a floor of its own, 200, under the other six kinds' 500; RX-240 completes RX-237's list.)*
+*(2026-10-15, cycle 0.2.5 — RX-243: and literal extraction's, `tests/unit/hir_literal_fuzz.npk`: three thousand seeded
+patterns, each tree's literals held to sixteen strings drawn from the tree — every one begins with the prefix, is the
+whole match, begins with a byte of the first-byte set and holds the inner literal — with floors on every role. The box's
+property test, every match the oracle finds admitted by its literals, is `hir_literal_oracle.npk`, pending until cycle
+0.5.5.)*
 
 ---
 

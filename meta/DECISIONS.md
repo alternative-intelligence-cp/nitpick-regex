@@ -6479,3 +6479,165 @@ applied, the gate exits 17, its floors' exit (the plan's mutant `repwrap-never-a
 be red; **a dated note alone, no floor** — a gate that stopped applying the seventh kind would stay green, and the words
 would stay false; **the draw's odds raised to clear 500** — every count RX-237 measured would move, and the corpus with
 them; **RX-237's sentence rewritten** — a settled decision's text is never rewritten.
+
+
+## Literal extraction — cycle 0.2.5
+
+### RX-241 — the three literals, kind by kind, a new rule H-19: the prefix, the first-byte set and the inner literal, each a fact of every match that errs towards saying less, read over a match's bytes — a codepoint its UTF-8, a byte itself; the bounds read as each literal's bytes and the first-byte set's members; and the facts read for `CAN_MATCH_EMPTY` and `IS_ALTERNATION_LITERAL` alone
+**2026-10-15, cycle 0.2.5 (the plan's PD-126), at compiler `7e91730`** — `HIR.md` H-1, H-11, H-12, H-17 and H-19,
+`ENGINES.md` R-3, R-19 and R-20, `UNICODE.md` U-18 and U-19, `COMPILE.md` C-2 and C-3, `SYNTAX.md` Y-20, RX-224, RX-235,
+RX-236 and RX-238, and the cycle README's 0.2.5 row — *"Literal extraction — prefix, first-byte set, inner literal"*,
+ending *"conservative, bounded, and never wrong in the unsafe direction"* — and its second, third and fourth boxes. H-11
+names the three in a phrase each and their bounds in one sentence, and no rule says what each is for each kind of node,
+which way each may be wrong, what bytes a codepoint is, or what *"`NREGEX_LITERAL_LIMIT` entries and
+`NREGEX_LITERAL_BYTES` each"* bounds — where `limits.npk`'s comment calls the second *"literal text extracted in total"*.
+The hand-computed reference needs a definition independent of the extraction it checks.
+
+**The decision.** H-19's table says each literal kind by kind, each a fact of every match of the tree it is extracted
+from, erring one way only — towards saying less — since every prefilter confirms its candidates (R-19) and a literal
+wrong the other way loses a match. **A match's bytes**: a `Literal`'s codepoint's UTF-8 encoding, or under
+`HIR_FLAG_BYTE` the byte — a Unicode-mode node matches its well-formed encoding alone (U-18, U-19) — and an assertion
+none, taken to hold (Y-20, H-17). **The prefix** is read down from the root while every match of what is read is the
+same bytes — a `Group` its body's, a `Concat` its pieces' in order, a `Repeat` of minimum 1 or more its body's once, read
+on only at `{1}`, an `Alternate` of plain literals the bytes they all begin with, read on only when they are all the same
+— and stops at a `Class`, a `Repeat` of minimum 0, any other `Alternate`, and the byte past `NREGEX_LITERAL_BYTES`; read
+to the tree's end it is a whole match, RX-224's *"whether an entry is a whole match or a prefix"*. **The first-byte set**
+is none — every position, the haystack's end included — when the root may match the empty string, or when it holds more
+than `NREGEX_LITERAL_LIMIT` bytes; otherwise the first bytes a match can begin with, a `Concat`'s pieces' up to the first
+that cannot match the empty string, a class's members' — an ASCII codepoint its own byte, and past U+007F the lead bytes,
+which run on unbroken from one length to the next. **The inner literal** is the longest of the prefix and the literal
+runs the tree requires (RX-235) — never one under an `Alternate` or a `Repeat` of minimum 0 — counting
+`NREGEX_LITERAL_BYTES` bytes at most, its first that many; of two as long, the prefix, then the run read first. **The
+bounds**: H-11's *"`NREGEX_LITERAL_BYTES` each"* is each literal's bytes, the prefix's and the inner's, and
+*"`NREGEX_LITERAL_LIMIT` entries"* the first-byte set's members, the one-byte literals a first-byte prefilter scans for;
+`limits.npk`'s two comments are dated. **The facts read**: `CAN_MATCH_EMPTY`, which says *may* and so errs the
+first-byte set's way, and `IS_ALTERNATION_LITERAL`, which says an alternative's shape, never its bytes — no anchor, since
+`^abc`'s literals are `abc`'s and an anchored search is the meta-engine's to choose (R-24). The literals are of the tree
+they are extracted from, the normal form's for every later stage (H-1, RX-236). H-11 and H-12 are dated.
+
+**Measured at `7e91730`.** `tests/unit/hir_literal_reference.npk` exits 0 at both legs: fifty-five patterns, each with
+its normal form's literal section written by hand from H-19's table before the extraction first ran, and the first run
+agreed with every row — literals and runs and their bytes, a byte's among them, alternations of plain literals, the empty
+string and repetition, classes of codepoints of one to four bytes and of bytes, anchors and boundaries read through, and
+byte twins, `(?-u)a` and `a`, with one set of literals. In the plan's mutant table one hundred and nineteen rows break
+H-19, each by one edit at one site of the extraction, and every one is red at both legs: in the reference, in
+`tests/unit/hir_literal.npk` — the bounds' edges, a codepoint past U+3FFFF, the ASCII edge, alternations and runs of
+multi-byte literals and of bytes past 127, the walks' guards and budgets, and the shapes only a text holds — or in
+RX-243's fuzz. Not every facet of H-19 has a row of its own, and the plan names those its second verification found.
+Beneath the rows, the plan's operator sweep mutates the literals' code in `repr.npk` — `hir_free`'s two lines among it —
+and the section's writing and reading in `dump.npk` in these ways alone: each relational operator replaced by one other;
+`&&`, `||`, `+`, `-`, `|` and `&` each by its counterpart; each typed integer literal one up and, above 0, one down; each
+negation dropped; each boolean flipped; and each assignment to a declared name or a field, each `drop` and each
+`discard` that is a line of its own and holds no brace, removed — 515 mutants — and every one is red in a unit but 44,
+each equivalent and each named in the plan: a first capacity, a measure's slack, a clamp or an edge that changes no
+byte, a step kind or a list's end no walk tells apart, an offset that is always 0, a value written before it is read,
+and a byte the caller has checked. Outside it lie mutants of other kinds and, of its own kinds, a literal of 0 one down
+and a statement inside a one-line block or holding a struct literal, and the plan says which; fourteen mutants of other
+kinds that no unit reddened before — a walk's guard, a byte flag dropped or never read, a budget, a clamp and a count —
+each have a case and a row. A list of no member is read by the same words, and `hir_literal`'s texts hold it.
+
+*Alternatives declined:* **a set of prefix literals, Rust's shape** — every literal an alternation can begin with, for a
+multi-literal prefilter `ENGINES.md` R-20 does not list at 1.0, where H-11 says *"the required literal prefix, if every
+match starts with the same bytes"*; **an alternative's own prefix read through, whatever it is** — `(?:ab+|ac)` shares
+`a`, and the read would branch, each alternative's bytes a buffer of its own, for a shape whose miss costs a scan;
+**a `Repeat`'s body read `min` times** — `a{3}` is `aaa`, a read that multiplies with H-8's product for bytes the first
+copy already begins; **a first-byte set past `NREGEX_LITERAL_LIMIT` kept** — a prefilter scanning for more than 64 bytes
+scans for most of a text's, and *"the most literals a prefilter will consider"* is that constant's own comment;
+**`NREGEX_LITERAL_BYTES` in total, the three together** — H-11 says *"each"*, and a long prefix would starve the inner
+literal; **a run read across a zero-width piece**, `foo\bbar`'s `foobar` — a run is RX-235's, adjacent `Literal`s;
+**the anchors read** — `^abc` and `abc` begin alike, and the meta-engine reads `IS_ANCHORED_START` itself; **the empty
+string's facts reckoned again here** — a fact with two homes drifts, and the facts are there to read through `hir_props`
+(0.2.4's hand-on); **`IS_ALTERNATION_LITERAL` taken for the literals** — it says a shape, never which bytes.
+
+### RX-242 — `Literal` shaped and `Hir.literals` added, a new rule H-20: a role and an offset and a length in `Hir.lits`, written in H-11's order by the extraction alone, the first-byte set's entry always, so a `Hir` that holds none has not had them extracted; `hir_literals` extracts on demand, after the facts, over a finished tree; and the dump's section, read back by holding it to the extraction
+**2026-10-15, cycle 0.2.5 (the plan's PD-127), at compiler `7e91730`** — `HIR.md` H-2, H-10, H-11, H-15, H-18 and H-20,
+`SAFETY.md` S-19 and S-23a, RX-224, RX-225, RX-227, RX-236 and RX-239, the compiler's D-227, the cycle README's first
+0.2.5 box — *"`Literal` shaped to own nothing, `Hir.literals` added and the dump given its section for them"*, moved here
+from 0.2.0 by RX-224 *"because its fields depend on the three roles H-11 names"* — and 0.2.4's hand-on: *"to any later
+stage that writes a HIR: compute its facts last; a computed tree is finished"*.
+
+**The decision.** **`Literal`** is `{ int64:role; int64:off; int64:len; }`, deriving `Copy` and owning nothing: its bytes
+are `len` from `off` in `Hir.lits`, a `Vec<uint8>` of every literal's, as a group's name is an offset and a length in
+`Hir.names` (S-23a). Its roles: `HIR_LITERAL_PREFIX` 0, `HIR_LITERAL_WHOLE` 1, `HIR_LITERAL_FIRST` 2 — the set's members,
+ascending — `HIR_LITERAL_ANYWHERE` 3, no bytes, and `HIR_LITERAL_INNER` 4. **`Hir.literals`** and `Hir.lits` are `hidden`
+fields of `Hir`, written only by `repr.npk`'s extraction, which writes H-11's three in its order — the prefix when it has a
+byte, the first-byte set always, the inner literal when it has a byte — so **a `Hir` that holds none has not had its
+literals extracted**: the distinct "not yet extracted" state, never "no literal". **The query is `hir_literals(Hir->:h)`**,
+re-exported: it extracts them when the `Hir` holds none and answers how many it holds, one to three; `hir_literal_count`
+answers how many and extracts nothing, `hir_literal` an entry and `hir_literal_byte` a byte, each stopping `OutOfBounds`
+past what is held. **The extraction asks `hir_props` first**, so the facts are computed — one pass, which stops on an arena
+that is not a tree — and the tree is finished (H-18) before a literal is written: `hir_set` and `hir_set_root` stop on it,
+and no literal can describe a tree it was not extracted from; `hir_push`, `hir_push_range`, `hir_add_group` and
+`hir_copy_groups` write nothing the literals read, and `hir_free` frees them. A node copied from an extracted tree carries
+no literal, and the normal form of one holds none until it is asked; `hir_normalise`'s three counts read the two fields
+too, since a literal is written only over a tree. **The dump's section**: after the tree, when the `Hir` holds its
+literals, ` (literals`, each entry — `(prefix B …)`, `(whole B …)`, `(first B …)`, `(anywhere)`, `(inner B …)`, bytes in
+decimal — and `)`; nothing when it holds none, so every text written before is the text it was. **`hir_read` reads a
+section back by extracting the literals of the tree it read**, in a scratch arena, holding the text to what the dump
+writes for them byte for byte — refusing at the first byte that is not, the root unset and no literal written — and then
+extracts them into the `Hir` it reads into, so `hir_dump(hir_read(t))` is `t`, with a section or without. H-2 and H-15
+dated, `SAFETY.md` S-23a, `vec.npk`'s two notes, and the comments of `repr.npk`, `dump.npk`, `normal.npk` and `hir.npk`.
+
+**Measured at `7e91730`.** `tests/unit/hir_literal.npk` exits 0 at both legs, and `hir_literal_no_root`,
+`hir_literal_not_extracted` and `hir_literal_frozen` 94 — a `Hir` with no root, an entry read before any is extracted, and
+a write to a tree whose literals are; `hir_dump`, `hir_props` and the units before them as before. In the plan's mutant
+table twenty-five rows break the query, the store, the section and its reading and the roles' values, a term each, and every one is red: an extraction that asks the root no fact leaves a `Literal`'s tree open, and `hir_literal_frozen` exits
+3; a query that extracts every time holds a second set of entries; a reader that takes a section as written accepts one
+its tree does not give; a reader that copies the tree's nodes and not its ranges stops on the first class it reads back. `Literal` is 24 bytes, measured in `hir_literal`, and `check_vec_elements_own_nothing` clears
+`Vec<Literal>`.
+
+*Alternatives declined:* **the literals in a struct of their own, beside `Hir`** — H-2 draws `Vec<Literal>:literals` in
+`Hir`, and the box asks for `Hir.literals`; **their bytes in `Hir.names`** — a name is written only with its group, which
+`hir_normalise`'s freshness rests on (RX-236); **an entry for each role always, an empty one for none** — a `first` with
+no byte is the set of a pattern that matches nothing, where none means every position; **"not yet extracted" as a field
+of its own** — one more thing `hir_normalise`'s freshness would count, where the first-byte set's entry, always written,
+already tells the two states apart; **the caller extracting first** — D-227, as RX-239 declined it; **a public verb that
+writes a literal** — any module could write one its tree does not give; **the extraction before the facts** — a write
+after it would leave a literal no stop guards; **the dump showing no literal, as it shows no fact** (RX-239) — the box asks
+for a section, a fixture's diff then shows the bytes a prefilter will scan for, and a tree's text without one is the text
+it was; **`hir_read` taking a section as written** — a fixture could carry a literal its tree does not give, which a
+prefilter would trust; **`hir_read` extracting into its own `Hir` before it holds the section** — a refused text would leave
+the root set and the tree finished, where H-15 leaves a refusal's root unset (RX-225); **the dump extracting what it
+writes** — every dump would finish the tree it wrote.
+
+### RX-243 — never wrong in the unsafe direction, measured now and held to the oracle later: `hir_literal_fuzz` holds 3 000 seeded trees' literals to strings drawn from each tree, and the property test is written now, pending until cycle 0.5.5 on a hook
+**2026-10-15, cycle 0.2.5 (the plan's PD-128), at compiler `7e91730`** — RX-226 and RX-237, `BUILD.md` B-5b, `TESTING.md`
+§7 and V-20, `ENGINES.md` R-19, the cycle README's 0.2.5 row, *"never wrong in the unsafe direction"*, and its last box —
+*"a property test: for every corpus pattern and haystack, every position the real matcher finds is a position the
+first-byte set admits — pending until 0.5"* — and the 0.5 README's 0.5.5 box, *"0.2's pending literal-extraction property
+test now green"*. The oracle is cycle 0.5's and the reference holds fifty-five patterns, so nothing would measure the
+safe direction over many trees for two cycles.
+
+**The decision.** **`tests/unit/hir_literal_fuzz.npk`**: three thousand seeded patterns, three deep — literals of one
+byte and of two and a byte, runs, classes of codepoints and of bytes, the anchors and boundaries, `(?:)`, concatenations,
+alternations with an empty alternative among them, groups and seven quantifiers — each parsed, built, normalised
+and its literals extracted, then sixteen strings drawn at random from its normal form's tree, a class's member at its
+ends or near its first and each assertion taken to hold, each held to every claim: it begins with the prefix, is the
+whole match, begins with a byte of the first-byte set — so is no empty string — and holds the inner literal; and the
+entries stand in H-11's order, `anywhere` where the root may match the empty string. Its own UTF-8 encoder, not the
+library's. Floors on every role and on the strings drawn, so an extraction that says nothing fails. **And the box's
+property test, written now**: `tests/unit/hir_literal_oracle.npk`, pending under RX-226's marker, `pending-until: 0.5.5 exit
+1`, its line in `PENDING.txt` — twenty-one patterns, each H-19 rule and each role among them, built, normalised and
+extracted on every run, over ten haystacks; from every position, the oracle's leftmost-first match must begin with a byte
+of the first-byte set, begin with the prefix, be the whole match and hold the inner literal. Its hook, `oracle_find`,
+answers that there is no oracle until cycle 0.5.5 fills it; a unit whose comparisons all met no oracle exits 1, and a
+match its literals do not admit exits its claim's number, which the marker does not excuse. The corpus is cycle 0.5's: the
+0.5.5 box carries the property over the corpus's patterns and haystacks too, by the corpus stage (0.5.3). `TESTING.md`
+§7, H-11 and the 0.5 README's 0.5.5 box dated, and the four texts that count the pending units.
+
+**Measured at `7e91730`.** `hir_literal_fuzz` exits 0 at both legs: 48 000 strings drawn from 3 000 trees, every one
+keeping every claim; patterns whose literals hold a prefix 257, a whole match 1 341, a first-byte set 2 064, `anywhere` 936
+and an inner literal 1 694, each over its floor of 150. `hir_literal_oracle` exits 1 at both legs: every pattern builds,
+normalises and extracts, and every comparison meets the hook's answer that there is no oracle. In the plan's mutant table
+a hook that finds no match makes it exit 0; one that finds an empty match everywhere, 13; and three that find a one-byte
+match where the first-byte set, the prefix or the inner literal does not admit it, 11, 12 and 14 — so its 1 is the
+hook's alone, and each claim can fire — and a row that writes a literal wrong the unsafe way, where a string the fuzz
+draws shows it, reddens the fuzz at that claim's number; one that says nothing reddens it at its floors, 17.
+
+*Alternatives declined:* **the property test alone, pending** — nothing would measure the safe direction until cycle
+0.5.5; **a naive matcher in the test now** — the oracle's job, which cycle 0.5 writes first and tests against hand-written
+cases, an instrument written twice; **every match enumerated, not drawn** — a language bounded by a length is still
+exponential in an alternation under a repetition; **the corpus now** — cycle 0.5.4's, fetched by pinned revision; **the
+property test over the first-byte set alone, as the box words it** — the prefix and the inner literal are as wrong the
+unsafe way as a byte too few, and the same match shows it; **the fuzz's strings drawn from the build's tree** — the
+literals are the normal form's, which every later stage reads.

@@ -22,6 +22,8 @@
 # subcycle of this library, 0.3.4, and on its exit 1 (RX-226, RX-229).
 # *(2026-10-12, cycle 0.2.3 -- RX-237: three since: and normalisation's oracle test, on cycle 0.5.5 and its
 # exit 1.)*
+# *(2026-10-15, cycle 0.2.5 -- RX-243: four since: and literal extraction's property test, on cycle 0.5.5 and
+# its exit 1.)*
 # *(LLVM is exactly 20.1.8 since cycle 0.2.1a, 2026-10-09 -- RX-231, the compiler's D-349.)*
 # THE ONE THAT WAS PENDING, AND ALL THAT HAPPENED TO IT. Through cycle 0.0.5 a
 # unit asserting against a compiler defect (DEF-25, fixed at `fe42dba`) was

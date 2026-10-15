@@ -1,0 +1,39 @@
+// expect-exit: 94
+//
+// A TREE WHOSE LITERALS ARE EXTRACTED IS FINISHED. Cycle 0.2.5; `meta/specs/HIR.md` H-18 and H-20. The
+// extraction asks `hir_props` first, so the one pass computes the tree's facts before any literal is
+// written, and a computed tree is finished: `hir_set` on it stops `OutOfBounds` (94), so no write can make
+// a literal describe a tree it was not extracted from. Asked here through `hir_literals` alone -- the
+// facts never asked by name -- of one `Literal`, whose extraction asks no fact of a piece: the stop is the
+// root's facts, asked first.
+mod:hir_literal_frozen;
+
+use "../../src/core/core.npk".*;
+use "../../src/hir/hir.npk".*;
+
+func:main = int32(cstring[]:_~argv) {
+    Hir:h = raw hir_init(8i64);
+    if ((raw hir_read(string_bytes("(literal 97)"), @h)) != HIR_NONE) { exit 1i32; }
+    if ((raw hir_literals(@h)) != 3i64) { exit 2i32; }
+    drop hir_set(@h, 0i64, HirNode{ kind: HirKind.Literal, flags: 0u32, a: 120i64, b: 0i64, c: 0i64, next: HIR_NONE });
+    drop hir_free(@h);
+    exit 3i32;
+};
+
+func:failsafe = int32(Error:e) {
+    pick (e) {
+        (HeapBadRequest)    { exit 91i32; },
+        (HeapOom)           { exit 92i32; },
+        (IntOverflow)       { exit 93i32; },
+        (OutOfBounds)       { exit 94i32; },
+        (Unreachable)       { exit 95i32; },
+        (WildLeak)          { exit 96i32; },
+        (StackExhausted)    { exit 106i32; },
+        (MachineFault)      { exit 107i32; },
+        (DecreasesViolated) { exit 108i32; },
+        (LimitViolated)     { exit 109i32; },
+        (ShiftRange)        { exit 115i32; },
+        (*)                 { exit 99i32; }
+    }
+    exit 9i32;
+};
