@@ -1,0 +1,4 @@
+# 0.2.5a's omission sweep, block 5's second reading: the same tree WITH the decision log, for the texts a settled
+# decision states that the steps make stale -- the field by its old name, and a keyword's account as a field's name.
+p\.stack|frame>:stack|, stack: 
+own namespace|field names?\b|as a (struct )?field|does not parse as a field|accepted as a

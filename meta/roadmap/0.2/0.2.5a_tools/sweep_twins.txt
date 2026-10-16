@@ -1,0 +1,18 @@
+# 0.2.5a's planted twins, read by `sweep.py control` beside the patches: for every claim a step dates, the claim
+# in other words -- a twin a search for its own words cannot see (0.2.5's plan verification 1, its finding 5).
+# TAB-separated: where the claim stands, the claim in its words, and the twin. The control prints each with the
+# patterns that see it, or `NONE`, which the plan's §5b names: a subject no pattern can catch without flooding the
+# sweep, left to the worker's second sweep by subject.
+API.md A-3	accepted as a **field name**: fields are their own namespace	A struct may declare a member called `end`, since members are looked up apart from bindings.
+SAFETY.md §6	a struct field MAY be named `end`	Nothing stops a `Match` from having an `end` member; the names were a choice.
+BUILD.md §7	**not** because `Match.end` is refused — it is not, RX-134	`.end` would have been a legal member of `Match`.
+the 0.10 README, 0.10.0's box	*not* because `end` cannot be a field name	`end` would do as the name of `Match`'s second member.
+the 0.10 README, watch for	accepted as a FIELD name	A keyword works as a member's name; only a local's name is refused.
+probe 06a	`Match.end` DOES parse	A member named after a keyword compiles and reads back its value.
+CLAUDE.md, the substitutes	a reserved word is refused as a **binding** name and accepted as a **field** name	Keywords are fine for struct members; it is locals they break.
+lexical.py, `_USE_KW`	a reserved word IS accepted as a field name	`y.use` reads a member called `use`.
+selfcheck.py, case 18's line 16	16 a field, not a keyword	16 a member read, so not an import.
+RX-134	fields are their own namespace	A keyword names a member as well as any identifier does.
+RX-198	the groups open, `p.stack.count`	The parser counts its open groups on its stack field.
+rx120.sh, its pin	PIN=7e91730	The script asserts the floor at the compiler the board pins, and names that compiler.
+the baseline README	and at `7e91730`	The floor's five symbols hold at every pin since `c3bdae2`.

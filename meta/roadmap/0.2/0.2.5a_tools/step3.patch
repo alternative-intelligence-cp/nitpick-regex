@@ -1,0 +1,52 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 5248f35d12dcaf7bdd773736cedbf1e5be9ff34a..8796ec6407bec17ee248fec01c8f1dfcb7a54160 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -95,7 +95,7 @@ permissions:
+   contents: read
+ 
+ env:
+-  # ../BOARD.md's pinned toolchain, by FULL sha. `7e91730` is the short form
++  # ../BOARD.md's pinned toolchain, by FULL sha. `c9baa9e` is the short form
+   # used in the roadmap and the transcripts.
+   #
+   # BUMPED 2026-09-06 FROM `950bb1d`, WHICH WAS 57 COMMITS AND TWO RE-PINS
+@@ -133,13 +133,23 @@ env:
+   # pushed with them, so CI runs once, on the adopted tree: at `7e91730` the old tree is
+   # refused at the toolchain check, and with its LLVM rows moved it is 150/304, landing
+   # 103's TYPE-007 at every reader of a string's bytes; LLVM moves with it.
+-  NITPICK_COMMIT: 7e91730d19cffd35fcff25c36893cfaa2c01509e
++  #
++  # AND BUMPED @@DATE025A@@ FROM `7e91730` TO `c9baa9e`, landing 118 -- landings 104 … 118, the
++  # libraries' one re-pin, by the author's word -- IN A COMMIT OF ITS OWN, after the adoption's
++  # commits (`meta/roadmap/0.2/0.2.5a.md`) and pushed with them, so CI runs once, on the adopted
++  # tree: at `c9baa9e` the old tree is 204/355, landing 113's PARSE-001 at the parser's field
++  # `stack`, a keyword; LLVM stays 20.1.8.
++  NITPICK_COMMIT: c9baa9e91c553d8db2a2a62f09c36b30a984b07f
+   # THE EMISSION AT THAT COMMIT, as the compiler's own build recorded it -- notice
+-  # 103's `npkc.ll` row, in the workbench's `.internal/toolchain/7e91730/PIN.md` (notice
+-  # 82's, `5fbaf4a`'s, until cycle 0.2.1a). The emission step below ASSERTS it since
+-  # cycle 0.1.0b (RX-180): moved with every pin.
+-  NPKC_LL_SHA256: b79f89c554ef83eeadca05d4e22929e70746483aec74e7b2f046f7a3933b66e7
+-  NPKC_LL_BYTES: 31527001
++  # 118's `npkc.ll` row, in the workbench's `.internal/toolchain/c9baa9e/PIN.md` (notice
++  # 103's, `7e91730`'s, until cycle 0.2.5a; notice 82's, `5fbaf4a`'s, until cycle 0.2.1a).
++  # The emission step below ASSERTS it since cycle 0.1.0b (RX-180): moved with every pin.
++  # It is the committed snapshot builder's emission of the compiler's source, and that
++  # builder predates landing 115 -- `bootstrap/seed/stage1.ll` holds no `null_pointer_is_valid`
++  # at `c9baa9e` -- so the attribute every program's `define` carries since 115 is not in
++  # this row; no emission of this library's is compared across pins here (RX-245).
++  NPKC_LL_SHA256: 1f48a31a5c9b5b78053444c404b7b2dd7c8c470c354dd3b14d47b3e75585ee2a
++  NPKC_LL_BYTES: 31731079
+   # nitpick.toml [toolchain] llvm. Exact patch release: a patch may change
+   # instruction selection, which is why the manifest names three digits.
+   # 20.1.2 until cycle 0.2.1a (RX-231, the compiler's D-349); upstream publishes
+@@ -354,7 +364,7 @@ jobs:
+       # compiler lives in the workbench's gitignored toolchain directory and is
+       # not on a runner. The working-pin assertions are the ones that guard a
+       # re-pin, and they all run.
+-      - name: RX-120's floor, syscaller and difference, asserted at `7e91730`
++      - name: RX-120's floor, syscaller and difference, asserted at `c9baa9e`
+         run: harness/baseline/rx120.sh
+ 
+       # AND THE SUMMARY IS ASSERTED, NOT JUST THE STATUS (RX-180, the ecosystem

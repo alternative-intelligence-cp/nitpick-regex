@@ -1,0 +1,17 @@
+# 0.2.5a's rename mutants -- `mutants.py` copies the tree per row whose first column is the block's step, replaces
+# the fourth column's text ONCE with the fifth's, and compiles each root of the sixth at both pins. TAB-separated;
+# `\n` in a text is a newline. Step 1's rows run over the tree step 1 leaves: each puts one of the rename's sites back.
+1	declaration-223-kept	src/syntax/parse.npk	    Vec<Frame>:frames;         // the frames	    Vec<Frame>:stack;          // the frames	src/syntax/parse.npk
+1	use-491-kept	src/syntax/parse.npk	drop vec_push(@p.frames, p.f);	drop vec_push(@p.stack, p.f);	src/syntax/parse.npk
+1	use-616-kept	src/syntax/parse.npk	\n                           (p.frames.count + 1i64) =>! uint32);	\n                           (p.stack.count + 1i64) =>! uint32);	src/syntax/parse.npk
+1	use-629-kept	src/syntax/parse.npk	func:open_group = PatternError?(fixed uint8[]:pat, Ast->:out, Parser->:p, int64:open) never fails {\n    if (p.frames.count >= NREGEX_NEST_DEPTH) {	func:open_group = PatternError?(fixed uint8[]:pat, Ast->:out, Parser->:p, int64:open) never fails {\n    if (p.stack.count >= NREGEX_NEST_DEPTH) {	src/syntax/parse.npk
+1	use-643-kept	src/syntax/parse.npk	\n                               (p.frames.count + 1i64) =>! uint32);	\n                               (p.stack.count + 1i64) =>! uint32);	src/syntax/parse.npk
+1	use-712-kept	src/syntax/parse.npk	    if (p.frames.count == 0i64) {	    if (p.stack.count == 0i64) {	src/syntax/parse.npk
+1	use-717-kept	src/syntax/parse.npk	p.f = raw vec_pop(@p.frames);	p.f = raw vec_pop(@p.stack);	src/syntax/parse.npk
+1	use-1430-kept	src/syntax/parse.npk	func:parse_class = PatternError?(fixed uint8[]:pat, Ast->:out, Parser->:p, int64:open) never fails {\n    if (p.frames.count >= NREGEX_NEST_DEPTH) {	func:parse_class = PatternError?(fixed uint8[]:pat, Ast->:out, Parser->:p, int64:open) never fails {\n    if (p.stack.count >= NREGEX_NEST_DEPTH) {	src/syntax/parse.npk
+1	use-1458-kept	src/syntax/parse.npk	else if ((p.frames.count + p.classes.count + 1i64) >= NREGEX_NEST_DEPTH) {	else if ((p.stack.count + p.classes.count + 1i64) >= NREGEX_NEST_DEPTH) {	src/syntax/parse.npk
+1	use-1525-kept	src/syntax/parse.npk	    if (p.frames.count > 0i64) {	    if (p.stack.count > 0i64) {	src/syntax/parse.npk
+1	use-1527-kept	src/syntax/parse.npk	1i64,\n                               p.frames.count =>! uint32);	1i64,\n                               p.stack.count =>! uint32);	src/syntax/parse.npk
+1	literal-1547-kept	src/syntax/parse.npk	next_cap: 1i64, frames: raw vec_init::<Frame>(8i64),	next_cap: 1i64, stack: raw vec_init::<Frame>(8i64),	src/syntax/parse.npk
+1	use-1551-kept	src/syntax/parse.npk	drop vec_free(@p.frames);	drop vec_free(@p.stack);	src/syntax/parse.npk
+1	comment-1138-kept	src/syntax/parse.npk	-- `p.frames`'s shape for	-- `p.stack`'s shape for	src/syntax/parse.npk

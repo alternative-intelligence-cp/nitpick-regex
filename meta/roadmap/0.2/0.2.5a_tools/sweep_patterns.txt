@@ -1,0 +1,17 @@
+# 0.2.5a's omission sweep, block 5's first reading: the live tree without the decision log, case-insensitive, by
+# line and joined (`sweep.py`). One ERE per line. What each looks for, in order: the old pin by name; the field by its
+# old name; a keyword's account as a field's name, in every wording the tree has given it; notice 103's emission row;
+# the readers' pins and their re-read; `stack` beside what it is; what landing 115 and 105 put in every emission; the
+# substitutes the library names; a member read of a keyword; the subcycle the status says is next; and a keyword
+# beside a struct's member, in other words.
+7e91730
+p\.stack|frame>:stack|, stack: 
+own namespace|field names?\b|as a (struct )?field|may be named|does parse|it parses\b|accepted as a|cannot be a field|does not parse|match\.end
+notice 103|31 ?527 ?001|b79f89c5
+mirrors (that|the) lexer|re-read|read at .7e91730.
+\bstack\b.{0,40}(keyword|reserved|qualifier)|(keyword|reserved|qualifier).{0,40}\bstack\b|costs an hour|does not fail where you wr
+null_pointer_is_valid|attrnorm|dropnorm|flag test
+substitute
+[a-z]\.use\b|a field, not a keyword
+0\.2\.6
+(keyword|reserved word).{0,40}member|member.{0,40}(keyword|reserved word)|member (called|named)

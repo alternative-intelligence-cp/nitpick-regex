@@ -1,0 +1,185 @@
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 60593f25bb48a36cb73936c4c192cec3f42d559a..0d10cb5bdc22e583626d68a976e473004954aee4 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -4956,6 +4956,9 @@ Perl and Python read the same bytes as the range `-`–`a`, so either reading su
+ or before `]`, refused** — Rust, Perl and Python read both as a `-`.
+ 
+ ### RX-198 — groups and classes nest at most `NREGEX_NEST_DEPTH` deep together, decided at the `(` or `[` that would go deeper
++> **SUPERSEDED IN PART by RX-244 (@@DATE025A@@)** — its `p.stack.count`: the field is `Parser.frames` from cycle
++> 0.2.5a — compiler `c9baa9e` refuses a keyword as a field's name (the compiler's DEF-235) — so the groups open are
++> `p.frames.count`. The bound, the one sum and where it is decided are as this decision says.
+ > **SUPERSEDED IN PART by RX-216 (2026-10-08)** — the sentence it quotes, *"the `(` or `[` here would nest groups and
+ > classes 251 deep"*, false for a `(` that begins `(?i)` or `(?#` at the bound: the sentence says what is open around
+ > the refused byte. The bound and where it is decided are as this decision says.
+@@ -6641,3 +6644,39 @@ exponential in an alternation under a repetition; **the corpus now** — cycle 0
+ property test over the first-byte set alone, as the box words it** — the prefix and the inner literal are as wrong the
+ unsafe way as a byte too few, and the same match shows it; **the fuzz's strings drawn from the build's tree** — the
+ literals are the normal form's, which every later stage reads.
++
++## The adoption of compiler c9baa9e — cycle 0.2.5a
++
++### RX-244 — the explicit stack's field is `frames`: `Parser.stack` renamed at the old pin, which sees no difference, because a keyword names no field from compiler `c9baa9e`
++
++**@@DATE025A@@, cycle 0.2.5a (the plan's PD-179), at compiler `c9baa9e`, from `7e91730`** — the compiler's DEF-235, its
++landing 113: a keyword declared as a name of any kind — a function, a type, a module, a binding, a parameter, a `for`
++binding, a field or a variant — is `NITPICK-PARSE-001` at the name, where it is written. `stack` is a keyword, the memory
++qualifier beside `wild`, `wildx` and `defer`, and `src/syntax/parse.npk` declared the explicit stack's field
++`Vec<Frame>:stack`. Measured on the unchanged tree first: at `c9baa9e` 76 of its 188 `.npk` files are refused at that
++one site, `src/syntax/parse.npk:223:16` — the five `src/` files that are the parser or import it, 67 unit tests and four
++rejection fixtures — and the full run is `204/355`. With that code left out, every file reports at `c9baa9e` what it
++reports at `7e91730` but the four fixtures, whose refusals stand behind the parse's.
++
++- **The field is `frames`**: `Parser.frames` — its declaration, its eleven reads and writes, and the field
++  `parse_pattern`'s literal fills, thirteen code lines, all in `src/syntax/parse.npk` — and the one comment that names
++  the field, `p.stack`'s. The five comments that call the mechanism a stack keep the word: the compiler refuses a
++  declared name, and the explicit stack is `SAFETY.md` S-18's and RX-032's name for what the field holds. `frames` is
++  probe 05's local's name already, and `BUILD.md` §7's substitutes name it.
++- **The old compiler sees no difference, and holds every site**: at `7e91730` each of the 188 files gives exactly the
++  codes and sites it gave before, each of the 155 it emits is byte for byte as it was, and the full run is `347/347`
++  with the four pending; and each code site put back alone is refused at both pins — a read or a write
++  `NITPICK-TYPE-019` at it, the literal's field `NITPICK-TYPE-026` and `NITPICK-TYPE-027` at the literal, and the
++  declaration `NITPICK-TYPE-019` at all eleven uses through `7e91730` and `NITPICK-PARSE-001` at it from `c9baa9e` — so
++  the old pin's green says the rename is whole. The comment no compiler reads; the adoption's sweep does.
++- **And it is all the code owes `c9baa9e`**: with the rename and nothing else, every file reports at `c9baa9e` the codes
++  and sites the unchanged tree reports at `7e91730`, and the full run is `347/347`.
++- RX-198, whose text names `p.stack.count`, gains its marker.
++
++*Alternatives declined:* **`groups`** — a group is the capture `GroupInfo` describes, and `p.groups.count` would read as
++the groups seen so far, which `next_cap` counts; **`outer` or `enclosing`** — an adjective, where `names` and `classes`
++beside it name what they hold; **`saved`** — what is done to a frame, not what the field holds; **`stk`, or `stack` with
++a mark** — a spelling chosen to step round the keyword, which the next reader re-spells; **the rename made with the
++pin's move** — then no compiler could testify that it changed no answer: `7e91730` is the one that compiles both trees;
++**every comment's `stack` renamed** — the word names the mechanism `SAFETY.md` S-18 and RX-032 decided, and no compiler
++reads a comment.
+diff --git a/meta/specs/BUILD.md b/meta/specs/BUILD.md
+index 0200c66aa06178cd6b484c9ba382a027ac3392c5..adbe77e07b3eaccc35936bfa1dc466e17614d593 100644
+--- a/meta/specs/BUILD.md
++++ b/meta/specs/BUILD.md
+@@ -712,7 +712,8 @@ The substitutes this library uses, fixed here so they are used consistently:
+ `API.md` A-3 settled it); `src` for an
+ input cursor; `bound` for a limit; `dot` for the any-character construct;
+ `rng` for a codepoint range value; `sel` for a selection; `repr` for the HIR's
+-arena module (RX-223); `ReadState` for a reader's state (RX-225).
++arena module (RX-223); `ReadState` for a reader's state (RX-225); `frames` for the
++explicit stack's field (RX-244).
+ 
+ **Rule B-18 — `Match`'s fields are `lo` and `hi`.** Stated in `API.md` §2 and
+ here, because `start`/`end` is what everyone reaches for and `end` does not
+diff --git a/src/syntax/parse.npk b/src/syntax/parse.npk
+index 9f61275253ccaa00bcfcaac08a7c48849310d0d2..d93b240fd4d2705919c2be1d1ed8a6f63d1207ce 100644
+--- a/src/syntax/parse.npk
++++ b/src/syntax/parse.npk
+@@ -220,7 +220,7 @@ struct:Parser = {
+     Cursor:c;                  // the pattern, read once, left to right
+     Frame:f;                   // the frame being built
+     int64:next_cap;            // the next capture index to hand out, from 1
+-    Vec<Frame>:stack;          // the frames of the enclosing groups, innermost last
++    Vec<Frame>:frames;         // the frames of the enclosing groups, innermost last
+     Vec<GroupName>:names;      // every named group so far
+     Vec<ClassFrame>:classes;   // the classes enclosing the one being read, innermost last
+ };
+@@ -488,7 +488,7 @@ func:close_body = int64(Ast->:out, Frame->:f, int64:upto) never fails {
+ // (Y-35).
+ func:push_group = NIL(Parser->:p, int64:open, int64:cap, int64:name_len) never fails {
+     uint32:fl = p.f.flags;
+-    drop vec_push(@p.stack, p.f);
++    drop vec_push(@p.frames, p.f);
+     p.f = raw frame(open, p.c.pos, cap, name_len, fl);
+     pass NIL;
+ };
+@@ -613,7 +613,7 @@ func:read_flags = PatternError?(fixed uint8[]:pat, Ast->:out, Parser->:p, int64:
+         }
+     }
+     pass raw pattern_error(PatternErrorKind.UnclosedGroup, open, p.c.pos - open,
+-                           (p.stack.count + 1i64) =>! uint32);
++                           (p.frames.count + 1i64) =>! uint32);
+ };
+ 
+ // A refusal of a group head, spanning it from its `(` through the byte just read.
+@@ -626,7 +626,7 @@ func:head_refused = PatternError?(Parser->:p, PatternErrorKind:k, int64:open, in
+ // so no frame past the bound is pushed, and the parse stops where the bound is.
+ // Then what follows decides the group (Y-29), or the refusal (Y-30).
+ func:open_group = PatternError?(fixed uint8[]:pat, Ast->:out, Parser->:p, int64:open) never fails {
+-    if (p.stack.count >= NREGEX_NEST_DEPTH) {
++    if (p.frames.count >= NREGEX_NEST_DEPTH) {
+         pass raw pattern_error(PatternErrorKind.NestTooDeep, open, 1i64, NREGEX_NEST_DEPTH =>! uint32);
+     }
+     drop commit(out, @p.f);
+@@ -640,7 +640,7 @@ func:open_group = PatternError?(fixed uint8[]:pat, Ast->:out, Parser->:p, int64:
+     int32:b = raw cursor_peek(@p.c);
+     if (b == CURSOR_END) {
+         pass raw pattern_error(PatternErrorKind.UnclosedGroup, open, p.c.pos - open,
+-                               (p.stack.count + 1i64) =>! uint32);
++                               (p.frames.count + 1i64) =>! uint32);
+     }
+     if (b == CH_COLON) {
+         discard(raw cursor_bump(@p.c));
+@@ -709,12 +709,12 @@ func:open_group = PatternError?(fixed uint8[]:pat, Ast->:out, Parser->:p, int64:
+ // `)` read at `at`: the group's node, which becomes its parent's pending atom. Its flags are the ones
+ // in force at its `(`, the parent's -- a `(?i)` inside it ends with it (Y-12, RX-206).
+ func:close_group = PatternError?(Ast->:out, Parser->:p, int64:at) never fails {
+-    if (p.stack.count == 0i64) {
++    if (p.frames.count == 0i64) {
+         pass raw pattern_error(PatternErrorKind.UnopenedGroup, at, 1i64, 0u32);
+     }
+     int64:body = raw close_body(out, @p.f, at);
+     Frame:inner = p.f;
+-    p.f = raw vec_pop(@p.stack);
++    p.f = raw vec_pop(@p.frames);
+     p.f.pending = raw ast_push(out, raw node(AstKind.Group, p.f.flags, body, inner.cap, inner.name_len,
+                                              inner.open, p.c.pos - inner.open));
+     pass NIL;
+@@ -1135,7 +1135,7 @@ func:literal = PatternError?(fixed uint8[]:pat, Ast->:out, Parser->:p, int64:at,
+ // A CLASS IS READ BY ITS OWN `while`, ON ITS OWN EXPLICIT STACK. `[` outside a class
+ // hands the walk to `parse_class`, which reads to the `]` that closes it: a nested
+ // `[` saves the class being read on `p.classes` and starts the inner one, and its `]`
+-// takes the saved one back, the inner `Class` a member of it -- `p.stack`'s shape for
++// takes the saved one back, the inner `Class` a member of it -- `p.frames`'s shape for
+ // groups, one level down. Nothing here calls `parse_run`, `open_group` or itself, and
+ // `check_no_recursion` says so (RX-192). Groups and classes nest at most
+ // `NREGEX_NEST_DEPTH` deep together, decided at the `(` or `[` that would go deeper
+@@ -1427,7 +1427,7 @@ func:posix_alone = PatternError?(fixed uint8[]:pat, Ast->:out, ClassFrame:cf, in
+ // every member, in one `while` (Y-36); its node becomes the frame's pending atom. A
+ // class needs no `(` and no `)`, so nothing in here meets a group.
+ func:parse_class = PatternError?(fixed uint8[]:pat, Ast->:out, Parser->:p, int64:open) never fails {
+-    if (p.stack.count >= NREGEX_NEST_DEPTH) {
++    if (p.frames.count >= NREGEX_NEST_DEPTH) {
+         pass raw pattern_error(PatternErrorKind.NestTooDeep, open, 1i64, NREGEX_NEST_DEPTH =>! uint32);
+     }
+     ClassFrame:cf = raw class_start(out, p, open);
+@@ -1455,7 +1455,7 @@ func:parse_class = PatternError?(fixed uint8[]:pat, Ast->:out, Parser->:p, int64
+         }
+         else if (b == CH_LBRACKET) {
+             if (raw cursor_eat(@p.c, CH_COLON =>! uint8)) { e = raw posix_class(pat, out, p, @cf, at); }
+-            else if ((p.stack.count + p.classes.count + 1i64) >= NREGEX_NEST_DEPTH) {
++            else if ((p.frames.count + p.classes.count + 1i64) >= NREGEX_NEST_DEPTH) {
+                 e = raw pattern_error(PatternErrorKind.NestTooDeep, at, 1i64, NREGEX_NEST_DEPTH =>! uint32);
+             }
+             else {
+@@ -1522,9 +1522,9 @@ func:parse_run = PatternError?(fixed uint8[]:pat, Ast->:out, Parser->:p) never f
+         else { e = raw literal(pat, out, p, at, b); }
+         if (e != NIL) { pass e; }
+     }
+-    if (p.stack.count > 0i64) {
++    if (p.frames.count > 0i64) {
+         pass raw pattern_error(PatternErrorKind.UnclosedGroup, p.f.open, 1i64,
+-                               p.stack.count =>! uint32);
++                               p.frames.count =>! uint32);
+     }
+     int64:root = raw close_body(out, @p.f, pat.len);
+     drop ast_set_root(out, root);
+@@ -1544,11 +1544,11 @@ pub func:parse_pattern = PatternError?(fixed uint8[]:pat, Ast->:out) never fails
+     PatternError?:bad = raw parse_check_encoding(pat);
+     if (bad != NIL) { pass bad; }
+     Parser:p = Parser{ c: raw cursor_init(pat), f: raw frame(AST_NONE, 0i64, 0i64, 0i64, AST_FLAG_U),
+-                       next_cap: 1i64, stack: raw vec_init::<Frame>(8i64),
++                       next_cap: 1i64, frames: raw vec_init::<Frame>(8i64),
+                        names: raw vec_init::<GroupName>(4i64),
+                        classes: raw vec_init::<ClassFrame>(4i64) };
+     PatternError?:e = raw parse_run(pat, out, @p);
+-    drop vec_free(@p.stack);
++    drop vec_free(@p.frames);
+     drop vec_free(@p.names);
+     drop vec_free(@p.classes);
+     pass e;
