@@ -4956,6 +4956,9 @@ Perl and Python read the same bytes as the range `-`–`a`, so either reading su
 or before `]`, refused** — Rust, Perl and Python read both as a `-`.
 
 ### RX-198 — groups and classes nest at most `NREGEX_NEST_DEPTH` deep together, decided at the `(` or `[` that would go deeper
+> **SUPERSEDED IN PART by RX-244 (2026-10-16)** — its `p.stack.count`: the field is `Parser.frames` from cycle
+> 0.2.5a — compiler `c9baa9e` refuses a keyword as a field's name (the compiler's DEF-235) — so the groups open are
+> `p.frames.count`. The bound, the one sum and where it is decided are as this decision says.
 > **SUPERSEDED IN PART by RX-216 (2026-10-08)** — the sentence it quotes, *"the `(` or `[` here would nest groups and
 > classes 251 deep"*, false for a `(` that begins `(?i)` or `(?#` at the bound: the sentence says what is open around
 > the refused byte. The bound and where it is decided are as this decision says.
@@ -6641,3 +6644,42 @@ exponential in an alternation under a repetition; **the corpus now** — cycle 0
 property test over the first-byte set alone, as the box words it** — the prefix and the inner literal are as wrong the
 unsafe way as a byte too few, and the same match shows it; **the fuzz's strings drawn from the build's tree** — the
 literals are the normal form's, which every later stage reads.
+
+## The adoption of compiler c9baa9e — cycle 0.2.5a
+
+### RX-244 — the explicit stack's field is `frames`: `Parser.stack` renamed at the old pin, which sees no difference, because a keyword names no field from compiler `c9baa9e`
+
+**2026-10-16, cycle 0.2.5a (the plan's PD-179), at compiler `c9baa9e`, from `7e91730`** — the compiler's DEF-235, its
+landing 113: a keyword declared as the name of a field, a variant, a parameter, a `for` binding, a module binding or a
+local that `wild` or `fixed` leads is `NITPICK-PARSE-001` at the name, where it is written, as a function's, a type's
+and a module's already were, bar `acquire`, `any`, `nit` and `trit`. Not every kind: a local declared `T:name` is refused
+as it was, `NITPICK-PARSE-002` at its declaration, and a generic parameter's (bar `comptime`), a variadic's or a macro
+parameter's name compiles, read by a plain `p_advance`, at both pins. `stack` is a keyword, the memory qualifier beside
+`wild`, `wildx` and `defer`, and `src/syntax/parse.npk` declared the explicit stack's field
+`Vec<Frame>:stack`. Measured on the unchanged tree first: at `c9baa9e` 76 of its 188 `.npk` files are refused at that
+one site, `src/syntax/parse.npk:223:16` — the five `src/` files that are the parser or import it, 67 unit tests and four
+rejection fixtures — and the full run is `204/355`. With that code left out, every file reports at `c9baa9e` what it
+reports at `7e91730` but the four fixtures, whose refusals stand behind the parse's.
+
+- **The field is `frames`**: `Parser.frames` — its declaration, its eleven reads and writes, and the field
+  `parse_pattern`'s literal fills, thirteen code lines, all in `src/syntax/parse.npk` — and the one comment that names
+  the field, `p.stack`'s. The five comments that call the mechanism a stack keep the word: the compiler refuses a
+  declared name, and the explicit stack is `SAFETY.md` S-18's and RX-032's name for what the field holds. `frames` is
+  probe 05's local's name already, and `BUILD.md` §7's substitutes name it.
+- **The old compiler sees no difference, and holds every site**: at `7e91730` each of the 188 files gives exactly the
+  codes and sites it gave before, each of the 155 it emits is byte for byte as it was, and the full run is `347/347`
+  with the four pending; and each code site put back alone is refused at both pins — a read or a write
+  `NITPICK-TYPE-019` at it, the literal's field `NITPICK-TYPE-026` and `NITPICK-TYPE-027` at the literal, and the
+  declaration `NITPICK-TYPE-019` at all eleven uses through `7e91730` and `NITPICK-PARSE-001` at it from `c9baa9e` — so
+  the old pin's green says the rename is whole. The comment no compiler reads; the adoption's sweep does.
+- **And it is all the code owes `c9baa9e`**: with the rename and nothing else, every file reports at `c9baa9e` the codes
+  and sites the unchanged tree reports at `7e91730`, and the full run is `347/347`.
+- RX-198, whose text names `p.stack.count`, gains its marker.
+
+*Alternatives declined:* **`groups`** — a group is the capture `GroupInfo` describes, and `p.groups.count` would read as
+the groups seen so far, which `next_cap` counts; **`outer` or `enclosing`** — an adjective, where `names` and `classes`
+beside it name what they hold; **`saved`** — what is done to a frame, not what the field holds; **`stk`, or `stack` with
+a mark** — a spelling chosen to step round the keyword, which the next reader re-spells; **the rename made with the
+pin's move** — then no compiler could testify that it changed no answer: `7e91730` is the one that compiles both trees;
+**every comment's `stack` renamed** — the word names the mechanism `SAFETY.md` S-18 and RX-032 decided, and no compiler
+reads a comment.

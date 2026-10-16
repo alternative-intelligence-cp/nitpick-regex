@@ -712,7 +712,8 @@ The substitutes this library uses, fixed here so they are used consistently:
 `API.md` A-3 settled it); `src` for an
 input cursor; `bound` for a limit; `dot` for the any-character construct;
 `rng` for a codepoint range value; `sel` for a selection; `repr` for the HIR's
-arena module (RX-223); `ReadState` for a reader's state (RX-225).
+arena module (RX-223); `ReadState` for a reader's state (RX-225); `frames` for the
+explicit stack's field (RX-244).
 
 **Rule B-18 — `Match`'s fields are `lo` and `hi`.** Stated in `API.md` §2 and
 here, because `start`/`end` is what everyone reaches for and `end` does not
