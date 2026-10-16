@@ -1,5 +1,5 @@
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index 60593f25bb48a36cb73936c4c192cec3f42d559a..0d10cb5bdc22e583626d68a976e473004954aee4 100644
+index 60593f25bb48a36cb73936c4c192cec3f42d559a..36e4da81b66e14b5f454e5d1c5411f7ce79f6029 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
 @@ -4956,6 +4956,9 @@ Perl and Python read the same bytes as the range `-`–`a`, so either reading su
@@ -12,7 +12,7 @@ index 60593f25bb48a36cb73936c4c192cec3f42d559a..0d10cb5bdc22e583626d68a976e47300
  > **SUPERSEDED IN PART by RX-216 (2026-10-08)** — the sentence it quotes, *"the `(` or `[` here would nest groups and
  > classes 251 deep"*, false for a `(` that begins `(?i)` or `(?#` at the bound: the sentence says what is open around
  > the refused byte. The bound and where it is decided are as this decision says.
-@@ -6641,3 +6644,39 @@ exponential in an alternation under a repetition; **the corpus now** — cycle 0
+@@ -6641,3 +6644,42 @@ exponential in an alternation under a repetition; **the corpus now** — cycle 0
  property test over the first-byte set alone, as the box words it** — the prefix and the inner literal are as wrong the
  unsafe way as a byte too few, and the same match shows it; **the fuzz's strings drawn from the build's tree** — the
  literals are the normal form's, which every later stage reads.
@@ -22,9 +22,12 @@ index 60593f25bb48a36cb73936c4c192cec3f42d559a..0d10cb5bdc22e583626d68a976e47300
 +### RX-244 — the explicit stack's field is `frames`: `Parser.stack` renamed at the old pin, which sees no difference, because a keyword names no field from compiler `c9baa9e`
 +
 +**@@DATE025A@@, cycle 0.2.5a (the plan's PD-179), at compiler `c9baa9e`, from `7e91730`** — the compiler's DEF-235, its
-+landing 113: a keyword declared as a name of any kind — a function, a type, a module, a binding, a parameter, a `for`
-+binding, a field or a variant — is `NITPICK-PARSE-001` at the name, where it is written. `stack` is a keyword, the memory
-+qualifier beside `wild`, `wildx` and `defer`, and `src/syntax/parse.npk` declared the explicit stack's field
++landing 113: a keyword declared as the name of a field, a variant, a parameter, a `for` binding, a module binding or a
++local that `wild` or `fixed` leads is `NITPICK-PARSE-001` at the name, where it is written, as a function's, a type's
++and a module's already were. Not every kind: a local declared `T:name` is refused as it was, `NITPICK-PARSE-002` at its
++declaration, and a generic parameter's or a variadic's name still compiles, the parser reading it with a plain
++`p_advance` — each measured with `end` at both pins. `stack` is a keyword, the memory qualifier beside
++`wild`, `wildx` and `defer`, and `src/syntax/parse.npk` declared the explicit stack's field
 +`Vec<Frame>:stack`. Measured on the unchanged tree first: at `c9baa9e` 76 of its 188 `.npk` files are refused at that
 +one site, `src/syntax/parse.npk:223:16` — the five `src/` files that are the parser or import it, 67 unit tests and four
 +rejection fixtures — and the full run is `204/355`. With that code left out, every file reports at `c9baa9e` what it

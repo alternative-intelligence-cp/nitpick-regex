@@ -1,5 +1,5 @@
 diff --git a/CLAUDE.md b/CLAUDE.md
-index 20c53f5613ef984649f983a67880815d8af9f60d..b056370e676e3f60e78b1147c6f64856809cb015 100644
+index 20c53f5613ef984649f983a67880815d8af9f60d..c46a6d2b050a75974d3b21f7e676d5dd9b879cbc 100644
 --- a/CLAUDE.md
 +++ b/CLAUDE.md
 @@ -31,7 +31,10 @@ match begins with, the first-byte set and a literal every match holds, each erri
@@ -25,17 +25,18 @@ index 20c53f5613ef984649f983a67880815d8af9f60d..b056370e676e3f60e78b1147c6f64856
  summary rather than from here. **Nothing is PENDING any more**:
  `tests/unit/bytes_copy_string_empty.npk` was committed red under
  `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
-@@ -278,6 +281,9 @@ and then "this `{` is never closed" pointing at an enclosing brace dozens of
+@@ -278,6 +281,10 @@ and then "this `{` is never closed" pointing at an enclosing brace dozens of
  lines away, plus a cascade to the end of the file. *If a parse error claims an
  unclosed brace and the braces are balanced, look for a local named after a
  qualifier before you touch a brace.*
-+*(@@DATE025A@@, cycle 0.2.5a — RX-244: *"it does not fail where you write it"* — a local still fails so at compiler
-+`c9baa9e`; a FIELD named after a keyword fails where it is written there, `NITPICK-PARSE-001` at the name (the
-+compiler's DEF-235), so the parser's field is `frames`, as probe 05's local is.)*
++*(@@DATE025A@@, cycle 0.2.5a — RX-244: *"it does not fail where you write it"* — a local declared `T:stack` still fails
++so at compiler `c9baa9e`; a FIELD named after a keyword fails where it is written there, `NITPICK-PARSE-001` at the
++name (the compiler's DEF-235), as does a local that `wild` or `fixed` leads, so the parser's field is `frames`, as
++probe 05's local is.)*
  
  The substitutes this library uses, so the tree stays consistent: **`hi`** for a
  range's upper bound and for a `Match`'s end (the fields are `lo` and `hi` by
-@@ -286,8 +292,11 @@ measured to be false at all three kept pins**: a reserved word is refused as a
+@@ -286,8 +293,11 @@ measured to be false at all three kept pins**: a reserved word is refused as a
  **binding** name and accepted as a **field** name), **`src`** for an input
  cursor, **`bound`** for a
  limit, **`rng`** for a range value, **`dot`** for the any-character construct,
@@ -49,24 +50,26 @@ index 20c53f5613ef984649f983a67880815d8af9f60d..b056370e676e3f60e78b1147c6f64856
  
  Three shapes that surprise a C or Rust habit: adjacent string literals do not
  concatenate; `discard(x);` takes parentheses and `defer { … }` takes no
-@@ -460,6 +469,15 @@ evidence.
+@@ -460,6 +470,17 @@ evidence.
    return type is that type now, and meant nothing at `5fbaf4a` (DEF-247). LLVM is 20.1.8
    (D-349), and a literal writing several `sealed` fields is one `NITPICK-TYPE-079`
    (DEF-165) — RX-231.
 +- **At compiler `c9baa9e` (cycle 0.2.5a) a keyword names nothing — a field included — and every emission
-+  moved by the compiler's own two changes and nothing else.** A keyword declared as a name of any kind is
-+  `NITPICK-PARSE-001` at the name, where it is written (the compiler's DEF-235, its landing 113), so the parser's
-+  explicit stack, `Vec<Frame>:stack` until then, is `Parser.frames` (RX-244); through `7e91730` a keyword field
-+  compiled as the EMPTY name, one to a struct, which is all RX-134's *"accepted as a FIELD name"* ever was
-+  (RX-245). Every `define` carries `null_pointer_is_valid` (landing 115), and an address-taken owning binding's
-+  drop runs with no flag test (landing 105), so an emission compared across the two pins is read through the
-+  compiler's `attrnorm.py` and `dropnorm.py` — and through them no file here moved. A callee storing a view it
-+  was handed into a holder outside the view's block is `NITPICK-BORROW-002` (landing 116), and no file here does.
++  moved by the compiler's own two changes and nothing else.** A keyword declared as the name of a field, a variant,
++  a parameter, a `for` binding, a module binding or a local that `wild` or `fixed` leads is `NITPICK-PARSE-001` at
++  the name, where it is written (the compiler's DEF-235, its landing 113), so the parser's explicit stack,
++  `Vec<Frame>:stack` until then, is `Parser.frames` (RX-244); a local declared `T:name` is `NITPICK-PARSE-002` at its
++  declaration, as before. Through `7e91730` a keyword field compiled as the EMPTY name, one to a struct, which is all
++  RX-134's *"accepted as a FIELD name"* ever was (RX-245). Every `define` carries `null_pointer_is_valid` (landing
++  115), and an address-taken owning binding's drop runs with no flag test (landing 105), so an emission compared
++  across the two pins is read through the compiler's `attrnorm.py` and `dropnorm.py` — and through them no file here
++  moved. A callee storing a view it was handed into a holder outside the view's block is `NITPICK-BORROW-002`
++  (landing 116), and no file here does.
  - **A recursion deeper than its stack is a `StackExhausted` trap, not a segfault — and
    the explicit stack stands** (cycle 0.1.2, RX-191, measured at `5fbaf4a`). Since
    `c3bdae2` every emitted function checks its stack before its frame exists (the
 diff --git a/README.md b/README.md
-index 212e0d7474cb1b5ec03994d14edf3affd3068d97..bcf1236a39fcb238953992ce319d2ea22e42dae2 100644
+index 212e0d7474cb1b5ec03994d14edf3affd3068d97..4a68896f1237840d5b6d81f301390ea7f24c5578 100644
 --- a/README.md
 +++ b/README.md
 @@ -8,8 +8,9 @@ makes the guarantee below possible.
@@ -86,7 +89,7 @@ index 212e0d7474cb1b5ec03994d14edf3affd3068d97..bcf1236a39fcb238953992ce319d2ea2
  > Cycle 0.2.5 extracts, for the prefilters to scan for, the bytes every match begins with, the bytes a match can begin
  > with and a literal every match holds — each one only where it is certain, so a pattern it cannot read is searched slower,
 -> never wrongly.
-+> never wrongly. Cycle 0.2.5a moved the pinned compiler to `c9baa9e`, which refuses a keyword as any declared name: the
++> never wrongly. Cycle 0.2.5a moved the pinned compiler to `c9baa9e`, which refuses a keyword as a field's name: the
 +> parser's explicit stack is `frames` now, and nothing else the library holds moved.
  > Nothing matches a pattern yet.
  > The specification set is in [`meta/specs/`](meta/specs/) and the plan in
@@ -114,10 +117,10 @@ index caff8cffbb8c1a3f905b8152e522cbc7e68028f1..12eb29978628d26265c0b493f11149b1
  **Two probes refuted their own hypothesis**, which is the cycle's best return:
  `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler
 diff --git a/meta/specs/BUILD.md b/meta/specs/BUILD.md
-index 4359d6e1f5a509cc98ab1d505a1bb3d93b2c2c8a..3cbd4987416a8150772a318ff6b443af82640bec 100644
+index 31449a963853839c6c1c82caa1095c5aeb636043..333ae0749912fe94d80bc7360674c1d2b37dcc02 100644
 --- a/meta/specs/BUILD.md
 +++ b/meta/specs/BUILD.md
-@@ -755,6 +755,7 @@ carries the pinned commit's `npkc.ll` row — notice 82's, `5630c2b4…` /
+@@ -758,6 +758,7 @@ carries the pinned commit's `npkc.ll` row — notice 82's, `5630c2b4…` /
  differs fails the run, as the compiler defect it would be; the binary rows stay
  prints. What follows is RX-141's reasoning, kept as the record of why it waited.)*
  *(2026-10-09, cycle 0.2.1a: notice 103's row since then, `b79f89c5…` / 31 527 001 B at `7e91730`.)*

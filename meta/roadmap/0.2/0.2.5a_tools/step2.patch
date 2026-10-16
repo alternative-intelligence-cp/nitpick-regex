@@ -40,23 +40,25 @@ index f1a97afd429724b945a63adafe65071b0494c82a..f76d848703852c6a0c0d752fac48ebfe
  here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
  root="$(cd "$here/../.." && pwd)"
 diff --git a/harness/lexical.py b/harness/lexical.py
-index 0638df8c3ba728dd5e3ffba88fe4393ac662b815..2ad18629bf8bfed64f499e558fe1c757d1917c89 100644
+index 0638df8c3ba728dd5e3ffba88fe4393ac662b815..f405eb191885d192bfb29ceb214a96e685bcd1ea 100644
 --- a/harness/lexical.py
 +++ b/harness/lexical.py
-@@ -45,6 +45,12 @@ was; `LEXICAL_REFERENCE.md` §6.2 gains the float's production; `p_parse_import`
+@@ -45,6 +45,14 @@ was; `LEXICAL_REFERENCE.md` §6.2 gains the float's production; `p_parse_import`
  `num_width.npk` are unchanged. No span this module finds moved. And `e+r"` after a float, in the
  list below, is now read by the compiler as this module reads it -- a refused tail, a `+` and a raw
  string -- in a file both compilers refuse.)*
 +*(@@DATE025A@@, cycle 0.2.5a -- RX-245: AND AGAIN AT `c9baa9e`. `lexer.npk` differs in two lines of
 +`lexer_next`, the float scan's end field renamed `tail_end` -- `end` is a keyword, and a keyword names
 +no field from the compiler's landing 113 (DEF-235) -- and `lexer_skip_trivia` is byte for byte as it
-+was; `numeric.npk` differs in that field alone, `num_scan` unchanged; `parse_decl.npk` reads every
-+declared name as an identifier, `p_parse_import` unchanged; `LEXICAL_REFERENCE.md` gains that rule in
-+§4, the keywords; `escapes.npk` and `num_width.npk` are unchanged. No span this module finds moved.)*
++was; `numeric.npk` differs in that field alone, `num_scan` unchanged; `parse_decl.npk` reads more
++declared names as identifiers -- a parameter's, a field's and a variant's among them, but not a
++generic parameter's, a variadic's or a macro parameter's -- and `p_parse_import` is unchanged;
++`LEXICAL_REFERENCE.md` gains a note in §4, the keywords, stating the rule for every kind of name;
++`escapes.npk` and `num_width.npk` are unchanged. No span this module finds moved.)*
  
    * THE TEXT IS BYTES. `read()` maps each byte to one character (latin-1), so every
      offset here is the compiler's byte offset, `\\n` (byte 10) is the only line end,
-@@ -110,6 +116,7 @@ above to a FILE, reads it back through `read()`, and requires exactly the
+@@ -110,6 +118,7 @@ above to a FILE, reads it back through `read()`, and requires exactly the
  imports and the code the compiler would see at `c970483` and at `5fbaf4a`. Cases 19, 20 and 21
  are BL-9's three routes through the whole runner.
  *(And at `7e91730`: the re-read above moved nothing it holds -- cycle 0.2.1a, RX-231.)*
@@ -64,7 +66,7 @@ index 0638df8c3ba728dd5e3ffba88fe4393ac662b815..2ad18629bf8bfed64f499e558fe1c757
  """
  import os
  import re
-@@ -207,6 +214,10 @@ def _decode(content):
+@@ -207,6 +216,10 @@ def _decode(content):
  # A `use` KEYWORD in blanked code: not the tail of an identifier, not a field
  # (`x.use` -- a reserved word IS accepted as a field name, RX-134), and not the
  # head of a longer identifier.
@@ -103,7 +105,7 @@ index 2864d1a4b470f2e329ce0ce15bad4c9a031a1104..3f34d420782a6bb28baf6e8ce6b499b4
  _WIDTH = re.compile(r"(?:[iu](?:8|16|32|64|128|256|512|1024|2048|4096)|tbb(?:8|16|32|64|128|256)"
                      r"|f(?:32|64|128)|tfp(?:32|64|128|256)|dim256|char(?:8|16|32))$")
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index 0d10cb5bdc22e583626d68a976e473004954aee4..3b5112ab6b1da3b9a34f737cbef3cd88e24e7795 100644
+index 36e4da81b66e14b5f454e5d1c5411f7ce79f6029..b881edc39efeff70763083cc167a6bcc67f2193a 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
 @@ -337,6 +337,9 @@ ordering means "which one is correct" is never a discussion.
@@ -116,19 +118,18 @@ index 0d10cb5bdc22e583626d68a976e473004954aee4..3b5112ab6b1da3b9a34f737cbef3cd88
  **2026-09-03.** `struct:Match = { int64:lo; int64:hi; }`. A slice is a
  second-class borrow and cannot pass **up** the call stack (D-004, D-070), so a
  function cannot return one.
-@@ -1915,6 +1918,11 @@ the emission is the whole point).
+@@ -1915,6 +1918,10 @@ the emission is the whole point).
  ---
  
  ### RX-134 — `end` is refused as a BINDING name and accepted as a FIELD name, so RX-050's field names stand and its justification does not
 +> **SUPERSEDED IN PART by RX-245 (@@DATE025A@@)** — its *"accepted as a STRUCT FIELD NAME; fields are their own
 +> namespace"*: through compiler `7e91730` a keyword field compiled as the EMPTY name, so a struct could hold one — a
-+> literal writing two is `NITPICK-TYPE-028`, the name given twice — and from `c9baa9e` a keyword declares no name of
-+> any kind, a field included: `NITPICK-PARSE-001` at the field (the compiler's DEF-235). The binding half and the
-+> decision — `lo` and `hi` — stand.
++> literal writing two is `NITPICK-TYPE-028`, the name given twice — and from `c9baa9e` a keyword declares no field:
++> `NITPICK-PARSE-001` at the field (the compiler's DEF-235). The binding half and the decision — `lo` and `hi` — stand.
  
  **2026-09-06, cycle 0.0.5, measured at three pins.** Cycle 0.0.0 recorded that
  `Match.end` "does not parse" because `end` is a reserved word, and chose `lo`
-@@ -6680,3 +6688,45 @@ a mark** — a spelling chosen to step round the keyword, which the next reader
+@@ -6683,3 +6690,48 @@ a mark** — a spelling chosen to step round the keyword, which the next reader
  pin's move** — then no compiler could testify that it changed no answer: `7e91730` is the one that compiles both trees;
  **every comment's `stack` renamed** — the word names the mechanism `SAFETY.md` S-18 and RX-032 decided, and no compiler
  reads a comment.
@@ -148,18 +149,21 @@ index 0d10cb5bdc22e583626d68a976e473004954aee4..3b5112ab6b1da3b9a34f737cbef3cd88
 +  through `7e91730` such a field was the EMPTY name: a literal writing two is `NITPICK-TYPE-028`, the name given twice,
 +  and a read of `s.use` where `S` has no such field is `NITPICK-TYPE-019`, no member of that empty name, at both pins. So
 +  RX-134's *"accepted as a STRUCT FIELD NAME; fields are their own namespace"* was one empty name to a struct, and is
-+  false from `c9baa9e`; RX-050's *"does not parse as a field name"* is true there. A keyword as a local's name is refused
-+  as it was — `NITPICK-PARSE-002` at the declaration, the same diagnostics at both pins — and a field named `frames`
-+  compiles at both. `API.md` A-3, `SAFETY.md` §6, `BUILD.md` §7, the 0.10 README's two lines, probe 06a's correction and
-+  `harness/lexical.py`'s reason for `x.use`, with its self-check fixture's, are dated; `BUILD.md` §7 gains `stack`; RX-134
++  false from `c9baa9e`; RX-050's *"does not parse as a field name"* is true there. A keyword as the name of a local
++  declared `T:name` is refused as it was — `NITPICK-PARSE-002` at the declaration, the same diagnostics at both pins —
++  and a field named `frames` compiles at both. `API.md` A-3, `SAFETY.md` §6, `BUILD.md` §7, the 0.10 README's two lines,
++  probe 06a's correction and `harness/lexical.py`'s reason for `x.use`, with its self-check fixture's, are dated, and
++  `CLAUDE.md`'s account of the substitutes with them at the subcycle's prose step; `BUILD.md` §7 gains `stack`; RX-134
 +  and RX-050 gain their markers. `Match`'s fields stay `lo` and `hi`, A-3's choice.
 +- **`harness/baseline/rx120.sh` asserts at `c9baa9e`**: the floor's five symbols, a syscaller's six, the difference
 +  `{npk_sys6}`, and its `950bb1d` control 29 / 29, identical.
 +- **B-4e's third re-read**: `lexer.npk`, `numeric.npk`, `parse_decl.npk` and `LEXICAL_REFERENCE.md` moved — the float
-+  scan's end field renamed `tail_end`, the compiler's own DEF-235 rename, every declared name read as an identifier, and
-+  that rule in the reference's §4 — while `lexer_skip_trivia`, `p_parse_import`, `num_scan`, `num_width_of`,
-+  `escape_decode` and `decode_string` are byte for byte as they were, and `escapes.npk` and `num_width.npk` did not
-+  move. Neither reader moves; their texts and `BUILD.md` B-4d and B-4e say so, dated.
++  scan's end field renamed `tail_end`, the compiler's own DEF-235 rename; more declared names read as identifiers, a
++  parameter's, a field's and a variant's among them, though `parse_decl.npk` still reads a generic parameter's, a
++  variadic's and a macro parameter's with a plain `p_advance`; and a note in the reference's §4 stating the rule for
++  every kind of name — while `lexer_skip_trivia`, `p_parse_import`, `num_scan`, `num_width_of`, `escape_decode` and
++  `decode_string` are byte for byte as they were, and `escapes.npk` and `num_width.npk` did not move. Neither reader
++  moves; their texts and `BUILD.md` B-4d and B-4e say so, dated.
 +- **Nothing else of 104 … 118 moves here**: no file's codes or sites, no `expect-error` count (the compiler's D-332,
 +  RX-178), and no emitted text beyond 115's attribute and 105's drops; LLVM stays 20.1.8 and the runtime object is byte
 +  for byte `7e91730`'s. And the two functions `SAFETY.md` §6 and O-G1 cite for the `comptime` wall, `fold_expr` and
@@ -196,7 +200,7 @@ index 03d56ad4bb20825e607c978b7222a54a7d64e267..82a1b51e473333e7b56866399e15202a
  - **A returned iterator is refused** and a consumer arriving from Rust will try.
    The rejection test is documentation as much as it is a test.
 diff --git a/meta/specs/API.md b/meta/specs/API.md
-index 4d435cfd7e50e66e76cd72aa8e0f4f164b6ca51d..954e5f0be13b7a84ec897906cc8c8c8324e7fc2d 100644
+index 4d435cfd7e50e66e76cd72aa8e0f4f164b6ca51d..f64fc40efac1c2d7f1d80415ef78bbf03cd15e40 100644
 --- a/meta/specs/API.md
 +++ b/meta/specs/API.md
 @@ -106,6 +106,11 @@ as a **field name**: fields are their own namespace. The names `lo`/`hi` are
@@ -204,7 +208,7 @@ index 4d435cfd7e50e66e76cd72aa8e0f4f164b6ca51d..954e5f0be13b7a84ec897906cc8c8c83
  renaming a settled public field to prove a point would be worse than the wrong
  justification was.
 +*(@@DATE025A@@, cycle 0.2.5a — RX-245: *"It parses"* — through `7e91730`; from compiler `c9baa9e` it does not: a keyword
-+declares no name of any kind, a field included, so `pub struct:Match = { int64:start; int64:end; };` is
++declares no field, so `pub struct:Match = { int64:start; int64:end; };` is
 +`NITPICK-PARSE-001` at `end` (the compiler's DEF-235). And *"fields are their own namespace"* never held: through
 +`7e91730` the field measured above compiled as the EMPTY name, one to a struct — a literal writing two such fields is
 +`NITPICK-TYPE-028`, the name given twice. The rule stands by its own reasons.)*
@@ -212,7 +216,7 @@ index 4d435cfd7e50e66e76cd72aa8e0f4f164b6ca51d..954e5f0be13b7a84ec897906cc8c8c83
  **Rule A-4 — an empty match has `lo == hi`** and is a real match
  (`SYNTAX.md` Y-21).
 diff --git a/meta/specs/BUILD.md b/meta/specs/BUILD.md
-index adbe77e07b3eaccc35936bfa1dc466e17614d593..4359d6e1f5a509cc98ab1d505a1bb3d93b2c2c8a 100644
+index adbe77e07b3eaccc35936bfa1dc466e17614d593..31449a963853839c6c1c82caa1095c5aeb636043 100644
 --- a/meta/specs/BUILD.md
 +++ b/meta/specs/BUILD.md
 @@ -339,6 +339,7 @@ plant; cases 20 and 21 are the CR and the escaped path hiding a syscall from
@@ -223,35 +227,38 @@ index adbe77e07b3eaccc35936bfa1dc466e17614d593..4359d6e1f5a509cc98ab1d505a1bb3d9
  
  **Rule B-4e (RX-176) — every adoption re-reads what the reader mirrors.** Before
  an adoption's first run at a new pin, `git diff --stat <old> <new>` over the
-@@ -367,6 +368,12 @@ named neither — the cycle audit's C5.)*
+@@ -367,6 +368,14 @@ named neither — the cycle audit's C5.)*
  integer literal kept a literal token, and §6.2's float production — while `p_parse_import` and `num_scan` are byte for
  byte as they were, and `escapes.npk` and `num_width.npk` did not move. Neither reader moves; `harness/lexical.py`'s
  docstring and `harness/treecheck.py`'s literal reader say so beside their pins.)*
 +*(@@DATE025A@@, cycle 0.2.5a — RX-245: the third re-read, `7e91730` to `c9baa9e`. `lexer.npk`, `numeric.npk`, `parse_decl.npk`
 +and `LEXICAL_REFERENCE.md` moved: the float scan's end field renamed `tail_end`, since a keyword names no field from
-+the compiler's landing 113 (DEF-235), every declared name read as an identifier, and that rule in §4, the keywords —
-+while `lexer_skip_trivia`, `p_parse_import`, `num_scan`, `num_width_of`, `escape_decode` and `decode_string` are byte
-+for byte as they were, and `escapes.npk` and `num_width.npk` did not move. Neither reader moves; `harness/lexical.py`'s
-+docstring and `harness/treecheck.py`'s literal reader say so beside their pins.)*
++the compiler's landing 113 (DEF-235); more declared names read as identifiers, a parameter's, a field's and a variant's
++among them, though not a generic parameter's, a variadic's or a macro parameter's; and a note in §4, the keywords,
++stating the rule for every kind of name — while `lexer_skip_trivia`, `p_parse_import`, `num_scan`, `num_width_of`,
++`escape_decode` and `decode_string` are byte for byte as they were, and `escapes.npk` and `num_width.npk` did not move.
++Neither reader moves; `harness/lexical.py`'s docstring and `harness/treecheck.py`'s literal reader say so beside their
++pins.)*
  
  **Rule B-1a (RX-176) — the manifest pins the target, and the runner holds every
  emission it links to it.** `[toolchain]` carries `triple` and `datalayout`
-@@ -705,6 +712,7 @@ an ordinary name and is not:
+@@ -705,6 +714,7 @@ an ordinary name and is not:
  | `Rules`, `fixed`, `Self`, `impl`, `trait`, `assoc` | keywords |
  | `arena` | a keyword at `5fbaf4a` — `mod:arena;` is `NITPICK-PARSE-001` — and the HIR is an arena (RX-223) |
  | `Reader` | the prelude's trait at `5fbaf4a` — `struct:Reader` is `NITPICK-RESOLVE-001` — and the dump has a reader (RX-225) |
-+| `stack` | a memory qualifier, beside `wild`, `wildx` and `defer` — and an explicit-stack parser's state wants `.stack`: a local so named is `NITPICK-PARSE-002` at the declaration, and a field `NITPICK-PARSE-001` at its name from `c9baa9e` (RX-244, RX-245) |
++| `stack` | a memory qualifier, beside `wild`, `wildx` and `defer` — and an explicit-stack parser's state wants `.stack`: a local declared `T:stack` is `NITPICK-PARSE-002` at the declaration, and a field `NITPICK-PARSE-001` at its name from `c9baa9e` (RX-244, RX-245) |
  
  The substitutes this library uses, fixed here so they are used consistently:
  `hi` for a range's upper bound and for a `Match`'s end offset (**not** because
-@@ -714,6 +722,10 @@ input cursor; `bound` for a limit; `dot` for the any-character construct;
+@@ -714,6 +724,11 @@ input cursor; `bound` for a limit; `dot` for the any-character construct;
  `rng` for a codepoint range value; `sel` for a selection; `repr` for the HIR's
  arena module (RX-223); `ReadState` for a reader's state (RX-225); `frames` for the
  explicit stack's field (RX-244).
 +*(@@DATE025A@@, cycle 0.2.5a — RX-245: *"not because `Match.end` is refused — it is not"*: through `7e91730`, where a keyword
 +field compiled as the EMPTY name, one to a struct. From `c9baa9e` it is: a keyword names nothing, a field included, so
-+every word in the table above is `NITPICK-PARSE-001` as a field's name, where it is written (the compiler's DEF-235).
-+`hi` stands by A-3.)*
++every keyword in the table above is `NITPICK-PARSE-001` as a field's name, where it is written (the compiler's DEF-235),
++measured word by word. `Reader` is no keyword but the prelude's trait, and a field so named compiles and reads back at
++both pins. `hi` stands by A-3.)*
  
  **Rule B-18 — `Match`'s fields are `lo` and `hi`.** Stated in `API.md` §2 and
  here, because `start`/`end` is what everyone reaches for and `end` does not
@@ -269,16 +276,16 @@ index c69a82f089dd17b9ce96cf827cef8c2c006f2cb1..a663620db755ff582d4cebeaa8a74c72
  The caller slices its own haystack. This is not a workaround — it is better
  than the alternative in three ways that are worth stating, because a reader
 diff --git a/tests/probe/probe06a_offsets_returned.npk b/tests/probe/probe06a_offsets_returned.npk
-index efbb38135c9a75717f9581a9b975dd00ca9e1db8..ea11b0fe9222e1bb6d97f135dff82fa248fc968a 100644
+index efbb38135c9a75717f9581a9b975dd00ca9e1db8..1a142970f475bf3631e678ab837d6ecc06b7829b 100644
 --- a/tests/probe/probe06a_offsets_returned.npk
 +++ b/tests/probe/probe06a_offsets_returned.npk
 @@ -19,6 +19,10 @@
  // kept pins. The line below is what this probe's header asserted at 0.0.0 and it
  // was never measured; the `lo`/`hi` choice it justifies is unaffected and
  // stands. Left in place rather than rewritten, so the error is legible.]
-+// *(@@DATE025A@@, cycle 0.2.5a -- RX-245: *"`Match.end` DOES parse"* -- through `7e91730`, as the EMPTY
-+// name, one keyword field to a struct; from compiler `c9baa9e` it does not: a keyword declares no name
-+// of any kind, a field included, `NITPICK-PARSE-001` at the name (the compiler's DEF-235). `lo` and `hi`
++// *(@@DATE025A@@, cycle 0.2.5a -- RX-245: *"`Match.end` DOES parse"* -- through `7e91730`, as the
++// EMPTY name, one keyword field to a struct; from compiler `c9baa9e` it does not: a keyword
++// declares no field, `NITPICK-PARSE-001` at the name (the compiler's DEF-235). `lo` and `hi`
 +// stand.)*
  // `Match.end` DOES NOT PARSE -- `end` is a reserved word -- so the fields are
  // `lo` and `hi`, which is `CLAUDE.md`'s ecosystem-wide substitution and not a

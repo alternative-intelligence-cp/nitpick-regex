@@ -19,8 +19,8 @@
 #
 # The paths are the CHECKOUT's: `WB` is the directory above it, `NPK_TREE` the compiler beside that, and `CHECK` the
 # workbench's own `skills/check/scripts` -- so a block run in a relocated copy finds another workbench or none: run the
-# blocks in the checkout the dispatch names (the plan's §0). `$NPK_TREE` is read with `git show`, `git diff`,
-# `git rev-parse`, `git merge-base` and `git cat-file` alone; nothing here fetches there or asks its status. Every `rm`
+# blocks in the checkout the dispatch names (the plan's §0). `$NPK_TREE` is read with `git show`, `git diff`, `git log`,
+# `git rev-parse`, `git merge-base` and `git ls-tree` alone; nothing here fetches there or asks its status. Every `rm`
 # names its target through `${VAR:?}`. Nothing prints a path above the repository, so no output carries a home
 # directory into a record. TMPDIR is the repository's own scratch, `$A/tmp` (RX-195 made one inside the repository
 # safe for B-4's `repro`). THE RUN IS DATED ONCE: `apply.py` writes the first step's day to `$A/date`, and every
