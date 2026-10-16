@@ -31,7 +31,10 @@ match begins with, the first-byte set and a literal every match holds, each erri
 `NREGEX_LITERAL_BYTES` and `NREGEX_LITERAL_LIMIT`, into `Hir.literals` after the facts, over a finished tree; the dump
 writes their section and `hir_read` holds it to the extraction; fifty-five patterns' literals written by hand are the
 reference, a fuzz holds 3 000 seeded trees' literals to strings drawn from them, and the property test over the oracle is
-pending until cycle 0.5.5 (RX-241 … RX-243, `meta/roadmap/0.2/0.2.5.md`); 0.2.6, the cycle's close, is next.
+pending until cycle 0.5.5 (RX-241 … RX-243, `meta/roadmap/0.2/0.2.5.md`); and its 0.2.5a, the adoption of compiler
+`c9baa9e`, is done — a keyword names nothing there, a field included, so the parser's explicit stack is
+`Parser.frames`, and every emission is `7e91730`'s but for the compiler's own two changes, an attribute on each function
+and drops made unconditional (RX-244, RX-245, `meta/roadmap/0.2/0.2.5a.md`); 0.2.6, the cycle's close, is next.
 Cycle 0.1's 0.1.0, 0.1.0b, 0.1.1, 0.1.1b, 0.1.2, 0.1.3, 0.1.4, 0.1.5, 0.1.6a, 0.1.6b and 0.1.6 are done** — the pieces the parser is written
 in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/done/0.1/0.1.0.md`); the adoption of
 compiler `5fbaf4a` (RX-176 … RX-180, `0.1.0b.md`); and the core grammar —
@@ -126,8 +129,8 @@ since 0.2.3 normalisation** (`HIR.md` H-13), `normal.npk`, with eight unit progr
 more, one of them pending until cycle 0.5.5.
 **No matching
 happens yet**: `src/compile/`, `src/engine/` and `src/api/` are still one
-placeholder module each. A full green run at compiler `7e91730` is
-**347 units** (after cycle 0.2.5, literal extraction, four pending units outside them; 334 after cycle 0.2.4, the computed properties, three pending outside them, as after cycle 0.2.3; 318 after cycle 0.2.3, normalisation; 302 after cycle 0.2.2, the repetition product, two pending outside them, as after cycle 0.2.1a; 294 after cycle 0.2.1a, the adoption of that pin, as after cycle 0.2.1 at `5fbaf4a`; 283 after cycle 0.2.0; 260 after cycle 0.1.6b; 258 after cycle 0.1.6a, as after cycle 0.1.5; 254 after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus ten tree checks (nine until cycle 0.1.6b's `check_error_kinds_tested`, eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
+placeholder module each. A full green run at compiler `c9baa9e` is
+**347 units** (after cycle 0.2.5a, the adoption of that pin, four pending units outside them, as after cycle 0.2.5, literal extraction, at `7e91730`; 334 after cycle 0.2.4, the computed properties, three pending outside them, as after cycle 0.2.3; 318 after cycle 0.2.3, normalisation; 302 after cycle 0.2.2, the repetition product, two pending outside them, as after cycle 0.2.1a; 294 after cycle 0.2.1a, the adoption of `7e91730`, as after cycle 0.2.1 at `5fbaf4a`; 283 after cycle 0.2.0; 260 after cycle 0.1.6b; 258 after cycle 0.1.6a, as after cycle 0.1.5; 254 after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus ten tree checks (nine until cycle 0.1.6b's `check_error_kinds_tested`, eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
 summary rather than from here. **Nothing is PENDING any more**:
 `tests/unit/bytes_copy_string_empty.npk` was committed red under
 `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
@@ -278,6 +281,10 @@ and then "this `{` is never closed" pointing at an enclosing brace dozens of
 lines away, plus a cascade to the end of the file. *If a parse error claims an
 unclosed brace and the braces are balanced, look for a local named after a
 qualifier before you touch a brace.*
+*(2026-10-16, cycle 0.2.5a — RX-244: *"it does not fail where you write it"* — a local declared `T:stack` still fails
+so at compiler `c9baa9e`; a FIELD named after a keyword fails where it is written there, `NITPICK-PARSE-001` at the
+name (the compiler's DEF-235), as does a local that `wild` or `fixed` leads, so the parser's field is `frames`, as
+probe 05's local is.)*
 
 The substitutes this library uses, so the tree stays consistent: **`hi`** for a
 range's upper bound and for a `Match`'s end (the fields are `lo` and `hi` by
@@ -286,8 +293,11 @@ measured to be false at all three kept pins**: a reserved word is refused as a
 **binding** name and accepted as a **field** name), **`src`** for an input
 cursor, **`bound`** for a
 limit, **`rng`** for a range value, **`dot`** for the any-character construct,
-**`sel`** for a selection, **`repr`** for the HIR's arena module and **`ReadState`** for a
-reader's state.
+**`sel`** for a selection, **`repr`** for the HIR's arena module, **`ReadState`** for a
+reader's state and **`frames`** for the explicit stack's field (RX-244).
+*(2026-10-16, cycle 0.2.5a — RX-245: *"accepted as a **field** name"* — through `7e91730`, as the EMPTY
+name, one to a struct; from `c9baa9e` `Match.end` IS refused, `NITPICK-PARSE-001` at the field, the compiler's
+DEF-235. The fields stay `lo` and `hi`, A-3's choice.)*
 
 Three shapes that surprise a C or Rust habit: adjacent string literals do not
 concatenate; `discard(x);` takes parentheses and `defer { … }` takes no
@@ -460,6 +470,17 @@ evidence.
   return type is that type now, and meant nothing at `5fbaf4a` (DEF-247). LLVM is 20.1.8
   (D-349), and a literal writing several `sealed` fields is one `NITPICK-TYPE-079`
   (DEF-165) — RX-231.
+- **At compiler `c9baa9e` (cycle 0.2.5a) a keyword names nothing — a field included — and every emission
+  moved by the compiler's own two changes and nothing else.** A keyword declared as the name of a field, a variant,
+  a parameter, a `for` binding, a module binding or a local that `wild` or `fixed` leads is `NITPICK-PARSE-001` at
+  the name, where it is written (the compiler's DEF-235, its landing 113), so the parser's explicit stack,
+  `Vec<Frame>:stack` until then, is `Parser.frames` (RX-244); a local declared `T:name` is `NITPICK-PARSE-002` at its
+  declaration, as before. Through `7e91730` a keyword field compiled as the EMPTY name, one to a struct, which is all
+  RX-134's *"accepted as a FIELD name"* ever was (RX-245). Every `define` carries `null_pointer_is_valid` (landing
+  115), and an address-taken owning binding's drop runs with no flag test (landing 105), so an emission compared
+  across the two pins is read through the compiler's `attrnorm.py` and `dropnorm.py` — and through them no file here
+  moved. A callee storing a view it was handed into a holder outside the view's block is `NITPICK-BORROW-002`
+  (landing 116), and no file here does.
 - **A recursion deeper than its stack is a `StackExhausted` trap, not a segfault — and
   the explicit stack stands** (cycle 0.1.2, RX-191, measured at `5fbaf4a`). Since
   `c3bdae2` every emitted function checks its stack before its frame exists (the
