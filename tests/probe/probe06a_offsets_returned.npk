@@ -19,6 +19,10 @@
 // kept pins. The line below is what this probe's header asserted at 0.0.0 and it
 // was never measured; the `lo`/`hi` choice it justifies is unaffected and
 // stands. Left in place rather than rewritten, so the error is legible.]
+// *(2026-10-16, cycle 0.2.5a -- RX-245: *"`Match.end` DOES parse"* -- through `7e91730`, as the
+// EMPTY name, one keyword field to a struct; from compiler `c9baa9e` it does not: a keyword
+// declares no field, `NITPICK-PARSE-001` at the name (the compiler's DEF-235). `lo` and `hi`
+// stand.)*
 // `Match.end` DOES NOT PARSE -- `end` is a reserved word -- so the fields are
 // `lo` and `hi`, which is `CLAUDE.md`'s ecosystem-wide substitution and not a
 // local invention.

@@ -45,6 +45,14 @@ was; `LEXICAL_REFERENCE.md` §6.2 gains the float's production; `p_parse_import`
 `num_width.npk` are unchanged. No span this module finds moved. And `e+r"` after a float, in the
 list below, is now read by the compiler as this module reads it -- a refused tail, a `+` and a raw
 string -- in a file both compilers refuse.)*
+*(2026-10-16, cycle 0.2.5a -- RX-245: AND AGAIN AT `c9baa9e`. `lexer.npk` differs in two lines of
+`lexer_next`, the float scan's end field renamed `tail_end` -- `end` is a keyword, and a keyword names
+no field from the compiler's landing 113 (DEF-235) -- and `lexer_skip_trivia` is byte for byte as it
+was; `numeric.npk` differs in that field alone, `num_scan` unchanged; `parse_decl.npk` reads more
+declared names as identifiers -- a parameter's, a field's and a variant's among them, but not a
+generic parameter's, a variadic's or a macro parameter's -- and `p_parse_import` is unchanged;
+`LEXICAL_REFERENCE.md` gains a note in §4, the keywords, stating the rule for every kind of name;
+`escapes.npk` and `num_width.npk` are unchanged. No span this module finds moved.)*
 
   * THE TEXT IS BYTES. `read()` maps each byte to one character (latin-1), so every
     offset here is the compiler's byte offset, `\\n` (byte 10) is the only line end,
@@ -110,6 +118,7 @@ above to a FILE, reads it back through `read()`, and requires exactly the
 imports and the code the compiler would see at `c970483` and at `5fbaf4a`. Cases 19, 20 and 21
 are BL-9's three routes through the whole runner.
 *(And at `7e91730`: the re-read above moved nothing it holds -- cycle 0.2.1a, RX-231.)*
+*(And at `c9baa9e`: nor there -- cycle 0.2.5a, RX-245.)*
 """
 import os
 import re
@@ -207,6 +216,10 @@ def _decode(content):
 # A `use` KEYWORD in blanked code: not the tail of an identifier, not a field
 # (`x.use` -- a reserved word IS accepted as a field name, RX-134), and not the
 # head of a longer identifier.
+# *(2026-10-16, cycle 0.2.5a -- RX-245: no field can be NAMED `use` from compiler `c9baa9e`, where a
+# keyword names nothing (its DEF-235), and through `7e91730` such a field was the EMPTY name.
+# `x.use` is still the parser's member read, of that empty name -- `NITPICK-TYPE-019` at both
+# pins -- and never an import, so the rule stands for that reason.)*
 _USE_KW = re.compile(r"(?<![A-Za-z0-9_.])use(?![A-Za-z0-9_])")
 # `pub`, then any of the declaration modifiers `p_parse_decl` accepts between
 # it and the keyword, then the end of the text before `use`. Whitespace is the

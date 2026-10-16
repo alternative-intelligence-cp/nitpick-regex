@@ -335,6 +335,9 @@ _CMP_LITERAL = re.compile(
 # was -- `num_scan` and `num_width_of` byte for byte -- and §6.2's new note is a FLOAT's production,
 # whose whole part is decimal digits, so `0FFhex.5` is the integer `0FFhex`, a dot and `5`, as this
 # reader reads it.)*
+# *(2026-10-16, cycle 0.2.5a -- RX-245: re-read at `c9baa9e`. `num_scan` and `num_width_of` are byte for
+# byte as they were; `numeric.npk` renames the float scan's end field alone, and `LEXICAL_REFERENCE.md`
+# moves only in §4. An integer literal is read as this reader reads it.)*
 _NUM = r"[0-9][0-9A-Za-z_]*"
 _WIDTH = re.compile(r"(?:[iu](?:8|16|32|64|128|256|512|1024|2048|4096)|tbb(?:8|16|32|64|128|256)"
                     r"|f(?:32|64|128)|tfp(?:32|64|128|256)|dim256|char(?:8|16|32))$")

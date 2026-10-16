@@ -494,6 +494,8 @@ _LEX_TEXT = (
     'string:t = `use "./template.npk" a / b &{ n / 2 }`;\n' # 14 one `/` is code
     'pub /* gap */ use /* gap */ "./gapped.npk".*;\n'       # 15 a re-export
     'int64:x = y.use;\n'                                    # 16 a field, not a keyword
+    # *(2026-10-16, cycle 0.2.5a -- RX-245: a member read, of the EMPTY name -- no field can be named
+    # `use` from compiler `c9baa9e` (its DEF-235): `NITPICK-TYPE-019` at both pins, never an import.)*
     '// see\ruse "./after_cr.npk".*; a / b\n'               # 17 a lone CR is not a line end
     '// note\r/* a / b\n'                                   # 18 ...so this `/*` is comment text
     'use "./after_cr_comment.npk".*;\n'                     # 19 an import

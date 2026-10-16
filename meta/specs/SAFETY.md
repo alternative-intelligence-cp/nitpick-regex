@@ -801,6 +801,8 @@ offsets-not-slices decision spelling it the old way. B-18 even says "stated in
 `API.md` §2 and here", naming two of the three. **The correction is the field
 names only; RX-134 measured that the stated REASON was false** — a struct field
 MAY be named `end`, at all three kept pins.)*
+*(2026-10-16, cycle 0.2.5a — RX-245: and from compiler `c9baa9e` it may not — `NITPICK-PARSE-001` at the field's name, the
+compiler's DEF-235. The field names stand.)*
 
 The caller slices its own haystack. This is not a workaround — it is better
 than the alternative in three ways that are worth stating, because a reader

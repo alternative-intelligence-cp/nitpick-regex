@@ -106,6 +106,11 @@ as a **field name**: fields are their own namespace. The names `lo`/`hi` are
 kept — they are shorter, they match `SYNTAX.md`'s half-open interval, and
 renaming a settled public field to prove a point would be worse than the wrong
 justification was.
+*(2026-10-16, cycle 0.2.5a — RX-245: *"It parses"* — through `7e91730`; from compiler `c9baa9e` it does not: a keyword
+declares no field, so `pub struct:Match = { int64:start; int64:end; };` is
+`NITPICK-PARSE-001` at `end` (the compiler's DEF-235). And *"fields are their own namespace"* never held: through
+`7e91730` the field measured above compiled as the EMPTY name, one to a struct — a literal writing two such fields is
+`NITPICK-TYPE-028`, the name given twice. The rule stands by its own reasons.)*
 
 **Rule A-4 — an empty match has `lo == hi`** and is a real match
 (`SYNTAX.md` Y-21).

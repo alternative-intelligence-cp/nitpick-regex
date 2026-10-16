@@ -339,6 +339,7 @@ plant; cases 20 and 21 are the CR and the escaped path hiding a syscall from
 B-2. Measured: either defence removed alone, the plant stays red; both, GREEN.)*
 *(2026-10-09, cycle 0.2.1a — RX-231: "mirrors that lexer at `5fbaf4a`" — and at `7e91730`, re-read by B-4e at
 cycle 0.2.1a: no span it finds moved.)*
+*(2026-10-16, cycle 0.2.5a — RX-245: and at `c9baa9e`, re-read by B-4e at cycle 0.2.5a: no span it finds moved.)*
 
 **Rule B-4e (RX-176) — every adoption re-reads what the reader mirrors.** Before
 an adoption's first run at a new pin, `git diff --stat <old> <new>` over the
@@ -367,6 +368,14 @@ named neither — the cycle audit's C5.)*
 integer literal kept a literal token, and §6.2's float production — while `p_parse_import` and `num_scan` are byte for
 byte as they were, and `escapes.npk` and `num_width.npk` did not move. Neither reader moves; `harness/lexical.py`'s
 docstring and `harness/treecheck.py`'s literal reader say so beside their pins.)*
+*(2026-10-16, cycle 0.2.5a — RX-245: the third re-read, `7e91730` to `c9baa9e`. `lexer.npk`, `numeric.npk`, `parse_decl.npk`
+and `LEXICAL_REFERENCE.md` moved: the float scan's end field renamed `tail_end`, since a keyword names no field from
+the compiler's landing 113 (DEF-235); more declared names read as identifiers, a parameter's, a field's and a variant's
+among them, though not a generic parameter's, a variadic's or a macro parameter's; and a note in §4, the keywords,
+stating the rule for every kind of name — while `lexer_skip_trivia`, `p_parse_import`, `num_scan`, `num_width_of`,
+`escape_decode` and `decode_string` are byte for byte as they were, and `escapes.npk` and `num_width.npk` did not move.
+Neither reader moves; `harness/lexical.py`'s docstring and `harness/treecheck.py`'s literal reader say so beside their
+pins.)*
 
 **Rule B-1a (RX-176) — the manifest pins the target, and the runner holds every
 emission it links to it.** `[toolchain]` carries `triple` and `datalayout`
@@ -705,6 +714,7 @@ an ordinary name and is not:
 | `Rules`, `fixed`, `Self`, `impl`, `trait`, `assoc` | keywords |
 | `arena` | a keyword at `5fbaf4a` — `mod:arena;` is `NITPICK-PARSE-001` — and the HIR is an arena (RX-223) |
 | `Reader` | the prelude's trait at `5fbaf4a` — `struct:Reader` is `NITPICK-RESOLVE-001` — and the dump has a reader (RX-225) |
+| `stack` | a memory qualifier, beside `wild`, `wildx` and `defer` — and an explicit-stack parser's state wants `.stack`: a local declared `T:stack` is `NITPICK-PARSE-002` at the declaration, and a field `NITPICK-PARSE-001` at its name from `c9baa9e` (RX-244, RX-245) |
 
 The substitutes this library uses, fixed here so they are used consistently:
 `hi` for a range's upper bound and for a `Match`'s end offset (**not** because
@@ -714,6 +724,11 @@ input cursor; `bound` for a limit; `dot` for the any-character construct;
 `rng` for a codepoint range value; `sel` for a selection; `repr` for the HIR's
 arena module (RX-223); `ReadState` for a reader's state (RX-225); `frames` for the
 explicit stack's field (RX-244).
+*(2026-10-16, cycle 0.2.5a — RX-245: *"not because `Match.end` is refused — it is not"*: through `7e91730`, where a keyword
+field compiled as the EMPTY name, one to a struct. From `c9baa9e` it is: a keyword names nothing, a field included, so
+every keyword in the table above is `NITPICK-PARSE-001` as a field's name, where it is written (the compiler's DEF-235),
+measured word by word. `Reader` is no keyword but the prelude's trait, and a field so named compiles and reads back at
+both pins. `hi` stands by A-3.)*
 
 **Rule B-18 — `Match`'s fields are `lo` and `hi`.** Stated in `API.md` §2 and
 here, because `start`/`end` is what everyone reaches for and `end` does not

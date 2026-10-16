@@ -337,6 +337,9 @@ ordering means "which one is correct" is never a discussion.
 ## The public surface
 
 ### RX-050 — a `Match` is byte offsets, never a slice
+> **SUPERSEDED IN PART by RX-245 (2026-10-16)** — its *"does not parse as a field name"*: false through compiler
+> `7e91730`, where a keyword field compiled as the empty name (RX-134 measured it at three pins), and true from
+> `c9baa9e`, `NITPICK-PARSE-001` at the field (the compiler's DEF-235). The fields are `lo` and `hi` either way.
 **2026-09-03.** `struct:Match = { int64:lo; int64:hi; }`. A slice is a
 second-class borrow and cannot pass **up** the call stack (D-004, D-070), so a
 function cannot return one.
@@ -1915,6 +1918,10 @@ the emission is the whole point).
 ---
 
 ### RX-134 — `end` is refused as a BINDING name and accepted as a FIELD name, so RX-050's field names stand and its justification does not
+> **SUPERSEDED IN PART by RX-245 (2026-10-16)** — its *"accepted as a STRUCT FIELD NAME; fields are their own
+> namespace"*: through compiler `7e91730` a keyword field compiled as the EMPTY name, so a struct could hold one — a
+> literal writing two is `NITPICK-TYPE-028`, the name given twice — and from `c9baa9e` a keyword declares no field:
+> `NITPICK-PARSE-001` at the field (the compiler's DEF-235). The binding half and the decision — `lo` and `hi` — stand.
 
 **2026-09-06, cycle 0.0.5, measured at three pins.** Cycle 0.0.0 recorded that
 `Match.end` "does not parse" because `end` is a reserved word, and chose `lo`
@@ -6683,3 +6690,48 @@ a mark** — a spelling chosen to step round the keyword, which the next reader 
 pin's move** — then no compiler could testify that it changed no answer: `7e91730` is the one that compiles both trees;
 **every comment's `stack` renamed** — the word names the mechanism `SAFETY.md` S-18 and RX-032 decided, and no compiler
 reads a comment.
+
+### RX-245 — the adoption of compiler `c9baa9e`: a keyword names nothing, a field included, so RX-134's account of a keyword field is dated; `rx120.sh` at `c9baa9e`; B-4e's third re-read; and every emission the old pin's but for the compiler's own two changes, read through its own normalisers
+
+**2026-10-16, cycle 0.2.5a (the plan's PD-180), at compiler `c9baa9e`, from `7e91730`** — landings 104 … 118, the
+libraries' one re-pin by the author's word of 2026-10-15 (the workbench's question 32), after RX-244 renamed the field.
+Measured on the renamed tree at both pins: every one of its 188 `.npk` files reports the same codes at the same sites;
+and of the 155 files each pin emits, 77 differ by landing 115's `null_pointer_is_valid` on every `define` alone and 78 by
+that and landing 105's flag tests — a drop of an address-taken owning binding made unconditional — and none by anything
+else, read through the compiler's own `attrnorm.py` and `dropnorm.py`; `harness/irscan.py`'s edges and the two `target`
+lines are the same in all 155.
+
+- **A keyword names nothing, a field included, from `c9baa9e`** (the compiler's DEF-235): `struct:Match = { int64:start;
+  int64:end; }` is `NITPICK-PARSE-001` at `end`, where `7e91730` compiled it and `m.end` read 3 at both legs. And
+  through `7e91730` such a field was the EMPTY name: a literal writing two is `NITPICK-TYPE-028`, the name given twice,
+  and a read of `s.use` where `S` has no such field is `NITPICK-TYPE-019`, no member of that empty name, at both pins. So
+  RX-134's *"accepted as a STRUCT FIELD NAME; fields are their own namespace"* was one empty name to a struct, and is
+  false from `c9baa9e`; RX-050's *"does not parse as a field name"* is true there. A keyword as the name of a local
+  declared `T:name` is refused as it was — `NITPICK-PARSE-002` at the declaration, the same diagnostics at both pins —
+  and a field named `frames` compiles at both. `API.md` A-3, `SAFETY.md` §6, `BUILD.md` §7, the 0.10 README's two lines,
+  probe 06a's correction and `harness/lexical.py`'s reason for `x.use`, with its self-check fixture's, are dated, and
+  `CLAUDE.md`'s account of the substitutes with them at the subcycle's prose step; `BUILD.md` §7 gains `stack`; RX-134
+  and RX-050 gain their markers. `Match`'s fields stay `lo` and `hi`, A-3's choice.
+- **`harness/baseline/rx120.sh` asserts at `c9baa9e`**: the floor's five symbols, a syscaller's six, the difference
+  `{npk_sys6}`, and its `950bb1d` control 29 / 29, identical.
+- **B-4e's third re-read**: `lexer.npk`, `numeric.npk`, `parse_decl.npk` and `LEXICAL_REFERENCE.md` moved — the float
+  scan's end field renamed `tail_end`, the compiler's own DEF-235 rename; more declared names read as identifiers, a
+  parameter's, a field's and a variant's among them, though `parse_decl.npk` still reads a generic parameter's, a
+  variadic's and a macro parameter's with a plain `p_advance`; and a note in the reference's §4 stating the rule for
+  every kind of name — while `lexer_skip_trivia`, `p_parse_import`, `num_scan`, `num_width_of`, `escape_decode` and
+  `decode_string` are byte for byte as they were, and `escapes.npk` and `num_width.npk` did not move. Neither reader
+  moves; their texts and `BUILD.md` B-4d and B-4e say so, dated.
+- **Nothing else of 104 … 118 moves here**: no file's codes or sites, no `expect-error` count (the compiler's D-332,
+  RX-178), and no emitted text beyond 115's attribute and 105's drops; LLVM stays 20.1.8 and the runtime object is byte
+  for byte `7e91730`'s. And the two functions `SAFETY.md` §7 and O-G1 cite for the `comptime` wall, `fold_expr` and
+  `fold_string_builtin`, are byte for byte as they were.
+
+*Alternatives declined:* **emissions compared as bytes** — every one of the 155 differs by 115's attribute, and a
+comparison that reads all of them as moved can see nothing; **`attrnorm.py` alone** — 78 would read as moved by 105's
+drops, each of which `dropnorm.py` shows to be flag tests and nothing else; **normalisers of our own** — the compiler's
+are the ones its notices were measured with, read from `c9baa9e` by `git show`, and a second pair would be a second
+reading of one change; **RX-134's text corrected where it stands** — a settled decision's text is never rewritten (W-28),
+and how its account outlived its pins is the lesson it carries; **the notes left until cycle 0.10** — A-3's sentence and
+the 0.10 README's are the ones a cycle-0.10 planner would follow into `NITPICK-PARSE-001`; **`rx120.sh`'s pin left at
+`7e91730`** — the harness and CI hand it the pinned compiler either way, and its label would name a compiler nothing
+runs.

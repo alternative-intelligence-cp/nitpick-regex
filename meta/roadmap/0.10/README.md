@@ -31,7 +31,7 @@ plans; recommendation: keep Y-12. Decide it before 0.10.2 writes `RegexOptions`.
 ### 0.10.0 — `Regex`, `Cache`, `Match`
 - [ ] `regex_compile`, `regex_compile_opts`, `regex_escape`, `regex_cache` *(2026-10-02 — cycle 0.1.5, RX-211: `regex_escape` is written, in `src/syntax/parse.npk`; this cycle re-exports it, at 0.10.5)* *(2026-10-12, cycle 0.2.3 — RX-236: compiling parses, builds, then normalises — `hir_normalise`, into a fresh `Hir` — and every later stage reads the normal form)*
 - [ ] `regex_is_match`, `regex_find`, `regex_find_at` — **none returning `Result`** (A-1, RX-061)
-- [ ] `Match` is `{lo, hi}` (RX-050), and **the fields are `lo` and `hi`** by A-3 — *not* because `end` cannot be a field name, which RX-134 measured to be false at all three kept pins
+- [ ] `Match` is `{lo, hi}` (RX-050), and **the fields are `lo` and `hi`** by A-3 — *not* because `end` cannot be a field name, which RX-134 measured to be false at all three kept pins *(2026-10-16, cycle 0.2.5a — RX-245: true from compiler `c9baa9e`, `NITPICK-PARSE-001` at the field, the compiler's DEF-235; A-3's choice stands)*
 - [ ] **`regex_find_at`'s `at` is where the search starts, not where the haystack starts** (A-5): `^` still means the start of `hay` and `\b` at `at` still looks at the byte before it. A test asserts searching `hay[at..]` gives a *different* answer, so the distinction is protected
 - [ ] `ERegexPattern` is the **only** `error:` in the library; `check_error_budget` green
 
@@ -85,6 +85,6 @@ and a real program compiled and run from the examples directory.
   invisible until a pattern uses `^` or `\b`.
 - **The empty-match rule in one place.** Three iterators each implementing it is
   three chances for one of them not to terminate.
-- **`end` is refused as a BINDING name and accepted as a FIELD name** (RX-134, measured). The field is `hi` by A-3's choice, not by the compiler's. What will actually bite is `int64:end = …` in a loop, which is `NITPICK-PARSE-002`.
+- **`end` is refused as a BINDING name and accepted as a FIELD name** (RX-134, measured). The field is `hi` by A-3's choice, not by the compiler's. What will actually bite is `int64:end = …` in a loop, which is `NITPICK-PARSE-002`. *(2026-10-16, cycle 0.2.5a — RX-245: and from compiler `c9baa9e` a field named `end` is refused too, `NITPICK-PARSE-001` at its name — the compiler's DEF-235.)*
 - **A returned iterator is refused** and a consumer arriving from Rust will try.
   The rejection test is documentation as much as it is a test.
