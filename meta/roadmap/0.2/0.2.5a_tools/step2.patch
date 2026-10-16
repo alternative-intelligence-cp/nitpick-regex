@@ -166,7 +166,7 @@ index 36e4da81b66e14b5f454e5d1c5411f7ce79f6029..b881edc39efeff70763083cc167a6bcc
 +  moves; their texts and `BUILD.md` B-4d and B-4e say so, dated.
 +- **Nothing else of 104 … 118 moves here**: no file's codes or sites, no `expect-error` count (the compiler's D-332,
 +  RX-178), and no emitted text beyond 115's attribute and 105's drops; LLVM stays 20.1.8 and the runtime object is byte
-+  for byte `7e91730`'s. And the two functions `SAFETY.md` §6 and O-G1 cite for the `comptime` wall, `fold_expr` and
++  for byte `7e91730`'s. And the two functions `SAFETY.md` §7 and O-G1 cite for the `comptime` wall, `fold_expr` and
 +  `fold_string_builtin`, are byte for byte as they were.
 +
 +*Alternatives declined:* **emissions compared as bytes** — every one of the 155 differs by 115's attribute, and a
