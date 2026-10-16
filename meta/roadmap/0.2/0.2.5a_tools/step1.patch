@@ -24,9 +24,9 @@ index 60593f25bb48a36cb73936c4c192cec3f42d559a..36e4da81b66e14b5f454e5d1c5411f7c
 +**@@DATE025A@@, cycle 0.2.5a (the plan's PD-179), at compiler `c9baa9e`, from `7e91730`** — the compiler's DEF-235, its
 +landing 113: a keyword declared as the name of a field, a variant, a parameter, a `for` binding, a module binding or a
 +local that `wild` or `fixed` leads is `NITPICK-PARSE-001` at the name, where it is written, as a function's, a type's
-+and a module's already were. Not every kind: a local declared `T:name` is refused as it was, `NITPICK-PARSE-002` at its
-+declaration, and a generic parameter's or a variadic's name still compiles, the parser reading it with a plain
-+`p_advance` — each measured with `end` at both pins. `stack` is a keyword, the memory qualifier beside
++and a module's already were, bar `acquire`, `any`, `nit` and `trit`. Not every kind: a local declared `T:name` is refused
++as it was, `NITPICK-PARSE-002` at its declaration, and a generic parameter's (bar `comptime`), a variadic's or a macro
++parameter's name compiles, read by a plain `p_advance`, at both pins. `stack` is a keyword, the memory qualifier beside
 +`wild`, `wildx` and `defer`, and `src/syntax/parse.npk` declared the explicit stack's field
 +`Vec<Frame>:stack`. Measured on the unchanged tree first: at `c9baa9e` 76 of its 188 `.npk` files are refused at that
 +one site, `src/syntax/parse.npk:223:16` — the five `src/` files that are the parser or import it, 67 unit tests and four
