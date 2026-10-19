@@ -2,7 +2,7 @@
 # compiler's tree with `git show` and `git rev-parse` alone, and writes only under `$A`. Prints one section per
 # subsection of §1, under its number.
 P=$A/facts; rm -rf "${P:?}"; mkdir -p "$P"
-echo "§1.1 the tree: HEAD's subject: $(git -C "$REPO" log -1 --format=%s | cut -c1-60)"
+echo "§1.1 the tree: HEAD a commit of this plan's: $(git -C "$REPO" log -1 --format=%s | grep -c '^cycle 0\.2\.6: the plan'); its parent chain holds 084187a: $(git -C "$REPO" merge-base --is-ancestor 084187a HEAD && echo yes)"
 echo "§1.1 0.2.5a.md's title: $(head -1 "$REPO/meta/roadmap/0.2/0.2.5a.md" | grep -oE '— DONE \([0-9-]+\)$')"
 echo "§1.1 the decision log's last heading and its highest: $(grep -oE '^### RX-[0-9]+' "$REPO/meta/DECISIONS.md" | tail -1 | cut -c5-) $(grep -oE '^### RX-[0-9]+' "$REPO/meta/DECISIONS.md" | cut -c8- | sort -n | tail -1)"
 echo "§1.1 the block's labels in the tree, outside this plan and its tools: $(git -C "$REPO" grep -l -E 'PD-18[1-9]|PD-190' -- . ':!meta/roadmap/0.2/0.2.6.md' ':!meta/roadmap/0.2/0.2.6_tools' | wc -l)"
