@@ -1,0 +1,141 @@
+diff --git a/harness/stages.py b/harness/stages.py
+index 98a4fd1..4f292f3 100644
+--- a/harness/stages.py
++++ b/harness/stages.py
+@@ -401,6 +401,9 @@ def parse_sweep(c, path, name, exp):
+     holds 21 files now, and the conformance, unit and rejection suites reach 19 of
+     them; `src/compile/compile.npk` and `src/engine/engine.npk`, one placeholder
+     each, are reached by none but this sweep.)*
++    *(@@DATE026@@, cycle 0.2.6 -- the documents audit's RA-12, at this twin of
++    `nitpick.toml`'s note: "21 files now" is cycle 0.2.2's count; `src/` holds 22
++    `.npk` files at cycle 0.2.6.)*
+ 
+     EVERY FILE IS JUDGED AS A ROOT, including one another file imports: "each
+     file once" means once AS ITSELF, and a file that only ever compiles as part
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 6f19c36..29c3629 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -1334,6 +1334,8 @@ divergence is written down here and in the runner).
+ > forbids an owning field in a value stored in an array", given as H-2's primary
+ > reason. It forbids a COPY of an owner; H-2 stands on its own words — a POD
+ > arena is copyable, comparable and a committable fixture. The decision stands.
++> *(Noted @@DATE026@@, cycle 0.2.6 — its *"Whether `Hir` comparison takes the derive is a cycle 0.2 decision"*:
++> RX-248 takes it — a HIR is compared by its dump text, and no node derives `Eq`.)*
+ 
+ **2026-09-04, at the re-pin from `950bb1d` to `94874ce`.** Workbench registry
+ **O-N10** had two halves and both are fixed:
+@@ -6798,3 +6800,29 @@ would stay the one bound this check cannot see written bare, and nothing under `
+ bound's value, where removing one number from the set closes the one collision there is; **the two bounds kept out of
+ the table**, as 0.2.5 left them — S-12 says every bound is in the table and the table is the authority, and two bounds
+ the check never asks about are bounds it does not hold.
++
++### RX-248 — a HIR is compared by its dump text: two trees are one HIR when their dumps are one text, no node derives `Eq`, and no comparison threads an error channel
++
++**@@DATE026@@, cycle 0.2.6 (the plan's PD-183), at compiler `c9baa9e`** — `HIR.md` H-2, H-3 and H-15, RX-125 and RX-235,
++`meta/OPEN_QUESTIONS.md` O-N10's residue, the cycle README's Gate; the documents audit's RA-9 (the workbench's
++`meta/audits/nitpick-regex-docs-bfc4693-2026-10-15.md`): *"No RX- number from 0.2.0 to 0.2.4 takes the decision. Fix:
++at 0.2.6, record that a HIR is compared by its dump text (H-15), with no derive and no error channel."* RX-125 left
++*"whether `Hir` comparison takes the derive"* to cycle 0.2 with its cost on the table — a derived `.eq()` answers
++`Result<bool>`, so a comparison through it threads an error channel, and `SAFETY.md` §4's budget is charged by channels —
++while H-2 called `HirNode` *"comparable"* and the cycle README said *"No open questions"*.
++
++**The decision.** **A HIR's equality is its dump's**: two trees are one HIR when `hir_dump` writes them as one text,
++byte for byte (H-15) — the text a test commits, and the one RX-235 and the Gate hold structurally equal patterns to.
++**No node derives `Eq`**: `HirNode`, `GroupInfo`, `Literal`, `ClassRange` and `HirKind` derive `Copy` alone, and
++nothing under `src/` calls `.eq()` or declares a `hir_eq`, so no comparison of a HIR threads an error channel and none
++charges the budget. **Measured at `c9baa9e`**: the seven derives in `src/hir/repr.npk` and
++`src/unicode/class_range.npk` are each `#[derive(Copy)]`; `src/` names neither `.eq(` nor `hir_eq`; and a derived
++`.eq()` written as a condition is `NITPICK-TYPE-007`, *"this must be a `bool`, and is `Result<bool>`"*. H-2's
++*"comparable"*, O-N10's residue and the cycle README's *"No open questions"* are dated, and RX-125 noted.
++
++*Alternatives declined:* **`#[derive(Eq)]` on the node and what it holds** — every comparison unwraps a `Result<bool>`,
++an error channel for a question that cannot fail, the cost RX-125 put on the table; and the derive compares a node's
++operands, child indices among them (H-3), where the dump writes the tree; **a hand-written `hir_eq` walking both
++trees** — a second definition of equality beside the dump's, by which RX-235 defines structural equality, free to drift
++from it; **left open to the cycle that first compares two HIRs** — the README's *"No open questions"* stays false until
++then, and the first comparison takes the derive by default, its cost unpriced.
+diff --git a/meta/OPEN_QUESTIONS.md b/meta/OPEN_QUESTIONS.md
+index e28f168..ea066e9 100644
+--- a/meta/OPEN_QUESTIONS.md
++++ b/meta/OPEN_QUESTIONS.md
+@@ -242,6 +242,8 @@ either day.
+ error channel and charges `SAFETY.md` §4's budget. That is a **cycle 0.2**
+ decision with the cost on the table, not an automatic consequence of this
+ discharge.
++*(@@DATE026@@, cycle 0.2.6 — RX-248, the documents audit's RA-9: decided — a HIR is compared by its dump text, H-15;
++no node derives `Eq`, and no comparison threads an error channel.)*
+ 
+ ### ~~O-N11 — **the workbench registry's**: `npkc` exit 0 does not mean a program is well-formed~~ — **DISCHARGED upstream: a root with `main` and no `failsafe` is refused `NITPICK-REACH-003` since `94874ce`** (the compiler's DEF-5, 1.5.1b step 1b)
+ *Struck 2026-09-25 by the fifth cycle 0.0 audit's triage, citing the workbench registry (`../meta/OPEN_QUESTIONS.md` §"For the compiler"), which carries the strike with its evidence — re-measured by the workbench's registry audit (`wb-registry-sweep-1821`), each with a control at an older kept pin, and spot-checked by the orchestrator. Its evidence: `nitpick-time`'s `missing_failsafe/` cases 1 and 3 are refused at `c3bdae2` and case 2 runs 0. **The general sentence outlives the defect**: a module's object still links neither alone nor beside a program (`BUILD.md` B-0, RX-151), so "exit 0 is not well-formedness" stays true here for that reason, and the four-step recipe stands. The text below is kept as raised.*
+diff --git a/meta/roadmap/0.2/README.md b/meta/roadmap/0.2/README.md
+index 6b61db9..f4270ae 100644
+--- a/meta/roadmap/0.2/README.md
++++ b/meta/roadmap/0.2/README.md
+@@ -51,6 +51,7 @@ extraction.** Everything decidable without knowing which engine will run.
+ ## Decisions in
+ 
+ RX-015, RX-031. Settled. **No open questions.**
++*(@@DATE026@@, cycle 0.2.6 — RX-248, the documents audit's RA-9: one was open and unrecorded — whether `Hir` comparison takes the derive, RX-125's and O-N10's residue — and RX-248 settles it.)*
+ 
+ ## What cycle 0.1 hands on
+ 
+diff --git a/meta/specs/HIR.md b/meta/specs/HIR.md
+index 8c2e39b..1322052 100644
+--- a/meta/specs/HIR.md
++++ b/meta/specs/HIR.md
+@@ -71,6 +71,9 @@ a `GroupInfo` — its name's offset and length in `names`.)*
+ *(2026-10-15, cycle 0.2.5 — RX-242: *"`Hir` holds no `literals` until cycle 0.2.5"* — it holds them since: `Hir.literals`,
+ H-11's three once they are extracted, each a `Literal` — a role, and an offset and a length in `Hir.lits`, a `Vec<uint8>`
+ of every literal's bytes, beside it (H-20). Both are `hidden`, and only the extraction writes them.)*
++*(@@DATE026@@, cycle 0.2.6 — RX-248, the documents audit's RA-9: *"comparable"* — by its dump text (H-15): two
++trees are one HIR when their dumps are one text, as the Gate holds structurally equal patterns to; no node derives
++`Eq`, so nothing threads the `Result<bool>` a derived `.eq()` answers.)*
+ 
+ **Rule H-3 — children are found by index, never by pointer.** The language
+ would allow a pointer tree, and it would be worse: a `Vec<HirNode>` reallocates
+@@ -228,6 +231,8 @@ empty string"* is that it MAY: false only where no match is empty, an assertion
+ haystack start"* and *"ends at the haystack end"* hold only where they are certain, and only the text's anchors make them:
+ under `m`, `^` and `$` anchor neither end. *"A union of plain literals"* is a plain literal — a `Literal`, or a literal run —
+ or an `Alternate` of plain literals.)*
++*(@@DATE026@@, cycle 0.2.6 — the documents audit's RA-12: `CAN_MATCH_EMPTY`'s first user is not Y-21's iterator rule,
++which reads no fact — H-17's note below — and the literal extraction reads it since cycle 0.2.5 (H-19).)*
+ 
+ **Rule H-10 — these are computed once, in one bottom-up pass, and never
+ recomputed.** The compiler's D-227 is the precedent and the reason: a memoised
+@@ -245,6 +250,9 @@ the iterator's advance (Y-21) and the one-pass engine's eligibility are wrong on
+ `IS_ANCHORED_END` and `IS_ALTERNATION_LITERAL` hold only where they are certain: an anchored search skips the scan loop, a
+ reverse search starts at the end, and the prefilter reads the literals, each wrong only on a false *yes*. A **plain
+ literal** is a `Literal`, or a literal run — a `Concat` of one piece or more, every piece a `Literal` (RX-235).
++*(@@DATE026@@, cycle 0.2.6 — the documents audit's RA-12: Y-21's advance reads no fact — it, and `API.md` A-14, advance
++after every empty match, `lo == hi` — so it is no consumer of `CAN_MATCH_EMPTY`, here or in H-9's table; the
++literal extraction is one since cycle 0.2.5 (H-19).)*
+ 
+ | Kind | `CAN_MATCH_EMPTY` | `IS_ANCHORED_START` | `IS_ANCHORED_END` | `IS_ALTERNATION_LITERAL` |
+ |---|---|---|---|---|
+diff --git a/meta/specs/README.md b/meta/specs/README.md
+index 7fe200c..3a41a04 100644
+--- a/meta/specs/README.md
++++ b/meta/specs/README.md
+@@ -21,7 +21,7 @@ proposals that look reasonable in the abstract die on it.
+ | 1 | [`SAFETY.md`](SAFETY.md) | the linear-time guarantee, what it costs, the error budget, the resource bounds — **the constraints, and where they come from** |
+ | 2 | [`SYNTAX.md`](SYNTAX.md) | the pattern language: exactly what is accepted, what is refused, and why |
+ | 3 | [`BUILD.md`](BUILD.md) | how this is built and tested today, and the module and import conventions |
+-| 4 | [`HIR.md`](HIR.md) | the high-level intermediate: desugaring, normalisation, literal extraction |
++| 4 | [`HIR.md`](HIR.md) | the high-level intermediate: desugaring, normalisation, the computed properties, literal extraction |
+ | 5 | [`UNICODE.md`](UNICODE.md) | properties, scripts, case folding, and where the tables come from |
+ | 6 | [`COMPILE.md`](COMPILE.md) | UTF-8 automata, alphabet compression, the instruction set, the program |
+ | 7 | [`ENGINES.md`](ENGINES.md) | the Pike VM, the lazy DFA, the prefilters, and the meta-engine |
+diff --git a/nitpick.toml b/nitpick.toml
+index 147729f..2eb6fe6 100644
+--- a/nitpick.toml
++++ b/nitpick.toml
+@@ -132,6 +132,8 @@ path  = "tests/probe/refused"      # the probes that are refused, each with its
+ # holds 21 files now, and the conformance, unit and rejection suites reach 19 of
+ # them; `src/compile/compile.npk` and `src/engine/engine.npk`, one placeholder
+ # each, are reached by no other suite.)*
++# *(@@DATE026@@, cycle 0.2.6 -- the documents audit's RA-12: *"21 files now"* is cycle 0.2.2's count; `src/`
++# holds 22 `.npk` files at cycle 0.2.6, and the count is `git ls-files`' to say, as the sweep reads every one.)*
+ # `recursive = true` because "every .npk in the tree" is the rule, and these
+ # three directories are the whole of it (measured: 37 files, 2026-09-04).
+ [[test]]

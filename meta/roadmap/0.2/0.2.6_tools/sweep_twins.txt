@@ -1,0 +1,18 @@
+# The control's twins (block 6s): `file|line`, each line appended to that file in a copy, phrased in other words than
+# any claim the close dated -- one per pattern of `sweep_patterns.txt`, which must catch it there.
+README.md|The next part of this cycle is 0.2.6, its close.
+CLAUDE.md|No unit is pending today.
+meta/specs/HIR.md|The node's size is not yet measured.
+meta/roadmap/0.3/README.md|Nothing is open here.
+harness/README.md|The runner holds 10 tree checks.
+meta/specs/SAFETY.md|The bounds number nine in all.
+meta/specs/API.md|The iterator's advance (Y-21) reads whether a node may match the empty string.
+meta/specs/BUILD.md|The compiler declares 63 builtins by bare name.
+meta/specs/TESTING.md|A text's reader, hir_read, sets no fact.
+meta/OPEN_QUESTIONS.md|At the old pin m.end was 3.
+tests/README.md|check_hir_kinds_total is not built yet.
+meta/specs/COMPILE.md|Two HIRs are compared by deriving Eq.
+meta/roadmap/ROADMAP.md|It read 118 GiB at its lowest.
+meta/specs/SYNTAX.md|A keyword is never a declared name.
+meta/specs/GLOSSARY.md|A completed dump shows every bit its nodes hold.
+nitpick.toml|# src/ holds 21 files now.

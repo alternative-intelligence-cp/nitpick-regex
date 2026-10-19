@@ -1,0 +1,8 @@
+# The six "To 0.2.6" hand-ons of cycle 0.2's subcycle files, each read in full at `084187a` (the plan's §2): the file's
+# name and the first words of its line, which no step's note moves. `handons.py` holds the sweep to this list both ways.
+0.2.0.md|- **To 0.2.6:** `check_hir_kinds_total` reads the nine kinds
+0.2.1.md|- **To 0.2.6:** `check_hir_kinds_total`'s *"produced by the parser"*
+0.2.5.md|- **To 0.2.6, the cycle's close:** `check_hir_kinds_total` reads nine kinds still
+0.2.5.md|- **To 0.2.6, the close**: `opsweep.py`'s docstring
+0.2.5a.md|- **To 0.2.6, the close:** the rename is done here
+0.2.5a.md|- **§7's four items stand as written**, checked against what ran. To 0.2.6, the close carries

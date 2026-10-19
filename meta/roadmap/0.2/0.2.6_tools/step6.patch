@@ -1,0 +1,164 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 4c6e3d3..b9997c6 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -6,8 +6,9 @@ Guidance for Claude Code sessions working in this repository.
+ 
+ `nregex` — a regular-expression library for **Nitpick**, the safety-critical
+ systems language at `../../nitpick`. **Status: cycle 0.1, the pattern parser, CLOSED on 2026-10-08 — its
+-audit ACCEPTED it once C1 was fixed, and it is archived in `meta/roadmap/done/0.1/`; cycle 0.2, the HIR, is OPEN, and
+-its 0.2.0, the arena, is done — `src/hir/` holds the HIR as a flat arena of nine kinds of node that own nothing,
++audit ACCEPTED it once C1 was fixed, and it is archived in `meta/roadmap/done/0.1/`; cycle 0.2, the HIR, CLOSED on
++@@DATE026@@ — its close triaged the documents audit's RA-9 … RA-13 and every item carried to it, and it is archived in
++`meta/roadmap/done/0.2/` — and its 0.2.0, the arena, is done — `src/hir/` holds the HIR as a flat arena of nine kinds of node that own nothing,
+ built and read through accessors that check every index, and as one line of text read back byte for byte, and
+ `src/unicode/` holds `ClassRange` (RX-222 … RX-225, `meta/roadmap/done/0.2/0.2.0.md`); and its 0.2.1, the desugaring, is
+ done — `hir_build` builds a HIR from a pattern's AST, `HIR.md` H-5's table and nothing else, every flag erased into what
+@@ -34,7 +35,11 @@ reference, a fuzz holds 3 000 seeded trees' literals to strings drawn from them,
+ pending until cycle 0.5.5 (RX-241 … RX-243, `meta/roadmap/done/0.2/0.2.5.md`); and its 0.2.5a, the adoption of compiler
+ `c9baa9e`, is done — a keyword names nothing there, a field included, so the parser's explicit stack is
+ `Parser.frames`, and every emission is `7e91730`'s but for the compiler's own two changes, an attribute on each function
+-and drops made unconditional (RX-244, RX-245, `meta/roadmap/done/0.2/0.2.5a.md`); 0.2.6, the cycle's close, is next.
++and drops made unconditional (RX-244, RX-245, `meta/roadmap/done/0.2/0.2.5a.md`); and its 0.2.6, the close, is done —
++`check_hir_kinds_total` holds every `HirKind` to the code of `hir_build`, the compiler's and the oracle's halves each
++pending on its cycle's box; the literal extraction's two bounds are rows of `SAFETY.md` S-12's table; and a HIR is
++compared by its dump text, no node deriving `Eq` (RX-246 … RX-248, `meta/roadmap/done/0.2/0.2.6.md`). Cycle 0.3,
++Unicode, is next.
+ Cycle 0.1's 0.1.0, 0.1.0b, 0.1.1, 0.1.1b, 0.1.2, 0.1.3, 0.1.4, 0.1.5, 0.1.6a, 0.1.6b and 0.1.6 are done** — the pieces the parser is written
+ in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/done/0.1/0.1.0.md`); the adoption of
+ compiler `5fbaf4a` (RX-176 … RX-180, `0.1.0b.md`); and the core grammar —
+@@ -131,18 +136,14 @@ more, one of them pending until cycle 0.5.5.
+ happens yet**: `src/compile/`, `src/engine/` and `src/api/` are still one
+ placeholder module each. A full green run at compiler `c9baa9e` is
+ **347 units** (after cycle 0.2.5a, the adoption of that pin, four pending units outside them, as after cycle 0.2.5, literal extraction, at `7e91730`; 334 after cycle 0.2.4, the computed properties, three pending outside them, as after cycle 0.2.3; 318 after cycle 0.2.3, normalisation; 302 after cycle 0.2.2, the repetition product, two pending outside them, as after cycle 0.2.1a; 294 after cycle 0.2.1a, the adoption of `7e91730`, as after cycle 0.2.1 at `5fbaf4a`; 283 after cycle 0.2.0; 260 after cycle 0.1.6b; 258 after cycle 0.1.6a, as after cycle 0.1.5; 254 after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus eleven tree checks (ten until cycle 0.2.6's `check_hir_kinds_total`, nine until cycle 0.1.6b's `check_error_kinds_tested`, eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
+-summary rather than from here. **Nothing is PENDING any more**:
+-`tests/unit/bytes_copy_string_empty.npk` was committed red under
+-`pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
+-`c3bdae2` it started passing, the harness reddened the run, and the marker was
+-deleted (cycle 0.0.4b). *(2026-10-08, cycle 0.2.1 — RX-226, RX-229: two units are pending
+-again, each on a subcycle of this library rather than a compiler —
+-`tests/unit/hir_build_classes.npk` and `hir_build_fold.npk`, until cycle 0.3.4 fills the
+-HIR build's hooks and widens its `leaf` — and the runner prints both, outside its count.)*
+-*(2026-10-12, cycle 0.2.3 — RX-237: and a third, `tests/unit/hir_normalise_oracle.npk`, until cycle 0.5.5's oracle;
+-the runner prints all three outside its count.)*
+-*(2026-10-15, cycle 0.2.5 — RX-243: and a fourth, `tests/unit/hir_literal_oracle.npk`, until cycle 0.5.5's oracle too;
+-the runner prints all four outside its count.)*
++summary rather than from here. **Four units are PENDING, each on a later subcycle of this library**:
++`tests/unit/hir_build_classes.npk` and `hir_build_fold.npk` until cycle 0.3.4 fills the HIR build's hooks and widens
++its `leaf` (RX-226, RX-229), and `tests/unit/hir_normalise_oracle.npk` and `hir_literal_oracle.npk` until cycle
++0.5.5's oracle (RX-237, RX-243) — and the runner prints all four, outside its count. *(None was pending from cycle
++0.0.4b, when `tests/unit/bytes_copy_string_empty.npk`, committed red under `pending-until: fe42dba` while this tree was
++pinned below that fix (DEF-25), started passing at `c3bdae2`, the harness reddened the run and the marker was
++deleted, until cycle 0.2.1's two. Rewritten @@DATE026@@ at cycle 0.2.6, the documents audit's RA-11: this said
++*"Nothing is PENDING any more"* above three dated notes that each added a unit.)*
+ **This file said 98 and six in one paragraph and *four* tree checks 220 lines
+ lower**, and the cycle 0.0 audit found it (N-2) in the document every session is
+ told to read first. Two sections of one file disagreeing is the shape this
+@@ -382,18 +383,15 @@ evidence.
+   decision, not a free deletion.
+ - **Measure `#size_of`, never derive it.** `Inst` is 12, `Match` is 16,
+   `ByteSet` is 32, `string` is 24.
+-  **`HirNode` is NOT on that list, and the reason is the rule itself.** The
+-  measured 24 belongs to the **payload spelling** of `HirKind` — the shape
+-  `HIR.md` H-2 examined and **declined** — not to the specified `HirNode`, which
+-  is a tag plus three `int32`s plus a `uint32` and does not exist in `src/` until
+-  cycle 0.2. Quoting 24 for it would be attributing a measurement of the rejected
+-  alternative to the accepted one, in the same sentence that says to measure.
+-  Its size is **unmeasured**; measure it when it is written, and make the probe's
+-  exit code be `#size_of` so the number cannot be transcribed wrongly (RX-135).
+-  *(Measured at cycle 0.2.0, compiler `5fbaf4a` — RX-223: the node `src/hir/repr.npk` declares
+-  is **40** — a tag and a flags word, then `int64` operands and a `next` — and
+-  `tests/unit/hir_size.npk` exits with it; H-2's drawing measures 20. `GroupInfo` is 16
+-  and `ClassRange` 8.)*
++  **`HirNode` is 40** — a tag and a flags word, then `int64` operands and a `next` —
++  measured at cycle 0.2.0, compiler `5fbaf4a`, by `tests/unit/hir_size.npk`, which
++  exits with `#size_of` so the number cannot be transcribed wrongly (RX-135, RX-223);
++  H-2's drawing measures 20, `GroupInfo` is 16 and `ClassRange` 8. *(Until cycle 0.2.0
++  it was unmeasured and did not exist in `src/`, and the 24 a probe had measured
++  belonged to the payload spelling of `HirKind`, the shape H-2 declined — quoting it
++  for the node would have been a measurement of the rejected alternative given to the
++  accepted one, which RX-135 names. Rewritten @@DATE026@@ at cycle 0.2.6, the
++  documents audit's RA-11: this said **unmeasured** above the dated note that gave 40.)*
+ - **`npkc`'s exit codes are an alphabet, and `2` is not a refusal.** `0`
+   success; `1` **refused, with diagnostics**; `2` the driver **could not proceed
+   and judged nothing**, silently, with an empty stderr; `3` a trap. A test
+diff --git a/README.md b/README.md
+index 4a68896..827636a 100644
+--- a/README.md
++++ b/README.md
+@@ -8,9 +8,9 @@ makes the guarantee below possible.
+ > **The guarantee, in one sentence: a search takes time linear in the length of
+ > the haystack, on every pattern, on every input, always.**
+ 
+-> **Status: cycle 0.2, the HIR, is open, and its first eight parts — the arena, the desugaring, the adoption of
++> **Status: cycle 0.2, the HIR, closed on @@DATE026@@ — its eight parts, the arena, the desugaring, the adoption of
+ > compiler `7e91730`, the repetition product, normalisation, the computed properties, literal extraction and the
+-> adoption of compiler `c9baa9e` — are done; cycle 0.1, the pattern parser, closed on 2026-10-08.** Cycle 0.0, the
++> adoption of compiler `c9baa9e`, and then its close; cycle 0.1, the pattern parser, closed on 2026-10-08.** Cycle 0.0, the
+ > foundations, closed on 2026-09-26 — the language probes, the test harness and
+ > the storage primitives in `src/core/` are built and audited — and cycle 0.1.0
+ > laid the parser's pieces in `src/syntax/`: the closed list of pattern errors,
+@@ -47,7 +47,9 @@ makes the guarantee below possible.
+ > Cycle 0.2.5 extracts, for the prefilters to scan for, the bytes every match begins with, the bytes a match can begin
+ > with and a literal every match holds — each one only where it is certain, so a pattern it cannot read is searched slower,
+ > never wrongly. Cycle 0.2.5a moved the pinned compiler to `c9baa9e`, which refuses a keyword as a field's name: the
+-> parser's explicit stack is `frames` now, and nothing else the library holds moved.
++> parser's explicit stack is `frames` now, and nothing else the library holds moved. Cycle 0.2.6 closed the cycle: a
++> tree check holds every kind of HIR node to the code that builds it, and a HIR is compared by its text. Cycle 0.3,
++> Unicode, is next.
+ > Nothing matches a pattern yet.
+ > The specification set is in [`meta/specs/`](meta/specs/) and the plan in
+ > [`meta/roadmap/`](meta/roadmap/), written in the same order and by the same
+diff --git a/meta/roadmap/0.3/README.md b/meta/roadmap/0.3/README.md
+index 6d53cfb..b589c23 100644
+--- a/meta/roadmap/0.3/README.md
++++ b/meta/roadmap/0.3/README.md
+@@ -10,6 +10,25 @@ RX-021, RX-022, RX-023. Settled.
+ **Open questions to settle:** *(2026-10-08 — cycle 0.1.6b, RX-219: and O-Y3, what `EmptyClass` names, at 0.3.4.)* Q-1 / O-U2 (the version to pin — data, not
+ design; recorded when chosen).
+ 
++## What cycle 0.2 hands on
++
++*(@@DATE026@@, cycle 0.2's close — [`../done/0.2/0.2.6.md`](../done/0.2/0.2.6.md).)*
++
++- **The HIR a class resolves into, and its two hooks.** `hir_build` stops at a class's unresolved item at `resolve_items`
++  and at `i`'s folding at `fold_ranges`, both in `src/hir/build.npk`, and in `leaf` for a bare Perl class, a bare property
++  and a negated class; `tests/unit/hir_build_classes.npk` and `hir_build_fold.npk` are pending until 0.3.4, whose boxes
++  say how each goes green (RX-228, RX-229).
++- **`ClassRange` is declared by hand**, in `src/unicode/class_range.npk`, and `src/unicode/unicode.npk` is the layer's
++  entry; the generated tables import the type, and `check_tables_regenerate` reads the generated files alone — 0.3.0's
++  box (RX-222).
++- **`check_hir_kinds_total` is live** (RX-246): a kind this cycle adds to `HirKind` is held to `hir_build`'s code on
++  every run, and to `HIR.md` H-4.
++- **A HIR is compared by its dump text** (RX-248), so a test of what 0.3.4 builds compares dumps.
++- **The compiler's landings past the pin** — 119 … 132 at the close — are not carried at `c9baa9e`; `0.3.0.md` names
++  each, and a re-pin brings them as a subcycle of its own.
++- **A keyword names nothing at `c9baa9e`** — a field, a variant, a parameter, a `for` binding, a module binding: check
++  every planned name against the compiler's `src/frontend/keywords.npk` (`../done/0.2/0.2.5a.md` §7).
++
+ ## Subcycles
+ 
+ | # | Topic | Ends with |
+diff --git a/meta/roadmap/ROADMAP.md b/meta/roadmap/ROADMAP.md
+index e3dd20a..02bf99b 100644
+--- a/meta/roadmap/ROADMAP.md
++++ b/meta/roadmap/ROADMAP.md
+@@ -56,7 +56,7 @@ cycle 0.0.
+ |---|---|---|
+ | **0.0** | **Foundations** — the language probes, the harness, `src/core/` — **DONE 2026-09-26, archived to [`done/0.0/`](done/0.0/README.md).** The sixth W-22 audit ACCEPTED the close at compiler `c970483`, after five refusals — three on 2026-09-06, two on 2026-09-25 — and two inserted subcycles, 0.0.4d (`Vec` move-only) and 0.0.4e (the re-pin that refused the loan). The close is [`done/0.0/0.0.5.md`](done/0.0/0.0.5.md) §13 | — |
+ | **0.1** | **The pattern parser** — syntax to AST, an explicit stack, byte-accurate errors — **DONE 2026-10-08, archived to [`done/0.1/`](done/0.1/README.md).** Its audit ACCEPTED it once C1 was fixed — `regex_escape`'s text read as a POSIX class straight after a nested class's `[`, the one wrong answer, fixed first — and the close is [`done/0.1/0.1.6.md`](done/0.1/0.1.6.md), its §2 the audit's twenty-two findings, one row each | 0.0 |
+-| **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction — **OPEN: [`0.2.0`](done/0.2/0.2.0.md), the arena, [`0.2.1`](done/0.2/0.2.1.md), the desugaring, [`0.2.1a`](done/0.2/0.2.1a.md), the adoption of compiler `7e91730`, [`0.2.2`](done/0.2/0.2.2.md), the repetition product, [`0.2.3`](done/0.2/0.2.3.md), normalisation, [`0.2.4`](done/0.2/0.2.4.md), the computed properties, [`0.2.5`](done/0.2/0.2.5.md), literal extraction, and [`0.2.5a`](done/0.2/0.2.5a.md), the adoption of compiler `c9baa9e`, done; 0.2.6, the close, next** | 0.1 |
++| **0.2** | **The HIR** — desugaring, normalisation, computed properties, literal extraction — **CLOSED @@DATE026@@, archived to [`done/0.2/`](done/0.2/README.md): [`0.2.0`](done/0.2/0.2.0.md), the arena, [`0.2.1`](done/0.2/0.2.1.md), the desugaring, [`0.2.1a`](done/0.2/0.2.1a.md), the adoption of compiler `7e91730`, [`0.2.2`](done/0.2/0.2.2.md), the repetition product, [`0.2.3`](done/0.2/0.2.3.md), normalisation, [`0.2.4`](done/0.2/0.2.4.md), the computed properties, [`0.2.5`](done/0.2/0.2.5.md), literal extraction, and [`0.2.5a`](done/0.2/0.2.5a.md), the adoption of compiler `c9baa9e`, done, and [`0.2.6`](done/0.2/0.2.6.md), the close — `check_hir_kinds_total` live, the documents audit's RA-9 … RA-13 and the carried items triaged, a HIR compared by its dump text** | 0.1 |
+ | **0.3** | **Unicode** — generated tables, properties, scripts, simple case folding | 0.0 |
+ | **0.4** | **UTF-8 automata** — codepoint ranges to byte ranges, alphabet compression | 0.3 |
+ | **0.5** | **The oracle** — the naive reference matcher, and the conformance corpus | 0.2, 0.3 |
+@@ -222,6 +222,9 @@ run as a program and swept as a root; three pending outside them, as before; dec
+ outside the count with the three before it; decisions through RX-243.)*
+ *(After cycle 0.2.5a, at compiler `c9baa9e`: **347** units, no file added — the explicit stack's field `frames`, since a
+ keyword names nothing at that pin; decisions through RX-245.)*
++*(After cycle 0.2.6, the close, at compiler `c9baa9e`: **347** units, no file added; a self-check of **36** cases, 32
++live, and **eleven** tree checks, `check_hir_kinds_total` live; decisions through RX-248; cycle 0.2 archived to
++`done/0.2/`.)*
+ 
+ **Two probes refuted their own hypothesis**, which is the cycle's best return:
+ `probe06b`'s slice return was *expected refused* and is **accepted** (a compiler

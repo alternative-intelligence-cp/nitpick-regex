@@ -1,0 +1,19 @@
+# 0.2.6's sweep (block 6s): each line `label|regex`, case-insensitive, matched line by line over the live text files
+# `sweep.py` names. Each pattern reads a SUBJECT the close changed, in more than one wording; `sweep_twins.txt` is its
+# control, a twin of each claim phrased in other words, which the pattern must catch in a copy.
+status|0\.2\.6[^.\n]{0,40}\bnext\b|\bnext\b[^.\n]{0,40}0\.2\.6|plan no file holds yet|cycle 0\.2[^.\n]{0,25}\b(is )?open\b
+pending|nothing is pending|no unit is pending|none (is|are) pending
+unmeasured|unmeasured|size is not (yet )?measured
+open questions|no open questions|nothing (is )?open
+counts|tree checks?[^.\n]{0,30}\b(ten|10)\b|\b(ten|10)\b[^.\n]{0,30}tree checks?|\b(31|thirty-one) live\b|\b(35|thirty-five) cases\b
+bounds|\bnine (rows|named|bounds|limits)\b|nine of them|the nine above|bounds?[^.\n]{0,30}\bnine\b
+iterator|y-21.{0,4}iterator rule|y-21[^.\n]{0,30}(iterator|advance)[^.\n]{0,40}(empty|fact|consum)|(iterator|advance)[^.\n]{0,20}\(y-21\)
+builtins|\b63\b[^.\n]{0,40}builtin|builtins?[^.\n]{0,30}\b63\b
+reads none|hir_read[^.\n]{0,25}(sets|writes) (none|no)|never sets
+field read|m\.end`? read 3|`?m\.end`? (is|was|read) 3
+the check|no . \*\*cycle 0\.2\*\*|check_hir_kinds_total[^.\n]{0,40}(not yet|unbuilt|not built)|no check asserts
+comparable|comparable|compared by (a )?deriv
+cost|\b118 to 122\b|118[^.\n]{0,10}GiB
+keywords|cannot be a declared name|keyword[^.\n]{0,30}never (a )?(declared )?name
+every bit|shows every bit|every bit (it|its nodes) hold
+src count|holds 21 files|21 files now

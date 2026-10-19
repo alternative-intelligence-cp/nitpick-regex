@@ -1,0 +1,152 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+index e1f0147..bb66934 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -448,6 +448,12 @@ evidence.
+   impl that declares `move` on a parameter its trait lends compiles, and a call
+   through the trait then double-frees — `tests/probe/probe18_impl_adds_move.npk`,
+   the workbench registry's O-N28.
++  *(@@DATE026@@, cycle 0.2.6 — RX-244: *"A keyword cannot be a declared name"* is over-broad as history. Measured at
++  `7e91730`, `acquire`, `any`, `nit` and `trit` compile as a function's, a type's or a module's name — `c970483`'s
++  `p_declared_name` passes the same four, read and not run — and a field's, a variant's, a parameter's, a `for`
++  binding's, a `fixed` module binding's, a variadic's and a generic parameter's name compiles whatever the keyword, a
++  generic parameter's bar `comptime`; from `c9baa9e` only a generic parameter's, a variadic's and a macro parameter's
++  still do (`meta/roadmap/0.2/0.2.5a.md` §1.4).)*
+ - **At compiler `5fbaf4a` (cycle 0.1.0b) that one is refused too, and three things
+   the harness holds changed.** Probe 18's impl is `NITPICK-TYPE-014` (DEF-116), and it
+   lives in `tests/probe/refused/`; the owner of a live view written is
+diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
+index 29c3629..e4f3c37 100644
+--- a/meta/DECISIONS.md
++++ b/meta/DECISIONS.md
+@@ -6420,6 +6420,10 @@ normal form flattens (RX-235); **the facts of the normal form alone** — the qu
+ facts beside the normal form's show what normalisation gains.
+ 
+ ### RX-239 — the cache and the query, a new rule H-18: the facts in the high half of `flags` behind `HIR_PROPS_COMPUTED`, the distinct "not yet computed" state; `hir_props` computes-or-returns by one pass over the whole tree; only that pass writes the bits — `hir_push` and `hir_set` drop them; a computed tree is finished — `hir_set` and `hir_set_root` stop on it; and the dump shows none
++> **SUPERSEDED IN PART by RX-242 (2026-10-15)**, marked @@DATE026@@ by cycle 0.2.6 — its *"and `hir_read` sets none"*: a
++> text that carries a literals' section is read by extracting its literals, which asks `hir_props` first, so every node
++> of the tree `hir_read` reads from such a text holds its facts — H-15's and H-18's notes of 2026-10-15; a text without a
++> section reads as before. The decision stands.
+ **2026-10-13, cycle 0.2.4 (the plan's PD-124), at compiler `7e91730`** — `HIR.md` H-4a, H-9, H-10, H-15 and H-18,
+ `SAFETY.md` S-19, RX-225, RX-227 and RX-236, the compiler's D-227, the cycle README's second and third 0.2.4 boxes —
+ *"computed in **one** bottom-up pass and cached (H-10)"*, with RX-227's note that each bit this subcycle adds is refused by
+@@ -6694,6 +6698,8 @@ pin's move** — then no compiler could testify that it changed no answer: `7e91
+ reads a comment.
+ 
+ ### RX-245 — the adoption of compiler `c9baa9e`: a keyword names nothing, a field included, so RX-134's account of a keyword field is dated; `rx120.sh` at `c9baa9e`; B-4e's third re-read; and every emission the old pin's but for the compiler's own two changes, read through its own normalisers
++> *(Noted @@DATE026@@, cycle 0.2.6 — its *"`m.end` read 3 at both legs"*: the program exits with `m.end - m.start`, RX-134's
++> `4 - 1`, and 3 is that difference at both legs; `m.end` reads 4.)*
+ 
+ **2026-10-16, cycle 0.2.5a (the plan's PD-180), at compiler `c9baa9e`, from `7e91730`** — landings 104 … 118, the
+ libraries' one re-pin by the author's word of 2026-10-15 (the workbench's question 32), after RX-244 renamed the field.
+diff --git a/meta/roadmap/0.2/0.2.3.md b/meta/roadmap/0.2/0.2.3.md
+index f7488e1..9ea432b 100644
+--- a/meta/roadmap/0.2/0.2.3.md
++++ b/meta/roadmap/0.2/0.2.3.md
+@@ -90,6 +90,9 @@
+    three RX numbers in PD order. Block 0a prints the decision log's last heading and its highest by value — 0.2.2's
+    last; the patches carry the three after it, step 1's patch the batch heading, the first and the second, step 2's the
+    third and the marker on 0.2.2's first. If it reads otherwise, stop: renumbering is a re-cut, and the orchestrator's.
++   *(@@DATE026@@, cycle 0.2.6 — the board's carried item 14: accepted by the Team seat's manager, under its brief's §7, the
++   orchestrator's delegation, and confirmed by the libraries' seat at its review — the workbench's `RECORD.md`, its entry
++   of 2026-10-13 04:20; the decision log's batch headings word no acceptance.)*
+    **This file never writes those numbers out** — an RX number in a roadmap file's prose is a citation (`check_refs`),
+    and one that does not exist yet is `cited-undefined`.
+ 4. **One full harness at a time on this machine, and each its own block** (0h, 1h, 2h, 4h): a full run took four and a
+diff --git a/meta/roadmap/0.2/0.2.4.md b/meta/roadmap/0.2/0.2.4.md
+index 59530e9..8b747f1 100644
+--- a/meta/roadmap/0.2/0.2.4.md
++++ b/meta/roadmap/0.2/0.2.4.md
+@@ -1216,6 +1216,9 @@ moved — block 0b's §1.9 read the strike as §1.9 says. Nothing is for the com
+ none`; this subcycle neither opens nor closes its cycle. The title read `— PLANNED` until blocks 0a, 0h and 0b ended
+ (07:03:03 to 07:11:42), so 0a's porcelain line read 0; it read `RUNNING (since 2026-10-13, s1)` from 07:12:02,
+ uncommitted through the three work commits, and reads `DONE (2026-10-13)` in this commit.
++*(@@DATE026@@, cycle 0.2.6 — a correction: *"63 bare-name builtins"* — 57 bare-name builtins and 6 `#` builtins.
++The pattern read `src/frontend/builtins.npk`'s `is_builtin_name`, 57 names, and `is_hash_builtin`'s six — `ptr_add`,
++`size_of`, `sqrt`, `unreachable`, `wild_ptr` and `wild_slice` — the same 63 at `7e91730` and `c9baa9e`.)*
+ 
+ **How every block ran: through the comparator**, one Bash call per block, in order, each in the checkout —
+ `python3 -B "$T/blocks.py" run "$REPO" <id>`, then `compare`, each a fresh `bash -c` holding only `REPO=`, whose `grep`
+diff --git a/meta/roadmap/0.2/0.2.5.md b/meta/roadmap/0.2/0.2.5.md
+index 1a8d1aa..b2a2e1a 100644
+--- a/meta/roadmap/0.2/0.2.5.md
++++ b/meta/roadmap/0.2/0.2.5.md
+@@ -254,6 +254,9 @@ once, each a call. The scanner flags every shape planted in its control and none
+ comment or a string. No file the patches touch holds `@@DATE025@@` as the tree stands, so every placeholder `apply.py`
+ replaces is this subcycle's. Step 1 touches 22 files and step 2 four, and **no file both**: neither patch appends after the
+ other (finding 12).
++*(@@DATE026@@, cycle 0.2.6 — a correction: *"63 bare-name builtins"* — 57 bare-name builtins and 6 `#` builtins.
++The pattern read `src/frontend/builtins.npk`'s `is_builtin_name`, 57 names, and `is_hash_builtin`'s six — `ptr_add`,
++`size_of`, `sqrt`, `unreachable`, `wild_ptr` and `wild_slice` — the same 63 at `7e91730` and `c9baa9e`. Block 0b's §1.8 line, which `facts.sh` prints, and the record say the same 63.)*
+ 
+ ### 1.9 RX-235's two-HIR clause, struck
+ 
+@@ -1606,6 +1609,9 @@ block 0b's §1.9 read the strike as §1.9 says. Nothing is for the compiler seat
+ subcycle neither opens nor closes its cycle. The title read `— PLANNED` until blocks 0a, 0h and 0b ended (08:39:14 to
+ 08:46:01), so 0a's porcelain line read 0; it read `RUNNING (since 2026-10-15, s1)` from 08:46:09, uncommitted through the
+ two work commits, and reads `DONE (2026-10-15)` in this commit.
++*(@@DATE026@@, cycle 0.2.6 — a correction: *"63 bare-name builtins"* — 57 bare-name builtins and 6 `#` builtins.
++The pattern read `src/frontend/builtins.npk`'s `is_builtin_name`, 57 names, and `is_hash_builtin`'s six — `ptr_add`,
++`size_of`, `sqrt`, `unreachable`, `wild_ptr` and `wild_slice` — the same 63 at `7e91730` and `c9baa9e`.)*
+ 
+ **How every block ran: through the comparator**, one Bash call per block, in order, each in the checkout —
+ `python3 -B "$T/blocks.py" run "$REPO" <id>`, then `compare`, each a fresh `bash -c` holding only `REPO=`, whose `grep`
+diff --git a/meta/roadmap/0.2/0.2.5_tools/opsweep.py b/meta/roadmap/0.2/0.2.5_tools/opsweep.py
+index 54166e0..e79a124 100644
+--- a/meta/roadmap/0.2/0.2.5_tools/opsweep.py
++++ b/meta/roadmap/0.2/0.2.5_tools/opsweep.py
+@@ -13,6 +13,9 @@ brace, as a struct literal does; and it makes no mutation of another kind -- a r
+ replacements, `*`, a shift, a constant set to 0 or to 1, a named constant's value, a call's argument, a field read for
+ another, a condition forced, a statement of another kind removed, a kind or a role swapped, a variable for another.
+ §4.1 says what lies there.
++*(@@DATE026@@, cycle 0.2.6 -- plan verification 4's finding 1, for the libraries' reviewer at the merge: *"no mutation of
++another kind"* is exact as a list of rules, and an edit of its own kinds can fall on one -- a literal one up or one down
++on a shift's amount, a step kind's declared value or a call's argument, or to 0 or 1 -- as §4.1 says.)*
+ 
+     python3 -B opsweep.py <tree> [<jobs>]
+ 
+diff --git a/meta/roadmap/0.2/0.2.5a.md b/meta/roadmap/0.2/0.2.5a.md
+index 5316d75..5a0703e 100644
+--- a/meta/roadmap/0.2/0.2.5a.md
++++ b/meta/roadmap/0.2/0.2.5a.md
+@@ -1683,6 +1683,8 @@ and given in the final message, since a record cannot quote the run its own comm
+   0h 314.2 s and 1h 315.6 s at `7e91730`, 0r 118.1 s (the red run) and 2h 313.9 s and 4h 312.2 s at `c9baa9e` — and
+   none outside a block: the record's commit adds only `meta/roadmap/` text, which no failing check reads. The compiling blocks, 0b 3 min 22 s, 1 4 min 1 s and 2 4 min 27 s. earlyoom's
+   journal: no kill today.
++  *(@@DATE026@@, cycle 0.2.6 — a correction: *"118 to 122"* — 120 to 122. The five full runs read 122, 120, 120, 120 and
++  120 GiB available, 0h, 0r, 1h, 2h and 4h by *"Step by step"*'s table; the 118 was block 0b's, which runs no harness.)*
+ - **CI**: run 38927196687, 5 min 53 s, on the work's head; the record's run is read after its push, in the final
+   message.
+ - **Tokens**: not metered here. No document was fetched, and no research was asked for.
+diff --git a/meta/roadmap/0.2/README.md b/meta/roadmap/0.2/README.md
+index f4270ae..8b2d3c8 100644
+--- a/meta/roadmap/0.2/README.md
++++ b/meta/roadmap/0.2/README.md
+@@ -10,7 +10,8 @@ extraction.** Everything decidable without knowing which engine will run.
+ > [`0.2.5a`](0.2.5a.md), the adoption of compiler `c9baa9e`, is DONE (2026-10-16).**
+ > 0.2.0: RX-222 … RX-225 in seven work
+ > commits, `02bf6d7` … `35edbfe`, 283/283 in CI run 37817452049. 0.2.1: RX-226 … RX-229 in five work commits, `93e78a1` …
+-> `3fd81af` — a `pending-until:` marker that names a subcycle, a dump that shows every bit or stops, `hir_build` over H-5's
++> `3fd81af` — a `pending-until:` marker that names a subcycle, a dump that shows every bit or stops *(@@DATE026@@ — RX-239: but the
++> computed facts' five)*, `hir_build` over H-5's
+ > table, and the two tests of what cycle 0.3.4 will build, pending until then; 294/294 at `5fbaf4a`, two pending outside
+ > the count, and in CI run 37858159348. 0.2.1a: RX-230 and RX-231 in four work commits, `90b7a3c` … `c160bb7` — every slice
+ > the tree holds the read-only view, `fixed uint8[]`, with `5fbaf4a` seeing no difference, then LLVM 20.1.8, one
+@@ -77,7 +78,7 @@ RX-015, RX-031. Settled. **No open questions.**
+ | # | Topic | Ends with |
+ |---|---|---|
+ | 0.2.0 | **The arena** — the nine kinds, the flat POD representation, the dump — **[`0.2.0.md`](0.2.0.md)**, written at cycle 0.1's close and measured at `5fbaf4a`, then rehearsed in its real position at `5fbaf4a` by cycle 0.2's planner, three records first — the author's words for `README.md`'s price paragraph, four decisions' first paragraphs freed from their notes' blockquotes, and `ROADMAP.md`'s cycle 0.1 sentence dated; PD-66 … PD-69 accepted as RX-222 … RX-225 — **DONE (2026-10-08)**, 283/283 *(until 0.2.0's record this row said "PD-66 … PD-69 are the orchestrator's to accept")* | a HIR that round-trips through its text form |
+-| 0.2.1 | **Desugaring** — `HIR.md` §3's table, exactly and nothing else — **[`0.2.1.md`](0.2.1.md)**, planned and rehearsed in its real position at `5fbaf4a` by cycle 0.2's planner, the instruments first — a `pending-until:` marker that names a subcycle, and a dump that shows every bit or stops — then the build and the two tests pending on it until cycle 0.3.4; PD-70 … PD-73 accepted as RX-226 … RX-229, with the orchestrator's correction made through the patches — the build stops in `leaf` too, before any hook — **DONE (2026-10-08)**, 294/294, two pending outside it *(until 0.2.1's record this row said "then the build and the two tests pending on its hooks; PD-70 … PD-73 are the orchestrator's to accept")* | every row tested; flags erased |
++| 0.2.1 | **Desugaring** — `HIR.md` §3's table, exactly and nothing else — **[`0.2.1.md`](0.2.1.md)**, planned and rehearsed in its real position at `5fbaf4a` by cycle 0.2's planner, the instruments first — a `pending-until:` marker that names a subcycle, and a dump that shows every bit or stops *(@@DATE026@@ — RX-239: but the computed facts' five)* — then the build and the two tests pending on it until cycle 0.3.4; PD-70 … PD-73 accepted as RX-226 … RX-229, with the orchestrator's correction made through the patches — the build stops in `leaf` too, before any hook — **DONE (2026-10-08)**, 294/294, two pending outside it *(until 0.2.1's record this row said "then the build and the two tests pending on its hooks; PD-70 … PD-73 are the orchestrator's to accept")* | every row tested; flags erased |
+ | 0.2.1a | **The adoption of compiler `7e91730`** — landing 103, the libraries' one re-pin: `fixed uint8[]`, the read-only view, in every slice the tree holds, the old compiler seeing no difference; then the pin's own moves — LLVM 20.1.8, the compiler's DEF-165 at one rejection header, probe 06b's return, `rx120.sh`, B-4e's re-read — and CI's three rows — **[`0.2.1a.md`](0.2.1a.md)**, planned and rehearsed in its real position at both pins by cycle 0.2's planner; PD-103 and PD-104 accepted as RX-230 and RX-231 — **DONE (2026-10-09)**, 294/294 at `7e91730`, two pending outside it *(until 0.2.1a's record this row said "PD-103 and PD-104 are the orchestrator's to accept")* | the unchanged tree measured at both pins; `294/294` at `7e91730` |
+ | 0.2.2 | **The repetition product** — the bound checked on the way down — **[`0.2.2.md`](0.2.2.md)**, planned and rehearsed in its real position at `7e91730` by cycle 0.2's planner: the product carried in `uint64` on the way down and refused at the `{` that takes it past the bound, the acceptance's arithmetic amended, the refusal before the memory under one cap, then the documents audit's eight findings and the ecosystem audit's two; PD-107 … PD-109 accepted as RX-232 … RX-234, and three twins of the audits' findings, which the worker's second sweep found, dated through step 3's amended patch — **DONE (2026-10-10)**, 302/302, two pending outside it *(until 0.2.2's record this row said "PD-107 … PD-109 are the orchestrator's to accept")* | `((a{1000}){1000}){1000}` refused at the third `{1000}` *(2026-10-10 — RX-233: at its second, byte 10, the first factor past the bound)* |
+ | 0.2.3 | **Normalisation** — flattening, merging, canonical form — **[`0.2.3.md`](0.2.3.md)**, planned and rehearsed in its real position at `7e91730` by the Team seat's planner: what *"structurally equal"* is, H-13's rewrites read as identities; `hir_normalise`, a pass of its own after the build, into a fresh arena; the Gate's generated corpus and its near misses, and the oracle's test pending until cycle 0.5.5; then what a run leaves behind, and the prose; PD-120 … PD-122 accepted as RX-235 … RX-237, and the Gate's header, which named a near miss the drafts had replaced, said as its code is through step 2's amended patch — **DONE (2026-10-13)**, 318/318, three pending outside it *(until 0.2.3's record this row said "PD-120 … PD-122 are the orchestrator's to accept")* | structurally equal patterns produce identical dumps |
+@@ -98,7 +99,7 @@ RX-015, RX-031. Settled. **No open questions.**
+ 
+ ### 0.2.1 — desugaring
+ - [x] every row of `HIR.md` §3's table, with a test each *(2026-10-08, cycle 0.2.0 — RX-223: the arena holds resolved ranges only (H-1, H-5), so a class's unresolved items — a Perl class, a property, a POSIX class by name — have no HIR form until cycle 0.3.4 resolves them; how the desugaring meets one, a hook 0.3.4 fills with a test that fails until then, as `(?i:…)`'s folding has, is this subcycle's to decide, and "carries them as they come" above is read against it)* — RX-228, H-16, **`3a5ee5e`**: `hir_build` 0 at both legs — H-5's six quantifier rows, their lazy forms and their bounds' edges (cases 1 … 9), the `.` row (10 … 14) and the `(?:…)` row (15 … 19) built, every other AST kind (30 … 49), classes and C-3's surrogates (50 … 58); the class row (20 … 23) and the `(?i:…)` row (24 … 27) stopping at the byte named, the root unset — RX-223's question answered so: the build stops at the node and answers it, at the hook `resolve_items` for a class's item, at `fold_ranges` for `i`, and in `leaf` for a bare Perl class, a bare property and a negated class (the orchestrator's correction, `0.2.1.md`'s record); and RX-229, **`2bb85cc`**: `tests/unit/hir_build_classes.npk` and `hir_build_fold.npk` assert what those two rows will build, each `PENDING until cycle 0.3.4` at exit 1, both legs; `hir_build_not_a_tree` 108, `hir_build_misnumbered` 94; the thirty-eight mutants each at its exit; `294/294`
+-- [x] **flags erased** (H-6): nothing downstream knows what `i`, `s`, `m`, `u` or `x` meant. A test greps the HIR dump for any flag residue — RX-227, **`2aa0545`**, and RX-228, **`3a5ee5e`**: the dump stops on a bit its node's kind does not take, so a dump that completes shows every bit (`hir_dump_stray_bit` 94 at both legs; the four mutants each at its exit); `hir_build`'s `words_ok` reads every token of every dump it builds against the words H-15 writes, a flag's letter none of them; cases 60 … 69 build eight pairs of patterns, a flag against none or against its other scope, to one text, and a `(?flags)` node in every place it may stand; the mutant `copy-ast-flags` stops the dump, 94
++- [x] **flags erased** (H-6): nothing downstream knows what `i`, `s`, `m`, `u` or `x` meant. A test greps the HIR dump for any flag residue — RX-227, **`2aa0545`**, and RX-228, **`3a5ee5e`**: the dump stops on a bit its node's kind does not take, so a dump that completes shows every bit *(@@DATE026@@, cycle 0.2.6 — RX-239: every bit but the computed properties' five, which every kind takes and the dump does not show, as `hir_dump_stray_bit.npk`'s dated header says)* (`hir_dump_stray_bit` 94 at both legs; the four mutants each at its exit); `hir_build`'s `words_ok` reads every token of every dump it builds against the words H-15 writes, a flag's letter none of them; cases 60 … 69 build eight pairs of patterns, a flag against none or against its other scope, to one text, and a `(?flags)` node in every place it may stand; the mutant `copy-ast-flags` stops the dump, 94
+ - [x] `(?i:…)` folds its classes at construction — the folding itself is 0.3's, so 0.2 leaves a hook and 0.3 fills it, with a test that fails until then — RX-228, **`3a5ee5e`**, and RX-229, **`2bb85cc`**: the hook is `fold_ranges` in `src/hir/build.npk`, false until cycle 0.3.4 fills it, so the build stops at every literal, class and `.` under `i` that reaches it (`hir_build` 24 … 27); the test is `tests/unit/hir_build_fold.npk`, `pending-until: 0.3.4 exit 1` (RX-226) with its line in `harness/baseline/PENDING.txt`, and the 0.3 README's last 0.3.4 box names it; the mutants `fold-hook-answers-true` and `literal-folded-skipped` move it to 10
+ 
+ ### 0.2.1a — the adoption of compiler `7e91730`
