@@ -95,7 +95,8 @@ ctl() {
 }
 
 # The close's mechanical steps made in order in a throwaway clone of HEAD -- steps 1 to 4's patches, the move and the
-# plain mentions (`archive.py`), steps 6 and 7's patches -- the check that the tree is the one they were cut from,
+# plain mentions (`archive.py`, staged and not committed: `mentions` needs the folder gone, not a commit), steps 6
+# and 7's patches -- the check that the tree is the one they were cut from,
 # before any is applied here. `--shared`, so it costs no object copy. Run before the move only.
 #     dryrun
 dryrun() {
@@ -103,7 +104,6 @@ dryrun() {
   rm -rf "${d:?}"; git clone -q --shared "$REPO" "$d"
   for n in 1 2 3 4; do python3 -B "$T/apply.py" "$n" "$d" | sed 's/^/dry run: /'; done
   REPO="$d" python3 -B "$T/archive.py" move | tail -1 | sed 's/^/dry run: /'
-  git -C "$d" commit -q -m "dry run: the move" && echo "dry run: committed the move"
   REPO="$d" python3 -B "$T/archive.py" mentions | tail -1 | sed 's/^/dry run: /'
   for n in 6 7; do python3 -B "$T/apply.py" "$n" "$d" | sed 's/^/dry run: /'; done
   rm -rf "${d:?}"
