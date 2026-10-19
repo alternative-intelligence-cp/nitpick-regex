@@ -1,5 +1,5 @@
 diff --git a/CLAUDE.md b/CLAUDE.md
-index 4c6e3d3..13ff715 100644
+index 4c6e3d3..b9997c6 100644
 --- a/CLAUDE.md
 +++ b/CLAUDE.md
 @@ -6,8 +6,9 @@ Guidance for Claude Code sessions working in this repository.
@@ -14,12 +14,9 @@ index 4c6e3d3..13ff715 100644
  built and read through accessors that check every index, and as one line of text read back byte for byte, and
  `src/unicode/` holds `ClassRange` (RX-222 … RX-225, `meta/roadmap/done/0.2/0.2.0.md`); and its 0.2.1, the desugaring, is
  done — `hir_build` builds a HIR from a pattern's AST, `HIR.md` H-5's table and nothing else, every flag erased into what
-@@ -32,9 +33,13 @@ match begins with, the first-byte set and a literal every match holds, each erri
- writes their section and `hir_read` holds it to the extraction; fifty-five patterns' literals written by hand are the
- reference, a fuzz holds 3 000 seeded trees' literals to strings drawn from them, and the property test over the oracle is
+@@ -34,7 +35,11 @@ reference, a fuzz holds 3 000 seeded trees' literals to strings drawn from them,
  pending until cycle 0.5.5 (RX-241 … RX-243, `meta/roadmap/done/0.2/0.2.5.md`); and its 0.2.5a, the adoption of compiler
--`c9baa9e`, is done — a keyword names nothing there, a field included, so the parser's explicit stack is
-+`c9baa9e`, is done — a keyword names no field there, so the parser's explicit stack is
+ `c9baa9e`, is done — a keyword names nothing there, a field included, so the parser's explicit stack is
  `Parser.frames`, and every emission is `7e91730`'s but for the compiler's own two changes, an attribute on each function
 -and drops made unconditional (RX-244, RX-245, `meta/roadmap/done/0.2/0.2.5a.md`); 0.2.6, the cycle's close, is next.
 +and drops made unconditional (RX-244, RX-245, `meta/roadmap/done/0.2/0.2.5a.md`); and its 0.2.6, the close, is done —

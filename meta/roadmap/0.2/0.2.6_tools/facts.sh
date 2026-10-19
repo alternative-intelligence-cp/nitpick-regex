@@ -16,9 +16,9 @@ kinds = [k.strip() for k in re.search(r"pub\s+enum\s*:\s*HirKind\s*=\s*\{([^}]*)
 b = lexical.blank(lexical.read(os.path.join(R, "src/hir/build.npk")))
 w, r = {}, {}
 for u in re.finditer(r"(?<![A-Za-z0-9_.])HirKind\s*\.\s*([A-Za-z_]\w*)", b):
-    read = re.search(r"[=!]=\s*$", b[max(0, u.start() - 8):u.start()]) or re.match(r"^\s*[=!]=", b[u.end():u.end() + 8])
+    read = b[:u.start()].rstrip().endswith(("==", "!=")) or b[u.end():].lstrip().startswith(("==", "!="))  # no window
     d = r if read else w
-    how = "hnode" if re.search(r"hnode\(\s*$", b[max(0, u.start() - 8):u.start()]) else "assigned"
+    how = "hnode" if b[:u.start()].rstrip().endswith("hnode(") else "assigned"
     d.setdefault(u.group(1), []).append(how)
 print("§1.2 HirKind's kinds: %d -- %s" % (len(kinds), " ".join(kinds)))
 print("§1.2 build.npk writes: " + "; ".join("%s %s" % (k, ",".join(sorted(set(w.get(k, ["NONE"]))))) for k in kinds))
