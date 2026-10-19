@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""0.2.6 -- five mutants of `check_hir_kinds_total`, each run against V-20's case 35 (block 1): the check broken one way
+"""0.2.6 -- six mutants of `check_hir_kinds_total`, each run against V-20's case 35 (block 1): the check broken one way
 at a time, in memory, and the case asked again with the broken check -- each must go RED through the plant it names
 (RX-246; `TESTING.md` V-14: an instrument is seen to fail before it is trusted). The tree's own harness is read, and
 nothing is written.
@@ -10,7 +10,12 @@ import os, sys, types
 
 MUTANTS = [
     ("reads-count-as-writes",
-     "        if _HIR_READ_BEFORE.search(before) or _HIR_READ_AFTER.match(built[u.end():u.end() + 8]):\n            continue\n", ""),
+     "        if built[:u.start()].rstrip().endswith(_HIR_READ_OPS) or built[u.end():].lstrip().startswith(_HIR_READ_OPS):\n"
+     "            continue\n", ""),
+    ("window-bounded",
+     "        if built[:u.start()].rstrip().endswith(_HIR_READ_OPS) or built[u.end():].lstrip().startswith(_HIR_READ_OPS):\n",
+     "        if built[max(0, u.start() - 8):u.start()].rstrip().endswith(_HIR_READ_OPS) or "
+     "built[u.end():u.end() + 8].lstrip().startswith(_HIR_READ_OPS):\n"),
     ("builder-read-raw", "        built = lexical.blank(lexical.read(os.path.join(root, _HIR_BUILDER)))",
      "        built = lexical.read(os.path.join(root, _HIR_BUILDER))"),
     ("unowned-half-passes", "            fl.append(f\"meta/roadmap: no cycle's README holds a box",

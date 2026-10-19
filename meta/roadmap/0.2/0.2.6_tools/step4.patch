@@ -16,7 +16,7 @@ index e1f0147..bb66934 100644
    the harness holds changed.** Probe 18's impl is `NITPICK-TYPE-014` (DEF-116), and it
    lives in `tests/probe/refused/`; the owner of a live view written is
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index 29c3629..e4f3c37 100644
+index 86acdd5..21276dd 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
 @@ -6420,6 +6420,10 @@ normal form flattens (RX-235); **the facts of the normal form alone** — the qu

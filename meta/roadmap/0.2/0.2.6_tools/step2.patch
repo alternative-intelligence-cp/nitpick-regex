@@ -1,5 +1,5 @@
 diff --git a/harness/selfcheck.py b/harness/selfcheck.py
-index d9dd483..f4a996a 100644
+index 3330416..adb81df 100644
 --- a/harness/selfcheck.py
 +++ b/harness/selfcheck.py
 @@ -757,7 +757,9 @@ def _run_case32(case):
@@ -23,7 +23,7 @@ index d9dd483..f4a996a 100644
                                 " || (n > (' ' => int64)) || (zz_id::<int64>(1000i64) == n)")
                             + "\n// n > 1_000_000i64, in a comment\n"
 diff --git a/harness/treecheck.py b/harness/treecheck.py
-index eeaa554..3dbc94a 100644
+index e4be35c..66e2693 100644
 --- a/harness/treecheck.py
 +++ b/harness/treecheck.py
 @@ -72,11 +72,13 @@ ORACLE_MAY_IMPORT = {"core", "hir"}
@@ -62,13 +62,13 @@ index eeaa554..3dbc94a 100644
                        f"bound nothing enforces.")
          notes.append(f"{len(LIMIT_NAMES) - len(missing)}/{len(LIMIT_NAMES)} of "
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index 7147719..6f19c36 100644
+index 4e50e3f..27344e6 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
-@@ -6772,3 +6772,29 @@ read, and a builder that only compared a kind would pass; **the pending halves a
- ticking it is the act that makes the half live; **a half live once its directory names any kind** — then the compiler's
- first commit naming one kind would fail the run until it named all nine, in the middle of 0.6.1; the tick makes the
- moment the cycle's own.
+@@ -6776,3 +6776,29 @@ characters from the kind, read as a write (the plan's first verification, its F4
+ is the half's owner, and ticking it is the act that makes the half live; **a half live once its directory names any
+ kind** — then the compiler's first commit naming one kind would fail the run until it named all nine, in the middle of
+ 0.6.1; the tick makes the moment the cycle's own.
 +
 +### RX-247 — the literal extraction's two bounds are rows of `SAFETY.md` S-12's table, and `check_constants_named` holds all eleven declared and reads a bare 64 as a bound
 +
@@ -114,7 +114,7 @@ index 8a7154d..6c30711 100644
  Each is overridable at compile time through a `RegexOptions` value, and each
  has a test sitting exactly on it and one exceeding it.
 diff --git a/meta/specs/TESTING.md b/meta/specs/TESTING.md
-index 8a0fae4..434dd43 100644
+index 5b1b1e8..430bdef 100644
 --- a/meta/specs/TESTING.md
 +++ b/meta/specs/TESTING.md
 @@ -225,7 +225,7 @@ framing that let both be wrong. The framing is the column.

@@ -37,7 +37,7 @@ index c8d6cfb..e1f0147 100644
  `tests/unit/bytes_copy_string_empty.npk` was committed red under
  `pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
 diff --git a/harness/selfcheck.py b/harness/selfcheck.py
-index 63c9333..d9dd483 100644
+index 63c9333..3330416 100644
 --- a/harness/selfcheck.py
 +++ b/harness/selfcheck.py
 @@ -66,6 +66,12 @@ provokes, one a unit only builds, one named in a unit that parses nothing and on
@@ -45,15 +45,15 @@ index 63c9333..d9dd483 100644
  required to fail it by name, beside a clean tree whose listed kind a unit builds and names in a comment.
  
 +CASE 35 IS THE CYCLE 0.2 CLOSE'S INSTRUMENT (cycle 0.2.6, RX-246): `check_hir_kinds_total` fed a kind the builder
-+never names, one it only compares and one it names in a comment; no `HirKind` enum; no box for the compiler's half and
-+none for the oracle's; and a ticked box whose half's code misses a kind or names it in a comment alone -- each required
-+to fail it by name, beside a clean tree whose builder writes its kinds by a call and by an assignment, its compiler's
-+half ticked and named whole and its oracle's pending.
++never names, one it only compares -- on one line, and with the operator a line away -- and one it names in a comment;
++no `HirKind` enum; no box for the compiler's half and none for the oracle's; and a ticked box whose half's code misses a
++kind or names it in a comment alone -- each required to fail it by name, beside a clean tree whose builder writes its
++kinds by a call and by an assignment, its compiler's half ticked and named whole and its oracle's pending.
 +
  WHY CASE 7 IS THE MOST IMPORTANT ONE IN THE LIST, though it cannot run for
  five more cycles: it is the case that proves RX-041 -- "every engine gives the
  same answer" -- is being CHECKED rather than assumed. Every other case guards
-@@ -937,6 +943,65 @@ def _case33(d):
+@@ -937,6 +943,70 @@ def _case33(d):
      return None                                   # handled by `_run_case33`
  
  
@@ -81,12 +81,13 @@ index 63c9333..d9dd483 100644
 +
 +
 +def _run_case35(case):
-+    """Case 35, on the instrument: `check_hir_kinds_total` over eight planted trees -- a kind the builder never
-+    names, one it compares with `==` and `!=` and never writes, and one it writes only in a comment; no enum; no box
-+    for the compiler's half, and none for the oracle's; the compiler's box ticked over a `src/compile/` that does not
-+    name a kind, and the oracle's over a `tests/oracle/` that names it in a comment alone -- and a clean tree whose
-+    builder writes one kind by a call and the other by an assignment, comparing it too, its compiler's half ticked and
-+    named whole, one kind in a comparison, and its oracle's pending (RX-246)."""
++    """Case 35, on the instrument: `check_hir_kinds_total` over nine planted trees -- a kind the builder never
++    names, one it compares with `==` and `!=` and never writes, one it so compares with the operator a line away, past
++    white space and a comment, and one it writes only in a comment; no enum; no box for the compiler's half, and none
++    for the oracle's; the compiler's box ticked over a `src/compile/` that does not name a kind, and the oracle's over a
++    `tests/oracle/` that names it in a comment alone -- and a clean tree whose builder writes one kind by a call and the
++    other by an assignment, comparing it too, its compiler's half ticked and named whole, one kind in a comparison, and
++    its oracle's pending (RX-246)."""
 +    A = "    discard(raw hnode(HirKind.Alpha));\n"
 +    B = "    HirKind:j = HirKind.Alpha;\n    j = HirKind.Beta;\n    if (k == HirKind.Beta) { pass 1i64; }\n"
 +    both = "    if (k == HirKind.Alpha) { pass 1i64; }\n    if (HirKind.Beta != k) { pass 2i64; }\n"
@@ -94,6 +95,10 @@ index 63c9333..d9dd483 100644
 +        ("a kind the builder never names", _hir_tree(builder=A), ["`Beta` is produced by no code"]),
 +        ("a kind the builder only compares",
 +         _hir_tree(builder=A + "    if (k == HirKind.Beta) { pass 1i64; }\n    if (HirKind.Beta != k) { pass 2i64; }\n"),
++         ["`Beta` is produced by no code"]),
++        ("a kind the builder only compares, across a line break",
++         _hir_tree(builder=A + "    if (k ==\n        HirKind.Beta) { pass 1i64; }\n"
++                   + "    if (HirKind.Beta   // the operator past a comment\n            != k) { pass 2i64; }\n"),
 +         ["`Beta` is produced by no code"]),
 +        ("a kind the builder writes in a comment",
 +         _hir_tree(builder=A + "    // discard(raw hnode(HirKind.Beta));\n"), ["`Beta` is produced by no code"]),
@@ -119,7 +124,7 @@ index 63c9333..d9dd483 100644
  def _case19(d):
      """A RED UNIT HIDDEN BY TWO LONE CARRIAGE RETURNS -- the fifth audit's BL-9 (a).
  
-@@ -1355,6 +1420,11 @@ CASES = [
+@@ -1355,6 +1425,11 @@ CASES = [
           "and held to the list",
           _case34, ["hidden_cycle_red.npk", "`pending-until: 0.3.4 exit 41` is NOT ON THE REVIEWED PENDING LIST",
                     "41 through opt -O2"]),
@@ -131,7 +136,7 @@ index 63c9333..d9dd483 100644
  ]
  
  
-@@ -1464,6 +1534,8 @@ def _run_case(case, keep):
+@@ -1464,6 +1539,8 @@ def _run_case(case, keep):
          return _run_case32(case)
      if case.num == 33:
          return _run_case33(case)
@@ -141,7 +146,7 @@ index 63c9333..d9dd483 100644
      try:
          toml = case.build_tree(d)
 diff --git a/harness/treecheck.py b/harness/treecheck.py
-index 557de09..eeaa554 100644
+index 557de09..e4be35c 100644
 --- a/harness/treecheck.py
 +++ b/harness/treecheck.py
 @@ -1250,6 +1250,115 @@ def check_error_kinds_tested(root):
@@ -155,9 +160,9 @@ index 557de09..eeaa554 100644
 +_HIR_ENUM = re.compile(r"(?<![A-Za-z0-9_])pub\s+enum\s*:\s*HirKind\s*=\s*\{([^}]*)\}")
 +_HIR_USE = re.compile(r"(?<![A-Za-z0-9_.])HirKind\s*\.\s*([A-Za-z_]\w*)")
 +# A kind that is an operand of `==` or `!=` is one the code READS; a node it writes names its kind anywhere else -- a
-+# call's argument, or the value a kind variable is assigned.
-+_HIR_READ_BEFORE = re.compile(r"[=!]=\s*$")
-+_HIR_READ_AFTER = re.compile(r"^\s*[=!]=")
++# call's argument, or the value a kind variable is assigned. The operator is found past ANY white space between it
++# and the kind -- a line break, or a comment `lexical.blank` has made spaces -- however far: no window of fixed width.
++_HIR_READ_OPS = ("==", "!=")
 +# H-4's two halves no code holds yet, each owned by a box of its cycle's README.
 +_HIR_HALVES = [("compiler", os.path.join("src", "compile"), "consumed"),
 +               ("oracle", os.path.join("tests", "oracle"), "handled")]
@@ -195,8 +200,9 @@ index 557de09..eeaa554 100644
 +
 +    WHAT EACH HALF READS. The kinds are `src/hir/repr.npk`'s `pub enum:HirKind`, comments and strings blanked. PRODUCED
 +    is `hir_build`'s -- RX-228's note on the box: `src/hir/build.npk`'s code names the kind other than as an operand of
-+    `==` or `!=`, so a node it writes counts, by a call's argument or by a kind variable's assigned value, and a kind it
-+    only compares, names in a comment, or never names does not. CONSUMED BY THE COMPILER and HANDLED BY THE ORACLE are
++    `==` or `!=`, the operator found past any white space between the two, a line break or a comment included, however
++    far -- so a node it writes counts, by a call's argument or by a kind variable's assigned value, and a kind it names
++    only as such an operand, only in a comment, or never does not. CONSUMED BY THE COMPILER and HANDLED BY THE ORACLE are
 +    `src/compile/`'s and `tests/oracle/`'s code, and neither holds any yet: each half is owned by a box of its cycle's
 +    README naming "`check_hir_kinds_total`'s compiler half" or "... oracle half" -- 0.6.1's and 0.5.0's. While every
 +    such box is unticked the half is pending, and the check notes it; once one is ticked, every kind must be named in
@@ -220,8 +226,7 @@ index 557de09..eeaa554 100644
 +        built = ""
 +    produced = set()
 +    for u in _HIR_USE.finditer(built):
-+        before = built[max(0, u.start() - 8):u.start()]
-+        if _HIR_READ_BEFORE.search(before) or _HIR_READ_AFTER.match(built[u.end():u.end() + 8]):
++        if built[:u.start()].rstrip().endswith(_HIR_READ_OPS) or built[u.end():].lstrip().startswith(_HIR_READ_OPS):
 +            continue
 +        produced.add(u.group(1))
 +    for kind in kinds:
@@ -270,10 +275,10 @@ index 557de09..eeaa554 100644
  
  
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index e7b8aa1..7147719 100644
+index e7b8aa1..4e50e3f 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
-@@ -6735,3 +6735,40 @@ and how its account outlived its pins is the lesson it carries; **the notes left
+@@ -6735,3 +6735,44 @@ and how its account outlived its pins is the lesson it carries; **the notes left
  the 0.10 README's are the ones a cycle-0.10 planner would follow into `NITPICK-PARSE-001`; **`rx120.sh`'s pin left at
  `7e91730`** — the harness and CI hand it the pinned compiler either way, and its label would name a compiler nothing
  runs.
@@ -293,27 +298,31 @@ index e7b8aa1..7147719 100644
 +**The decision.** `check_hir_kinds_total`, in `harness/treecheck.py`'s `ALL`, reads the kinds from `src/hir/repr.npk`'s
 +`pub enum:HirKind`, comments and strings blanked — the enum is the list, as `PatternErrorKind` is
 +`check_error_kinds_tested`'s — and holds each to H-4's three halves. **Produced**: `src/hir/build.npk`'s code names the
-+kind other than as an operand of `==` or `!=`, so a node the builder writes counts — by a call's argument or by the value
-+a kind variable is assigned — and a kind it only compares, names in a comment or never names fails the run. **Consumed by
-+the compiler, and handled by the oracle**: neither `src/compile/` nor `tests/oracle/` holds code yet, so each half is
++kind other than as an operand of `==` or `!=` — the operator found past any white space between the two, a line break or
++a comment included, however far — so a node the builder writes counts, by a call's argument or by the value a kind
++variable is assigned, and a kind it names only as such an operand, only in a comment, or never fails the run. **Consumed
++by the compiler, and handled by the oracle**: neither `src/compile/` nor `tests/oracle/` holds code yet, so each half is
 +owned by a box of its cycle's README naming *"`check_hir_kinds_total`'s compiler half"* or *"… oracle half"* — 0.6.1's,
 +which the 0.6 README holds already, and 0.5.0's, which this subcycle adds. While its boxes are unticked the half is
 +pending and the check notes it; once one is ticked, every kind must be named in that half's code, a read included, or
-+the run fails; and a half no box owns fails it. `TESTING.md` §8's row says so, and V-20's case 35 plants eight trees —
-+a kind the builder never names, one it only compares and one it writes in a comment; no enum; no box for either half;
-+and a ticked box whose half's code misses a kind, or names it in a comment alone — each failing by name, beside a clean
-+tree that passes. **Measured at `c9baa9e`**: the nine kinds produced — seven written as `hnode`'s argument, and `Concat`
-+and `Alternate` as the values `hir_build`'s kind variable is assigned — the compiler's half pending until 0.6.1's box and
-+the oracle's until 0.5.0's; and case 35 red against five mutants of the check, each through the plant it names.
++the run fails; and a half no box owns fails it. `TESTING.md` §8's row says so, and V-20's case 35 plants nine trees — a
++kind the builder never names; one it only compares, on one line, and one with the operator a line away; one it writes in
++a comment; no enum; no box for either half; and a ticked box whose half's code misses a kind, or names it in a comment
++alone — each failing by name, beside a clean tree that passes. **Measured at `c9baa9e`**: the nine kinds produced —
++seven written as `hnode`'s argument, and `Concat` and `Alternate` as the values `hir_build`'s kind variable is assigned
++— the compiler's half pending until 0.6.1's box and the oracle's until 0.5.0's; and case 35 red against six mutants of
++the check, each through the plant it names.
 +
 +*Alternatives declined:* **reading the units** — `tests/unit/hir_build.npk`'s texts hold all nine (RX-228's note), but a
-+unit shows what it asks, not what the builder writes, and H-4 asks it of the parser; the check reads the producer's code,
-+as §8's `check_inst_kinds_total` will read the compiler's; **any mention in `build.npk`** — `k == HirKind.Concat` is a
-+read, and a builder that only compared a kind would pass; **the pending halves as a table of `HIR.md`, in Y-25's shape**
-+— a second list of the two halves beside the two boxes, which could drift from them: the box is the half's owner, and
-+ticking it is the act that makes the half live; **a half live once its directory names any kind** — then the compiler's
-+first commit naming one kind would fail the run until it named all nine, in the middle of 0.6.1; the tick makes the
-+moment the cycle's own.
++unit shows what it asks, not what the builder writes, and H-4 asks it of the parser; the check reads the producer's
++code, as §8's `check_inst_kinds_total` will read the compiler's; **any mention in `build.npk`** — `k == HirKind.Concat`
++is a read, and a builder that only compared a kind would pass; **a window of fixed width around the kind** — this plan's
++first cut read eight characters each side, so a comparison written across a line break, its operator eight or more
++characters from the kind, read as a write (the plan's first verification, its F4); **the pending halves as a table of
++`HIR.md`, in Y-25's shape** — a second list of the two halves beside the two boxes, which could drift from them: the box
++is the half's owner, and ticking it is the act that makes the half live; **a half live once its directory names any
++kind** — then the compiler's first commit naming one kind would fail the run until it named all nine, in the middle of
++0.6.1; the tick makes the moment the cycle's own.
 diff --git a/meta/roadmap/0.5/README.md b/meta/roadmap/0.5/README.md
 index c1bbfd9..0311d01 100644
 --- a/meta/roadmap/0.5/README.md
@@ -342,7 +351,7 @@ index d5f1424..8c2e39b 100644
  (`SYNTAX.md` Y-13; the modes mix in one pattern, `UNICODE.md` U-19); a `Class` and a `WordBoundary` the same. Still
  nine kinds.)*
 diff --git a/meta/specs/TESTING.md b/meta/specs/TESTING.md
-index 02dd69e..8a0fae4 100644
+index 02dd69e..5b1b1e8 100644
 --- a/meta/specs/TESTING.md
 +++ b/meta/specs/TESTING.md
 @@ -237,7 +237,7 @@ framing that let both be wrong. The framing is the column.
@@ -363,29 +372,30 @@ index 02dd69e..8a0fae4 100644
  
  **Rule V-22 — A CHECK IS A RULE ONLY OVER THE FILES IT OPENS, so every check
  here reports what it examined and not merely its verdict.** This module's own
-@@ -383,6 +385,13 @@ requires it to report every one as a failure. The list is `harness/selfcheck.py`
+@@ -383,6 +385,14 @@ requires it to report every one as a failure. The list is `harness/selfcheck.py`
  34. a red hidden behind a `pending-until:` marker labelled by a SUBCYCLE of this
      library, `0.3.4`, which the reviewed list does not name — case 11's plant
      under the label RX-226 adds, which must be read and held to the list.
-+35. `check_hir_kinds_total` over eight planted trees — a kind the builder never
-+    names, one it only compares and one it writes in a comment; no `HirKind`
-+    enum; no box for the compiler's half, and none for the oracle's; and a ticked
-+    box whose half's code does not name a kind, or names it in a comment alone —
-+    each failing by name, and a clean tree passing whose builder writes its kinds
-+    by a call and by an assignment, its compiler's half ticked and named whole
-+    and its oracle's pending (RX-246). On the instrument.
++35. `check_hir_kinds_total` over nine planted trees — a kind the builder never
++    names, one it only compares — on one line, and with the operator a line
++    away — and one it writes in a comment; no `HirKind` enum; no box for the
++    compiler's half, and none for the oracle's; and a ticked box whose half's
++    code does not name a kind, or names it in a comment alone — each failing by
++    name, and a clean tree passing whose builder writes its kinds by a call and
++    by an assignment, its compiler's half ticked and named whole and its
++    oracle's pending (RX-246). On the instrument.
  
  *(Reconciled 2026-09-25 by the third cycle 0.0 audit's triage, RX-154. This list
  had eight bullets and `CASES` eleven entries, and they disagreed in BOTH
-@@ -434,6 +443,12 @@ pending** on the day it was written.)*
+@@ -434,6 +444,12 @@ pending** on the day it was written.)*
  refused the subcycle's label and against a runner whose list check passed it. **35 cases,
  31 live, 4 pending** on the day it was written.)*
  
-+*(Extended @@DATE026@@ by cycle 0.2.6, RX-246: 35. It was seen to fail against five mutants of
-+the check — one reading a compared kind as written, one reading the builder's comments, one
-+passing a half no box owns, one ignoring a ticked box, and one reading a ticked half's
-+comments — each through the plant it names. **36 cases, 32 live, 4 pending** on the day it
-+was written.)*
++*(Extended @@DATE026@@ by cycle 0.2.6, RX-246: 35. It was seen to fail against six mutants of
++the check — one reading a compared kind as written, one reading the operator through a window
++eight characters wide, one reading the builder's comments, one passing a half no box owns, one
++ignoring a ticked box, and one reading a ticked half's comments — each through the plant it
++names. **36 cases, 32 live, 4 pending** on the day it was written.)*
 +
  **Rule V-21 — the self-check runs first in every full invocation.** A harness
  that has not proven it can fail has not proven anything.

@@ -13,7 +13,7 @@ index 98a4fd1..4f292f3 100644
      EVERY FILE IS JUDGED AS A ROOT, including one another file imports: "each
      file once" means once AS ITSELF, and a file that only ever compiles as part
 diff --git a/meta/DECISIONS.md b/meta/DECISIONS.md
-index 6f19c36..29c3629 100644
+index 27344e6..86acdd5 100644
 --- a/meta/DECISIONS.md
 +++ b/meta/DECISIONS.md
 @@ -1334,6 +1334,8 @@ divergence is written down here and in the runner).
@@ -25,7 +25,7 @@ index 6f19c36..29c3629 100644
  
  **2026-09-04, at the re-pin from `950bb1d` to `94874ce`.** Workbench registry
  **O-N10** had two halves and both are fixed:
-@@ -6798,3 +6800,29 @@ would stay the one bound this check cannot see written bare, and nothing under `
+@@ -6802,3 +6804,29 @@ would stay the one bound this check cannot see written bare, and nothing under `
  bound's value, where removing one number from the set closes the one collision there is; **the two bounds kept out of
  the table**, as 0.2.5 left them — S-12 says every bound is in the table and the table is the authority, and two bounds
  the check never asks about are bounds it does not hold.
