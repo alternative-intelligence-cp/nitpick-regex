@@ -66,6 +66,12 @@ provokes, one a unit only builds, one named in a unit that parses nothing and on
 `SYNTAX.md` Y-25's table -- stale, unknown, with no cycle, and with a cycle whose README does not name its kind -- each
 required to fail it by name, beside a clean tree whose listed kind a unit builds and names in a comment.
 
+CASE 35 IS THE CYCLE 0.2 CLOSE'S INSTRUMENT (cycle 0.2.6, RX-246): `check_hir_kinds_total` fed a kind the builder
+never names, one it only compares -- on one line, and with the operator a line away -- and one it names in a comment;
+no `HirKind` enum; no box for the compiler's half and none for the oracle's; and a ticked box whose half's code misses a
+kind or names it in a comment alone -- each required to fail it by name, beside a clean tree whose builder writes its
+kinds by a call and by an assignment, its compiler's half ticked and named whole and its oracle's pending.
+
 WHY CASE 7 IS THE MOST IMPORTANT ONE IN THE LIST, though it cannot run for
 five more cycles: it is the case that proves RX-041 -- "every engine gives the
 same answer" -- is being CHECKED rather than assumed. Every other case guards
@@ -937,6 +943,70 @@ def _case33(d):
     return None                                   # handled by `_run_case33`
 
 
+def _hir_tree(kinds=("Alpha", "Beta"), builder="", compiler=None, oracle=None, boxes=("compiler", "oracle"),
+              ticked=()):
+    """A tree for `check_hir_kinds_total`: an enum of `kinds` (none if `kinds` is None), a builder whose code is
+    `builder`, `src/compile/` and `tests/oracle/` files holding `compiler` and `oracle`, and a box for each half in
+    `boxes` -- the compiler's in cycle 0.6's README, the oracle's in 0.5's -- ticked for each half in `ticked`."""
+    t = {"src/hir/build.npk": "mod:build;\n\nfunc:b = int64(HirKind:k) never fails {\n" + builder
+                              + "    pass 0i64;\n};\n"}
+    if kinds is not None:
+        t["src/hir/repr.npk"] = ("mod:repr;\n\npub enum:HirKind = {\n" + "".join(f"    {k};\n" for k in kinds)
+                                 + "};\n")
+    else:
+        t["src/hir/repr.npk"] = "mod:repr;\n\n// pub enum:HirKind = { Alpha; Beta; };\n"
+    if compiler is not None:
+        t["src/compile/c.npk"] = "mod:c;\n\nfunc:c = int64(HirKind:k) never fails {\n" + compiler + "    pass 0i64;\n};\n"
+    if oracle is not None:
+        t["tests/oracle/o.npk"] = "mod:o;\n\nfunc:o = int64(HirKind:k) never fails {\n" + oracle + "    pass 0i64;\n};\n"
+    for half, cyc, sub in (("compiler", "0.6", "0.6.1"), ("oracle", "0.5", "0.5.0")):
+        box = (f"- [{'x' if half in ticked else ' '}] `check_hir_kinds_total`'s {half} half now green\n"
+               if half in boxes else "- [ ] another box\n")
+        t[f"meta/roadmap/{cyc}/README.md"] = f"# Cycle {cyc}\n\n### {sub}\n{box}"
+    return t
+
+
+def _run_case35(case):
+    """Case 35, on the instrument: `check_hir_kinds_total` over nine planted trees -- a kind the builder never
+    names, one it compares with `==` and `!=` and never writes, one it so compares with the operator a line away, past
+    white space and a comment, and one it writes only in a comment; no enum; no box for the compiler's half, and none
+    for the oracle's; the compiler's box ticked over a `src/compile/` that does not name a kind, and the oracle's over a
+    `tests/oracle/` that names it in a comment alone -- and a clean tree whose builder writes one kind by a call and the
+    other by an assignment, comparing it too, its compiler's half ticked and named whole, one kind in a comparison, and
+    its oracle's pending (RX-246)."""
+    A = "    discard(raw hnode(HirKind.Alpha));\n"
+    B = "    HirKind:j = HirKind.Alpha;\n    j = HirKind.Beta;\n    if (k == HirKind.Beta) { pass 1i64; }\n"
+    both = "    if (k == HirKind.Alpha) { pass 1i64; }\n    if (HirKind.Beta != k) { pass 2i64; }\n"
+    return _run_plants(case, "check_hir_kinds_total", [
+        ("a kind the builder never names", _hir_tree(builder=A), ["`Beta` is produced by no code"]),
+        ("a kind the builder only compares",
+         _hir_tree(builder=A + "    if (k == HirKind.Beta) { pass 1i64; }\n    if (HirKind.Beta != k) { pass 2i64; }\n"),
+         ["`Beta` is produced by no code"]),
+        ("a kind the builder only compares, across a line break",
+         _hir_tree(builder=A + "    if (k ==\n        HirKind.Beta) { pass 1i64; }\n"
+                   + "    if (HirKind.Beta   // the operator past a comment\n            != k) { pass 2i64; }\n"),
+         ["`Beta` is produced by no code"]),
+        ("a kind the builder writes in a comment",
+         _hir_tree(builder=A + "    // discard(raw hnode(HirKind.Beta));\n"), ["`Beta` is produced by no code"]),
+        ("no HirKind enum", _hir_tree(kinds=None, builder=A + B), ["declares no `pub enum:HirKind`"]),
+        ("no box for the compiler's half", _hir_tree(builder=A + B, boxes=("oracle",)),
+         ["holds a box for `check_hir_kinds_total`'s compiler half"]),
+        ("no box for the oracle's half", _hir_tree(builder=A + B, boxes=("compiler",)),
+         ["holds a box for `check_hir_kinds_total`'s oracle half"]),
+        ("the compiler's box ticked, a kind its code does not name",
+         _hir_tree(builder=A + B, compiler="    if (k == HirKind.Alpha) { pass 1i64; }\n", ticked=("compiler",)),
+         ["`Beta` is consumed by no code under src/compile/"]),
+        ("the oracle's box ticked, a kind its code names in a comment alone",
+         _hir_tree(builder=A + B, oracle="    if (k == HirKind.Alpha) { pass 1i64; }\n    // HirKind.Beta\n",
+                   ticked=("oracle",)),
+         ["`Beta` is handled by no code under tests/oracle/"]),
+    ], _hir_tree(builder=A + B, compiler=both, ticked=("compiler",)))
+
+
+def _case35(d):
+    return None                                   # handled by `_run_case35`
+
+
 def _case19(d):
     """A RED UNIT HIDDEN BY TWO LONE CARRIAGE RETURNS -- the fifth audit's BL-9 (a).
 
@@ -1355,6 +1425,11 @@ CASES = [
          "and held to the list",
          _case34, ["hidden_cycle_red.npk", "`pending-until: 0.3.4 exit 41` is NOT ON THE REVIEWED PENDING LIST",
                    "41 through opt -O2"]),
+    Case(35, "a kind the builder never names, only compares or writes in a comment; no enum; a half no box owns; "
+             "and a ticked box whose half's code misses a kind or names it in a comment alone",
+         "RX-246: the cycle 0.2 close -- every `HirKind` produced by `hir_build`'s code, and the compiler's and the "
+         "oracle's halves each owned by its cycle's box, live from the tick; H-4's promise held to the code",
+         _case35, ()),
 ]
 
 
@@ -1464,6 +1539,8 @@ def _run_case(case, keep):
         return _run_case32(case)
     if case.num == 33:
         return _run_case33(case)
+    if case.num == 35:
+        return _run_case35(case)
     d = tempfile.mkdtemp(prefix=f"nregex-selfcheck-{case.num}-")
     try:
         toml = case.build_tree(d)

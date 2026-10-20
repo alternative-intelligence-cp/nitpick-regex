@@ -1250,6 +1250,115 @@ def check_error_kinds_tested(root):
                   fl, notes)
 
 
+# --- check_hir_kinds_total -------------------------------------------------------------
+
+_HIR_KINDS_FILE = os.path.join("src", "hir", "repr.npk")
+_HIR_BUILDER = os.path.join("src", "hir", "build.npk")
+_HIR_ENUM = re.compile(r"(?<![A-Za-z0-9_])pub\s+enum\s*:\s*HirKind\s*=\s*\{([^}]*)\}")
+_HIR_USE = re.compile(r"(?<![A-Za-z0-9_.])HirKind\s*\.\s*([A-Za-z_]\w*)")
+# A kind that is an operand of `==` or `!=` is one the code READS; a node it writes names its kind anywhere else -- a
+# call's argument, or the value a kind variable is assigned. The operator is found past ANY white space between it
+# and the kind -- a line break, or a comment `lexical.blank` has made spaces -- however far: no window of fixed width.
+_HIR_READ_OPS = ("==", "!=")
+# H-4's two halves no code holds yet, each owned by a box of its cycle's README.
+_HIR_HALVES = [("compiler", os.path.join("src", "compile"), "consumed"),
+               ("oracle", os.path.join("tests", "oracle"), "handled")]
+_HIR_BOX = re.compile(r"^\s*- \[([ x])\] .*`check_hir_kinds_total`'s (compiler|oracle) half")
+
+
+def _hir_boxes(root):
+    """Every checklist box of a cycle README, live or archived, that names one of the check's halves, as
+    `{half: [(cycle, ticked, where)]}`."""
+    found = {}
+    for sub in ("", "done"):
+        base = os.path.join(root, "meta", "roadmap", sub)
+        if not os.path.isdir(base):
+            continue
+        for cyc in sorted(os.listdir(base)):
+            p = os.path.join(base, cyc, "README.md")
+            if not re.match(r"^\d+\.\d+$", cyc) or not os.path.isfile(p):
+                continue
+            with open(p, encoding="utf-8") as fh:
+                for n, line in enumerate(fh.read().split("\n"), 1):
+                    m = _HIR_BOX.match(line)
+                    if m:
+                        found.setdefault(m.group(2), []).append((cyc, m.group(1) == "x",
+                                                                 f"{os.path.relpath(p, root)}:{n}"))
+    return found
+
+
+def check_hir_kinds_total(root):
+    """Every `HirKind` is produced by the parser, consumed by the compiler and handled by the oracle -- `HIR.md` H-4
+    (RX-246), the cycle 0.2 close's box.
+
+    WHY. A kind no code produces is a promise H-4 makes and the code does not keep, and a kind the compiler or the
+    oracle does not handle is a pattern one engine answers and another cannot: `check_error_kinds_tested`'s reason, at
+    the HIR, and `check_inst_kinds_total`'s, one layer down (`TESTING.md` §8).
+
+    WHAT EACH HALF READS. The kinds are `src/hir/repr.npk`'s `pub enum:HirKind`, comments and strings blanked. PRODUCED
+    is `hir_build`'s -- RX-228's note on the box: `src/hir/build.npk`'s code names the kind other than as an operand of
+    `==` or `!=`, the operator found past any white space between the two, a line break or a comment included, however
+    far -- so a node it writes counts, by a call's argument or by a kind variable's assigned value, and a kind it names
+    only as such an operand, only in a comment, or never does not. CONSUMED BY THE COMPILER and HANDLED BY THE ORACLE are
+    `src/compile/`'s and `tests/oracle/`'s code, and neither holds any yet: each half is owned by a box of its cycle's
+    README naming "`check_hir_kinds_total`'s compiler half" or "... oracle half" -- 0.6.1's and 0.5.0's. While every
+    such box is unticked the half is pending, and the check notes it; once one is ticked, every kind must be named in
+    that half's code, a read included, or the run fails; and a half no box owns fails it -- a destination nobody plans
+    is a deferral with no owner (RX-219's reason). It reads names, not meaning: a write the builder makes on a path no
+    pattern reaches still counts, and the units -- `hir_build`'s among them -- are where that is asked."""
+    fl, notes = [], []
+    try:
+        code = lexical.blank(lexical.read(os.path.join(root, _HIR_KINDS_FILE)))
+    except (OSError, ValueError):
+        code = ""
+    m = _HIR_ENUM.search(code)
+    if not m:
+        return Result("check_hir_kinds_total", "HIR.md H-4 (RX-246)", "no enum",
+                      [f"{_HIR_KINDS_FILE} declares no `pub enum:HirKind`, so there is no list of kinds to hold to "
+                       f"the parser, the compiler and the oracle -- H-4 is the list (RX-223, RX-246)."])
+    kinds = [k.strip() for k in m.group(1).split(";") if k.strip()]
+    try:
+        built = lexical.blank(lexical.read(os.path.join(root, _HIR_BUILDER)))
+    except (OSError, ValueError):
+        built = ""
+    produced = set()
+    for u in _HIR_USE.finditer(built):
+        if built[:u.start()].rstrip().endswith(_HIR_READ_OPS) or built[u.end():].lstrip().startswith(_HIR_READ_OPS):
+            continue
+        produced.add(u.group(1))
+    for kind in kinds:
+        if kind not in produced:
+            fl.append(f"{_HIR_BUILDER}: `{kind}` is produced by no code of src/hir/build.npk -- it is never written, "
+                      f"only compared or named in a comment if at all. A kind the parser never produces is a promise "
+                      f"H-4 makes and the code does not keep: build it, or strike it from H-4 by a decision (RX-246).")
+    boxes, said = _hir_boxes(root), []
+    for half, where, verb in _HIR_HALVES:
+        rows = boxes.get(half, [])
+        if not rows:
+            fl.append(f"meta/roadmap: no cycle's README holds a box for `check_hir_kinds_total`'s {half} half. A half "
+                      f"no cycle owns is a deferral with no owner: give the cycle that writes {where}/ its box "
+                      f"(H-4, RX-246).")
+            said.append(f"the {half}'s half unowned")
+            continue
+        ticked = [r for r in rows if r[1]]
+        if not ticked:
+            said.append(f"the {half}'s half pending until cycle {rows[0][0]}")
+            notes.append(f"the {half}'s half is pending until cycle {rows[0][0]} ticks its box, {rows[0][2]}.")
+            continue
+        names = set()
+        for path in npk_files(root, where):
+            names |= {u.group(1) for u in _HIR_USE.finditer(lexical.blank(_read(path)))}
+        for kind in kinds:
+            if kind not in names:
+                fl.append(f"{where}: `{kind}` is {verb} by no code under {where}/, and {ticked[0][2]} ticks "
+                          f"`check_hir_kinds_total`'s {half} half. Name every kind in the {half}'s code, or untick "
+                          f"the box: the half is live from the tick (H-4, RX-246).")
+        said.append(f"the {half}'s half live, {sum(1 for k in kinds if k in names)} {verb}")
+    return Result("check_hir_kinds_total", "HIR.md H-4 (RX-246)",
+                  f"{len(kinds)} kind(s) in HirKind, {sum(1 for k in kinds if k in produced)} produced by "
+                  f"{_HIR_BUILDER}; " + ", ".join(said), fl, notes)
+
+
 # --- check_specs_current --------------------------------------------------------------
 
 _SPEC_LINK = re.compile(r'\[[^\]]*\]\(([^)]+\.md)(?:#[^)]*)?\)')
@@ -1471,7 +1580,7 @@ def check_dated_measurements(root):
 ALL = [check_layering, check_error_budget, check_constants_named,
        check_no_division, check_accessor_confinement,
        check_vec_elements_own_nothing, check_no_recursion, check_error_kinds_tested,
-       check_dated_measurements, check_specs_current]
+       check_hir_kinds_total, check_dated_measurements, check_specs_current]
 REPORTING_ONLY = {"check_specs_current"}
 
 

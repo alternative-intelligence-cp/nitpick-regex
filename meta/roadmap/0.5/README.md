@@ -38,6 +38,8 @@ RX-070, RX-071, RX-044. Settled. **No open questions.**
 - [ ] **imports nothing from `src/` but `core` and `hir`** (V-4), enforced by `check_layering`
 - [ ] deliberately simple: no memoisation, no optimisation, no cleverness. It is judged on being obviously correct, not on being fast
 - [ ] hand-written cases covering every `HirKind` and every construct in `SYNTAX.md`
+- [ ] `check_hir_kinds_total`'s oracle half now green *(2026-10-20, cycle 0.2.6 — RX-246: this box owns the half; ticked,
+  every `HirKind` must be named in `tests/oracle/`'s code, or the run fails — the compiler's half is 0.6.1's box)*
 
 ### 0.5.1 — the step budget
 - [ ] a step counter, and a bound

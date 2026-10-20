@@ -6735,3 +6735,44 @@ and how its account outlived its pins is the lesson it carries; **the notes left
 the 0.10 README's are the ones a cycle-0.10 planner would follow into `NITPICK-PARSE-001`; **`rx120.sh`'s pin left at
 `7e91730`** — the harness and CI hand it the pinned compiler either way, and its label would name a compiler nothing
 runs.
+
+## The cycle's close — cycle 0.2.6
+
+### RX-246 — `check_hir_kinds_total` is live: every `HirKind` is written by `hir_build`'s code, and the compiler's and the oracle's halves are each owned by a box of its cycle's README, pending until the box is ticked and live from the tick
+
+**2026-10-20, cycle 0.2.6 (the plan's PD-181), at compiler `c9baa9e`** — `HIR.md` H-4, `TESTING.md` §8 and V-20, RX-219
+and RX-228, the cycle README's first 0.2.6 box — *"`check_hir_kinds_total` live: every `HirKind` produced by the parser,
+consumed by the compiler (pending until 0.6) and handled by the oracle (pending until 0.5)"*, with RX-228's note that
+*"produced by the parser"* is `hir_build`'s — and the documents audit's RA-10 (the workbench's
+`meta/audits/nitpick-regex-docs-bfc4693-2026-10-15.md`). H-4 says a tree check asserts every kind is produced by the
+parser, consumed by the compiler and handled by the oracle; `TESTING.md` §8 listed the check *"no — cycle 0.2"*, and no
+check asserted any of it.
+
+**The decision.** `check_hir_kinds_total`, in `harness/treecheck.py`'s `ALL`, reads the kinds from `src/hir/repr.npk`'s
+`pub enum:HirKind`, comments and strings blanked — the enum is the list, as `PatternErrorKind` is
+`check_error_kinds_tested`'s — and holds each to H-4's three halves. **Produced**: `src/hir/build.npk`'s code names the
+kind other than as an operand of `==` or `!=` — the operator found past any white space between the two, a line break or
+a comment included, however far — so a node the builder writes counts, by a call's argument or by the value a kind
+variable is assigned, and a kind it names only as such an operand, only in a comment, or never fails the run. **Consumed
+by the compiler, and handled by the oracle**: neither `src/compile/` nor `tests/oracle/` holds code yet, so each half is
+owned by a box of its cycle's README naming *"`check_hir_kinds_total`'s compiler half"* or *"… oracle half"* — 0.6.1's,
+which the 0.6 README holds already, and 0.5.0's, which this subcycle adds. While its boxes are unticked the half is
+pending and the check notes it; once one is ticked, every kind must be named in that half's code, a read included, or
+the run fails; and a half no box owns fails it. `TESTING.md` §8's row says so, and V-20's case 35 plants nine trees — a
+kind the builder never names; one it only compares, on one line, and one with the operator a line away; one it writes in
+a comment; no enum; no box for either half; and a ticked box whose half's code misses a kind, or names it in a comment
+alone — each failing by name, beside a clean tree that passes. **Measured at `c9baa9e`**: the nine kinds produced —
+seven written as `hnode`'s argument, and `Concat` and `Alternate` as the values `hir_build`'s kind variable is assigned
+— the compiler's half pending until 0.6.1's box and the oracle's until 0.5.0's; and case 35 red against six mutants of
+the check, each through the plant it names.
+
+*Alternatives declined:* **reading the units** — `tests/unit/hir_build.npk`'s texts hold all nine (RX-228's note), but a
+unit shows what it asks, not what the builder writes, and H-4 asks it of the parser; the check reads the producer's
+code, as §8's `check_inst_kinds_total` will read the compiler's; **any mention in `build.npk`** — `k == HirKind.Concat`
+is a read, and a builder that only compared a kind would pass; **a window of fixed width around the kind** — this plan's
+first cut read eight characters each side, so a comparison written across a line break, its operator eight or more
+characters from the kind, read as a write (the plan's first verification, its F4); **the pending halves as a table of
+`HIR.md`, in Y-25's shape** — a second list of the two halves beside the two boxes, which could drift from them: the box
+is the half's owner, and ticking it is the act that makes the half live; **a half live once its directory names any
+kind** — then the compiler's first commit naming one kind would fail the run until it named all nine, in the middle of
+0.6.1; the tick makes the moment the cycle's own.

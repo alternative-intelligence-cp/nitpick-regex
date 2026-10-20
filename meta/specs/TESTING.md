@@ -237,7 +237,7 @@ framing that let both be wrong. The framing is the column.
 | `check_table_invariants` | no — **cycle 0.3** | every range table sorted, disjoint, `lo <= hi`, within `U+10FFFF` |
 | `check_error_kinds_tested` | **yes** — *since cycle 0.1.6b, RX-219; "no — cycle 0.1" until then* | every `PatternErrorKind` against the tests that provoke it, and `SYNTAX.md` Y-25's table of the kinds no pattern reaches yet against the cycles named to provoke them, both ways (`SYNTAX.md` Y-25) |
 | `check_inst_kinds_total` | no — **cycle 0.6** (0.6.1, the compiler's and the oracle's half; each engine's half with its cycle, the Pike VM's at 0.7) | every `InstKind` emitted by the compiler and handled by every engine and the oracle |
-| `check_hir_kinds_total` | no — **cycle 0.2** | the same for `HirKind` |
+| `check_hir_kinds_total` | **yes** — *since cycle 0.2.6, RX-246; "no — cycle 0.2" until then* | every `HirKind` produced by `hir_build`'s code (H-4), and consumed by the compiler and handled by the oracle — each of those two halves pending until the box of its cycle's README is ticked, 0.6.1's and 0.5.0's, and owned by that box |
 | `check_byte_class_partition` | no — **cycle 0.4** (0.4.3) | `COMPILE.md` C-9's property, over every corpus program |
 
 *(Two cycles corrected 2026-09-27 by cycle 0.1.0b — the ecosystem audit's EC11: this
@@ -255,6 +255,8 @@ from this table: the count moved *inside* the subcycle that last corrected it.
 `check_no_recursion` joined `ALL`, eight of which can fail the run; `check_no_syscalls`
 stays the build step beside them.)*
 *(2026-10-08, cycle 0.1.6b — RX-219: **ten** since `check_error_kinds_tested` joined `ALL`, nine of which can fail the
+run.)*
+*(2026-10-20, cycle 0.2.6 — RX-246: **eleven** since `check_hir_kinds_total` joined `ALL`, ten of which can fail the
 run.)*
 
 **Rule V-22 — A CHECK IS A RULE ONLY OVER THE FILES IT OPENS, so every check
@@ -383,6 +385,14 @@ requires it to report every one as a failure. The list is `harness/selfcheck.py`
 34. a red hidden behind a `pending-until:` marker labelled by a SUBCYCLE of this
     library, `0.3.4`, which the reviewed list does not name — case 11's plant
     under the label RX-226 adds, which must be read and held to the list.
+35. `check_hir_kinds_total` over nine planted trees — a kind the builder never
+    names, one it only compares — on one line, and with the operator a line
+    away — and one it writes in a comment; no `HirKind` enum; no box for the
+    compiler's half, and none for the oracle's; and a ticked box whose half's
+    code does not name a kind, or names it in a comment alone — each failing by
+    name, and a clean tree passing whose builder writes its kinds by a call and
+    by an assignment, its compiler's half ticked and named whole and its
+    oracle's pending (RX-246). On the instrument.
 
 *(Reconciled 2026-09-25 by the third cycle 0.0 audit's triage, RX-154. This list
 had eight bullets and `CASES` eleven entries, and they disagreed in BOTH
@@ -433,6 +443,12 @@ pending** on the day it was written.)*
 *(Extended 2026-10-08 by cycle 0.2.1, RX-226: 34. It was seen to fail against a reader that
 refused the subcycle's label and against a runner whose list check passed it. **35 cases,
 31 live, 4 pending** on the day it was written.)*
+
+*(Extended 2026-10-20 by cycle 0.2.6, RX-246: 35. It was seen to fail against six mutants of
+the check — one reading a compared kind as written, one reading the operator through a window
+eight characters wide, one reading the builder's comments, one passing a half no box owns, one
+ignoring a ticked box, and one reading a ticked half's comments — each through the plant it
+names. **36 cases, 32 live, 4 pending** on the day it was written.)*
 
 **Rule V-21 — the self-check runs first in every full invocation.** A harness
 that has not proven it can fail has not proven anything.

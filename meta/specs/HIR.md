@@ -83,6 +83,9 @@ Nine. A tree check asserts every kind is produced by the parser, consumed by
 the compiler, and handled by the oracle.
 *(2026-10-10, cycle 0.2.2 — the documents audit's RA-7: not yet. `check_hir_kinds_total` is cycle 0.2.6's, the cycle
 README's box for it, and `TESTING.md` lists it *"no — cycle 0.2"*; until it is live, no check asserts this.)*
+*(2026-10-20, cycle 0.2.6 — RX-246: live. *"Produced by the parser"* is `hir_build`'s code (RX-228), which writes all
+nine; *"consumed by the compiler"* and *"handled by the oracle"* are each pending until the box of its cycle's README is
+ticked, 0.6.1's and 0.5.0's, and live from the tick.)*
 *(2026-10-08, cycle 0.2.0 — RX-223: a `Literal` is one codepoint, or under `(?-u)` one byte, `HIR_FLAG_BYTE` set
 (`SYNTAX.md` Y-13; the modes mix in one pattern, `UNICODE.md` U-19); a `Class` and a `WordBoundary` the same. Still
 nine kinds.)*
