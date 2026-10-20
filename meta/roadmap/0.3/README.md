@@ -10,6 +10,29 @@ RX-021, RX-022, RX-023. Settled.
 **Open questions to settle:** *(2026-10-08 — cycle 0.1.6b, RX-219: and O-Y3, what `EmptyClass` names, at 0.3.4.)* Q-1 / O-U2 (the version to pin — data, not
 design; recorded when chosen).
 
+## What cycle 0.2 hands on
+
+*(2026-10-20, cycle 0.2's close — [`../done/0.2/0.2.6.md`](../done/0.2/0.2.6.md).)*
+
+- **The HIR a class resolves into, and its two hooks.** `hir_build` stops at a class's unresolved item at `resolve_items`
+  and at `i`'s folding at `fold_ranges`, both in `src/hir/build.npk`, and in `leaf` for a bare Perl class, a bare property
+  and a negated class; `tests/unit/hir_build_classes.npk` and `hir_build_fold.npk` are pending until 0.3.4, whose boxes
+  say how each goes green (RX-228, RX-229).
+- **`ClassRange` is declared by hand**, in `src/unicode/class_range.npk`, and `src/unicode/unicode.npk` is the layer's
+  entry; the generated tables import the type, and `check_tables_regenerate` reads the generated files alone — 0.3.0's
+  box (RX-222).
+- **`check_hir_kinds_total` is live** (RX-246): a kind this cycle adds to `HirKind` is held to `hir_build`'s code on
+  every run, and to `HIR.md` H-4.
+- **A HIR is compared by its dump text** (RX-248), so a test of what 0.3.4 builds compares dumps.
+- **The compiler's landings past the pin**, from 119 on, are not carried at `c9baa9e`: `0.3.0.md` names each by its
+  commit, and a re-pin brings them as a subcycle of its own, in the order 0.2.1a's and 0.2.5a's adoptions kept — a
+  rename the new pin needs made at the old pin first, then the pin moved (`../done/0.2/0.2.5a.md` §7).
+- **A keyword is `NITPICK-PARSE-001` at `c9baa9e`** as the name of a field, a variant, a parameter, a `for` binding, a
+  module binding or a local that `wild` or `fixed` leads, and a local declared `T:name` is `NITPICK-PARSE-002`; but a
+  generic parameter's (bar `comptime`), a variadic's and a macro parameter's name still compiles with one (RX-244).
+  Check every planned name against the compiler's `src/frontend/keywords.npk`, those three included
+  (`../done/0.2/0.2.5a.md` §7).
+
 ## Subcycles
 
 | # | Topic | Ends with |
@@ -42,7 +65,7 @@ design; recorded when chosen).
 ### 0.3.2 — Perl and POSIX classes
 - [ ] `\d`, `\w`, `\s` and their complements, per `UNICODE.md` §3's table, in both Unicode and byte mode
 - [ ] **`\w` is `[\p{Alphabetic}\p{M}\p{Nd}\p{Pc}\p{Join_Control}]`** (U-10) — a test asserts a Devanagari word and an emoji ZWJ sequence are matched by `\w+` without splitting
-- [ ] complements taken **within the relevant universe** — all codepoints in Unicode mode, all 256 bytes in byte mode — with a test showing `\W` differs between the two *(2026-10-08, cycle 0.2.1: `UNICODE.md` U-9's example of it, *"`\W` in Unicode mode includes `U+00E9`"*, reads backwards — U+00E9 is a letter, so `\w` holds it in Unicode mode and `\W` does not, while in byte mode `\W` holds its first byte, 0xC3; read U-9 against the pinned UCD here and amend it — `../0.2/0.2.1.md` §7)*
+- [ ] complements taken **within the relevant universe** — all codepoints in Unicode mode, all 256 bytes in byte mode — with a test showing `\W` differs between the two *(2026-10-08, cycle 0.2.1: `UNICODE.md` U-9's example of it, *"`\W` in Unicode mode includes `U+00E9`"*, reads backwards — U+00E9 is a letter, so `\w` holds it in Unicode mode and `\W` does not, while in byte mode `\W` holds its first byte, 0xC3; read U-9 against the pinned UCD here and amend it — `../done/0.2/0.2.1.md` §7)*
 - [ ] the fourteen POSIX bracket classes, inside a class only
 - [ ] *(2026-10-08 — cycle 0.1.6a, the cycle 0.1 audit's D1)* **a rule in `UNICODE.md` §3 giving each of the fourteen POSIX classes its set in Unicode mode and in byte mode, decided before the code** — `SYNTAX.md` Y-43 cites U-9 for their ASCII meanings, and U-9 pins `\d`, `\w` and `\s` alone; Rust's `regex` reads every POSIX class as ASCII in either mode, and UTS #18 gives each a Unicode set — thirteen in its Annex C, `ascii` as its ASCII property — so which this library takes is a decision with a research item
 

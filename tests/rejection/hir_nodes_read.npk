@@ -11,7 +11,7 @@
 // generic call here would add the compiler's recovery to the code set.
 //
 // A TEST OF THE HIDING, NOT OF THIS FILE: with `hidden` replaced by `sealed` on
-// `nodes` it compiles (`meta/roadmap/0.2/0.2.0.md` §1).
+// `nodes` it compiles (`meta/roadmap/done/0.2/0.2.0.md` §1).
 mod:hir_nodes_read;
 
 use "../../src/hir/hir.npk".*;

@@ -179,7 +179,7 @@ with the one qualifier it tests deleted (`meta/roadmap/done/0.1/0.1.0.md`'s cont
   access to the arena goes through `hir_get`, `hir_set` and `hir_push`, and the
   accessor pair underneath them is the only bounds check (RX-223). It reads
   `.count`, as `ast_nodes_read.npk` does and for its reason, and it compiles with
-  `hidden` replaced by `sealed` on `nodes` (`meta/roadmap/0.2/0.2.0.md`'s control).
+  `hidden` replaced by `sealed` on `nodes` (`meta/roadmap/done/0.2/0.2.0.md`'s control).
 
 ## Why they are the standing instance of rule B-7
 

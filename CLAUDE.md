@@ -6,35 +6,40 @@ Guidance for Claude Code sessions working in this repository.
 
 `nregex` — a regular-expression library for **Nitpick**, the safety-critical
 systems language at `../../nitpick`. **Status: cycle 0.1, the pattern parser, CLOSED on 2026-10-08 — its
-audit ACCEPTED it once C1 was fixed, and it is archived in `meta/roadmap/done/0.1/`; cycle 0.2, the HIR, is OPEN, and
-its 0.2.0, the arena, is done — `src/hir/` holds the HIR as a flat arena of nine kinds of node that own nothing,
+audit ACCEPTED it once C1 was fixed, and it is archived in `meta/roadmap/done/0.1/`; cycle 0.2, the HIR, CLOSED on
+2026-10-20 — its close triaged the documents audit's RA-9 … RA-13 and every item carried to it, and it is archived in
+`meta/roadmap/done/0.2/` — and its 0.2.0, the arena, is done — `src/hir/` holds the HIR as a flat arena of nine kinds of node that own nothing,
 built and read through accessors that check every index, and as one line of text read back byte for byte, and
-`src/unicode/` holds `ClassRange` (RX-222 … RX-225, `meta/roadmap/0.2/0.2.0.md`); and its 0.2.1, the desugaring, is
+`src/unicode/` holds `ClassRange` (RX-222 … RX-225, `meta/roadmap/done/0.2/0.2.0.md`); and its 0.2.1, the desugaring, is
 done — `hir_build` builds a HIR from a pattern's AST, `HIR.md` H-5's table and nothing else, every flag erased into what
 it means, and stops where cycle 0.3.4 must fill one of its two hooks or widen its `leaf`, the two tests of what it will
-build pending until then (RX-226 … RX-229, `meta/roadmap/0.2/0.2.1.md`); and its 0.2.1a, the adoption of compiler
+build pending until then (RX-226 … RX-229, `meta/roadmap/done/0.2/0.2.1.md`); and its 0.2.1a, the adoption of compiler
 `7e91730`, is done — a string's bytes are a read-only view there, and every slice the library takes or holds says so,
-`fixed uint8[]`; LLVM is 20.1.8 (RX-230, RX-231, `meta/roadmap/0.2/0.2.1a.md`); and its 0.2.2, the repetition product, is
+`fixed uint8[]`; LLVM is 20.1.8 (RX-230, RX-231, `meta/roadmap/done/0.2/0.2.1a.md`); and its 0.2.2, the repetition product, is
 done — `hir_build` refuses a pattern whose nested repetitions multiply past `NREGEX_REPEAT_PRODUCT`, as its walk enters
 the repetition that takes the product past it, at that quantifier's `{`, and two units under one memory cap show the
-refusal comes before the request (RX-232 … RX-234, `meta/roadmap/0.2/0.2.2.md`); and its 0.2.3, normalisation, is done
+refusal comes before the request (RX-232 … RX-234, `meta/roadmap/done/0.2/0.2.2.md`); and its 0.2.3, normalisation, is done
 — `hir_normalise` writes a HIR's tree in its normal form into a fresh arena, a pass of its own after the build, where
 structurally equal patterns — equal up to `HIR.md` H-13's rewrites read as identities — are one tree and one dump; a
 generated corpus of pairs and its near misses is the Gate, and the oracle's test of both forms is pending until cycle
-0.5.5 (RX-235 … RX-237, `meta/roadmap/0.2/0.2.3.md`); and its 0.2.4, the computed properties, is done — `hir_props`
+0.5.5 (RX-235 … RX-237, `meta/roadmap/done/0.2/0.2.3.md`); and its 0.2.4, the computed properties, is done — `hir_props`
 answers a node's four facts, whether it may match the empty string, whether every match begins at the haystack's start or
 ends at its end, and whether it is a plain literal or a union of them, computing a tree's in one pass when they are not
 and caching them in each node's `flags`; a computed tree is finished, fifty patterns' facts written by hand are the
-reference, and the Gate's seventh kind of noise has its floor (RX-238 … RX-240, `meta/roadmap/0.2/0.2.4.md`); and its
+reference, and the Gate's seventh kind of noise has its floor (RX-238 … RX-240, `meta/roadmap/done/0.2/0.2.4.md`); and its
 0.2.5, literal extraction, is done — `hir_literals` extracts a tree's three literals for the prefilters, the prefix every
 match begins with, the first-byte set and a literal every match holds, each erring towards saying less and bounded by
 `NREGEX_LITERAL_BYTES` and `NREGEX_LITERAL_LIMIT`, into `Hir.literals` after the facts, over a finished tree; the dump
 writes their section and `hir_read` holds it to the extraction; fifty-five patterns' literals written by hand are the
 reference, a fuzz holds 3 000 seeded trees' literals to strings drawn from them, and the property test over the oracle is
-pending until cycle 0.5.5 (RX-241 … RX-243, `meta/roadmap/0.2/0.2.5.md`); and its 0.2.5a, the adoption of compiler
+pending until cycle 0.5.5 (RX-241 … RX-243, `meta/roadmap/done/0.2/0.2.5.md`); and its 0.2.5a, the adoption of compiler
 `c9baa9e`, is done — a keyword names nothing there, a field included, so the parser's explicit stack is
 `Parser.frames`, and every emission is `7e91730`'s but for the compiler's own two changes, an attribute on each function
-and drops made unconditional (RX-244, RX-245, `meta/roadmap/0.2/0.2.5a.md`); 0.2.6, the cycle's close, is next.
+and drops made unconditional (RX-244, RX-245, `meta/roadmap/done/0.2/0.2.5a.md`); and its 0.2.6, the close, is done —
+`check_hir_kinds_total` holds every `HirKind` to the code of `hir_build`, the compiler's and the oracle's halves each
+pending on its cycle's box; the literal extraction's two bounds are rows of `SAFETY.md` S-12's table; and a HIR is
+compared by its dump text, no node deriving `Eq` (RX-246 … RX-248, `meta/roadmap/done/0.2/0.2.6.md`). Cycle 0.3,
+Unicode, is next.
 Cycle 0.1's 0.1.0, 0.1.0b, 0.1.1, 0.1.1b, 0.1.2, 0.1.3, 0.1.4, 0.1.5, 0.1.6a, 0.1.6b and 0.1.6 are done** — the pieces the parser is written
 in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/done/0.1/0.1.0.md`); the adoption of
 compiler `5fbaf4a` (RX-176 … RX-180, `0.1.0b.md`); and the core grammar —
@@ -131,18 +136,14 @@ more, one of them pending until cycle 0.5.5.
 happens yet**: `src/compile/`, `src/engine/` and `src/api/` are still one
 placeholder module each. A full green run at compiler `c9baa9e` is
 **347 units** (after cycle 0.2.5a, the adoption of that pin, four pending units outside them, as after cycle 0.2.5, literal extraction, at `7e91730`; 334 after cycle 0.2.4, the computed properties, three pending outside them, as after cycle 0.2.3; 318 after cycle 0.2.3, normalisation; 302 after cycle 0.2.2, the repetition product, two pending outside them, as after cycle 0.2.1a; 294 after cycle 0.2.1a, the adoption of `7e91730`, as after cycle 0.2.1 at `5fbaf4a`; 283 after cycle 0.2.0; 260 after cycle 0.1.6b; 258 after cycle 0.1.6a, as after cycle 0.1.5; 254 after cycle 0.1.4; 246 after cycle 0.1.3; 242 after cycle 0.1.2; 238 after cycle 0.1.1b; 260 after cycle 0.1.1; 250 after cycle 0.1.0b, the adoption of that pin; 250 after cycle 0.1.0 at `c970483`; 220 after the cycle 0.0 close; 218 after cycle 0.0.4e; at `c3bdae2`, 214 after the cycle 0.0 close's fifth audit triage, 210 after cycle 0.0.4d, 194 after the fourth triage, 174 after the third), plus eleven tree checks (ten until cycle 0.2.6's `check_hir_kinds_total`, nine until cycle 0.1.6b's `check_error_kinds_tested`, eight until cycle 0.1.2's `check_no_recursion`); take those numbers from the runner's
-summary rather than from here. **Nothing is PENDING any more**:
-`tests/unit/bytes_copy_string_empty.npk` was committed red under
-`pending-until: fe42dba` while this tree was pinned below that fix (DEF-25); at
-`c3bdae2` it started passing, the harness reddened the run, and the marker was
-deleted (cycle 0.0.4b). *(2026-10-08, cycle 0.2.1 — RX-226, RX-229: two units are pending
-again, each on a subcycle of this library rather than a compiler —
-`tests/unit/hir_build_classes.npk` and `hir_build_fold.npk`, until cycle 0.3.4 fills the
-HIR build's hooks and widens its `leaf` — and the runner prints both, outside its count.)*
-*(2026-10-12, cycle 0.2.3 — RX-237: and a third, `tests/unit/hir_normalise_oracle.npk`, until cycle 0.5.5's oracle;
-the runner prints all three outside its count.)*
-*(2026-10-15, cycle 0.2.5 — RX-243: and a fourth, `tests/unit/hir_literal_oracle.npk`, until cycle 0.5.5's oracle too;
-the runner prints all four outside its count.)*
+summary rather than from here. **Four units are PENDING, each on a later subcycle of this library**:
+`tests/unit/hir_build_classes.npk` and `hir_build_fold.npk` until cycle 0.3.4 fills the HIR build's hooks and widens
+its `leaf` (RX-226, RX-229), and `tests/unit/hir_normalise_oracle.npk` and `hir_literal_oracle.npk` until cycle
+0.5.5's oracle (RX-237, RX-243) — and the runner prints all four, outside its count. *(None was pending from cycle
+0.0.4b, when `tests/unit/bytes_copy_string_empty.npk`, committed red under `pending-until: fe42dba` while this tree was
+pinned below that fix (DEF-25), started passing at `c3bdae2`, the harness reddened the run and the marker was
+deleted, until cycle 0.2.1's two. Rewritten 2026-10-20 at cycle 0.2.6, the documents audit's RA-11: this said
+*"Nothing is PENDING any more"* above three dated notes that each added a unit.)*
 **This file said 98 and six in one paragraph and *four* tree checks 220 lines
 lower**, and the cycle 0.0 audit found it (N-2) in the document every session is
 told to read first. Two sections of one file disagreeing is the shape this
@@ -382,18 +383,15 @@ evidence.
   decision, not a free deletion.
 - **Measure `#size_of`, never derive it.** `Inst` is 12, `Match` is 16,
   `ByteSet` is 32, `string` is 24.
-  **`HirNode` is NOT on that list, and the reason is the rule itself.** The
-  measured 24 belongs to the **payload spelling** of `HirKind` — the shape
-  `HIR.md` H-2 examined and **declined** — not to the specified `HirNode`, which
-  is a tag plus three `int32`s plus a `uint32` and does not exist in `src/` until
-  cycle 0.2. Quoting 24 for it would be attributing a measurement of the rejected
-  alternative to the accepted one, in the same sentence that says to measure.
-  Its size is **unmeasured**; measure it when it is written, and make the probe's
-  exit code be `#size_of` so the number cannot be transcribed wrongly (RX-135).
-  *(Measured at cycle 0.2.0, compiler `5fbaf4a` — RX-223: the node `src/hir/repr.npk` declares
-  is **40** — a tag and a flags word, then `int64` operands and a `next` — and
-  `tests/unit/hir_size.npk` exits with it; H-2's drawing measures 20. `GroupInfo` is 16
-  and `ClassRange` 8.)*
+  **`HirNode` is 40** — a tag and a flags word, then `int64` operands and a `next` —
+  measured at cycle 0.2.0, compiler `5fbaf4a`, by `tests/unit/hir_size.npk`, which
+  exits with `#size_of` so the number cannot be transcribed wrongly (RX-135, RX-223);
+  H-2's drawing measures 20, `GroupInfo` is 16 and `ClassRange` 8. *(Until cycle 0.2.0
+  it was unmeasured and did not exist in `src/`, and the 24 a probe had measured
+  belonged to the payload spelling of `HirKind`, the shape H-2 declined — quoting it
+  for the node would have been a measurement of the rejected alternative given to the
+  accepted one, which RX-135 names. Rewritten 2026-10-20 at cycle 0.2.6, the
+  documents audit's RA-11: this said **unmeasured** above the dated note that gave 40.)*
 - **`npkc`'s exit codes are an alphabet, and `2` is not a refusal.** `0`
   success; `1` **refused, with diagnostics**; `2` the driver **could not proceed
   and judged nothing**, silently, with an empty stderr; `3` a trap. A test
@@ -453,7 +451,7 @@ evidence.
   `p_declared_name` passes the same four, read and not run — and a field's, a variant's, a parameter's, a `for`
   binding's, a `fixed` module binding's, a `wild`- or `fixed`-led local's, a variadic's, a macro parameter's and a
   generic parameter's name compiles whatever the keyword, a generic parameter's bar `comptime`; from `c9baa9e` only a
-  generic parameter's, a variadic's and a macro parameter's still do (`meta/roadmap/0.2/0.2.5a.md` §1.4).)*
+  generic parameter's, a variadic's and a macro parameter's still do (`meta/roadmap/done/0.2/0.2.5a.md` §1.4).)*
 - **At compiler `5fbaf4a` (cycle 0.1.0b) that one is refused too, and three things
   the harness holds changed.** Probe 18's impl is `NITPICK-TYPE-014` (DEF-116), and it
   lives in `tests/probe/refused/`; the owner of a live view written is

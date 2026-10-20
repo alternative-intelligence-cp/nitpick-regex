@@ -130,14 +130,14 @@ env:
   #
   # AND BUMPED 2026-10-09 FROM `5fbaf4a` TO `7e91730`, landing 103 -- landings 83 …
   # 103 and the compiler's D-349, the libraries' one re-pin, by the author's word -- IN A
-  # COMMIT OF ITS OWN, after the adoption's commits (`meta/roadmap/0.2/0.2.1a.md`) and
+  # COMMIT OF ITS OWN, after the adoption's commits (`meta/roadmap/done/0.2/0.2.1a.md`) and
   # pushed with them, so CI runs once, on the adopted tree: at `7e91730` the old tree is
   # refused at the toolchain check, and with its LLVM rows moved it is 150/304, landing
   # 103's TYPE-007 at every reader of a string's bytes; LLVM moves with it.
   #
   # AND BUMPED 2026-10-16 FROM `7e91730` TO `c9baa9e`, landing 118 -- landings 104 … 118, the
   # libraries' one re-pin, by the author's word -- IN A COMMIT OF ITS OWN, after the adoption's
-  # commits (`meta/roadmap/0.2/0.2.5a.md`) and pushed with them, so CI runs once, on the adopted
+  # commits (`meta/roadmap/done/0.2/0.2.5a.md`) and pushed with them, so CI runs once, on the adopted
   # tree: at `c9baa9e` the old tree is 204/355, landing 113's PARSE-001 at the parser's field
   # `stack`, a keyword; LLVM stays 20.1.8.
   NITPICK_COMMIT: c9baa9e91c553d8db2a2a62f09c36b30a984b07f
