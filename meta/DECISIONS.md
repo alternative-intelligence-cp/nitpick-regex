@@ -6420,6 +6420,10 @@ normal form flattens (RX-235); **the facts of the normal form alone** — the qu
 facts beside the normal form's show what normalisation gains.
 
 ### RX-239 — the cache and the query, a new rule H-18: the facts in the high half of `flags` behind `HIR_PROPS_COMPUTED`, the distinct "not yet computed" state; `hir_props` computes-or-returns by one pass over the whole tree; only that pass writes the bits — `hir_push` and `hir_set` drop them; a computed tree is finished — `hir_set` and `hir_set_root` stop on it; and the dump shows none
+> **SUPERSEDED IN PART by RX-242 (2026-10-15)**, marked 2026-10-20 by cycle 0.2.6 — its *"and `hir_read` sets none"*: a
+> text that carries a literals' section is read by extracting its literals, which asks `hir_props` first, so every node
+> of the tree `hir_read` reads from such a text holds its facts — H-15's and H-18's notes of 2026-10-15; a text without a
+> section reads as before. The decision stands.
 **2026-10-13, cycle 0.2.4 (the plan's PD-124), at compiler `7e91730`** — `HIR.md` H-4a, H-9, H-10, H-15 and H-18,
 `SAFETY.md` S-19, RX-225, RX-227 and RX-236, the compiler's D-227, the cycle README's second and third 0.2.4 boxes —
 *"computed in **one** bottom-up pass and cached (H-10)"*, with RX-227's note that each bit this subcycle adds is refused by
@@ -6694,6 +6698,8 @@ pin's move** — then no compiler could testify that it changed no answer: `7e91
 reads a comment.
 
 ### RX-245 — the adoption of compiler `c9baa9e`: a keyword names nothing, a field included, so RX-134's account of a keyword field is dated; `rx120.sh` at `c9baa9e`; B-4e's third re-read; and every emission the old pin's but for the compiler's own two changes, read through its own normalisers
+> *(Noted 2026-10-20, cycle 0.2.6 — its *"`m.end` read 3 at both legs"*: the program exits with `m.end - m.start`, RX-134's
+> `4 - 1`, and 3 is that difference at both legs; `m.end` reads 4.)*
 
 **2026-10-16, cycle 0.2.5a (the plan's PD-180), at compiler `c9baa9e`, from `7e91730`** — landings 104 … 118, the
 libraries' one re-pin by the author's word of 2026-10-15 (the workbench's question 32), after RX-244 renamed the field.

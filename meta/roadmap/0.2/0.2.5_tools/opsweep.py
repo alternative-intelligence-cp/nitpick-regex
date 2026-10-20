@@ -13,6 +13,9 @@ brace, as a struct literal does; and it makes no mutation of another kind -- a r
 replacements, `*`, a shift, a constant set to 0 or to 1, a named constant's value, a call's argument, a field read for
 another, a condition forced, a statement of another kind removed, a kind or a role swapped, a variable for another.
 §4.1 says what lies there.
+*(2026-10-20, cycle 0.2.6 -- plan verification 4's finding 1, for the libraries' reviewer at the merge: *"no mutation of
+another kind"* is exact as a list of rules, and an edit of its own kinds can fall on one -- a literal one up or one down
+on a shift's amount, a step kind's declared value or a call's argument, or to 0 or 1 -- as §4.1 says.)*
 
     python3 -B opsweep.py <tree> [<jobs>]
 

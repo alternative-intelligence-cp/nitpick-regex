@@ -448,6 +448,12 @@ evidence.
   impl that declares `move` on a parameter its trait lends compiles, and a call
   through the trait then double-frees — `tests/probe/probe18_impl_adds_move.npk`,
   the workbench registry's O-N28.
+  *(2026-10-20, cycle 0.2.6 — RX-244: *"A keyword cannot be a declared name"* is over-broad as history. Measured at
+  `7e91730`, `acquire`, `any`, `nit` and `trit` compile as a function's, a type's or a module's name — `c970483`'s
+  `p_declared_name` passes the same four, read and not run — and a field's, a variant's, a parameter's, a `for`
+  binding's, a `fixed` module binding's, a `wild`- or `fixed`-led local's, a variadic's, a macro parameter's and a
+  generic parameter's name compiles whatever the keyword, a generic parameter's bar `comptime`; from `c9baa9e` only a
+  generic parameter's, a variadic's and a macro parameter's still do (`meta/roadmap/0.2/0.2.5a.md` §1.4).)*
 - **At compiler `5fbaf4a` (cycle 0.1.0b) that one is refused too, and three things
   the harness holds changed.** Probe 18's impl is `NITPICK-TYPE-014` (DEF-116), and it
   lives in `tests/probe/refused/`; the owner of a live view written is

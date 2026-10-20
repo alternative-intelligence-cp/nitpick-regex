@@ -9,9 +9,9 @@ index e1f0147..bb66934 100644
 +  *(@@DATE026@@, cycle 0.2.6 — RX-244: *"A keyword cannot be a declared name"* is over-broad as history. Measured at
 +  `7e91730`, `acquire`, `any`, `nit` and `trit` compile as a function's, a type's or a module's name — `c970483`'s
 +  `p_declared_name` passes the same four, read and not run — and a field's, a variant's, a parameter's, a `for`
-+  binding's, a `fixed` module binding's, a variadic's and a generic parameter's name compiles whatever the keyword, a
-+  generic parameter's bar `comptime`; from `c9baa9e` only a generic parameter's, a variadic's and a macro parameter's
-+  still do (`meta/roadmap/0.2/0.2.5a.md` §1.4).)*
++  binding's, a `fixed` module binding's, a `wild`- or `fixed`-led local's, a variadic's, a macro parameter's and a
++  generic parameter's name compiles whatever the keyword, a generic parameter's bar `comptime`; from `c9baa9e` only a
++  generic parameter's, a variadic's and a macro parameter's still do (`meta/roadmap/0.2/0.2.5a.md` §1.4).)*
  - **At compiler `5fbaf4a` (cycle 0.1.0b) that one is refused too, and three things
    the harness holds changed.** Probe 18's impl is `NITPICK-TYPE-014` (DEF-116), and it
    lives in `tests/probe/refused/`; the owner of a live view written is
@@ -61,9 +61,9 @@ index 59530e9..8b747f1 100644
  none`; this subcycle neither opens nor closes its cycle. The title read `— PLANNED` until blocks 0a, 0h and 0b ended
  (07:03:03 to 07:11:42), so 0a's porcelain line read 0; it read `RUNNING (since 2026-10-13, s1)` from 07:12:02,
  uncommitted through the three work commits, and reads `DONE (2026-10-13)` in this commit.
-+*(@@DATE026@@, cycle 0.2.6 — a correction: *"63 bare-name builtins"* — 57 bare-name builtins and 6 `#` builtins.
-+The pattern read `src/frontend/builtins.npk`'s `is_builtin_name`, 57 names, and `is_hash_builtin`'s six — `ptr_add`,
-+`size_of`, `sqrt`, `unreachable`, `wild_ptr` and `wild_slice` — the same 63 at `7e91730` and `c9baa9e`.)*
++*(@@DATE026@@, cycle 0.2.6 — a correction: *"the 63 names on the … bare-name builtin list"* — 57 bare-name builtins and
++6 `#` builtins. The pattern read `src/frontend/builtins.npk`'s `is_builtin_name`, 57 names, and `is_hash_builtin`'s six
++— `ptr_add`, `size_of`, `sqrt`, `unreachable`, `wild_ptr` and `wild_slice` — the same 63 at `7e91730` and `c9baa9e`.)*
  
  **How every block ran: through the comparator**, one Bash call per block, in order, each in the checkout —
  `python3 -B "$T/blocks.py" run "$REPO" <id>`, then `compare`, each a fresh `bash -c` holding only `REPO=`, whose `grep`
