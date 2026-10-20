@@ -56,7 +56,7 @@ RX-015, RX-031. Settled. **No open questions.**
 
 ## What cycle 0.1 hands on
 
-*(2026-10-08, cycle 0.1's close — [`../done/0.1/0.1.6.md`](../done/0.1/0.1.6.md).)*
+*(2026-10-08, cycle 0.1's close — [`../done/0.1/0.1.6.md`](../0.1/0.1.6.md).)*
 
 - **The AST the HIR is built from** — `SYNTAX.md` Y-26 and Y-27: a flat arena of sixteen kinds of 56-byte node that own
   nothing, every operand an `int64`, a node naming another by index; a class's items unresolved — a Perl class, a
