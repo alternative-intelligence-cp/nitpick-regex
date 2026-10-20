@@ -3,11 +3,13 @@
 **`src/hir/`: desugaring, normalisation, the computed properties, and literal
 extraction.** Everything decidable without knowing which engine will run.
 
-> **OPEN. [`0.2.0`](0.2.0.md), the arena, and [`0.2.1`](0.2.1.md), the desugaring, are DONE (2026-10-08),
-> [`0.2.1a`](0.2.1a.md), the adoption of compiler `7e91730`, is DONE (2026-10-09), [`0.2.2`](0.2.2.md), the
-> repetition product, is DONE (2026-10-10), [`0.2.3`](0.2.3.md), normalisation, and [`0.2.4`](0.2.4.md), the
-> computed properties, are DONE (2026-10-13), [`0.2.5`](0.2.5.md), literal extraction, is DONE (2026-10-15), and
-> [`0.2.5a`](0.2.5a.md), the adoption of compiler `c9baa9e`, is DONE (2026-10-16).**
+> **CLOSED (2026-10-20), and archived here, in `meta/roadmap/done/0.2/`; cycle 0.3, Unicode, opens from
+> [`../../0.3/0.3.0.md`](../../0.3/0.3.0.md), the generator, planned at the close. [`0.2.0`](0.2.0.md), the arena,
+> and [`0.2.1`](0.2.1.md), the desugaring, are DONE (2026-10-08), [`0.2.1a`](0.2.1a.md), the adoption of compiler
+> `7e91730`, is DONE (2026-10-09), [`0.2.2`](0.2.2.md), the repetition product, is DONE (2026-10-10),
+> [`0.2.3`](0.2.3.md), normalisation, and [`0.2.4`](0.2.4.md), the computed properties, are DONE (2026-10-13),
+> [`0.2.5`](0.2.5.md), literal extraction, is DONE (2026-10-15), [`0.2.5a`](0.2.5a.md), the adoption of compiler
+> `c9baa9e`, is DONE (2026-10-16), and [`0.2.6`](0.2.6.md), the cycle's close, is DONE (2026-10-20).**
 > 0.2.0: RX-222 … RX-225 in seven work
 > commits, `02bf6d7` … `35edbfe`, 283/283 in CI run 37817452049. 0.2.1: RX-226 … RX-229 in five work commits, `93e78a1` …
 > `3fd81af` — a `pending-until:` marker that names a subcycle, a dump that shows every bit or stops *(2026-10-20 — RX-239: but the
@@ -39,15 +41,22 @@ extraction.** Everything decidable without knowing which engine will run.
 > the named amendment's `50ac35e` — the explicit stack's field `frames`, renamed at `7e91730`, which saw no difference
 > and held every site; then the pin's own moves — RX-134's account of a keyword field dated, `rx120.sh`, B-4e's third
 > re-read, every emission `7e91730`'s through the compiler's own normalisers — and CI at the new pin; 347/347 at
-> `c9baa9e`, four pending outside the count, and in CI run 38927196687 — **next, 0.2.6, the cycle's close, whose plan
-> no file holds yet.**
+> `c9baa9e`, four pending outside the count, and in CI run 38927196687. 0.2.6: RX-246 … RX-248 in eight work commits,
+> `8238133` … `16113e3`, after step 0's `4f5da99` — `check_hir_kinds_total` live, every `HirKind` written by
+> `hir_build`'s code, and the compiler's and the oracle's halves each pending on a box of its cycle's README; the
+> literal extraction's two bounds rows of `SAFETY.md` S-12's table, and 64 no small number; a HIR compared by its dump
+> text, no node deriving `Eq` and no comparison threading an error channel; then the carried items' dated notes, the
+> archive and the links it broke, the plain mentions and the close's texts, and cycle 0.3's first plan, `0.3.0.md`,
+> written from its inputs measured; the documents audit's RA-9 … RA-13 and every item carried to the close triaged;
+> 347/347 at `c9baa9e`, four pending outside the count, and in CI run 39407566279.
 > *(Until 0.2.1's record this banner
 > named 0.2.0 alone as done, and 0.2.1 next; until 0.2.1a's plan, 0.2.2 next; until 0.2.1a's record, 0.2.1a next; until
 > 0.2.2's plan, 0.2.2 *"whose plan no file holds yet"*; until 0.2.2's record, 0.2.2 next, planned; until 0.2.3's plan,
 > 0.2.3 *"whose plan no file holds yet"*; until 0.2.3's record, 0.2.3 next, planned; until 0.2.4's plan, 0.2.4 *"whose
 > plan no file holds yet"*; until 0.2.4's record, 0.2.4 next, planned; until 0.2.5's plan, 0.2.5 *"whose plan no file
 > holds yet"*; until 0.2.5's record, 0.2.5 next, planned; until 0.2.5a's plan, 0.2.6 *"whose plan no file holds
-> yet"*; until 0.2.5a's record, 0.2.5a next, planned.)*
+> yet"*; until 0.2.5a's record, 0.2.5a next, planned; until 0.2.6's record, **OPEN**, and 0.2.6, the cycle's close,
+> next, *"whose plan no file holds yet"*.)*
 
 ## Decisions in
 
@@ -85,7 +94,7 @@ RX-015, RX-031. Settled. **No open questions.**
 | 0.2.4 | **Computed properties** — the four flags in one bottom-up pass — **[`0.2.4.md`](0.2.4.md)**, planned and rehearsed in its real position at `7e91730` by the Team seat's planner: the four facts kind by kind, each erring one way only, the anchors the text's alone; the cache in the high half of `flags` behind a distinct "not yet computed" bit, `hir_props` computing on demand by one pass over the whole tree, the doors dropping the bits, a computed tree finished and the dump showing none; fifty patterns hand-computed; then the Gate's seventh kind of noise floored, and the prose; PD-123 … PD-125 accepted as RX-238 … RX-240, and one twin of the dump's dated claim, which the worker's second sweep found, dated through step 1's amended patch — **DONE (2026-10-13)**, 334/334, three pending outside it *(until 0.2.4's record this row said "PD-123 … PD-125 are the orchestrator's to accept")* | each asserted against a hand-computed reference |
 | 0.2.5 | **Literal extraction** — prefix, first-byte set, inner literal — **[`0.2.5.md`](0.2.5.md)**, planned and rehearsed in its real position at `7e91730` by the Team seat's planner: the three literals kind by kind, each a fact of every match erring towards saying less, read over a match's bytes, the bounds read as each literal's bytes and the first-byte set's members; `Literal` shaped and `Hir.literals` added, written by the extraction alone after the facts, the first-byte set's entry always, the dump's section read back by holding it to the extraction; fifty-five patterns hand-computed; then the safe direction measured over 3 000 seeded trees, and the property test pending until cycle 0.5.5; then the prose; PD-126 … PD-128 accepted as RX-241 … RX-243, and H-18's and H-15's *"`hir_read` never sets"* the computed facts, which the worker's second sweep found step 1 makes false for a text that carries a literals' section, dated through step 1's amended patch — **DONE (2026-10-15)**, 347/347, four pending outside it *(until 0.2.5's record this row said "PD-126 … PD-128 are the orchestrator's to accept")* | conservative, bounded, and never wrong in the unsafe direction |
 | 0.2.5a | **The adoption of compiler `c9baa9e`** — landing 118, the libraries' one re-pin, carrying 104 … 118: landing 113 refuses a keyword as a field's name, so the explicit stack's field `stack` is renamed `frames` at the old pin, which sees no difference; then the pin's own moves — RX-134's account of a keyword as a field's name dated, `rx120.sh`, B-4e's re-read, and every emission held to the old pin's through the compiler's own normalisers — and CI's rows — **[`0.2.5a.md`](0.2.5a.md)**, planned and rehearsed in its real position at both pins by cycle 0.2's planner; PD-179 and PD-180 accepted as RX-244 and RX-245, RX-244's text made exact before it landed by the orchestrator's named amendment and RX-245's pointer to the `comptime` wall by the worker's — **DONE (2026-10-16)**, 347/347 at `c9baa9e`, four pending outside it *(until 0.2.5a's record this row said "PD-179 and PD-180 are the orchestrator's to accept")* | the unchanged tree measured at both pins; `347/347` at `c9baa9e` |
-| 0.2.6 | **Close** — `check_hir_kinds_total` live | `done/0.2/`, `0.3.0.md` written |
+| 0.2.6 | **Close** — `check_hir_kinds_total` live — **[`0.2.6.md`](0.2.6.md)**, planned and rehearsed in its real position at `c9baa9e` by the Team seat's planner, and worked in ten steps of a fresh worker each, the hand-off between them in its record: the check built, the compiler's and the oracle's halves each owned by a box of its cycle's README; the literal extraction's two bounds made S-12's; a HIR compared by its dump text; the carried items' dated notes; the archive; the plain mentions and the close's texts; and `0.3.0.md`'s inputs measured, then the file written; PD-181 … PD-183 accepted as RX-246 … RX-248 — **DONE (2026-10-20)**, 347/347 at `c9baa9e`, four pending outside it | `done/0.2/`, `0.3.0.md` written |
 
 ## Checklist
 
@@ -152,8 +161,8 @@ RX-015, RX-031. Settled. **No open questions.**
 - [x] the prose, and the sweep read line by line — **`0c32e83`**: `CLAUDE.md`, `README.md`, `ROADMAP.md` and `BUILD.md` §8a; `347/347` at `c9baa9e` in 312.2 s; block 5's 192 and 42 saved lines each read against §5b's classes, none an omission, and the second sweep by subject over the twins its control reads `NONE`
 
 ### 0.2.6 — close
-- [ ] `check_hir_kinds_total` live: every `HirKind` produced by the parser, consumed by the compiler (pending until 0.6) and handled by the oracle (pending until 0.5) *(2026-10-08, cycle 0.2.1 — RX-228: "produced by the parser" is `hir_build`'s now, and it produces all nine, each in `tests/unit/hir_build.npk`)*
-- [ ] findings written; `0.3.0.md` written; archived
+- [x] `check_hir_kinds_total` live: every `HirKind` produced by the parser, consumed by the compiler (pending until 0.6) and handled by the oracle (pending until 0.5) *(2026-10-08, cycle 0.2.1 — RX-228: "produced by the parser" is `hir_build`'s now, and it produces all nine, each in `tests/unit/hir_build.npk`)* — RX-246, **`8238133`**: the kinds read from `HirKind` in `src/hir/repr.npk`, nine, and all nine produced — each named by `src/hir/build.npk`'s code other than as an operand of `==` or `!=`, seven as `hnode`'s argument and `Concat` and `Alternate` as the values its kind variable is assigned; the compiler's half owned by the 0.6 README's 0.6.1 box and the oracle's by the 0.5 README's 0.5.0 box, which that commit adds, each unticked and so pending, and a half no box owns failing the run; `TESTING.md` §8's row **yes**, *"since cycle 0.2.6, RX-246"*, the documents audit's RA-10; V-20's case 35, nine plants and a clean control, red against each of the check's six mutants (block 1); `347/347` at `c9baa9e`, the eleven tree checks ten `ok` and one note (blocks 1h and 8h), and in CI run 39387396058
+- [x] findings written; `0.3.0.md` written; archived — the findings in [`0.2.6.md`](0.2.6.md)'s execution record, its step 8 entry: the documents audit's RA-9 … RA-13 each triaged (W-22), the board's fourteen carried items and the six hand-ons each with its disposition and its commit, and what each step found; `0.3.0.md`, the generator, written at **`16113e3`** from the inputs step 7a measured at **`c6ae217`** — [`../../0.3/0.3.0.md`](../../0.3/0.3.0.md), its title `— PLANNED`, PD-184 … PD-188 its drafts for the dispatching seat to accept or strike; and cycle 0.2 archived to `meta/roadmap/done/0.2/` at **`7362139`**, the 22 links the move broke re-pointed in that commit and the 14 plain mentions at **`1b3b733`**, `check_refs` clean at every commit
 
 ## Gate
 
