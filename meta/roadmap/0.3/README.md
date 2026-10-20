@@ -37,7 +37,7 @@ design; recorded when chosen).
 
 | # | Topic | Ends with |
 |---|---|---|
-| 0.3.0 | **The generator** — `tools/gen_unicode.py`, the pinned UCD, the emitted shape | tables that regenerate byte-identically |
+| 0.3.0 | **The generator** — `tools/gen_unicode.py`, the pinned UCD, the emitted shape — **[`0.3.0.md`](0.3.0.md)**, written at cycle 0.2's close, measured and not rehearsed, its decisions drafted under PD labels for the dispatching seat | tables that regenerate byte-identically |
 | 0.3.1 | **Properties and scripts** — the lookup, UAX #44 loose name matching | every alias in the UCD's own alias files resolves |
 | 0.3.2 | **Perl and POSIX classes** — `UNICODE.md` §3's pinned definitions | `\w` is Annex C, not `[A-Za-z0-9_]` |
 | 0.3.3 | **Case folding** — the inverse fold map, the orbit closure | `(?i)k` matches `U+212A`; `(?i)s` matches `U+017F` |

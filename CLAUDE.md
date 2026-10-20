@@ -39,7 +39,7 @@ and drops made unconditional (RX-244, RX-245, `meta/roadmap/done/0.2/0.2.5a.md`)
 `check_hir_kinds_total` holds every `HirKind` to the code of `hir_build`, the compiler's and the oracle's halves each
 pending on its cycle's box; the literal extraction's two bounds are rows of `SAFETY.md` S-12's table; and a HIR is
 compared by its dump text, no node deriving `Eq` (RX-246 … RX-248, `meta/roadmap/done/0.2/0.2.6.md`). Cycle 0.3,
-Unicode, is next.
+Unicode, is next, its first plan, `meta/roadmap/0.3/0.3.0.md`, written at the close.
 Cycle 0.1's 0.1.0, 0.1.0b, 0.1.1, 0.1.1b, 0.1.2, 0.1.3, 0.1.4, 0.1.5, 0.1.6a, 0.1.6b and 0.1.6 are done** — the pieces the parser is written
 in, in `src/syntax/` (RX-171 … RX-175, `meta/roadmap/done/0.1/0.1.0.md`); the adoption of
 compiler `5fbaf4a` (RX-176 … RX-180, `0.1.0b.md`); and the core grammar —
