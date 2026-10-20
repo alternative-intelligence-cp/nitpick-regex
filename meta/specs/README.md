@@ -21,7 +21,7 @@ proposals that look reasonable in the abstract die on it.
 | 1 | [`SAFETY.md`](SAFETY.md) | the linear-time guarantee, what it costs, the error budget, the resource bounds — **the constraints, and where they come from** |
 | 2 | [`SYNTAX.md`](SYNTAX.md) | the pattern language: exactly what is accepted, what is refused, and why |
 | 3 | [`BUILD.md`](BUILD.md) | how this is built and tested today, and the module and import conventions |
-| 4 | [`HIR.md`](HIR.md) | the high-level intermediate: desugaring, normalisation, literal extraction |
+| 4 | [`HIR.md`](HIR.md) | the high-level intermediate: desugaring, normalisation, the computed properties, literal extraction |
 | 5 | [`UNICODE.md`](UNICODE.md) | properties, scripts, case folding, and where the tables come from |
 | 6 | [`COMPILE.md`](COMPILE.md) | UTF-8 automata, alphabet compression, the instruction set, the program |
 | 7 | [`ENGINES.md`](ENGINES.md) | the Pike VM, the lazy DFA, the prefilters, and the meta-engine |

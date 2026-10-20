@@ -1334,6 +1334,8 @@ divergence is written down here and in the runner).
 > forbids an owning field in a value stored in an array", given as H-2's primary
 > reason. It forbids a COPY of an owner; H-2 stands on its own words — a POD
 > arena is copyable, comparable and a committable fixture. The decision stands.
+> *(Noted 2026-10-20, cycle 0.2.6 — its *"Whether `Hir` comparison takes the derive is a cycle 0.2 decision"*:
+> RX-248 takes it — a HIR is compared by its dump text, and no node derives `Eq`.)*
 
 **2026-09-04, at the re-pin from `950bb1d` to `94874ce`.** Workbench registry
 **O-N10** had two halves and both are fixed:
@@ -6802,3 +6804,29 @@ would stay the one bound this check cannot see written bare, and nothing under `
 bound's value, where removing one number from the set closes the one collision there is; **the two bounds kept out of
 the table**, as 0.2.5 left them — S-12 says every bound is in the table and the table is the authority, and two bounds
 the check never asks about are bounds it does not hold.
+
+### RX-248 — a HIR is compared by its dump text: two trees are one HIR when their dumps are one text, no node derives `Eq`, and no comparison threads an error channel
+
+**2026-10-20, cycle 0.2.6 (the plan's PD-183), at compiler `c9baa9e`** — `HIR.md` H-2, H-3 and H-15, RX-125 and RX-235,
+`meta/OPEN_QUESTIONS.md` O-N10's residue, the cycle README's Gate; the documents audit's RA-9 (the workbench's
+`meta/audits/nitpick-regex-docs-bfc4693-2026-10-15.md`): *"No RX- number from 0.2.0 to 0.2.4 takes the decision. Fix:
+at 0.2.6, record that a HIR is compared by its dump text (H-15), with no derive and no error channel."* RX-125 left
+*"whether `Hir` comparison takes the derive"* to cycle 0.2 with its cost on the table — a derived `.eq()` answers
+`Result<bool>`, so a comparison through it threads an error channel, and `SAFETY.md` §4's budget is charged by channels —
+while H-2 called `HirNode` *"comparable"* and the cycle README said *"No open questions"*.
+
+**The decision.** **A HIR's equality is its dump's**: two trees are one HIR when `hir_dump` writes them as one text,
+byte for byte (H-15) — the text a test commits, and the one RX-235 and the Gate hold structurally equal patterns to.
+**No node derives `Eq`**: `HirNode`, `GroupInfo`, `Literal`, `ClassRange` and `HirKind` derive `Copy` alone, and
+nothing under `src/` calls `.eq()` or declares a `hir_eq`, so no comparison of a HIR threads an error channel and none
+charges the budget. **Measured at `c9baa9e`**: the seven derives in `src/hir/repr.npk` and
+`src/unicode/class_range.npk` are each `#[derive(Copy)]`; `src/` names neither `.eq(` nor `hir_eq`; and a derived
+`.eq()` written as a condition is `NITPICK-TYPE-007`, *"this must be a `bool`, and is `Result<bool>`"*. H-2's
+*"comparable"*, O-N10's residue and the cycle README's *"No open questions"* are dated, and RX-125 noted.
+
+*Alternatives declined:* **`#[derive(Eq)]` on the node and what it holds** — every comparison unwraps a `Result<bool>`,
+an error channel for a question that cannot fail, the cost RX-125 put on the table; and the derive compares a node's
+operands, child indices among them (H-3), where the dump writes the tree; **a hand-written `hir_eq` walking both
+trees** — a second definition of equality beside the dump's, by which RX-235 defines structural equality, free to drift
+from it; **left open to the cycle that first compares two HIRs** — the README's *"No open questions"* stays false until
+then, and the first comparison takes the derive by default, its cost unpriced.

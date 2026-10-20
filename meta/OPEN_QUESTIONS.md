@@ -242,6 +242,8 @@ either day.
 error channel and charges `SAFETY.md` §4's budget. That is a **cycle 0.2**
 decision with the cost on the table, not an automatic consequence of this
 discharge.
+*(2026-10-20, cycle 0.2.6 — RX-248, the documents audit's RA-9: decided — a HIR is compared by its dump text, H-15;
+no node derives `Eq`, and no comparison threads an error channel.)*
 
 ### ~~O-N11 — **the workbench registry's**: `npkc` exit 0 does not mean a program is well-formed~~ — **DISCHARGED upstream: a root with `main` and no `failsafe` is refused `NITPICK-REACH-003` since `94874ce`** (the compiler's DEF-5, 1.5.1b step 1b)
 *Struck 2026-09-25 by the fifth cycle 0.0 audit's triage, citing the workbench registry (`../meta/OPEN_QUESTIONS.md` §"For the compiler"), which carries the strike with its evidence — re-measured by the workbench's registry audit (`wb-registry-sweep-1821`), each with a control at an older kept pin, and spot-checked by the orchestrator. Its evidence: `nitpick-time`'s `missing_failsafe/` cases 1 and 3 are refused at `c3bdae2` and case 2 runs 0. **The general sentence outlives the defect**: a module's object still links neither alone nor beside a program (`BUILD.md` B-0, RX-151), so "exit 0 is not well-formedness" stays true here for that reason, and the four-step recipe stands. The text below is kept as raised.*

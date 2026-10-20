@@ -51,6 +51,7 @@ extraction.** Everything decidable without knowing which engine will run.
 ## Decisions in
 
 RX-015, RX-031. Settled. **No open questions.**
+*(2026-10-20, cycle 0.2.6 — RX-248, the documents audit's RA-9: one was open and unrecorded — whether `Hir` comparison takes the derive, RX-125's and O-N10's residue — and RX-248 settles it.)*
 
 ## What cycle 0.1 hands on
 

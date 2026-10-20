@@ -71,6 +71,9 @@ a `GroupInfo` — its name's offset and length in `names`.)*
 *(2026-10-15, cycle 0.2.5 — RX-242: *"`Hir` holds no `literals` until cycle 0.2.5"* — it holds them since: `Hir.literals`,
 H-11's three once they are extracted, each a `Literal` — a role, and an offset and a length in `Hir.lits`, a `Vec<uint8>`
 of every literal's bytes, beside it (H-20). Both are `hidden`, and only the extraction writes them.)*
+*(2026-10-20, cycle 0.2.6 — RX-248, the documents audit's RA-9: *"comparable"* — by its dump text (H-15): two
+trees are one HIR when their dumps are one text, as the Gate holds structurally equal patterns to; no node derives
+`Eq`, so nothing threads the `Result<bool>` a derived `.eq()` answers.)*
 
 **Rule H-3 — children are found by index, never by pointer.** The language
 would allow a pointer tree, and it would be worse: a `Vec<HirNode>` reallocates
@@ -228,6 +231,8 @@ empty string"* is that it MAY: false only where no match is empty, an assertion 
 haystack start"* and *"ends at the haystack end"* hold only where they are certain, and only the text's anchors make them:
 under `m`, `^` and `$` anchor neither end. *"A union of plain literals"* is a plain literal — a `Literal`, or a literal run —
 or an `Alternate` of plain literals.)*
+*(2026-10-20, cycle 0.2.6 — the documents audit's RA-12: `CAN_MATCH_EMPTY`'s first user is not Y-21's iterator rule,
+which reads no fact — H-17's note below — and the literal extraction reads it since cycle 0.2.5 (H-19).)*
 
 **Rule H-10 — these are computed once, in one bottom-up pass, and never
 recomputed.** The compiler's D-227 is the precedent and the reason: a memoised
@@ -245,6 +250,9 @@ the iterator's advance (Y-21) and the one-pass engine's eligibility are wrong on
 `IS_ANCHORED_END` and `IS_ALTERNATION_LITERAL` hold only where they are certain: an anchored search skips the scan loop, a
 reverse search starts at the end, and the prefilter reads the literals, each wrong only on a false *yes*. A **plain
 literal** is a `Literal`, or a literal run — a `Concat` of one piece or more, every piece a `Literal` (RX-235).
+*(2026-10-20, cycle 0.2.6 — the documents audit's RA-12: Y-21's advance reads no fact — it, and `API.md` A-14, advance
+after every empty match, `lo == hi` — so it is no consumer of `CAN_MATCH_EMPTY`, here or in H-9's table; the
+literal extraction is one since cycle 0.2.5 (H-19).)*
 
 | Kind | `CAN_MATCH_EMPTY` | `IS_ANCHORED_START` | `IS_ANCHORED_END` | `IS_ALTERNATION_LITERAL` |
 |---|---|---|---|---|

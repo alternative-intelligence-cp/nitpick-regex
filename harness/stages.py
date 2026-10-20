@@ -401,6 +401,9 @@ def parse_sweep(c, path, name, exp):
     holds 21 files now, and the conformance, unit and rejection suites reach 19 of
     them; `src/compile/compile.npk` and `src/engine/engine.npk`, one placeholder
     each, are reached by none but this sweep.)*
+    *(2026-10-20, cycle 0.2.6 -- the documents audit's RA-12, at this twin of
+    `nitpick.toml`'s note: "21 files now" is cycle 0.2.2's count; `src/` holds 22
+    `.npk` files at cycle 0.2.6.)*
 
     EVERY FILE IS JUDGED AS A ROOT, including one another file imports: "each
     file once" means once AS ITSELF, and a file that only ever compiles as part
