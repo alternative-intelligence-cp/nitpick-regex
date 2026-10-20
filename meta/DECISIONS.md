@@ -6776,3 +6776,29 @@ characters from the kind, read as a write (the plan's first verification, its F4
 is the half's owner, and ticking it is the act that makes the half live; **a half live once its directory names any
 kind** — then the compiler's first commit naming one kind would fail the run until it named all nine, in the middle of
 0.6.1; the tick makes the moment the cycle's own.
+
+### RX-247 — the literal extraction's two bounds are rows of `SAFETY.md` S-12's table, and `check_constants_named` holds all eleven declared and reads a bare 64 as a bound
+
+**2026-10-20, cycle 0.2.6 (the plan's PD-182), at compiler `c9baa9e`** — `SAFETY.md` S-12 (RX-062), `HIR.md` §5, H-11
+and H-19 (RX-241), `TESTING.md` §8 and V-20's case 32 (RX-202, RX-220); the documents audit's RA-13 — *"`src/core/limits.npk`
+… hold `NREGEX_LITERAL_LIMIT` and `NREGEX_LITERAL_BYTES`, and `HIR.md` §5 names them … `SAFETY.md` … is the table of
+nine rows and has neither"* — and 0.2.5's §7, which handed this close the check's set of small numbers: it holds 64,
+`NREGEX_LITERAL_LIMIT`'s value, so a bare 64 written where that bound belongs passes the check, and *"no cycle owns the
+check, and the close is where it is changed or the gap is recorded"*. `limits.npk` says the two are listed apart from
+the nine *"because `SAFETY.md` §5's table is what `check_constants_named` diffs against and these are not rows in it"*.
+
+**The decision.** **The table has eleven rows**: `NREGEX_LITERAL_LIMIT`, 64, the first-byte set's members, and
+`NREGEX_LITERAL_BYTES`, 1024, the bytes of each literal extracted — H-19's reading of H-11's bounds — and the check's
+list of the bounds it holds declared, `LIMIT_NAMES`, has the same eleven. **64 is not a small number**: the set of
+numbers the check reads as arithmetic loses it, so a bare `64i64` compared outside `limits.npk` is a finding, as a bare
+`1024i64` was. **Measured at `c9baa9e`**: over the tree the check is green either way — no comparison under `src/`
+outside `limits.npk` writes a bare 64 — and V-20's case 32 gains a tenth plant, `n > 64i64`, which it fails by name and
+which passed with 64 in the set. `limits.npk`'s comment, the check's comments and its message, and `TESTING.md` §8's row
+and item 32 are dated.
+
+*Alternatives declined:* **the gap recorded and the set kept** — `NREGEX_LITERAL_LIMIT`, which `repr.npk` compares once,
+would stay the one bound this check cannot see written bare, and nothing under `src/` compares a bare 64 today;
+**the value a bound's, read by value** (`nitpick-time`'s TM-238) — a second reading of every literal against every
+bound's value, where removing one number from the set closes the one collision there is; **the two bounds kept out of
+the table**, as 0.2.5 left them — S-12 says every bound is in the table and the table is the authority, and two bounds
+the check never asks about are bounds it does not hold.

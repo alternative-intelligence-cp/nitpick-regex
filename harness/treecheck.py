@@ -72,11 +72,13 @@ ORACLE_MAY_IMPORT = {"core", "hir"}
 
 # `SAFETY.md` §5, rule S-12 -- every bound is a named constant in
 # `src/core/limits.npk`. Nine of them, and the table there is the authority.
+# *(2026-10-20, cycle 0.2.6 -- RX-247: eleven, `HIR.md` §5's two rows of the table since, the literal extraction's.)*
 LIMITS_FILE = os.path.join("src", "core", "limits.npk")
 LIMIT_NAMES = [
     "NREGEX_PATTERN_BYTES", "NREGEX_NEST_DEPTH", "NREGEX_PROGRAM_INSTRUCTIONS",
     "NREGEX_REPEAT_MAX", "NREGEX_REPEAT_PRODUCT", "NREGEX_CAPTURE_GROUPS",
     "NREGEX_CLASS_RANGES", "NREGEX_DFA_CACHE_BYTES", "NREGEX_DFA_MIN_STATES",
+    "NREGEX_LITERAL_LIMIT", "NREGEX_LITERAL_BYTES",
 ]
 
 # `SAFETY.md` §4, rule S-8 (RX-060) -- exactly ONE `error:` identity, public, and
@@ -309,7 +311,10 @@ def check_error_budget(root):
 # where a bound belongs -- a comparison against a magic number outside
 # `limits.npk`. Deliberately narrow: 0, 1, 2 and the small powers are arithmetic,
 # not policy, and a check that flagged them would be turned off within a week.
-_SMALL = {0, 1, 2, 3, 4, 7, 8, 15, 16, 24, 31, 32, 63, 64, 100, 127, 128, 255, 256}
+# *(2026-10-20, cycle 0.2.6 -- RX-247: eleven named limits since, and 64 is not small: it is `NREGEX_LITERAL_LIMIT`'s
+# value, so a bare `64i64` compared where that bound belongs passed this until then, and no comparison under `src/`
+# wrote one.)*
+_SMALL = {0, 1, 2, 3, 4, 7, 8, 15, 16, 24, 31, 32, 63, 100, 127, 128, 255, 256}
 # A SHIFT IS NOT A COMPARISON, and the first version of this pattern could not
 # tell them apart: on `x >> 6i64` the SECOND `>` matched `[<>]` and the `6` was
 # reported as a bound. Found 2026-09-06 when `byteset.npk` replaced `/ 64` with
@@ -491,7 +496,7 @@ def check_constants_named(root):
                    if not re.search(r"(?<![A-Za-z0-9_])" + n + r"(?![A-Za-z0-9_])", text)]
         if missing:
             fl.append(f"{LIMITS_FILE} does not declare {', '.join(missing)}. "
-                      f"SAFETY.md §5's table is the authority and it has nine rows "
+                      f"SAFETY.md §5's table is the authority and it has {len(LIMIT_NAMES)} rows "
                       f"(S-12); a bound in the specification with no constant is a "
                       f"bound nothing enforces.")
         notes.append(f"{len(LIMIT_NAMES) - len(missing)}/{len(LIMIT_NAMES)} of "

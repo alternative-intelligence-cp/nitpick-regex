@@ -392,6 +392,13 @@ nowhere else.** A tree check enforces it. Exceeding one at compile time is a
 | `NREGEX_CLASS_RANGES` | 20000 | codepoint ranges in one class after folding |
 | `NREGEX_DFA_CACHE_BYTES` | 2 MiB | the lazy DFA's state cache, per `Cache` — §5.2 |
 | `NREGEX_DFA_MIN_STATES` | 32 | below this the DFA gives up permanently rather than thrashing |
+| `NREGEX_LITERAL_LIMIT` | 64 | the first-byte set's members, each a one-byte literal a prefilter scans for — `HIR.md` H-19 |
+| `NREGEX_LITERAL_BYTES` | 1024 | the bytes of each literal extracted, the prefix's and the inner literal's — `HIR.md` H-19 |
+
+*(2026-10-20, cycle 0.2.6 — RX-247, the documents audit's RA-13: the last two rows are `HIR.md` §5's bounds, the
+literal extraction's since cycle 0.2.5 (RX-241), and rows of this table since; `check_constants_named` holds all eleven
+declared, and `hir_literal` cases 30 … 38 sit on each of the two and past it. The next paragraph's *"overridable at
+compile time through a `RegexOptions` value"* was written of the first nine.)*
 
 Each is overridable at compile time through a `RegexOptions` value, and each
 has a test sitting exactly on it and one exceeding it.

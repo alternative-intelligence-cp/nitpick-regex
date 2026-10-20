@@ -32,6 +32,8 @@
 //
 // 64, 6, 63 and 4 are arithmetic here, not policy: `SAFETY.md` S-12 is about
 // the nine named bounds, and a bit width is structure.
+// *(2026-10-20, cycle 0.2.6 -- RX-247: eleven named bounds since, `NREGEX_LITERAL_LIMIT`'s 64 among them; this
+// file's 64 stays a bit width, and no comparison here holds it bare, which the check would read as that bound.)*
 //
 // LAYERING (`BUILD.md` §6, B-16). `core` imports nothing outside `core`; this
 // file imports nothing at all.

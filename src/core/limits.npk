@@ -108,6 +108,8 @@ pub fixed int64:NREGEX_DFA_MIN_STATES = 32i64;
 // reason S-12 gives — one file, so a bound can be found — and they are listed
 // separately from the nine above because `SAFETY.md` §5's table is what
 // `check_constants_named` diffs against and these are not rows in it.
+// *(2026-10-20, cycle 0.2.6 -- RX-247: they are rows of it since, the documents audit's RA-13, and the check holds
+// all eleven declared.)*
 
 // The most literals a prefilter will consider from one pattern.
 // *(2026-10-15, cycle 0.2.5 -- RX-241: the first-byte set's members, each a one-byte literal a first-byte

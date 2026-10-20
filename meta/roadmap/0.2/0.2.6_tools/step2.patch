@@ -108,8 +108,8 @@ index 8a7154d..6c30711 100644
 +
 +*(@@DATE026@@, cycle 0.2.6 — RX-247, the documents audit's RA-13: the last two rows are `HIR.md` §5's bounds, the
 +literal extraction's since cycle 0.2.5 (RX-241), and rows of this table since; `check_constants_named` holds all eleven
-+declared, and `hir_literal` cases 30 … 38 sit on each of the two and past it. The next paragraph's *"overridable through
-+a `RegexOptions` value"* was written of the first nine.)*
++declared, and `hir_literal` cases 30 … 38 sit on each of the two and past it. The next paragraph's *"overridable at
++compile time through a `RegexOptions` value"* was written of the first nine.)*
  
  Each is overridable at compile time through a `RegexOptions` value, and each
  has a test sitting exactly on it and one exceeding it.

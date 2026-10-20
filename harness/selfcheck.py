@@ -757,7 +757,9 @@ def _run_case32(case):
     on either side of the comparison, and a numeric literal behind a widening -- each of which passed it, a small
     character literal and a generic's `>(` in the control; then the PINNED COMPILER is asked about every spelling the
     plants hold, in one program, and the reader about each line of it, so a re-pin that moves the numeric scan is a red
-    run here and not only in a re-read -- `nitpick-time`'s part E3, ported, the cycle audit's C5.)*"""
+    run here and not only in a re-read -- `nitpick-time`'s part E3, ported, the cycle audit's C5.)*
+    *(2026-10-20, cycle 0.2.6 -- RX-247: and a tenth, a bare `64i64` -- `NREGEX_LITERAL_LIMIT`'s value, which the
+    check's small numbers held until then, so it passed.)*"""
     lim = os.path.join("src", "core", "limits.npk")
     with open(os.path.join(ROOT, lim), encoding="utf-8") as fh:
         limits = fh.read()
@@ -781,6 +783,8 @@ def _run_case32(case):
          ["src/core/zz.npk:4", "`'\\u{10000}'` (65536)"]),
         ("a literal behind a widening", {"src/core/zz.npk": _zz("n > (65536i32 => int64)")},
          ["src/core/zz.npk:4", "`65536i32` (65536)"]),
+        ("the literal limit's value, bare", {"src/core/zz.npk": _zz("n > 64i64")},
+         ["src/core/zz.npk:4", "`64i64` (64)"]),
     ], {"src/core/zz.npk": _zz("(n > 0FFhex) || (n >= 1_00i64) || (1_0_0i64 < n) || ((n >> 6i64) < 4i64)"
                                " || (n > (' ' => int64)) || (zz_id::<int64>(1000i64) == n)")
                            + "\n// n > 1_000_000i64, in a comment\n"
